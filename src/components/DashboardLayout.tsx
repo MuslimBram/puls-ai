@@ -23,7 +23,9 @@ import {
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/leads", label: "Leads", icon: Target },
+  { href: "/reply-workspace", label: "Reply Workspace", icon: MessageSquare },
   { href: "/keywords", label: "Keywords", icon: Key },
   { href: "/channels", label: "Channels", icon: Radio },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
