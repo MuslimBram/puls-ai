@@ -17,6 +17,8 @@ import {
   BarChart3,
   CreditCard,
   ShieldCheck,
+  Inbox,
+  MessageSquare,
 } from "lucide-react";
 
 const navItems = [
