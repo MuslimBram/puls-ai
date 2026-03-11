@@ -214,11 +214,8 @@ const Channels = () => {
                 <Select value={form.channel_type} onValueChange={(v) => setForm((f) => ({ ...f, channel_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {registry.filter((r) => r.is_available).map((r) => (
+                    {registry.map((r) => (
                       <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                    ))}
-                    {registry.filter((r) => !r.is_available).slice(0, 5).map((r) => (
-                      <SelectItem key={r.id} value={r.id} disabled>{r.name} (Coming Soon)</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
