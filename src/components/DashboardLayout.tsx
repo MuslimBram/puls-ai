@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useIsAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import {
   LayoutDashboard,
   Building2,
@@ -19,6 +20,7 @@ import {
   ShieldCheck,
   Inbox,
   MessageSquare,
+  Link2,
 } from "lucide-react";
 
 const navItems = [
@@ -28,6 +30,7 @@ const navItems = [
   { href: "/reply-workspace", label: "Reply Workspace", icon: MessageSquare },
   { href: "/keywords", label: "Keywords", icon: Key },
   { href: "/channels", label: "Channels", icon: Radio },
+  { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/business-profile", label: "Business Profile", icon: Building2 },
   { href: "/subscription", label: "Subscription", icon: CreditCard },
@@ -124,7 +127,9 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
             {allNav.find((i) => i.href === location.pathname)?.label || "Dashboard"}
           </h2>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </main>
       </div>
     </div>
   );
