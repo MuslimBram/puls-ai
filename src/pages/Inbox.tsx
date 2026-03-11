@@ -1,0 +1,246 @@
+import { useState, useEffect } from "react";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useInbox, InboxFilters } from "@/hooks/useInbox";
+import { useLeads } from "@/hooks/useLeads";
+import { Inbox as InboxIcon, Search, Filter, Star, Eye, Copy, MessageSquare } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
+import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
+
+const Inbox = () => {
+  const [filters, setFilters] = useState<InboxFilters>({});
+  const [selectedMsg, setSelectedMsg] = useState<any>(null);
+  const { messages, isLoading, markRead, updateStatus, updatePriority, subscribeRealtime } = useInbox(filters);
+  const { updateStatus: updateLeadStatus } = useLeads();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const channel = subscribeRealtime();
+    return () => { channel.unsubscribe(); };
+  }, []);
+
+  const handleOpen = (msg: any) => {
+    setSelectedMsg(msg);
+    if (msg.is_unread) markRead.mutate(msg.id);
+  };
+
+  const copyReply = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard");
+  };
+
+  const priorityColor = (p: string) => {
+    if (p === "high") return "destructive" as const;
+    if (p === "medium") return "secondary" as const;
+    return "outline" as const;
+  };
+
+  const unreadCount = messages.filter((m) => m.is_unread).length;
+
+  return (
+    <DashboardLayout>
+      <div className="space-y-4">
+        {/* Filters */}
+        <Card>
+          <CardContent className="flex flex-wrap items-center gap-3 pt-4 pb-4">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search messages..."
+              className="w-48"
+              value={filters.search ?? ""}
+              onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value || undefined }))}
+            />
+            <Select
+              value={filters.channelType ?? "all"}
+              onValueChange={(v) => setFilters((f) => ({ ...f, channelType: v === "all" ? undefined : v }))}
+            >
+              <SelectTrigger className="w-36"><SelectValue placeholder="Channel" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All channels</SelectItem>
+                <SelectItem value="telegram">Telegram</SelectItem>
+                <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="email">Email</SelectItem>
+                <SelectItem value="website_chat">Website Chat</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.priority ?? "all"}
+              onValueChange={(v) => setFilters((f) => ({ ...f, priority: v === "all" ? undefined : v }))}
+            >
+              <SelectTrigger className="w-32"><SelectValue placeholder="Priority" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="normal">Normal</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.status ?? "all"}
+              onValueChange={(v) => setFilters((f) => ({ ...f, status: v === "all" ? undefined : v }))}
+            >
+              <SelectTrigger className="w-32"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="reviewed">Reviewed</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="ghost" size="sm" onClick={() => setFilters({})}>Clear</Button>
+          </CardContent>
+        </Card>
+
+        {/* Messages */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <InboxIcon className="h-5 w-5 text-primary" />
+              Inbox ({messages.length})
+              {unreadCount > 0 && (
+                <Badge variant="destructive" className="text-xs">{unreadCount} new</Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+              </div>
+            ) : messages.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No messages yet. Connect a Telegram channel and add keywords to start receiving messages.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex items-start justify-between gap-3 rounded-lg border p-3 cursor-pointer transition-colors hover:bg-muted/50 ${
+                      msg.is_unread ? "border-primary/30 bg-primary/5" : "border-border"
+                    }`}
+                    onClick={() => handleOpen(msg)}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        {msg.is_unread && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+                        <span className="text-xs font-medium text-muted-foreground">{msg.sender_name || "Unknown"}</span>
+                        <Badge variant="secondary" className="text-xs">{msg.channel_type}</Badge>
+                        <span className="text-xs text-muted-foreground">{msg.source_name}</span>
+                        <span className="text-xs text-muted-foreground ml-auto">
+                          {format(new Date(msg.message_timestamp), "MMM d, HH:mm")}
+                        </span>
+                      </div>
+                      <p className="text-sm text-foreground line-clamp-1">{msg.message_content}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        {msg.matched_keywords?.length > 0 && msg.matched_keywords.map((kw: string) => (
+                          <Badge key={kw} variant="secondary" className="text-xs">{kw}</Badge>
+                        ))}
+                        <Badge variant={priorityColor(msg.priority)} className="text-xs">{msg.priority}</Badge>
+                        {msg.intent_score > 0 && (
+                          <Badge variant="outline" className="text-xs">
+                            Intent: {Math.round(Number(msg.intent_score) * 100)}%
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Message Detail */}
+        <Dialog open={!!selectedMsg} onOpenChange={() => setSelectedMsg(null)}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Message Details</DialogTitle>
+            </DialogHeader>
+            {selectedMsg && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Sender</p>
+                    <p className="text-sm text-foreground">{selectedMsg.sender_name || "Unknown"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Channel</p>
+                    <p className="text-sm text-foreground">{selectedMsg.source_name} ({selectedMsg.channel_type})</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Date</p>
+                    <p className="text-sm text-foreground">{format(new Date(selectedMsg.message_timestamp), "PPpp")}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Intent Score</p>
+                    <p className="text-sm text-foreground">{Math.round(Number(selectedMsg.intent_score) * 100)}%</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Message</p>
+                  <p className="text-sm text-foreground rounded-lg bg-muted p-3">{selectedMsg.message_content}</p>
+                </div>
+
+                {selectedMsg.matched_keywords?.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Matched Keywords</p>
+                    <div className="flex gap-1">
+                      {selectedMsg.matched_keywords.map((kw: string) => (
+                        <Badge key={kw} variant="secondary">{kw}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      updateStatus.mutate({ id: selectedMsg.id, status: "reviewed" });
+                      setSelectedMsg({ ...selectedMsg, status: "reviewed" });
+                    }}
+                  >
+                    Mark Reviewed
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      updatePriority.mutate({ id: selectedMsg.id, priority: selectedMsg.priority === "high" ? "normal" : "high" });
+                      setSelectedMsg({ ...selectedMsg, priority: selectedMsg.priority === "high" ? "normal" : "high" });
+                    }}
+                  >
+                    <Star className="h-3 w-3 mr-1" />
+                    {selectedMsg.priority === "high" ? "Unmark Priority" : "Mark Priority"}
+                  </Button>
+                  {selectedMsg.lead_id && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        setSelectedMsg(null);
+                        navigate(`/reply-workspace?leadId=${selectedMsg.lead_id}`);
+                      }}
+                    >
+                      <MessageSquare className="h-3 w-3 mr-1" /> AI Reply
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    </DashboardLayout>
+  );
+};
+
+export default Inbox;

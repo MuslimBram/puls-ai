@@ -7,23 +7,33 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
-import { Plus, Trash2, Radio } from "lucide-react";
+import { useChannelRegistry } from "@/hooks/useChannelRegistry";
+import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook } from "lucide-react";
 
-const CHANNEL_TYPES = [
-  { value: "telegram", label: "Telegram" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "email", label: "Email" },
-  { value: "website_chat", label: "Website Chat" },
-  { value: "instagram", label: "Instagram" },
-  { value: "facebook", label: "Facebook" },
-  { value: "sms", label: "SMS" },
-];
+const CATEGORY_ICONS: Record<string, any> = {
+  messaging: MessageSquare,
+  email: Mail,
+  website: Globe,
+  social: Share2,
+  custom: Webhook,
+};
+
+const CATEGORY_LABELS: Record<string, string> = {
+  messaging: "Messaging",
+  email: "Email",
+  website: "Website",
+  social: "Social",
+  custom: "Custom",
+  voice: "Voice",
+};
 
 const Channels = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState<ChannelData>({ channel_type: "telegram", channel_name: "" });
   const { channels, isLoading, addChannel, toggleChannel, deleteChannel } = useChannels();
+  const { registry } = useChannelRegistry();
 
   const handleAdd = () => {
     if (!form.channel_name.trim()) return;
@@ -35,17 +45,25 @@ const Channels = () => {
     });
   };
 
+  // Group registry by category
+  const categories = registry.reduce<Record<string, typeof registry>>((acc, item) => {
+    if (!acc[item.category]) acc[item.category] = [];
+    acc[item.category].push(item);
+    return acc;
+  }, {});
+
   return (
     <DashboardLayout>
       <div className="space-y-4">
+        {/* Connected Channels */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Radio className="h-5 w-5 text-primary" />
-                Channels
+                Connected Channels
               </CardTitle>
-              <CardDescription>Manage your communication channels.</CardDescription>
+              <CardDescription>Manage your active communication channels.</CardDescription>
             </div>
             <Button size="sm" onClick={() => setShowAdd(true)}>
               <Plus className="h-4 w-4 mr-1" /> Add Channel
@@ -89,6 +107,49 @@ const Channels = () => {
           </CardContent>
         </Card>
 
+        {/* Channel Registry */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Available Channels</CardTitle>
+            <CardDescription>All supported channel integrations. Channels marked as available can be connected now.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue={Object.keys(categories)[0] || "messaging"}>
+              <TabsList className="flex flex-wrap h-auto gap-1 mb-4">
+                {Object.keys(categories).map((cat) => {
+                  const Icon = CATEGORY_ICONS[cat] || Radio;
+                  return (
+                    <TabsTrigger key={cat} value={cat} className="gap-1.5">
+                      <Icon className="h-3.5 w-3.5" />
+                      {CATEGORY_LABELS[cat] || cat}
+                    </TabsTrigger>
+                  );
+                })}
+              </TabsList>
+              {Object.entries(categories).map(([cat, items]) => (
+                <TabsContent key={cat} value={cat}>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {items.map((item) => (
+                      <div key={item.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <div>
+                          <span className="text-sm font-medium text-foreground">{item.name}</span>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
+                          )}
+                        </div>
+                        <Badge variant={item.is_available ? "default" : "outline"} className="text-xs">
+                          {item.is_available ? "Available" : "Coming Soon"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </TabsContent>
+              ))}
+            </Tabs>
+          </CardContent>
+        </Card>
+
+        {/* Add Channel Dialog */}
         <Dialog open={showAdd} onOpenChange={setShowAdd}>
           <DialogContent>
             <DialogHeader>
@@ -100,8 +161,12 @@ const Channels = () => {
                 <Select value={form.channel_type} onValueChange={(v) => setForm((f) => ({ ...f, channel_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CHANNEL_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    {registry.filter((r) => r.is_available).map((r) => (
+                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                    ))}
+                    {/* Also allow non-available for placeholder */}
+                    {registry.filter((r) => !r.is_available).slice(0, 5).map((r) => (
+                      <SelectItem key={r.id} value={r.id} disabled>{r.name} (Coming Soon)</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

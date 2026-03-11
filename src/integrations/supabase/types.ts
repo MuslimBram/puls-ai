@@ -59,10 +59,42 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_registry: {
+        Row: {
+          category: string
+          config_schema: Json | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_available: boolean
+          name: string
+        }
+        Insert: {
+          category: string
+          config_schema?: Json | null
+          description?: string | null
+          icon?: string | null
+          id: string
+          is_available?: boolean
+          name: string
+        }
+        Update: {
+          category?: string
+          config_schema?: Json | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_available?: boolean
+          name?: string
+        }
+        Relationships: []
+      }
       channels: {
         Row: {
+          category: string
           channel_name: string
           channel_type: string
+          connection_status: string
           created_at: string
           id: string
           is_enabled: boolean
@@ -71,8 +103,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          category?: string
           channel_name: string
           channel_type: string
+          connection_status?: string
           created_at?: string
           id?: string
           is_enabled?: boolean
@@ -81,8 +115,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          category?: string
           channel_name?: string
           channel_type?: string
+          connection_status?: string
           created_at?: string
           id?: string
           is_enabled?: boolean
@@ -91,6 +127,84 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      inbox_messages: {
+        Row: {
+          channel_id: string | null
+          channel_type: string
+          created_at: string
+          id: string
+          intent_score: number | null
+          is_unread: boolean
+          lead_id: string | null
+          matched_keywords: string[] | null
+          message_content: string
+          message_timestamp: string
+          metadata: Json | null
+          priority: string
+          sender_identifier: string | null
+          sender_name: string | null
+          source_name: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_id?: string | null
+          channel_type?: string
+          created_at?: string
+          id?: string
+          intent_score?: number | null
+          is_unread?: boolean
+          lead_id?: string | null
+          matched_keywords?: string[] | null
+          message_content: string
+          message_timestamp?: string
+          metadata?: Json | null
+          priority?: string
+          sender_identifier?: string | null
+          sender_name?: string | null
+          source_name: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string | null
+          channel_type?: string
+          created_at?: string
+          id?: string
+          intent_score?: number | null
+          is_unread?: boolean
+          lead_id?: string | null
+          matched_keywords?: string[] | null
+          message_content?: string
+          message_timestamp?: string
+          metadata?: Json | null
+          priority?: string
+          sender_identifier?: string | null
+          sender_name?: string | null
+          source_name?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inbox_messages_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_messages_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       keywords: {
         Row: {
@@ -181,6 +295,87 @@ export type Database = {
           full_name?: string | null
           id?: string
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      reply_drafts: {
+        Row: {
+          created_at: string
+          id: string
+          inbox_message_id: string | null
+          internal_notes: string | null
+          is_preferred: boolean
+          lead_id: string | null
+          reply_content: string
+          tone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          inbox_message_id?: string | null
+          internal_notes?: string | null
+          is_preferred?: boolean
+          lead_id?: string | null
+          reply_content: string
+          tone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          inbox_message_id?: string | null
+          internal_notes?: string | null
+          is_preferred?: boolean
+          lead_id?: string | null
+          reply_content?: string
+          tone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reply_drafts_inbox_message_id_fkey"
+            columns: ["inbox_message_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reply_drafts_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reply_templates: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          name: string
+          tone: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          name: string
+          tone?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          name?: string
+          tone?: string
           user_id?: string
         }
         Relationships: []

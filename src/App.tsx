@@ -17,6 +17,8 @@ import Channels from "./pages/Channels";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
 import Admin from "./pages/Admin";
+import Inbox from "./pages/Inbox";
+import ReplyWorkspace from "./pages/ReplyWorkspace";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
@@ -42,6 +44,8 @@ const App = () => (
             <Route path="/channels" element={<ProtectedRoute><Channels /></ProtectedRoute>} />
             <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
             <Route path="/subscription" element={<ProtectedRoute><Subscription /></ProtectedRoute>} />
+            <Route path="/inbox" element={<ProtectedRoute><Inbox /></ProtectedRoute>} />
+            <Route path="/reply-workspace" element={<ProtectedRoute><ReplyWorkspace /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
