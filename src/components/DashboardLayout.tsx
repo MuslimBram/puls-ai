@@ -1,6 +1,7 @@
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useIsAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,17 +11,33 @@ import {
   LogOut,
   Menu,
   X,
+  Target,
+  Key,
+  Radio,
+  BarChart3,
+  CreditCard,
+  ShieldCheck,
 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/leads", label: "Leads", icon: Target },
+  { href: "/keywords", label: "Keywords", icon: Key },
+  { href: "/channels", label: "Channels", icon: Radio },
+  { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/business-profile", label: "Business Profile", icon: Building2 },
+  { href: "/subscription", label: "Subscription", icon: CreditCard },
 ];
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const { signOut, user } = useAuth();
+  const { isAdmin } = useIsAdmin();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const allNav = isAdmin
+    ? [...navItems, { href: "/admin", label: "Admin", icon: ShieldCheck }]
+    : navItems;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -46,8 +63,8 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
           </Button>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
-          {navItems.map((item) => (
+        <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+          {allNav.map((item) => (
             <Link
               key={item.href}
               to={item.href}
@@ -100,7 +117,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
             <Menu className="h-5 w-5" />
           </Button>
           <h2 className="text-lg font-semibold text-foreground">
-            {navItems.find((i) => i.href === location.pathname)?.label || "Dashboard"}
+            {allNav.find((i) => i.href === location.pathname)?.label || "Dashboard"}
           </h2>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">{children}</main>
