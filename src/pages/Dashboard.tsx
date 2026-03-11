@@ -7,15 +7,15 @@ import { useChannels } from "@/hooks/useChannels";
 import { useKeywords } from "@/hooks/useKeywords";
 import { useInbox } from "@/hooks/useInbox";
 import { SetupChecklist } from "@/components/SetupChecklist";
+import { SafeRender } from "@/components/SafeRender";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   MessageSquare,
   Users,
   TrendingUp,
-  Bell,
-  Target,
   Inbox,
+  Target,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -26,29 +26,30 @@ const Dashboard = () => {
   const { keywords } = useKeywords();
   const { messages } = useInbox();
 
-  const recentLeads = leads.slice(0, 5);
-  const thisWeek = leads.filter((l) => {
-    const d = new Date(l.message_date);
-    const now = new Date();
-    return now.getTime() - d.getTime() < 7 * 24 * 60 * 60 * 1000;
+  const recentLeads = leads?.slice(0, 5) ?? [];
+  const thisWeek = (leads ?? []).filter((l) => {
+    try {
+      const d = new Date(l.message_date);
+      return Date.now() - d.getTime() < 7 * 24 * 60 * 60 * 1000;
+    } catch { return false; }
   }).length;
-  const unreadCount = messages.filter((m) => m.is_unread).length;
-  const hasTelegram = channels.some((c) => c.channel_type === "telegram" && c.is_enabled);
+  const unreadCount = (messages ?? []).filter((m) => m.is_unread).length;
+  const hasTelegram = (channels ?? []).some((c) => c.channel_type === "telegram" && c.is_enabled);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Setup Checklist */}
         {!isLoading && (
-          <SetupChecklist
-            hasProfile={!!profile}
-            hasKeywords={keywords.length > 0}
-            hasTelegram={hasTelegram}
-            hasLeads={leads.length > 0}
-          />
+          <SafeRender label="Setup Checklist">
+            <SetupChecklist
+              hasProfile={!!profile}
+              hasKeywords={(keywords ?? []).length > 0}
+              hasTelegram={hasTelegram}
+              hasLeads={(leads ?? []).length > 0}
+            />
+          </SafeRender>
         )}
 
-        {/* Stats */}
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="flex items-center gap-3 pt-6">
@@ -56,7 +57,7 @@ const Dashboard = () => {
                 <Users className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{leads.length}</p>
+                <p className="text-2xl font-bold text-foreground">{(leads ?? []).length}</p>
                 <p className="text-xs text-muted-foreground">Total Leads</p>
               </div>
             </CardContent>
@@ -89,7 +90,7 @@ const Dashboard = () => {
                 <MessageSquare className="h-5 w-5 text-destructive" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{channels.length}</p>
+                <p className="text-2xl font-bold text-foreground">{(channels ?? []).length}</p>
                 <p className="text-xs text-muted-foreground">Channels</p>
               </div>
             </CardContent>
@@ -97,70 +98,72 @@ const Dashboard = () => {
         </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
-          {/* Connected Channels */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Connected Channels</CardTitle>
-              <CardDescription>Manage your communication channels</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {channels.length === 0 ? (
-                <div className="flex flex-col items-center py-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">No channels connected</p>
-                  <Link to="/channels"><Button size="sm" variant="outline">Add Channel</Button></Link>
-                </div>
-              ) : (
-                channels.slice(0, 5).map((ch) => (
-                  <div key={ch.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-foreground">{ch.channel_name}</span>
-                      <Badge variant="secondary" className="text-xs">{ch.channel_type}</Badge>
-                    </div>
-                    <Badge variant={ch.is_enabled ? "default" : "secondary"}>
-                      {ch.is_enabled ? "Active" : "Disabled"}
-                    </Badge>
+          <SafeRender label="Connected Channels">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Connected Channels</CardTitle>
+                <CardDescription>Manage your communication channels</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {(channels ?? []).length === 0 ? (
+                  <div className="flex flex-col items-center py-4 text-center">
+                    <p className="text-sm text-muted-foreground mb-2">No channels connected</p>
+                    <Link to="/channels"><Button size="sm" variant="outline">Add Channel</Button></Link>
                   </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Leads */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Recent Leads</CardTitle>
-              <CardDescription>Latest discovered leads</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {recentLeads.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <Target className="mb-3 h-10 w-10 text-muted-foreground/40" />
-                  <p className="text-sm text-muted-foreground">No leads yet</p>
-                  <p className="text-xs text-muted-foreground">Add keywords to start discovering leads</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {recentLeads.map((l) => (
-                    <div key={l.id} className="rounded-lg border border-border p-3">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xs font-medium text-muted-foreground">{l.source_name}</span>
-                        <Badge variant="secondary" className="text-xs">{l.source_type}</Badge>
-                        <span className="text-xs text-muted-foreground">
-                          {format(new Date(l.message_date), "MMM d")}
-                        </span>
-                        {l.intent_score && (
-                          <Badge variant="outline" className="text-xs ml-auto">
-                            {Math.round(Number(l.intent_score) * 100)}%
-                          </Badge>
-                        )}
+                ) : (
+                  (channels ?? []).slice(0, 5).map((ch) => (
+                    <div key={ch.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-medium text-foreground">{ch.channel_name}</span>
+                        <Badge variant="secondary" className="text-xs">{ch.channel_type}</Badge>
                       </div>
-                      <p className="text-sm text-foreground line-clamp-1">{l.message_content}</p>
+                      <Badge variant={ch.is_enabled ? "default" : "secondary"}>
+                        {ch.is_enabled ? "Active" : "Disabled"}
+                      </Badge>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </SafeRender>
+
+          <SafeRender label="Recent Leads">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Recent Leads</CardTitle>
+                <CardDescription>Latest discovered leads</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {recentLeads.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <Target className="mb-3 h-10 w-10 text-muted-foreground/40" />
+                    <p className="text-sm text-muted-foreground">No leads yet</p>
+                    <p className="text-xs text-muted-foreground">Add keywords to start discovering leads</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recentLeads.map((l) => (
+                      <div key={l.id} className="rounded-lg border border-border p-3">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium text-muted-foreground">{l.source_name}</span>
+                          <Badge variant="secondary" className="text-xs">{l.source_type}</Badge>
+                          <span className="text-xs text-muted-foreground">
+                            {(() => { try { return format(new Date(l.message_date), "MMM d"); } catch { return "—"; } })()}
+                          </span>
+                          {l.intent_score != null && (
+                            <Badge variant="outline" className="text-xs ml-auto">
+                              {Math.round(Number(l.intent_score) * 100)}%
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-foreground line-clamp-1">{l.message_content}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </SafeRender>
         </div>
       </div>
     </DashboardLayout>
