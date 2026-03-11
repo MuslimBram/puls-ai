@@ -8,15 +8,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useLeads, LeadFilters } from "@/hooks/useLeads";
 import { useKeywords } from "@/hooks/useKeywords";
-import { Copy, Eye, Search, Target } from "lucide-react";
+import { Copy, Eye, Search, Target, MessageSquare } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
 const Leads = () => {
   const [filters, setFilters] = useState<LeadFilters>({});
   const [selectedLead, setSelectedLead] = useState<any>(null);
-  const { leads, isLoading } = useLeads(filters);
+  const { leads, isLoading, updateStatus } = useLeads(filters);
   const { keywords } = useKeywords();
+  const navigate = useNavigate();
 
   const copyReply = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -24,9 +26,9 @@ const Leads = () => {
   };
 
   const intentColor = (score: number) => {
-    if (score >= 0.7) return "default";
-    if (score >= 0.4) return "secondary";
-    return "outline";
+    if (score >= 0.7) return "default" as const;
+    if (score >= 0.4) return "secondary" as const;
+    return "outline" as const;
   };
 
   return (
@@ -48,6 +50,21 @@ const Leads = () => {
                 {keywords.map((k) => (
                   <SelectItem key={k.id} value={k.keyword}>{k.keyword}</SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={filters.status ?? "all"}
+              onValueChange={(v) => setFilters((f) => ({ ...f, status: v === "all" ? undefined : v }))}
+            >
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="new">New</SelectItem>
+                <SelectItem value="contacted">Contacted</SelectItem>
+                <SelectItem value="qualified">Qualified</SelectItem>
+                <SelectItem value="converted">Converted</SelectItem>
               </SelectContent>
             </Select>
             <Input
@@ -81,7 +98,7 @@ const Leads = () => {
               </div>
             ) : leads.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                No leads found. Add keywords and scan Telegram groups to discover leads.
+                No leads found. Add keywords and connect a Telegram channel to discover leads.
               </p>
             ) : (
               <div className="space-y-3">
@@ -93,6 +110,7 @@ const Leads = () => {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-muted-foreground">{lead.source_name}</span>
+                        <Badge variant="secondary" className="text-xs">{lead.source_type}</Badge>
                         <span className="text-xs text-muted-foreground">
                           {format(new Date(lead.message_date), "MMM d, HH:mm")}
                         </span>
@@ -105,11 +123,17 @@ const Leads = () => {
                         <Badge variant={intentColor(Number(lead.intent_score))} className="text-xs">
                           Intent: {Math.round(Number(lead.intent_score) * 100)}%
                         </Badge>
+                        <Badge variant="outline" className="text-xs">{lead.status}</Badge>
                       </div>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setSelectedLead(lead)}>
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => setSelectedLead(lead)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => navigate(`/reply-workspace?leadId=${lead.id}`)}>
+                        <MessageSquare className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -125,25 +149,28 @@ const Leads = () => {
             </DialogHeader>
             {selectedLead && (
               <div className="space-y-4">
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Source</p>
-                  <p className="text-sm text-foreground">{selectedLead.source_name} ({selectedLead.source_type})</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Date</p>
-                  <p className="text-sm text-foreground">{format(new Date(selectedLead.message_date), "PPpp")}</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Source</p>
+                    <p className="text-sm text-foreground">{selectedLead.source_name} ({selectedLead.source_type})</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">Date</p>
+                    <p className="text-sm text-foreground">{format(new Date(selectedLead.message_date), "PPpp")}</p>
+                  </div>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-muted-foreground mb-1">Message</p>
                   <p className="text-sm text-foreground rounded-lg bg-muted p-3">{selectedLead.message_content}</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   {selectedLead.detected_keyword && (
                     <Badge variant="secondary">{selectedLead.detected_keyword}</Badge>
                   )}
                   <Badge variant={intentColor(Number(selectedLead.intent_score))}>
                     Intent: {Math.round(Number(selectedLead.intent_score) * 100)}%
                   </Badge>
+                  <Badge variant="outline">{selectedLead.status}</Badge>
                 </div>
                 {selectedLead.suggested_reply && (
                   <div>
@@ -156,6 +183,32 @@ const Leads = () => {
                     </div>
                   </div>
                 )}
+                <div className="flex gap-2">
+                  <Select
+                    value={selectedLead.status}
+                    onValueChange={(v) => {
+                      updateStatus.mutate({ id: selectedLead.id, status: v });
+                      setSelectedLead({ ...selectedLead, status: v });
+                    }}
+                  >
+                    <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="new">New</SelectItem>
+                      <SelectItem value="contacted">Contacted</SelectItem>
+                      <SelectItem value="qualified">Qualified</SelectItem>
+                      <SelectItem value="converted">Converted</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setSelectedLead(null);
+                      navigate(`/reply-workspace?leadId=${selectedLead.id}`);
+                    }}
+                  >
+                    <MessageSquare className="h-3 w-3 mr-1" /> AI Reply
+                  </Button>
+                </div>
               </div>
             )}
           </DialogContent>
