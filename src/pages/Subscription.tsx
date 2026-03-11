@@ -2,29 +2,34 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { useSubscription, PLANS, PlanKey } from "@/hooks/useSubscription";
-import { Check, CreditCard, Zap } from "lucide-react";
+import { UsageIndicator } from "@/components/UsageIndicator";
+import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { useLeads } from "@/hooks/useLeads";
+import { useChannels } from "@/hooks/useChannels";
+import { useKeywords } from "@/hooks/useKeywords";
+import { PLANS, PLAN_ORDER, PlanKey } from "@/config/plans";
+import { CreditCard, Zap, Crown, ArrowRight } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { useNavigate } from "react-router-dom";
 
 const Subscription = () => {
-  const { subscription, currentPlan, planDetails, isLoading } = useSubscription();
+  const { plan, currentPlanKey, checkLimit, subscription } = useFeatureGating();
+  const { leads } = useLeads();
+  const { channels } = useChannels();
+  const { keywords } = useKeywords();
+  const navigate = useNavigate();
 
-  const handleUpgrade = (plan: PlanKey) => {
-    toast.info(`Upgrade to ${PLANS[plan].name} — Payment integration coming soon.`);
+  const handleUpgrade = (target: PlanKey) => {
+    if (target === "enterprise") {
+      navigate("/pricing");
+      return;
+    }
+    toast.info(`Upgrade to ${PLANS[target].name} — Payment integration coming soon.`);
   };
 
-  if (isLoading) {
-    return (
-      <DashboardLayout>
-        <div className="flex justify-center py-12">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        </div>
-      </DashboardLayout>
-    );
-  }
-
-  const usagePercent = subscription ? Math.round((subscription.leads_used / subscription.leads_limit) * 100) : 0;
+  const leadsUsage = checkLimit("leadsPerMonth", subscription?.leads_used ?? (leads ?? []).length);
+  const channelsUsage = checkLimit("channels", (channels ?? []).length);
+  const keywordsUsage = checkLimit("keywords", (keywords ?? []).length);
 
   return (
     <DashboardLayout>
@@ -34,74 +39,98 @@ const Subscription = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <CreditCard className="h-5 w-5 text-primary" />
-              Current Plan
+              Current Plan — {plan.name}
             </CardTitle>
+            <CardDescription>{plan.description}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-3">
-              <Badge className="text-sm">{planDetails.name}</Badge>
-              <span className="text-sm text-muted-foreground">${planDetails.price}/month</span>
+              <Badge className="text-sm">{plan.name}</Badge>
+              <span className="text-sm text-muted-foreground">
+                ${plan.monthlyPrice}/month
+              </span>
             </div>
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Leads used</span>
-                <span className="text-foreground">{subscription?.leads_used ?? 0} / {subscription?.leads_limit ?? planDetails.leads}</span>
-              </div>
-              <Progress value={usagePercent} />
+
+            <div className="grid gap-4 sm:grid-cols-3">
+              <UsageIndicator label="Leads" current={leadsUsage.current} limit={leadsUsage.limit} />
+              <UsageIndicator label="Channels" current={channelsUsage.current} limit={channelsUsage.limit} />
+              <UsageIndicator label="Keywords" current={keywordsUsage.current} limit={keywordsUsage.limit} />
             </div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+
+            <div className="grid grid-cols-2 gap-4 text-sm pt-2">
               <div>
-                <span className="text-muted-foreground">Keywords limit</span>
-                <p className="font-medium text-foreground">{subscription?.keywords_limit ?? planDetails.keywords}</p>
+                <span className="text-muted-foreground">AI replies/day</span>
+                <p className="font-medium text-foreground">
+                  {plan.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan.limits.aiRepliesPerDay}
+                </p>
               </div>
               <div>
-                <span className="text-muted-foreground">Channels limit</span>
-                <p className="font-medium text-foreground">{subscription?.channels_limit ?? planDetails.channels}</p>
+                <span className="text-muted-foreground">Team members</span>
+                <p className="font-medium text-foreground">
+                  {plan.limits.teamMembers === -1 ? "Unlimited" : plan.limits.teamMembers}
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Conversation history</span>
+                <p className="font-medium text-foreground">
+                  {plan.limits.conversationHistoryDays === -1 ? "Unlimited" : `${plan.limits.conversationHistoryDays} days`}
+                </p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Support</span>
+                <p className="font-medium text-foreground">{plan.support}</p>
               </div>
             </div>
+
+            <Button variant="outline" onClick={() => navigate("/pricing")} className="mt-2">
+              View All Plans <ArrowRight className="h-4 w-4 ml-1" />
+            </Button>
           </CardContent>
         </Card>
 
-        {/* Plan Comparison */}
-        <div className="grid gap-4 md:grid-cols-3">
-          {(Object.entries(PLANS) as [PlanKey, typeof PLANS[PlanKey]][]).map(([key, plan]) => (
-            <Card key={key} className={key === currentPlan ? "border-primary" : ""}>
-              <CardHeader>
-                <CardTitle className="text-lg">{plan.name}</CardTitle>
-                <CardDescription>
-                  <span className="text-2xl font-bold text-foreground">${plan.price}</span>
-                  <span className="text-muted-foreground">/month</span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> {plan.keywords} keywords</div>
-                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> {plan.channels} channels</div>
-                  <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> {plan.leads} leads/month</div>
-                  {key === "enterprise" && (
-                    <>
-                      <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Priority support</div>
-                      <div className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Advanced automation</div>
-                    </>
+        {/* Quick Plan Comparison */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {PLAN_ORDER.map((key) => {
+            const p = PLANS[key];
+            const isCurrent = currentPlanKey === key;
+            return (
+              <Card key={key} className={isCurrent ? "border-primary" : ""}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {p.name}
+                    {p.highlighted && <Crown className="h-4 w-4 text-primary" />}
+                  </CardTitle>
+                  <CardDescription>
+                    {key === "enterprise" ? (
+                      <span className="text-xl font-bold text-foreground">Custom</span>
+                    ) : (
+                      <>
+                        <span className="text-xl font-bold text-foreground">${p.monthlyPrice}</span>
+                        <span className="text-muted-foreground">/mo</span>
+                      </>
+                    )}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {isCurrent ? (
+                    <Button disabled className="w-full" size="sm">Current Plan</Button>
+                  ) : (
+                    <Button
+                      className="w-full"
+                      size="sm"
+                      variant={p.highlighted ? "default" : "outline"}
+                      onClick={() => handleUpgrade(key)}
+                    >
+                      <Zap className="h-4 w-4 mr-1" /> {p.cta}
+                    </Button>
                   )}
-                </div>
-                {key === currentPlan ? (
-                  <Button disabled className="w-full">Current Plan</Button>
-                ) : (
-                  <Button
-                    className="w-full"
-                    variant={key === "pro" ? "default" : "outline"}
-                    onClick={() => handleUpgrade(key)}
-                  >
-                    <Zap className="h-4 w-4 mr-1" /> Upgrade
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        {/* Billing History Placeholder */}
+        {/* Billing History */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Billing History</CardTitle>
