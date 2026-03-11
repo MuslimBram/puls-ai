@@ -22,6 +22,7 @@ import {
   Inbox,
   MessageSquare,
   Link2,
+  Bot,
 } from "lucide-react";
 
 const navItems = [
