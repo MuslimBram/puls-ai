@@ -29,14 +29,15 @@ export const useChannels = () => {
 
   const addChannel = useMutation({
     mutationFn: async (channel: ChannelData) => {
-      const { error } = await supabase
-        .from("channels")
-        .insert({
+      const row = {
           channel_type: channel.channel_type,
           channel_name: channel.channel_name,
-          settings: (channel.settings ?? {}) as Record<string, unknown>,
+          settings: (channel.settings ?? {}) as any,
           user_id: user!.id,
-        });
+        };
+      const { error } = await supabase
+        .from("channels")
+        .insert([row]);
       if (error) throw error;
     },
     onSuccess: () => {
