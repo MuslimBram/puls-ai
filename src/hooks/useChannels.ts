@@ -31,7 +31,12 @@ export const useChannels = () => {
     mutationFn: async (channel: ChannelData) => {
       const { error } = await supabase
         .from("channels")
-        .insert({ ...channel, user_id: user!.id });
+        .insert({
+          channel_type: channel.channel_type,
+          channel_name: channel.channel_name,
+          settings: (channel.settings ?? {}) as Record<string, unknown>,
+          user_id: user!.id,
+        });
       if (error) throw error;
     },
     onSuccess: () => {
