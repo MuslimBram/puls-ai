@@ -17,6 +17,7 @@ import Keywords from "./pages/Keywords";
 import Channels from "./pages/Channels";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
+import Pricing from "./pages/Pricing";
 import Admin from "./pages/Admin";
 import Inbox from "./pages/Inbox";
 import ReplyWorkspace from "./pages/ReplyWorkspace";
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/channels" element={<ProtectedPage><Channels /></ProtectedPage>} />
               <Route path="/analytics" element={<ProtectedPage><Analytics /></ProtectedPage>} />
               <Route path="/subscription" element={<ProtectedPage><Subscription /></ProtectedPage>} />
+              <Route path="/pricing" element={<ProtectedPage><Pricing /></ProtectedPage>} />
               <Route path="/inbox" element={<ProtectedPage><Inbox /></ProtectedPage>} />
               <Route path="/reply-workspace" element={<ProtectedPage><ReplyWorkspace /></ProtectedPage>} />
               <Route path="/connected-accounts" element={<ProtectedPage><ConnectedAccounts /></ProtectedPage>} />
