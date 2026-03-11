@@ -17,6 +17,8 @@ import Channels from "./pages/Channels";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
 import Admin from "./pages/Admin";
+import Inbox from "./pages/Inbox";
+import ReplyWorkspace from "./pages/ReplyWorkspace";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
