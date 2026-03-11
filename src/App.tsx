@@ -69,6 +69,7 @@ const App = () => (
               <Route path="/inbox" element={<ProtectedPage><Inbox /></ProtectedPage>} />
               <Route path="/reply-workspace" element={<ProtectedPage><ReplyWorkspace /></ProtectedPage>} />
               <Route path="/connected-accounts" element={<ProtectedPage><ConnectedAccounts /></ProtectedPage>} />
+              <Route path="/dedicated-ai" element={<ProtectedPage><DedicatedAI /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
