@@ -6,6 +6,8 @@ import { useLeads } from "@/hooks/useLeads";
 import { useChannels } from "@/hooks/useChannels";
 import { useKeywords } from "@/hooks/useKeywords";
 import { useInbox } from "@/hooks/useInbox";
+import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { UsageIndicator } from "@/components/UsageIndicator";
 import { SetupChecklist } from "@/components/SetupChecklist";
 import { SafeRender } from "@/components/SafeRender";
 import { Link } from "react-router-dom";
@@ -16,6 +18,7 @@ import {
   TrendingUp,
   Inbox,
   Target,
+  Zap,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -25,6 +28,7 @@ const Dashboard = () => {
   const { channels } = useChannels();
   const { keywords } = useKeywords();
   const { messages } = useInbox();
+  const { plan, checkLimit, subscription } = useFeatureGating();
 
   const recentLeads = leads?.slice(0, 5) ?? [];
   const thisWeek = (leads ?? []).filter((l) => {
@@ -35,6 +39,10 @@ const Dashboard = () => {
   }).length;
   const unreadCount = (messages ?? []).filter((m) => m.is_unread).length;
   const hasTelegram = (channels ?? []).some((c) => c.channel_type === "telegram" && c.is_enabled);
+
+  const leadsUsage = checkLimit("leadsPerMonth", subscription?.leads_used ?? (leads ?? []).length);
+  const channelsUsage = checkLimit("channels", (channels ?? []).length);
+  const keywordsUsage = checkLimit("keywords", (keywords ?? []).length);
 
   return (
     <DashboardLayout>
@@ -96,6 +104,27 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Usage & Plan */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              Plan Usage — {plan.name}
+            </CardTitle>
+            <CardDescription>
+              Your current usage against plan limits.
+              <Link to="/pricing" className="ml-2 text-primary hover:underline text-xs">View Plans</Link>
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <UsageIndicator label="Leads" current={leadsUsage.current} limit={leadsUsage.limit} />
+              <UsageIndicator label="Channels" current={channelsUsage.current} limit={channelsUsage.limit} />
+              <UsageIndicator label="Keywords" current={keywordsUsage.current} limit={keywordsUsage.limit} />
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid gap-6 lg:grid-cols-2">
           <SafeRender label="Connected Channels">

@@ -37,6 +37,7 @@ const navItems = [
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/business-profile", label: "Business Profile", icon: Building2 },
   { href: "/subscription", label: "Subscription", icon: CreditCard },
+  { href: "/pricing", label: "Pricing", icon: Zap },
 ];
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
