@@ -5,6 +5,7 @@ import { useIsAdmin } from "@/hooks/useAdmin";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { NotificationBell } from "@/components/NotificationBell";
 import {
   LayoutDashboard,
   Building2,
@@ -126,6 +127,9 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
           <h2 className="text-lg font-semibold text-foreground">
             {allNav.find((i) => i.href === location.pathname)?.label || "Dashboard"}
           </h2>
+          <div className="ml-auto">
+            <NotificationBell />
+          </div>
         </header>
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <ErrorBoundary>{children}</ErrorBoundary>
