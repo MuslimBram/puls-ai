@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { Mail, Lock, User, Zap } from "lucide-react";
+import { lovable } from "@/integrations/lovable/index";
 
 const Register = () => {
   const navigate = useNavigate();
