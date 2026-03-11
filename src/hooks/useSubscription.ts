@@ -1,14 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { PlanKey, PLANS } from "@/config/plans";
 
-export const PLANS = {
-  free: { name: "Free", keywords: 5, channels: 2, leads: 50, price: 0 },
-  pro: { name: "Pro", keywords: 25, channels: 10, leads: 500, price: 29 },
-  enterprise: { name: "Enterprise", keywords: 100, channels: 50, leads: 5000, price: 99 },
-} as const;
-
-export type PlanKey = keyof typeof PLANS;
+export { PLANS, type PlanKey } from "@/config/plans";
 
 export const useSubscription = () => {
   const { user } = useAuth();
@@ -27,7 +22,17 @@ export const useSubscription = () => {
     enabled: !!user,
   });
 
-  const currentPlan = (query.data?.plan as PlanKey) ?? "free";
+  // Map old plan names to new ones
+  const rawPlan = query.data?.plan ?? "free";
+  const planMap: Record<string, PlanKey> = {
+    free: "standard",
+    pro: "professional",
+    enterprise: "enterprise",
+    standard: "standard",
+    professional: "professional",
+    advanced: "advanced",
+  };
+  const currentPlan: PlanKey = planMap[rawPlan] ?? "standard";
 
   return {
     subscription: query.data,
