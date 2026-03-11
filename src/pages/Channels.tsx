@@ -10,7 +10,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
 import { useChannelRegistry } from "@/hooks/useChannelRegistry";
-import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook } from "lucide-react";
+import { TelegramSetup } from "@/components/TelegramSetup";
+import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Copy } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
 
 const CATEGORY_ICONS: Record<string, any> = {
   messaging: MessageSquare,
@@ -45,12 +47,20 @@ const Channels = () => {
     });
   };
 
-  // Group registry by category
   const categories = registry.reduce<Record<string, typeof registry>>((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
   }, {});
+
+  const emailWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-ingest`;
+  const webchatWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webchat-ingest`;
+  const customWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-ingest`;
+
+  const copyUrl = (url: string) => {
+    navigator.clipboard.writeText(url);
+    toast.success("URL copied to clipboard");
+  };
 
   return (
     <DashboardLayout>
@@ -85,6 +95,7 @@ const Channels = () => {
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-foreground">{ch.channel_name}</span>
                       <Badge variant="secondary" className="text-xs">{ch.channel_type}</Badge>
+                      <Badge variant="outline" className="text-xs">{ch.connection_status}</Badge>
                     </div>
                     <div className="flex items-center gap-3">
                       <Switch
@@ -107,11 +118,57 @@ const Channels = () => {
           </CardContent>
         </Card>
 
+        {/* Telegram Setup */}
+        <TelegramSetup />
+
+        {/* Integration Endpoints */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Integration Endpoints</CardTitle>
+            <CardDescription>Use these URLs to send data from external systems into your inbox.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Mail className="h-4 w-4" /> Email Ingest
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => copyUrl(emailWebhookUrl)}>
+                  <Copy className="h-3 w-3 mr-1" /> Copy
+                </Button>
+              </div>
+              <code className="text-xs text-muted-foreground break-all">{emailWebhookUrl}</code>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Globe className="h-4 w-4" /> Website Chat
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => copyUrl(webchatWebhookUrl)}>
+                  <Copy className="h-3 w-3 mr-1" /> Copy
+                </Button>
+              </div>
+              <code className="text-xs text-muted-foreground break-all">{webchatWebhookUrl}</code>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-foreground flex items-center gap-2">
+                  <Webhook className="h-4 w-4" /> Custom Webhook
+                </span>
+                <Button size="sm" variant="ghost" onClick={() => copyUrl(customWebhookUrl)}>
+                  <Copy className="h-3 w-3 mr-1" /> Copy
+                </Button>
+              </div>
+              <code className="text-xs text-muted-foreground break-all">{customWebhookUrl}</code>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Channel Registry */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Available Channels</CardTitle>
-            <CardDescription>All supported channel integrations. Channels marked as available can be connected now.</CardDescription>
+            <CardDescription>All supported channel integrations.</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue={Object.keys(categories)[0] || "messaging"}>
@@ -164,7 +221,6 @@ const Channels = () => {
                     {registry.filter((r) => r.is_available).map((r) => (
                       <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                     ))}
-                    {/* Also allow non-available for placeholder */}
                     {registry.filter((r) => !r.is_available).slice(0, 5).map((r) => (
                       <SelectItem key={r.id} value={r.id} disabled>{r.name} (Coming Soon)</SelectItem>
                     ))}

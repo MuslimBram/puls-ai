@@ -4,18 +4,18 @@ import { Badge } from "@/components/ui/badge";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { useLeads } from "@/hooks/useLeads";
 import { useChannels } from "@/hooks/useChannels";
+import { useKeywords } from "@/hooks/useKeywords";
+import { useInbox } from "@/hooks/useInbox";
+import { SetupChecklist } from "@/components/SetupChecklist";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   MessageSquare,
-  Send,
-  Mail,
-  Globe,
   Users,
   TrendingUp,
   Bell,
-  Building2,
   Target,
+  Inbox,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -23,6 +23,8 @@ const Dashboard = () => {
   const { profile, isLoading } = useBusinessProfile();
   const { leads } = useLeads();
   const { channels } = useChannels();
+  const { keywords } = useKeywords();
+  const { messages } = useInbox();
 
   const recentLeads = leads.slice(0, 5);
   const thisWeek = leads.filter((l) => {
@@ -30,24 +32,20 @@ const Dashboard = () => {
     const now = new Date();
     return now.getTime() - d.getTime() < 7 * 24 * 60 * 60 * 1000;
   }).length;
+  const unreadCount = messages.filter((m) => m.is_unread).length;
+  const hasTelegram = channels.some((c) => c.channel_type === "telegram" && c.is_enabled);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Setup prompt */}
-        {!isLoading && !profile && (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardContent className="flex items-center gap-4 py-4">
-              <Building2 className="h-8 w-8 text-primary" />
-              <div className="flex-1">
-                <p className="font-medium text-foreground">Complete your business profile</p>
-                <p className="text-sm text-muted-foreground">Set up your profile to start discovering leads</p>
-              </div>
-              <Link to="/business-profile">
-                <Button size="sm">Set up</Button>
-              </Link>
-            </CardContent>
-          </Card>
+        {/* Setup Checklist */}
+        {!isLoading && (
+          <SetupChecklist
+            hasProfile={!!profile}
+            hasKeywords={keywords.length > 0}
+            hasTelegram={hasTelegram}
+            hasLeads={leads.length > 0}
+          />
         )}
 
         {/* Stats */}
@@ -77,22 +75,22 @@ const Dashboard = () => {
           <Card>
             <CardContent className="flex items-center gap-3 pt-6">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-secondary">
-                <MessageSquare className="h-5 w-5 text-secondary-foreground" />
+                <Inbox className="h-5 w-5 text-secondary-foreground" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{channels.length}</p>
-                <p className="text-xs text-muted-foreground">Channels</p>
+                <p className="text-2xl font-bold text-foreground">{unreadCount}</p>
+                <p className="text-xs text-muted-foreground">Unread</p>
               </div>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="flex items-center gap-3 pt-6">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-destructive/10">
-                <Bell className="h-5 w-5 text-destructive" />
+                <MessageSquare className="h-5 w-5 text-destructive" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">{recentLeads.length}</p>
-                <p className="text-xs text-muted-foreground">Recent</p>
+                <p className="text-2xl font-bold text-foreground">{channels.length}</p>
+                <p className="text-xs text-muted-foreground">Channels</p>
               </div>
             </CardContent>
           </Card>
@@ -116,6 +114,7 @@ const Dashboard = () => {
                   <div key={ch.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                     <div className="flex items-center gap-3">
                       <span className="text-sm font-medium text-foreground">{ch.channel_name}</span>
+                      <Badge variant="secondary" className="text-xs">{ch.channel_type}</Badge>
                     </div>
                     <Badge variant={ch.is_enabled ? "default" : "secondary"}>
                       {ch.is_enabled ? "Active" : "Disabled"}
@@ -145,9 +144,15 @@ const Dashboard = () => {
                     <div key={l.id} className="rounded-lg border border-border p-3">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-muted-foreground">{l.source_name}</span>
+                        <Badge variant="secondary" className="text-xs">{l.source_type}</Badge>
                         <span className="text-xs text-muted-foreground">
                           {format(new Date(l.message_date), "MMM d")}
                         </span>
+                        {l.intent_score && (
+                          <Badge variant="outline" className="text-xs ml-auto">
+                            {Math.round(Number(l.intent_score) * 100)}%
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-sm text-foreground line-clamp-1">{l.message_content}</p>
                     </div>
