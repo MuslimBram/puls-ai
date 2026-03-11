@@ -59,6 +59,105 @@ export type Database = {
         }
         Relationships: []
       }
+      channels: {
+        Row: {
+          channel_name: string
+          channel_type: string
+          created_at: string
+          id: string
+          is_enabled: boolean
+          settings: Json | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          channel_name: string
+          channel_type: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          settings?: Json | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          channel_name?: string
+          channel_type?: string
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          settings?: Json | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      keywords: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          keyword: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          keyword?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      leads: {
+        Row: {
+          created_at: string
+          detected_keyword: string | null
+          id: string
+          intent_score: number | null
+          message_content: string
+          message_date: string
+          source_name: string
+          source_type: string
+          status: string
+          suggested_reply: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          detected_keyword?: string | null
+          id?: string
+          intent_score?: number | null
+          message_content: string
+          message_date?: string
+          source_name: string
+          source_type?: string
+          status?: string
+          suggested_reply?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          detected_keyword?: string | null
+          id?: string
+          intent_score?: number | null
+          message_content?: string
+          message_date?: string
+          source_name?: string
+          source_type?: string
+          status?: string
+          suggested_reply?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -86,15 +185,78 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          billing_cycle_start: string
+          channels_limit: number
+          created_at: string
+          id: string
+          keywords_limit: number
+          leads_limit: number
+          leads_used: number
+          plan: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing_cycle_start?: string
+          channels_limit?: number
+          created_at?: string
+          id?: string
+          keywords_limit?: number
+          leads_limit?: number
+          leads_used?: number
+          plan?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing_cycle_start?: string
+          channels_limit?: number
+          created_at?: string
+          id?: string
+          keywords_limit?: number
+          leads_limit?: number
+          leads_used?: number
+          plan?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -221,6 +383,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
