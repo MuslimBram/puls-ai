@@ -14,6 +14,92 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_conversations: {
+        Row: {
+          ai_reply: string | null
+          channel_type: string
+          complexity: string
+          created_at: string
+          id: string
+          is_auto_reply: boolean
+          is_draft: boolean
+          page_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          visitor_email: string | null
+          visitor_message: string
+          visitor_name: string | null
+        }
+        Insert: {
+          ai_reply?: string | null
+          channel_type?: string
+          complexity?: string
+          created_at?: string
+          id?: string
+          is_auto_reply?: boolean
+          is_draft?: boolean
+          page_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          visitor_email?: string | null
+          visitor_message: string
+          visitor_name?: string | null
+        }
+        Update: {
+          ai_reply?: string | null
+          channel_type?: string
+          complexity?: string
+          created_at?: string
+          id?: string
+          is_auto_reply?: boolean
+          is_draft?: boolean
+          page_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          visitor_email?: string | null
+          visitor_message?: string
+          visitor_name?: string | null
+        }
+        Relationships: []
+      }
+      ai_feedback: {
+        Row: {
+          comment: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          rating: number | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          rating?: number | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          rating?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_feedback_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_profiles: {
         Row: {
           ai_tone: string | null
