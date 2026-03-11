@@ -17,6 +17,7 @@ import Keywords from "./pages/Keywords";
 import Channels from "./pages/Channels";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
+import Pricing from "./pages/Pricing";
 import Admin from "./pages/Admin";
 import Inbox from "./pages/Inbox";
 import ReplyWorkspace from "./pages/ReplyWorkspace";
