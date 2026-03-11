@@ -11,7 +11,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
 import { useChannelRegistry } from "@/hooks/useChannelRegistry";
 import { TelegramSetup } from "@/components/TelegramSetup";
-import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Copy } from "lucide-react";
+import { EmailSetup } from "@/components/EmailSetup";
+import { WebsiteChatSetup } from "@/components/WebsiteChatSetup";
+import { WebhookSetup } from "@/components/WebhookSetup";
+import { SafeRender } from "@/components/SafeRender";
+import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -29,6 +33,35 @@ const CATEGORY_LABELS: Record<string, string> = {
   social: "Social",
   custom: "Custom",
   voice: "Voice",
+};
+
+/* 
+  Channel implementation status mapping.
+  Each channel gets a real status and a short explanation.
+*/
+const CHANNEL_STATUS: Record<string, { status: string; variant: "default" | "secondary" | "outline" | "destructive"; explanation: string }> = {
+  telegram: { status: "Live", variant: "default", explanation: "Fully integrated. Connect your Telegram bot and start monitoring." },
+  email: { status: "Live", variant: "default", explanation: "Backend ingestion ready. Connect via IMAP or webhook forwarding." },
+  website_chat: { status: "Live", variant: "default", explanation: "Embed a chat widget on your website to capture visitor messages." },
+  custom_webhook: { status: "Live", variant: "default", explanation: "Send data from any external system via webhook endpoint." },
+  whatsapp: { status: "Requires paid external provider", variant: "outline", explanation: "Requires WhatsApp Business API access via Meta or a third-party provider (e.g., Twilio)." },
+  facebook_messenger: { status: "Requires future API integration", variant: "outline", explanation: "Requires Facebook Graph API and app review. Planned for future release." },
+  instagram_dm: { status: "Requires future API integration", variant: "outline", explanation: "Requires Instagram Graph API via Meta. Planned for future release." },
+  twitter_dm: { status: "Planned", variant: "secondary", explanation: "Twitter/X API integration planned for a future release." },
+  linkedin: { status: "Planned", variant: "secondary", explanation: "LinkedIn messaging API has limited access. Planned for future evaluation." },
+  sms: { status: "Requires paid external provider", variant: "outline", explanation: "Requires Twilio or similar SMS provider. Not yet implemented." },
+  slack: { status: "Planned", variant: "secondary", explanation: "Slack integration for team lead notifications planned for future release." },
+  discord: { status: "Planned", variant: "secondary", explanation: "Discord bot integration planned for future release." },
+  live_chat: { status: "Coming soon", variant: "secondary", explanation: "Real-time live chat with agent assignment. Coming in a future update." },
+  voice: { status: "Planned", variant: "secondary", explanation: "Voice call integration requires telephony provider. Planned for future." },
+  contact_form: { status: "Available for setup", variant: "default", explanation: "Use the Custom Webhook channel to connect your contact forms." },
+  crm_webhook: { status: "Available for setup", variant: "default", explanation: "Use the Custom Webhook channel to receive data from your CRM." },
+  google_business: { status: "Requires future API integration", variant: "outline", explanation: "Google Business Messages API integration planned." },
+  intercom: { status: "Planned", variant: "secondary", explanation: "Intercom webhook integration planned for future release." },
+};
+
+const getChannelStatus = (channelId: string) => {
+  return CHANNEL_STATUS[channelId] || { status: "Planned", variant: "secondary" as const, explanation: "This channel is planned for a future release." };
 };
 
 const Channels = () => {
@@ -52,15 +85,6 @@ const Channels = () => {
     acc[item.category].push(item);
     return acc;
   }, {});
-
-  const emailWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/email-ingest`;
-  const webchatWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webchat-ingest`;
-  const customWebhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-ingest`;
-
-  const copyUrl = (url: string) => {
-    navigator.clipboard.writeText(url);
-    toast.success("URL copied to clipboard");
-  };
 
   return (
     <DashboardLayout>
@@ -118,57 +142,28 @@ const Channels = () => {
           </CardContent>
         </Card>
 
-        {/* Telegram Setup */}
-        <TelegramSetup />
+        {/* Channel Setup Sections */}
+        <SafeRender label="Telegram Setup">
+          <TelegramSetup />
+        </SafeRender>
 
-        {/* Integration Endpoints */}
+        <SafeRender label="Email Setup">
+          <EmailSetup />
+        </SafeRender>
+
+        <SafeRender label="Website Chat Setup">
+          <WebsiteChatSetup />
+        </SafeRender>
+
+        <SafeRender label="Webhook Setup">
+          <WebhookSetup />
+        </SafeRender>
+
+        {/* Channel Registry with Real Statuses */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Integration Endpoints</CardTitle>
-            <CardDescription>Use these URLs to send data from external systems into your inbox.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="rounded-lg border border-border p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <Mail className="h-4 w-4" /> Email Ingest
-                </span>
-                <Button size="sm" variant="ghost" onClick={() => copyUrl(emailWebhookUrl)}>
-                  <Copy className="h-3 w-3 mr-1" /> Copy
-                </Button>
-              </div>
-              <code className="text-xs text-muted-foreground break-all">{emailWebhookUrl}</code>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <Globe className="h-4 w-4" /> Website Chat
-                </span>
-                <Button size="sm" variant="ghost" onClick={() => copyUrl(webchatWebhookUrl)}>
-                  <Copy className="h-3 w-3 mr-1" /> Copy
-                </Button>
-              </div>
-              <code className="text-xs text-muted-foreground break-all">{webchatWebhookUrl}</code>
-            </div>
-            <div className="rounded-lg border border-border p-3">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-foreground flex items-center gap-2">
-                  <Webhook className="h-4 w-4" /> Custom Webhook
-                </span>
-                <Button size="sm" variant="ghost" onClick={() => copyUrl(customWebhookUrl)}>
-                  <Copy className="h-3 w-3 mr-1" /> Copy
-                </Button>
-              </div>
-              <code className="text-xs text-muted-foreground break-all">{customWebhookUrl}</code>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Channel Registry */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Available Channels</CardTitle>
-            <CardDescription>All supported channel integrations.</CardDescription>
+            <CardTitle className="text-lg">All Channel Integrations</CardTitle>
+            <CardDescription>Real implementation status for every supported channel.</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue={Object.keys(categories)[0] || "messaging"}>
@@ -186,19 +181,20 @@ const Channels = () => {
               {Object.entries(categories).map(([cat, items]) => (
                 <TabsContent key={cat} value={cat}>
                   <div className="grid gap-2 sm:grid-cols-2">
-                    {items.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div>
-                          <span className="text-sm font-medium text-foreground">{item.name}</span>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground mt-0.5">{item.description}</p>
-                          )}
+                    {items.map((item) => {
+                      const info = getChannelStatus(item.id);
+                      return (
+                        <div key={item.id} className="rounded-lg border border-border p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-sm font-medium text-foreground">{item.name}</span>
+                            <Badge variant={info.variant} className="text-xs">
+                              {info.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">{info.explanation}</p>
                         </div>
-                        <Badge variant={item.is_available ? "default" : "outline"} className="text-xs">
-                          {item.is_available ? "Available" : "Coming Soon"}
-                        </Badge>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </TabsContent>
               ))}
