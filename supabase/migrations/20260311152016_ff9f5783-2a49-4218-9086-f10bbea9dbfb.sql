@@ -1,0 +1,1 @@
+UPDATE public.channel_registry SET is_available = true;
