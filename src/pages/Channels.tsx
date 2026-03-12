@@ -9,13 +9,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
-import { useChannelRegistry } from "@/hooks/useChannelRegistry";
+import { useChannelRegistry, ChannelRegistryItem } from "@/hooks/useChannelRegistry";
+import { ChannelCredentialSetup } from "@/components/ChannelCredentialSetup";
 import { TelegramSetup } from "@/components/TelegramSetup";
 import { EmailSetup } from "@/components/EmailSetup";
 import { WebsiteChatSetup } from "@/components/WebsiteChatSetup";
 import { WebhookSetup } from "@/components/WebhookSetup";
 import { SafeRender } from "@/components/SafeRender";
-import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook } from "lucide-react";
+import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Clock, CheckCircle2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -35,27 +36,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   voice: "Voice",
 };
 
-/* 
-  Channel implementation status mapping.
-  Each channel gets a real status and a short explanation.
-*/
+const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline"; icon: any }> = {
+  live: { label: "Live", variant: "default", icon: CheckCircle2 },
+  setup_ready: { label: "Available for Setup", variant: "secondary", icon: Settings2 },
+  coming_soon: { label: "Coming Soon", variant: "outline", icon: Clock },
+};
+
 const LIVE_CHANNELS = new Set(["telegram", "email", "website_chat", "custom_webhook"]);
-
-const CHANNEL_STATUS: Record<string, { status: string; variant: "default" | "secondary" | "outline" | "destructive"; explanation: string }> = {
-  telegram: { status: "Live", variant: "default", explanation: "Fully integrated. Connect your Telegram bot and start monitoring." },
-  email: { status: "Live", variant: "default", explanation: "Backend ingestion ready. Connect via IMAP or webhook forwarding." },
-  website_chat: { status: "Live", variant: "default", explanation: "Embed a chat widget on your website to capture visitor messages." },
-  custom_webhook: { status: "Live", variant: "default", explanation: "Send data from any external system via webhook endpoint." },
-};
-
-const getChannelStatus = (channelId: string) => {
-  if (CHANNEL_STATUS[channelId]) return CHANNEL_STATUS[channelId];
-  return { status: "Coming Soon", variant: "secondary" as const, explanation: "This integration is planned for a future release. Backend not yet available." };
-};
 
 const Channels = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState<ChannelData>({ channel_type: "telegram", channel_name: "" });
+  const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
   const { channels, isLoading, addChannel, toggleChannel, deleteChannel } = useChannels();
   const { registry } = useChannelRegistry();
 
@@ -69,7 +61,7 @@ const Channels = () => {
     });
   };
 
-  const categories = registry.reduce<Record<string, typeof registry>>((acc, item) => {
+  const categories = registry.reduce<Record<string, ChannelRegistryItem[]>>((acc, item) => {
     if (!acc[item.category]) acc[item.category] = [];
     acc[item.category].push(item);
     return acc;
@@ -132,27 +124,16 @@ const Channels = () => {
         </Card>
 
         {/* Channel Setup Sections */}
-        <SafeRender label="Telegram Setup">
-          <TelegramSetup />
-        </SafeRender>
+        <SafeRender label="Telegram Setup"><TelegramSetup /></SafeRender>
+        <SafeRender label="Email Setup"><EmailSetup /></SafeRender>
+        <SafeRender label="Website Chat Setup"><WebsiteChatSetup /></SafeRender>
+        <SafeRender label="Webhook Setup"><WebhookSetup /></SafeRender>
 
-        <SafeRender label="Email Setup">
-          <EmailSetup />
-        </SafeRender>
-
-        <SafeRender label="Website Chat Setup">
-          <WebsiteChatSetup />
-        </SafeRender>
-
-        <SafeRender label="Webhook Setup">
-          <WebhookSetup />
-        </SafeRender>
-
-        {/* Channel Registry with Real Statuses */}
+        {/* Channel Registry */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">All Channel Integrations</CardTitle>
-            <CardDescription>Real implementation status for every supported channel.</CardDescription>
+            <CardDescription>Configure and monitor integration status for every channel.</CardDescription>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue={Object.keys(categories)[0] || "messaging"}>
@@ -171,16 +152,53 @@ const Channels = () => {
                 <TabsContent key={cat} value={cat}>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {items.map((item) => {
-                      const info = getChannelStatus(item.id);
+                      const statusInfo = STATUS_CONFIG[item.integration_status] || STATUS_CONFIG.coming_soon;
+                      const StatusIcon = statusInfo.icon;
+                      const hasExistingChannel = channels.some((c) => c.channel_type === item.id);
+                      const canSetup = item.integration_status !== "coming_soon" && item.credential_fields.length > 0;
+
                       return (
                         <div key={item.id} className="rounded-lg border border-border p-3">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-medium text-foreground">{item.name}</span>
-                            <Badge variant={info.variant} className="text-xs">
-                              {info.status}
+                            <Badge variant={statusInfo.variant} className="text-xs gap-1">
+                              <StatusIcon className="h-3 w-3" />
+                              {statusInfo.label}
                             </Badge>
                           </div>
-                          <p className="text-xs text-muted-foreground">{info.explanation}</p>
+                          <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
+                          <div className="flex items-center justify-between">
+                            {hasExistingChannel && (
+                              <Badge variant="default" className="text-xs gap-1">
+                                <CheckCircle2 className="h-3 w-3" /> Connected
+                              </Badge>
+                            )}
+                            {canSetup && !hasExistingChannel && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => setSetupChannel(item)}
+                              >
+                                <Settings2 className="h-3 w-3 mr-1" /> Configure
+                              </Button>
+                            )}
+                            {canSetup && hasExistingChannel && (
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-xs h-7"
+                                onClick={() => setSetupChannel(item)}
+                              >
+                                <Settings2 className="h-3 w-3 mr-1" /> Update
+                              </Button>
+                            )}
+                            {!canSetup && !hasExistingChannel && (
+                              <span className="text-xs text-muted-foreground italic">
+                                {item.integration_status === "coming_soon" ? "Planned" : "Ready"}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
@@ -203,11 +221,11 @@ const Channels = () => {
                 <Select value={form.channel_type} onValueChange={(v) => setForm((f) => ({ ...f, channel_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                {registry
-                  .filter((r) => LIVE_CHANNELS.has(r.id))
-                  .map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                  ))}
+                    {registry
+                      .filter((r) => r.integration_status !== "coming_soon")
+                      .map((r) => (
+                        <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -226,6 +244,19 @@ const Channels = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Credential Setup Dialog */}
+        {setupChannel && (
+          <ChannelCredentialSetup
+            open={!!setupChannel}
+            channelId={setupChannel.id}
+            channelName={setupChannel.name}
+            setupInstructions={setupChannel.setup_instructions}
+            credentialFields={setupChannel.credential_fields}
+            integrationStatus={setupChannel.integration_status}
+            onClose={() => setSetupChannel(null)}
+          />
+        )}
       </div>
     </DashboardLayout>
   );
