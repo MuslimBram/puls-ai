@@ -10,13 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
 import { useChannelRegistry, ChannelRegistryItem } from "@/hooks/useChannelRegistry";
+import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { useIsAdmin } from "@/hooks/useAdmin";
 import { ChannelCredentialSetup } from "@/components/ChannelCredentialSetup";
 import { TelegramSetup } from "@/components/TelegramSetup";
 import { EmailSetup } from "@/components/EmailSetup";
 import { WebsiteChatSetup } from "@/components/WebsiteChatSetup";
 import { WebhookSetup } from "@/components/WebhookSetup";
 import { SafeRender } from "@/components/SafeRender";
-import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Clock, CheckCircle2 } from "lucide-react";
+import { PLAN_ORDER, PlanKey, PLANS } from "@/config/plans";
+import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 const CATEGORY_ICONS: Record<string, any> = {
