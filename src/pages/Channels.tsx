@@ -50,6 +50,15 @@ const Channels = () => {
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
   const { channels, isLoading, addChannel, toggleChannel, deleteChannel } = useChannels();
   const { registry } = useChannelRegistry();
+  const { currentPlanKey } = useFeatureGating();
+  const { isAdmin } = useIsAdmin();
+
+  const canAccessChannel = (minPlan: string) => {
+    if (isAdmin) return true;
+    const currentIdx = PLAN_ORDER.indexOf(currentPlanKey);
+    const requiredIdx = PLAN_ORDER.indexOf(minPlan as PlanKey);
+    return requiredIdx === -1 || currentIdx >= requiredIdx;
+  };
 
   const handleAdd = () => {
     if (!form.channel_name.trim()) return;
