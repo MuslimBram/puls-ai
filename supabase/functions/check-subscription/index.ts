@@ -41,8 +41,7 @@ serve(async (req) => {
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
     if (customers.data.length === 0) {
-      // Update local subscription to standard/free
-      await supabaseClient.from("subscriptions").update({ plan: "standard" }).eq("user_id", user.id);
+      await supabaseClient.from("subscriptions").update({ plan: "standard", subscription_status: "none" }).eq("user_id", user.id);
       return new Response(JSON.stringify({ subscribed: false, plan: "standard", status: "none" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -50,7 +49,6 @@ serve(async (req) => {
 
     const customerId = customers.data[0].id;
 
-    // Check active or trialing subscriptions
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
       limit: 1,
@@ -58,7 +56,7 @@ serve(async (req) => {
     });
 
     if (subscriptions.data.length === 0) {
-      await supabaseClient.from("subscriptions").update({ plan: "standard" }).eq("user_id", user.id);
+      await supabaseClient.from("subscriptions").update({ plan: "standard", subscription_status: "none" }).eq("user_id", user.id);
       return new Response(JSON.stringify({ subscribed: false, plan: "standard", status: "none" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -67,15 +65,30 @@ serve(async (req) => {
     const sub = subscriptions.data[0];
     const productId = sub.items.data[0]?.price?.product as string;
     const plan = PRODUCT_MAP[productId] || "standard";
-    const status = sub.status; // active, trialing, past_due, canceled, unpaid
+    const status = sub.status;
 
     // Sync to internal subscriptions table
-    await supabaseClient.from("subscriptions").update({
+    const updateData: Record<string, any> = {
       plan,
+      subscription_status: status,
+      stripe_customer_id: customerId,
+      stripe_subscription_id: sub.id,
       billing_cycle_start: new Date(sub.current_period_start * 1000).toISOString(),
-    }).eq("user_id", user.id);
+    };
+
+    if (sub.trial_start) updateData.trial_start = new Date(sub.trial_start * 1000).toISOString();
+    if (sub.trial_end) updateData.trial_end = new Date(sub.trial_end * 1000).toISOString();
+
+    await supabaseClient.from("subscriptions").update(updateData).eq("user_id", user.id);
 
     const isActive = ["active", "trialing"].includes(status);
+
+    // Get current usage for frontend
+    const { data: subData } = await supabaseClient
+      .from("subscriptions")
+      .select("leads_used, ai_replies_today, grace_period_end, trial_start, trial_end")
+      .eq("user_id", user.id)
+      .maybeSingle();
 
     return new Response(JSON.stringify({
       subscribed: isActive,
@@ -83,7 +96,11 @@ serve(async (req) => {
       status,
       subscription_end: new Date(sub.current_period_end * 1000).toISOString(),
       trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
+      trial_start: sub.trial_start ? new Date(sub.trial_start * 1000).toISOString() : null,
       cancel_at_period_end: sub.cancel_at_period_end,
+      grace_period_end: subData?.grace_period_end || null,
+      leads_used: subData?.leads_used || 0,
+      ai_replies_today: subData?.ai_replies_today || 0,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

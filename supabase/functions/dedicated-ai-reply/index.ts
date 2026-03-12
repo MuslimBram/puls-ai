@@ -7,6 +7,13 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const PLAN_LIMITS: Record<string, number> = {
+  standard: 20,
+  professional: 100,
+  advanced: 500,
+  enterprise: -1,
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -25,6 +32,48 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // --- ENFORCE AI REPLY DAILY LIMIT ---
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
+      .eq("user_id", user_id)
+      .maybeSingle();
+
+    const planMap: Record<string, string> = { free: "standard", pro: "professional" };
+    const plan = planMap[sub?.plan || "standard"] || sub?.plan || "standard";
+    const limit = PLAN_LIMITS[plan] ?? 20;
+
+    // Check if reset needed
+    const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
+    const now = new Date();
+    const hoursSinceReset = (now.getTime() - resetAt.getTime()) / (1000 * 60 * 60);
+    let currentUsed = hoursSinceReset >= 24 ? 0 : (sub?.ai_replies_today || 0);
+
+    if (limit !== -1 && currentUsed >= limit) {
+      return new Response(JSON.stringify({
+        error: `Daily AI reply limit reached (${currentUsed}/${limit}). Upgrade your plan for more AI replies.`,
+        limit_reached: true,
+      }), {
+        status: 429,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Check grace period / subscription status
+    const subStatus = sub?.subscription_status || "active";
+    if (["canceled", "unpaid"].includes(subStatus)) {
+      // Only allow standard limits
+      if (currentUsed >= PLAN_LIMITS.standard) {
+        return new Response(JSON.stringify({
+          error: "Your subscription has expired. Please renew to continue using AI replies.",
+          limit_reached: true,
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
 
     // Fetch business profile for context
     const { data: profile } = await supabase
@@ -113,6 +162,18 @@ Rules:
 
     const isAutoReply = complexity === "simple";
 
+    // --- INCREMENT AI REPLY COUNTER ---
+    if (hoursSinceReset >= 24) {
+      await supabase.from("subscriptions").update({
+        ai_replies_today: 1,
+        ai_replies_reset_at: now.toISOString(),
+      }).eq("user_id", user_id);
+    } else {
+      await supabase.from("subscriptions").update({
+        ai_replies_today: currentUsed + 1,
+      }).eq("user_id", user_id);
+    }
+
     // Save conversation
     const { data: conversation, error: convError } = await supabase.from("ai_conversations").insert({
       user_id,
@@ -136,7 +197,6 @@ Rules:
     );
 
     if (matchedKws.length > 0 || true) {
-      // Always create inbox message for tracking
       await supabase.from("inbox_messages").insert({
         user_id,
         channel_type: channel_type || "website_chat",
@@ -155,6 +215,8 @@ Rules:
       conversation_id: conversation?.id,
       is_auto_reply: isAutoReply,
       complexity,
+      ai_replies_used: currentUsed + 1,
+      ai_replies_limit: limit,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
