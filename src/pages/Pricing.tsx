@@ -36,9 +36,8 @@ const Pricing = () => {
       setEnterpriseOpen(true);
       return;
     }
-    if (plan === "standard") return;
 
-    const tier = STRIPE_TIERS[plan as Exclude<PlanKey, "standard">];
+    const tier = STRIPE_TIERS[plan];
     if (!tier) return;
 
     setLoadingPlan(plan);
