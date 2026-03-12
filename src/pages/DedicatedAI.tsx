@@ -18,7 +18,6 @@ const DedicatedAI = () => {
   const queryClient = useQueryClient();
   const [aiEnabled, setAiEnabled] = useState(true);
 
-  // Fetch AI conversations
   const { data: conversations = [], isLoading } = useQuery({
     queryKey: ["ai-conversations", user?.id],
     queryFn: async () => {
@@ -34,7 +33,6 @@ const DedicatedAI = () => {
     enabled: !!user,
   });
 
-  // Fetch feedback
   const { data: feedback = [] } = useQuery({
     queryKey: ["ai-feedback", user?.id],
     queryFn: async () => {
@@ -49,7 +47,6 @@ const DedicatedAI = () => {
     enabled: !!user,
   });
 
-  // Approve draft reply
   const approveDraft = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
@@ -60,7 +57,7 @@ const DedicatedAI = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ai-conversations"] });
-      toast.success("Përgjigja u aprovua dhe u dërgua");
+      toast.success("Reply approved and sent");
     },
   });
 
@@ -73,15 +70,14 @@ const DedicatedAI = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        {/* Header */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Bot className="h-5 w-5 text-primary" />
-              AI i Dedikuar
+              Dedicated AI
             </CardTitle>
             <CardDescription>
-              AI që skanon dhe i kthen përgjigje vizitorëve automatikisht bazuar në informacionet e biznesit tuaj.
+              AI that scans and automatically replies to visitors based on your business information.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -89,17 +85,16 @@ const DedicatedAI = () => {
               <div className="flex items-center gap-3">
                 <Switch checked={aiEnabled} onCheckedChange={setAiEnabled} />
                 <span className="text-sm font-medium text-foreground">
-                  {aiEnabled ? "AI Aktive — Skanim 24/7" : "AI e çaktivizuar"}
+                  {aiEnabled ? "AI Active — Scanning 24/7" : "AI Disabled"}
                 </span>
               </div>
               <Badge variant={aiEnabled ? "default" : "secondary"}>
-                {aiEnabled ? "🟢 Online" : "⚪ Offline"}
+                {aiEnabled ? "Online" : "Offline"}
               </Badge>
             </div>
           </CardContent>
         </Card>
 
-        {/* Stats */}
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardContent className="flex items-center gap-3 pt-6">
@@ -108,7 +103,7 @@ const DedicatedAI = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{conversations.length}</p>
-                <p className="text-xs text-muted-foreground">Biseda Totale</p>
+                <p className="text-xs text-muted-foreground">Total Conversations</p>
               </div>
             </CardContent>
           </Card>
@@ -119,7 +114,7 @@ const DedicatedAI = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{autoReplied.length}</p>
-                <p className="text-xs text-muted-foreground">Përgjigje Automatike</p>
+                <p className="text-xs text-muted-foreground">Auto Replies</p>
               </div>
             </CardContent>
           </Card>
@@ -130,7 +125,7 @@ const DedicatedAI = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{drafts.length}</p>
-                <p className="text-xs text-muted-foreground">Draft për Aprovim</p>
+                <p className="text-xs text-muted-foreground">Drafts for Approval</p>
               </div>
             </CardContent>
           </Card>
@@ -141,30 +136,29 @@ const DedicatedAI = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{avgRating}</p>
-                <p className="text-xs text-muted-foreground">Vlerësimi Mesatar</p>
+                <p className="text-xs text-muted-foreground">Average Rating</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Tabs */}
         <Tabs defaultValue="drafts">
           <TabsList>
             <TabsTrigger value="drafts" className="gap-1.5">
               <AlertCircle className="h-3.5 w-3.5" />
-              Draft ({drafts.length})
+              Drafts ({drafts.length})
             </TabsTrigger>
             <TabsTrigger value="auto" className="gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5" />
-              Automatike ({autoReplied.length})
+              Auto ({autoReplied.length})
             </TabsTrigger>
             <TabsTrigger value="all" className="gap-1.5">
               <MessageSquare className="h-3.5 w-3.5" />
-              Të gjitha
+              All
             </TabsTrigger>
             <TabsTrigger value="feedback" className="gap-1.5">
               <ThumbsUp className="h-3.5 w-3.5" />
-              Vlerësimet ({feedback.length})
+              Feedback ({feedback.length})
             </TabsTrigger>
           </TabsList>
 
@@ -173,7 +167,7 @@ const DedicatedAI = () => {
               <CardContent className="pt-6">
                 {drafts.length === 0 ? (
                   <p className="py-8 text-center text-sm text-muted-foreground">
-                    Nuk ka draft për aprovim. AI-ja i përgjigjet automatikisht pyetjeve të thjeshta.
+                    No drafts for approval. AI automatically replies to simple questions.
                   </p>
                 ) : (
                   <div className="space-y-3">
@@ -190,7 +184,7 @@ const DedicatedAI = () => {
             <Card>
               <CardContent className="pt-6">
                 {autoReplied.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">Asnjë përgjigje automatike ende.</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">No auto replies yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {autoReplied.slice(0, 20).map((conv: any) => (
@@ -210,7 +204,7 @@ const DedicatedAI = () => {
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   </div>
                 ) : conversations.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">Asnjë bisedë ende.</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">No conversations yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {conversations.slice(0, 30).map((conv: any) => (
@@ -226,7 +220,7 @@ const DedicatedAI = () => {
             <Card>
               <CardContent className="pt-6">
                 {feedback.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">Asnjë vlerësim ende.</p>
+                  <p className="py-8 text-center text-sm text-muted-foreground">No feedback yet.</p>
                 ) : (
                   <div className="space-y-3">
                     {feedback.map((f: any) => (
@@ -238,7 +232,7 @@ const DedicatedAI = () => {
                             <ThumbsDown className="h-4 w-4 text-destructive" />
                           )}
                           <span className="text-sm font-medium text-foreground">
-                            Vlerësimi: {f.rating}/5
+                            Rating: {f.rating}/5
                           </span>
                           <span className="text-xs text-muted-foreground ml-auto">
                             {(() => { try { return format(new Date(f.created_at), "MMM d, HH:mm"); } catch { return "—"; } })()}
@@ -264,14 +258,14 @@ const ConversationCard = ({ conv, onApprove }: { conv: any; onApprove?: () => vo
   <div className="rounded-lg border border-border p-3">
     <div className="flex items-center gap-2 mb-2">
       <span className="text-xs font-medium text-muted-foreground">
-        {conv.visitor_name || "Vizitor"}
+        {conv.visitor_name || "Visitor"}
       </span>
       <Badge variant="secondary" className="text-xs">{conv.channel_type}</Badge>
       <Badge variant={conv.is_auto_reply ? "default" : "outline"} className="text-xs">
         {conv.is_auto_reply ? "Auto" : "Draft"}
       </Badge>
       <Badge variant={conv.complexity === "simple" ? "secondary" : "destructive"} className="text-xs">
-        {conv.complexity === "simple" ? "E thjeshtë" : "Komplekse"}
+        {conv.complexity === "simple" ? "Simple" : "Complex"}
       </Badge>
       <span className="text-xs text-muted-foreground ml-auto">
         {(() => { try { return format(new Date(conv.created_at), "MMM d, HH:mm"); } catch { return "—"; } })()}
@@ -279,7 +273,7 @@ const ConversationCard = ({ conv, onApprove }: { conv: any; onApprove?: () => vo
     </div>
     <div className="space-y-2">
       <div className="rounded bg-muted p-2">
-        <p className="text-xs font-medium text-muted-foreground mb-0.5">Vizitori:</p>
+        <p className="text-xs font-medium text-muted-foreground mb-0.5">Visitor:</p>
         <p className="text-sm text-foreground">{conv.visitor_message}</p>
       </div>
       {conv.ai_reply && (
@@ -292,7 +286,7 @@ const ConversationCard = ({ conv, onApprove }: { conv: any; onApprove?: () => vo
     {onApprove && conv.is_draft && (
       <div className="mt-2 flex gap-2">
         <Button size="sm" onClick={onApprove}>
-          <CheckCircle2 className="h-3 w-3 mr-1" /> Aprovo & Dërgo
+          <CheckCircle2 className="h-3 w-3 mr-1" /> Approve & Send
         </Button>
       </div>
     )}

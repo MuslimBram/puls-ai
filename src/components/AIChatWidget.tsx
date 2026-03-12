@@ -41,7 +41,7 @@ export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) =
       setReply(data.reply);
       setConversationId(data.conversation_id);
     } catch {
-      toast.error("Nuk u dërgua mesazhi");
+      toast.error("Failed to send message");
     }
     setSending(false);
   };
@@ -57,9 +57,9 @@ export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) =
       });
       if (error) throw error;
       setFeedbackSent(true);
-      toast.success("Faleminderit për vlerësimin!");
+      toast.success("Thank you for your feedback!");
     } catch {
-      toast.error("Gabim gjatë dërgimit");
+      toast.error("Failed to send feedback");
     }
   };
 
@@ -99,29 +99,26 @@ export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) =
         {feedbackSent ? (
           <div className="flex flex-col items-center py-4 text-center">
             <CheckCircle2 className="h-8 w-8 text-primary mb-2" />
-            <p className="text-sm font-medium text-foreground">Faleminderit!</p>
-            <p className="text-xs text-muted-foreground">Vlerësimi juaj u regjistrua.</p>
+            <p className="text-sm font-medium text-foreground">Thank you!</p>
+            <p className="text-xs text-muted-foreground">Your feedback has been recorded.</p>
             <Button size="sm" variant="outline" className="mt-3" onClick={resetChat}>
-              Pyetje e re
+              New Question
             </Button>
           </div>
         ) : reply ? (
           <div className="space-y-3">
-            {/* Visitor message */}
             <div className="rounded bg-muted p-2">
-              <p className="text-xs text-muted-foreground mb-0.5">Ju:</p>
+              <p className="text-xs text-muted-foreground mb-0.5">You:</p>
               <p className="text-sm text-foreground">{message}</p>
             </div>
-            {/* AI reply */}
             <div className="rounded bg-primary/5 p-2">
               <p className="text-xs text-primary mb-0.5 flex items-center gap-1">
                 <Bot className="h-3 w-3" /> AI Assistant:
               </p>
               <p className="text-sm text-foreground">{reply}</p>
             </div>
-            {/* Feedback */}
             <div className="border-t border-border pt-3">
-              <p className="text-xs font-medium text-foreground mb-2">Sa u kënaqët me përgjigjen?</p>
+              <p className="text-xs font-medium text-foreground mb-2">How satisfied are you with this reply?</p>
               <div className="flex gap-1 mb-2">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -136,7 +133,7 @@ export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) =
                 ))}
               </div>
               <Textarea
-                placeholder="Shkruani komentin tuaj (opsionale)..."
+                placeholder="Write your comment (optional)..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 rows={2}
@@ -144,10 +141,10 @@ export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) =
               />
               <div className="flex gap-2 mt-2">
                 <Button size="sm" onClick={handleFeedback} disabled={!rating}>
-                  Dërgo Vlerësimin
+                  Send Feedback
                 </Button>
                 <Button size="sm" variant="outline" onClick={resetChat}>
-                  Pyetje e re
+                  New Question
                 </Button>
               </div>
             </div>
@@ -155,14 +152,14 @@ export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) =
         ) : (
           <>
             <p className="text-xs text-muted-foreground">
-              Përshëndetje! Unë jam AI Asistenti i dedikuar. Më pyesni për produktet, shërbimet ose çdo gjë tjetër.
+              Hello! I'm your dedicated AI Assistant. Ask me about products, services, or anything else.
             </p>
-            <Input placeholder="Emri juaj" value={name} onChange={(e) => setName(e.target.value)} />
-            <Input placeholder="Email juaj" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-            <Textarea placeholder="Shkruani pyetjen tuaj..." value={message} onChange={(e) => setMessage(e.target.value)} rows={3} />
+            <Input placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input placeholder="Your email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Textarea placeholder="Write your question..." value={message} onChange={(e) => setMessage(e.target.value)} rows={3} />
             <Button onClick={handleSend} disabled={sending || !message.trim()} className="w-full">
               <Send className="h-4 w-4 mr-2" />
-              {sending ? "Duke dërguar..." : "Dërgo"}
+              {sending ? "Sending..." : "Send"}
             </Button>
           </>
         )}
