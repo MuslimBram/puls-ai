@@ -11,7 +11,11 @@ export interface StripeSubscriptionData {
   status: string;
   subscription_end?: string;
   trial_end?: string | null;
+  trial_start?: string | null;
   cancel_at_period_end?: boolean;
+  grace_period_end?: string | null;
+  leads_used?: number;
+  ai_replies_today?: number;
 }
 
 export const useSubscription = () => {
@@ -44,7 +48,7 @@ export const useSubscription = () => {
       return data as StripeSubscriptionData;
     },
     enabled: !!user,
-    refetchInterval: 60000, // check every minute
+    refetchInterval: 60000,
     staleTime: 30000,
   });
 
@@ -60,7 +64,33 @@ export const useSubscription = () => {
     professional: "professional",
     advanced: "advanced",
   };
-  const currentPlan: PlanKey = planMap[rawPlan] ?? "standard";
+
+  // Determine effective plan considering grace period and trial
+  let currentPlan: PlanKey = planMap[rawPlan] ?? "standard";
+  
+  if (stripeData) {
+    const now = new Date();
+    const status = stripeData.status;
+    
+    // If trial expired, downgrade
+    if (status === "trialing" && stripeData.trial_end && new Date(stripeData.trial_end) < now) {
+      currentPlan = "standard";
+    }
+    
+    // If past_due, check grace period
+    if (status === "past_due") {
+      if (stripeData.grace_period_end && new Date(stripeData.grace_period_end) > now) {
+        // Keep current plan during grace
+      } else {
+        currentPlan = "standard";
+      }
+    }
+    
+    // If canceled/unpaid, always standard
+    if (["canceled", "unpaid"].includes(status)) {
+      currentPlan = "standard";
+    }
+  }
 
   return {
     subscription: dbQuery.data,

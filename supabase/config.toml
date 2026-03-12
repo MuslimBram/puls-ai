@@ -32,3 +32,12 @@ verify_jwt = false
 
 [functions.enforce-limits]
 verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.reset-usage]
+verify_jwt = false
+
+[functions.email-poll]
+verify_jwt = false
