@@ -26,6 +26,7 @@ import ConnectedAccounts from "./pages/ConnectedAccounts";
 import DedicatedAI from "./pages/DedicatedAI";
 import ContentCalendar from "./pages/ContentCalendar";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import Campaigns from "./pages/Campaigns";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
