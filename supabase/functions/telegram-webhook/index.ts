@@ -7,17 +7,41 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Rate limiter - generous for Telegram (high-volume groups)
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 300;
+const RATE_WINDOW = 60_000;
+
+function checkRateLimit(key: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_WINDOW });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "telegram";
+  if (!checkRateLimit(clientIp)) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
 
   try {
     const update = await req.json();
 
-    // Extract message from Telegram update
     const msg = update.message || update.channel_post;
     if (!msg || !msg.text) {
       return new Response(JSON.stringify({ ok: true, skipped: true }), {
@@ -26,25 +50,26 @@ serve(async (req) => {
     }
 
     const text = msg.text;
+    if (text.length > 10000) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "too_long" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const chatTitle = msg.chat?.title || msg.chat?.username || "Unknown";
-    const chatType = msg.chat?.type || "group";
     const senderName = msg.from
       ? [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ")
       : "Unknown";
     const senderId = msg.from?.id?.toString() || msg.chat?.id?.toString() || "";
     const messageDate = new Date((msg.date || Math.floor(Date.now() / 1000)) * 1000).toISOString();
 
-    // Fetch all active keywords across all users
+    // Fetch all active keywords
     const { data: allKeywords, error: kwError } = await supabase
       .from("keywords")
       .select("id, keyword, user_id")
       .eq("is_active", true);
 
-    if (kwError) {
-      console.error("Error fetching keywords:", kwError);
-      throw kwError;
-    }
-
+    if (kwError) { console.error("Error fetching keywords:", kwError); throw kwError; }
     if (!allKeywords || allKeywords.length === 0) {
       return new Response(JSON.stringify({ ok: true, no_keywords: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -52,13 +77,10 @@ serve(async (req) => {
     }
 
     const textLower = text.toLowerCase();
-    // Group keywords by user
     const userMatches: Record<string, { keywords: string[]; userId: string }> = {};
 
     for (const kw of allKeywords) {
-      const kwLower = kw.keyword.toLowerCase();
-      // Support exact and partial matching
-      if (textLower.includes(kwLower)) {
+      if (textLower.includes(kw.keyword.toLowerCase())) {
         if (!userMatches[kw.user_id]) {
           userMatches[kw.user_id] = { keywords: [], userId: kw.user_id };
         }
@@ -72,17 +94,24 @@ serve(async (req) => {
       });
     }
 
-    // Process each user's matches
     const results = [];
     for (const [userId, match] of Object.entries(userMatches)) {
-      // Fetch business profile for AI context
+      // Check if user is suspended
       const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_suspended")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (profile?.is_suspended) continue;
+
+      // Fetch business profile for AI context
+      const { data: bizProfile } = await supabase
         .from("business_profiles")
         .select("*")
         .eq("user_id", userId)
         .maybeSingle();
 
-      // Call AI analysis
       const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
       let analysis = {
         intent_score: 0.5,
@@ -104,32 +133,28 @@ serve(async (req) => {
               messages: [
                 {
                   role: "system",
-                  content: `You are a lead analysis AI. Analyze buying intent for keywords: ${match.keywords.join(", ")}.
-Business: ${profile?.business_name || "Unknown"}, Industry: ${profile?.industry || "General"}, Services: ${profile?.main_services || "Various"}.
-Tone: ${profile?.ai_tone || "professional"}, Language: ${profile?.language || "en"}`,
+                  content: `You are a lead analysis AI. Analyze buying intent for keywords: ${match.keywords.join(", ")}.\nBusiness: ${bizProfile?.business_name || "Unknown"}, Industry: ${bizProfile?.industry || "General"}, Services: ${bizProfile?.main_services || "Various"}.\nTone: ${bizProfile?.ai_tone || "professional"}, Language: ${bizProfile?.language || "en"}`,
                 },
                 { role: "user", content: `Analyze: "${text}"` },
               ],
-              tools: [
-                {
-                  type: "function",
-                  function: {
-                    name: "analyze_lead",
-                    description: "Return lead analysis",
-                    parameters: {
-                      type: "object",
-                      properties: {
-                        intent_score: { type: "number" },
-                        detected_keyword: { type: "string" },
-                        suggested_reply: { type: "string" },
-                        is_lead: { type: "boolean" },
-                      },
-                      required: ["intent_score", "detected_keyword", "suggested_reply", "is_lead"],
-                      additionalProperties: false,
+              tools: [{
+                type: "function",
+                function: {
+                  name: "analyze_lead",
+                  description: "Return lead analysis",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      intent_score: { type: "number" },
+                      detected_keyword: { type: "string" },
+                      suggested_reply: { type: "string" },
+                      is_lead: { type: "boolean" },
                     },
+                    required: ["intent_score", "detected_keyword", "suggested_reply", "is_lead"],
+                    additionalProperties: false,
                   },
                 },
-              ],
+              }],
               tool_choice: { type: "function", function: { name: "analyze_lead" } },
             }),
           });
@@ -137,9 +162,7 @@ Tone: ${profile?.ai_tone || "professional"}, Language: ${profile?.language || "e
           if (aiResponse.ok) {
             const aiData = await aiResponse.json();
             const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-            if (toolCall) {
-              analysis = JSON.parse(toolCall.function.arguments);
-            }
+            if (toolCall) analysis = JSON.parse(toolCall.function.arguments);
           } else {
             const errText = await aiResponse.text();
             console.error("AI analysis failed:", aiResponse.status, errText);
@@ -149,7 +172,6 @@ Tone: ${profile?.ai_tone || "professional"}, Language: ${profile?.language || "e
         }
       }
 
-      // Find user's telegram channel
       const { data: channel } = await supabase
         .from("channels")
         .select("id")
@@ -158,7 +180,6 @@ Tone: ${profile?.ai_tone || "professional"}, Language: ${profile?.language || "e
         .eq("is_enabled", true)
         .maybeSingle();
 
-      // Create lead if qualified
       if (analysis.is_lead && analysis.intent_score >= 0.3) {
         const { data: lead, error: leadErr } = await supabase
           .from("leads")
@@ -176,11 +197,8 @@ Tone: ${profile?.ai_tone || "professional"}, Language: ${profile?.language || "e
           .select("id")
           .single();
 
-        if (leadErr) {
-          console.error("Lead insert error:", leadErr);
-        }
+        if (leadErr) console.error("Lead insert error:", leadErr);
 
-        // Create inbox message linked to lead
         const { error: inboxErr } = await supabase.from("inbox_messages").insert({
           user_id: userId,
           channel_id: channel?.id || null,
@@ -199,7 +217,6 @@ Tone: ${profile?.ai_tone || "professional"}, Language: ${profile?.language || "e
         });
 
         if (inboxErr) console.error("Inbox insert error:", inboxErr);
-
         results.push({ userId, leadId: lead?.id, score: analysis.intent_score });
       }
     }
@@ -210,8 +227,7 @@ Tone: ${profile?.ai_tone || "professional"}, Language: ${profile?.language || "e
   } catch (e) {
     console.error("telegram-webhook error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

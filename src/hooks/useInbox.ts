@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useState, useCallback } from "react";
 
 export interface InboxFilters {
   channelType?: string;
@@ -11,18 +12,25 @@ export interface InboxFilters {
   search?: string;
 }
 
+const PAGE_SIZE = 30;
+
 export const useInbox = (filters: InboxFilters = {}) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [page, setPage] = useState(0);
 
   const query = useQuery({
-    queryKey: ["inbox", user?.id, filters],
+    queryKey: ["inbox", user?.id, filters, page],
     queryFn: async () => {
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
       let q = supabase
         .from("inbox_messages")
-        .select("*")
+        .select("*", { count: "exact" })
         .eq("user_id", user!.id)
-        .order("message_timestamp", { ascending: false });
+        .order("message_timestamp", { ascending: false })
+        .range(from, to);
 
       if (filters.channelType) q = q.eq("channel_type", filters.channelType);
       if (filters.status) q = q.eq("status", filters.status);
@@ -31,9 +39,9 @@ export const useInbox = (filters: InboxFilters = {}) => {
       if (filters.dateTo) q = q.lte("message_timestamp", filters.dateTo);
       if (filters.search) q = q.or(`message_content.ilike.%${filters.search}%,sender_name.ilike.%${filters.search}%`);
 
-      const { data, error } = await q;
+      const { data, error, count } = await q;
       if (error) throw error;
-      return data;
+      return { data: data ?? [], total: count ?? 0 };
     },
     enabled: !!user,
   });
@@ -71,7 +79,6 @@ export const useInbox = (filters: InboxFilters = {}) => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["inbox"] }),
   });
 
-  // Realtime subscription
   const subscribeRealtime = () => {
     return supabase
       .channel("inbox-realtime")
@@ -83,12 +90,27 @@ export const useInbox = (filters: InboxFilters = {}) => {
       .subscribe();
   };
 
+  const nextPage = useCallback(() => {
+    const total = query.data?.total ?? 0;
+    if ((page + 1) * PAGE_SIZE < total) setPage((p) => p + 1);
+  }, [page, query.data?.total]);
+
+  const prevPage = useCallback(() => {
+    if (page > 0) setPage((p) => p - 1);
+  }, [page]);
+
   return {
-    messages: query.data ?? [],
+    messages: query.data?.data ?? [],
+    total: query.data?.total ?? 0,
     isLoading: query.isLoading,
     markRead,
     updateStatus,
     updatePriority,
     subscribeRealtime,
+    page,
+    pageSize: PAGE_SIZE,
+    nextPage,
+    prevPage,
+    setPage,
   };
 };

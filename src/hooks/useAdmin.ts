@@ -1,6 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "@/components/ui/sonner";
 
 export const useIsAdmin = () => {
   const { user } = useAuth();
@@ -84,4 +85,55 @@ export const useAdminData = () => {
     subscriptions: subscriptions.data ?? [],
     isLoading: profiles.isLoading || businesses.isLoading || leads.isLoading,
   };
+};
+
+export const useAdminActions = () => {
+  const queryClient = useQueryClient();
+
+  const suspendUser = useMutation({
+    mutationFn: async ({ userId, suspend }: { userId: string; suspend: boolean }) => {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_suspended: suspend } as any)
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: (_, { suspend }) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      toast.success(suspend ? "User suspended" : "User reactivated");
+    },
+    onError: (e) => toast.error(`Failed: ${e.message}`),
+  });
+
+  const resetUsage = useMutation({
+    mutationFn: async (userId: string) => {
+      const { error } = await supabase
+        .from("subscriptions")
+        .update({ leads_used: 0, ai_replies_today: 0, ai_replies_reset_at: new Date().toISOString() })
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+      toast.success("Usage counters reset");
+    },
+    onError: (e) => toast.error(`Failed: ${e.message}`),
+  });
+
+  const updatePlan = useMutation({
+    mutationFn: async ({ userId, plan }: { userId: string; plan: string }) => {
+      const { error } = await supabase
+        .from("subscriptions")
+        .update({ plan, subscription_status: "active" })
+        .eq("user_id", userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+      toast.success("Plan updated");
+    },
+    onError: (e) => toast.error(`Failed: ${e.message}`),
+  });
+
+  return { suspendUser, resetUsage, updatePlan };
 };
