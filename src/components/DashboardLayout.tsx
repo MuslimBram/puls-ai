@@ -24,6 +24,7 @@ import {
   Link2,
   Bot,
   CalendarDays,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
@@ -35,6 +36,7 @@ const navItems = [
   { href: "/channels", label: "Channels", icon: Radio },
   { href: "/dedicated-ai", label: "AI i Dedikuar", icon: Bot },
   { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays },
+  { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
   { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/business-profile", label: "Business Profile", icon: Building2 },

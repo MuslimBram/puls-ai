@@ -436,6 +436,107 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_chunks: {
+        Row: {
+          chunk_index: number | null
+          content: string
+          content_type: string | null
+          created_at: string
+          id: string
+          page_title: string | null
+          page_url: string | null
+          source_id: string
+          summary: string | null
+          topic_tags: string[] | null
+          updated_at: string
+          user_id: string
+          word_count: number | null
+        }
+        Insert: {
+          chunk_index?: number | null
+          content: string
+          content_type?: string | null
+          created_at?: string
+          id?: string
+          page_title?: string | null
+          page_url?: string | null
+          source_id: string
+          summary?: string | null
+          topic_tags?: string[] | null
+          updated_at?: string
+          user_id: string
+          word_count?: number | null
+        }
+        Update: {
+          chunk_index?: number | null
+          content?: string
+          content_type?: string | null
+          created_at?: string
+          id?: string
+          page_title?: string | null
+          page_url?: string | null
+          source_id?: string
+          summary?: string | null
+          topic_tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+          word_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_sources: {
+        Row: {
+          created_at: string
+          id: string
+          is_enabled: boolean
+          last_scanned_at: string | null
+          metadata: Json | null
+          scan_frequency: string | null
+          source_name: string
+          source_type: string
+          source_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          last_scanned_at?: string | null
+          metadata?: Json | null
+          scan_frequency?: string | null
+          source_name: string
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          last_scanned_at?: string | null
+          metadata?: Json | null
+          scan_frequency?: string | null
+          source_name?: string
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           created_at: string
