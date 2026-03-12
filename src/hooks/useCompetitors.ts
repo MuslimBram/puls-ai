@@ -35,6 +35,19 @@ export interface CompetitorScan {
   scanned_at: string;
 }
 
+export interface CompetitorAlert {
+  id: string;
+  user_id: string;
+  competitor_id: string;
+  alert_type: string;
+  title: string;
+  description: string | null;
+  severity: string;
+  is_read: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface MarketTrend {
   id: string;
   trend_type: string;
