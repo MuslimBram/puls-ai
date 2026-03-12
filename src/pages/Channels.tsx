@@ -161,19 +161,31 @@ const Channels = () => {
                 <TabsContent key={cat} value={cat}>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {items.map((item) => {
-                      const statusInfo = STATUS_CONFIG[item.integration_status] || STATUS_CONFIG.coming_soon;
+                      const statusInfo = STATUS_CONFIG[item.integration_status] || STATUS_CONFIG.setup_ready;
                       const StatusIcon = statusInfo.icon;
                       const hasExistingChannel = channels.some((c) => c.channel_type === item.id);
-                      const canSetup = item.integration_status !== "coming_soon" && item.credential_fields.length > 0;
+                      const hasAccess = canAccessChannel(item.min_plan);
+                      const minPlanName = PLANS[item.min_plan as PlanKey]?.name || item.min_plan;
+                      const canSetup = hasAccess && item.credential_fields.length > 0;
 
                       return (
-                        <div key={item.id} className="rounded-lg border border-border p-3">
+                        <div key={item.id} className={`rounded-lg border p-3 ${!hasAccess ? 'border-border/50 opacity-75' : 'border-border'}`}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-medium text-foreground">{item.name}</span>
-                            <Badge variant={statusInfo.variant} className="text-xs gap-1">
-                              <StatusIcon className="h-3 w-3" />
-                              {statusInfo.label}
-                            </Badge>
+                            <div className="flex items-center gap-1.5">
+                              {!hasAccess && (
+                                <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary">
+                                  <Crown className="h-3 w-3" />
+                                  {minPlanName}+
+                                </Badge>
+                              )}
+                              {hasAccess && (
+                                <Badge variant={statusInfo.variant} className="text-xs gap-1">
+                                  <StatusIcon className="h-3 w-3" />
+                                  {item.integration_status === 'live' ? 'Live' : 'Setup Required'}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
                           <div className="flex items-center justify-between">
@@ -202,10 +214,15 @@ const Channels = () => {
                                 <Settings2 className="h-3 w-3 mr-1" /> Update
                               </Button>
                             )}
-                            {!canSetup && !hasExistingChannel && (
-                              <span className="text-xs text-muted-foreground italic">
-                                {item.integration_status === "coming_soon" ? "Planned" : "Ready"}
-                              </span>
+                            {!hasAccess && !hasExistingChannel && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => window.location.href = '/pricing'}
+                              >
+                                <Lock className="h-3 w-3 mr-1" /> Upgrade to {minPlanName}
+                              </Button>
                             )}
                           </div>
                         </div>
