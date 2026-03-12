@@ -6,7 +6,12 @@ export interface StripeTier {
   plan_key: PlanKey;
 }
 
-export const STRIPE_TIERS: Record<Exclude<PlanKey, "standard">, StripeTier> = {
+export const STRIPE_TIERS: Record<PlanKey, StripeTier> = {
+  standard: {
+    price_id: "price_1TA9mPFID0obr3HVH9l0uCbE",
+    product_id: "prod_U8Qdd9foXaeqnn",
+    plan_key: "standard",
+  },
   professional: {
     price_id: "price_1TA59pFID0obr3HVpqCTF69N",
     product_id: "prod_U8Lr5611OwyJSV",
@@ -28,4 +33,3 @@ export const STRIPE_TIERS: Record<Exclude<PlanKey, "standard">, StripeTier> = {
 export const productToPlan: Record<string, PlanKey> = Object.fromEntries(
   Object.values(STRIPE_TIERS).map((t) => [t.product_id, t.plan_key])
 );
-// Standard is the free/default tier (no Stripe product)

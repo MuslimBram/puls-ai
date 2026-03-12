@@ -175,8 +175,6 @@ const Pricing = () => {
 
                   {isCurrent ? (
                     <Button disabled className="w-full">Current Plan</Button>
-                  ) : key === "standard" ? (
-                    <Button disabled variant="outline" className="w-full">Free Plan</Button>
                   ) : (
                     <Button
                       className="w-full"

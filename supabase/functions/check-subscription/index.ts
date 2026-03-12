@@ -9,6 +9,7 @@ const corsHeaders = {
 
 // product_id → plan key mapping
 const PRODUCT_MAP: Record<string, string> = {
+  "prod_U8Qdd9foXaeqnn": "standard",
   "prod_U8LrDc0TasNxNH": "standard",
   "prod_U8Lr5611OwyJSV": "professional",
   "prod_U8LrRodC8eZsTT": "advanced",
