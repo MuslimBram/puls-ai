@@ -451,6 +451,63 @@ export type Database = {
           },
         ]
       }
+      competitor_alerts: {
+        Row: {
+          alert_type: string
+          competitor_id: string
+          created_at: string
+          description: string | null
+          id: string
+          is_read: boolean
+          metadata: Json | null
+          severity: string
+          title: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          alert_type?: string
+          competitor_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          severity?: string
+          title: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          competitor_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_read?: boolean
+          metadata?: Json | null
+          severity?: string
+          title?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_alerts_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_alerts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitor_scans: {
         Row: {
           competitor_id: string
@@ -524,6 +581,9 @@ export type Database = {
           is_active: boolean | null
           last_scanned_at: string | null
           name: string
+          posting_frequency: Json | null
+          previous_scan_data: Json | null
+          pricing_snapshot: Json | null
           scan_frequency: string | null
           social_urls: Json | null
           updated_at: string
@@ -543,6 +603,9 @@ export type Database = {
           is_active?: boolean | null
           last_scanned_at?: string | null
           name: string
+          posting_frequency?: Json | null
+          previous_scan_data?: Json | null
+          pricing_snapshot?: Json | null
           scan_frequency?: string | null
           social_urls?: Json | null
           updated_at?: string
@@ -562,6 +625,9 @@ export type Database = {
           is_active?: boolean | null
           last_scanned_at?: string | null
           name?: string
+          posting_frequency?: Json | null
+          previous_scan_data?: Json | null
+          pricing_snapshot?: Json | null
           scan_frequency?: string | null
           social_urls?: Json | null
           updated_at?: string
