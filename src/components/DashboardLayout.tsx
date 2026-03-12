@@ -30,6 +30,7 @@ import {
   CalendarDays,
   BookOpen,
   Megaphone,
+  Search,
 } from "lucide-react";
 
 const navItems = [
