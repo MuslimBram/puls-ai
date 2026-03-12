@@ -37,7 +37,7 @@ serve(async (req) => {
       .eq("user_id", userId)
       .single();
 
-    // Get content knowledge
+    // Get content knowledge (legacy)
     const { data: knowledge } = await supabase
       .from("content_knowledge")
       .select("extracted_data")
@@ -45,12 +45,23 @@ serve(async (req) => {
       .order("scanned_at", { ascending: false })
       .limit(3);
 
+    // Get knowledge base chunks for richer context
+    const { data: kbChunks } = await supabase
+      .from("knowledge_chunks")
+      .select("content, topic_tags, content_type")
+      .eq("user_id", userId)
+      .limit(15);
+
     const businessContext = profile
       ? `Business: ${profile.business_name}. Industry: ${profile.industry || "N/A"}. Services: ${profile.main_services || "N/A"}. Audience: ${profile.target_audience || "N/A"}. Tone: ${profile.ai_tone || "professional"}. Description: ${profile.short_description || "N/A"}.`
       : "No business profile available.";
 
     const knowledgeContext = knowledge?.length
       ? `Scanned data: ${JSON.stringify(knowledge.map(k => k.extracted_data).slice(0, 2))}`
+      : "";
+
+    const kbContext = kbChunks?.length
+      ? `\n\nDetailed Knowledge Base:\n${kbChunks.slice(0, 8).map(c => `[${c.content_type}] ${c.content.slice(0, 300)}`).join("\n---\n")}`
       : "";
 
     const contentTypePrompts: Record<string, string> = {
