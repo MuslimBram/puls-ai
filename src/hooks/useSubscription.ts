@@ -40,6 +40,7 @@ export interface StripeSubscriptionData {
 
 export const useSubscription = () => {
   const { user } = useAuth();
+  const isAdminRole = useIsAdminRole();
 
   // Local DB subscription
   const dbQuery = useQuery({
