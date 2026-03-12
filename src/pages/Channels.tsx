@@ -49,7 +49,8 @@ const CHANNEL_STATUS: Record<string, { status: string; variant: "default" | "sec
 };
 
 const getChannelStatus = (channelId: string) => {
-  return CHANNEL_STATUS[channelId] || { status: "Planned", variant: "secondary" as const, explanation: "This channel is planned for a future release." };
+  if (CHANNEL_STATUS[channelId]) return CHANNEL_STATUS[channelId];
+  return { status: "Coming Soon", variant: "secondary" as const, explanation: "This integration is planned for a future release. Backend not yet available." };
 };
 
 const Channels = () => {
