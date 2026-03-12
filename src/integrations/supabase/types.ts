@@ -363,29 +363,38 @@ export type Database = {
         Row: {
           category: string
           config_schema: Json | null
+          credential_fields: Json | null
           description: string | null
           icon: string | null
           id: string
+          integration_status: string
           is_available: boolean
           name: string
+          setup_instructions: string | null
         }
         Insert: {
           category: string
           config_schema?: Json | null
+          credential_fields?: Json | null
           description?: string | null
           icon?: string | null
           id: string
+          integration_status?: string
           is_available?: boolean
           name: string
+          setup_instructions?: string | null
         }
         Update: {
           category?: string
           config_schema?: Json | null
+          credential_fields?: Json | null
           description?: string | null
           icon?: string | null
           id?: string
+          integration_status?: string
           is_available?: boolean
           name?: string
+          setup_instructions?: string | null
         }
         Relationships: []
       }
