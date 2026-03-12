@@ -248,7 +248,7 @@ const Channels = () => {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {registry
-                      .filter((r) => r.integration_status !== "coming_soon")
+                      .filter((r) => canAccessChannel(r.min_plan))
                       .map((r) => (
                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                       ))}

@@ -20,6 +20,7 @@ export interface ChannelRegistryItem {
   integration_status: string;
   setup_instructions: string | null;
   credential_fields: CredentialFieldDef[];
+  min_plan: string;
 }
 
 export const useChannelRegistry = () => {
