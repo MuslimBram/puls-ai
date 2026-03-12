@@ -77,8 +77,8 @@ const VisitorIntelligence = () => {
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-5">
           {[
             { label: "Curious", key: "curious_visitor", icon: Eye, color: "text-muted-foreground" },
-            { label: "Interested", key: "interested_lead", icon: Activity, color: "text-blue-500" },
-            { label: "Potential Buyer", key: "potential_buyer", icon: Target, color: "text-orange-500" },
+            { label: "Interested", key: "interested_lead", icon: Activity, color: "text-primary" },
+            { label: "Potential Buyer", key: "potential_buyer", icon: Target, color: "text-accent-foreground" },
             { label: "High-Value", key: "high_value_prospect", icon: TrendingUp, color: "text-destructive" },
             { label: "Promoter", key: "promoter", icon: Zap, color: "text-primary" },
           ].map(({ label, key, icon: Icon, color }) => (
