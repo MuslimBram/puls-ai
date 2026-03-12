@@ -53,6 +53,7 @@ const App = () => (
   <ErrorBoundary fallback={<PageErrorFallback />}>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <WorkspaceProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
