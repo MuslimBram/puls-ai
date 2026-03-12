@@ -75,7 +75,7 @@ serve(async (req) => {
     const systemPrompt = `You are a social media content strategist. Generate ${postCount} unique social media posts.
 
 ${businessContext}
-${knowledgeContext}
+${knowledgeContext}${kbContext}
 
 ${contentTypePrompts[type] || contentTypePrompts.promotional}
 
