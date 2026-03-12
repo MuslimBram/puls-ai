@@ -10,13 +10,16 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
 import { useChannelRegistry, ChannelRegistryItem } from "@/hooks/useChannelRegistry";
+import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { useIsAdmin } from "@/hooks/useAdmin";
 import { ChannelCredentialSetup } from "@/components/ChannelCredentialSetup";
 import { TelegramSetup } from "@/components/TelegramSetup";
 import { EmailSetup } from "@/components/EmailSetup";
 import { WebsiteChatSetup } from "@/components/WebsiteChatSetup";
 import { WebhookSetup } from "@/components/WebhookSetup";
 import { SafeRender } from "@/components/SafeRender";
-import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Clock, CheckCircle2 } from "lucide-react";
+import { PLAN_ORDER, PlanKey, PLANS } from "@/config/plans";
+import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -38,11 +41,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline"; icon: any }> = {
   live: { label: "Live", variant: "default", icon: CheckCircle2 },
-  setup_ready: { label: "Available for Setup", variant: "secondary", icon: Settings2 },
-  coming_soon: { label: "Coming Soon", variant: "outline", icon: Clock },
+  setup_ready: { label: "Setup Required", variant: "secondary", icon: Settings2 },
 };
-
-const LIVE_CHANNELS = new Set(["telegram", "email", "website_chat", "custom_webhook"]);
 
 const Channels = () => {
   const [showAdd, setShowAdd] = useState(false);
@@ -50,6 +50,15 @@ const Channels = () => {
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
   const { channels, isLoading, addChannel, toggleChannel, deleteChannel } = useChannels();
   const { registry } = useChannelRegistry();
+  const { currentPlanKey } = useFeatureGating();
+  const { isAdmin } = useIsAdmin();
+
+  const canAccessChannel = (minPlan: string) => {
+    if (isAdmin) return true;
+    const currentIdx = PLAN_ORDER.indexOf(currentPlanKey);
+    const requiredIdx = PLAN_ORDER.indexOf(minPlan as PlanKey);
+    return requiredIdx === -1 || currentIdx >= requiredIdx;
+  };
 
   const handleAdd = () => {
     if (!form.channel_name.trim()) return;
@@ -152,19 +161,31 @@ const Channels = () => {
                 <TabsContent key={cat} value={cat}>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {items.map((item) => {
-                      const statusInfo = STATUS_CONFIG[item.integration_status] || STATUS_CONFIG.coming_soon;
+                      const statusInfo = STATUS_CONFIG[item.integration_status] || STATUS_CONFIG.setup_ready;
                       const StatusIcon = statusInfo.icon;
                       const hasExistingChannel = channels.some((c) => c.channel_type === item.id);
-                      const canSetup = item.integration_status !== "coming_soon" && item.credential_fields.length > 0;
+                      const hasAccess = canAccessChannel(item.min_plan);
+                      const minPlanName = PLANS[item.min_plan as PlanKey]?.name || item.min_plan;
+                      const canSetup = hasAccess && item.credential_fields.length > 0;
 
                       return (
-                        <div key={item.id} className="rounded-lg border border-border p-3">
+                        <div key={item.id} className={`rounded-lg border p-3 ${!hasAccess ? 'border-border/50 opacity-75' : 'border-border'}`}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-sm font-medium text-foreground">{item.name}</span>
-                            <Badge variant={statusInfo.variant} className="text-xs gap-1">
-                              <StatusIcon className="h-3 w-3" />
-                              {statusInfo.label}
-                            </Badge>
+                            <div className="flex items-center gap-1.5">
+                              {!hasAccess && (
+                                <Badge variant="outline" className="text-xs gap-1 border-primary/30 text-primary">
+                                  <Crown className="h-3 w-3" />
+                                  {minPlanName}+
+                                </Badge>
+                              )}
+                              {hasAccess && (
+                                <Badge variant={statusInfo.variant} className="text-xs gap-1">
+                                  <StatusIcon className="h-3 w-3" />
+                                  {item.integration_status === 'live' ? 'Live' : 'Setup Required'}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           <p className="text-xs text-muted-foreground mb-2">{item.description}</p>
                           <div className="flex items-center justify-between">
@@ -193,10 +214,15 @@ const Channels = () => {
                                 <Settings2 className="h-3 w-3 mr-1" /> Update
                               </Button>
                             )}
-                            {!canSetup && !hasExistingChannel && (
-                              <span className="text-xs text-muted-foreground italic">
-                                {item.integration_status === "coming_soon" ? "Planned" : "Ready"}
-                              </span>
+                            {!hasAccess && !hasExistingChannel && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs h-7"
+                                onClick={() => window.location.href = '/pricing'}
+                              >
+                                <Lock className="h-3 w-3 mr-1" /> Upgrade to {minPlanName}
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -222,7 +248,7 @@ const Channels = () => {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {registry
-                      .filter((r) => r.integration_status !== "coming_soon")
+                      .filter((r) => canAccessChannel(r.min_plan))
                       .map((r) => (
                         <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
                       ))}

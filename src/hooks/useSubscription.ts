@@ -5,6 +5,26 @@ import { PlanKey, PLANS } from "@/config/plans";
 
 export { PLANS, type PlanKey } from "@/config/plans";
 
+const useIsAdminRole = () => {
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: ["user-role-admin-check", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user!.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!user,
+    staleTime: 300000,
+  });
+  return query.data ?? false;
+};
+
 export interface StripeSubscriptionData {
   subscribed: boolean;
   plan: PlanKey;
@@ -20,6 +40,7 @@ export interface StripeSubscriptionData {
 
 export const useSubscription = () => {
   const { user } = useAuth();
+  const isAdminRole = useIsAdminRole();
 
   // Local DB subscription
   const dbQuery = useQuery({
@@ -65,6 +86,18 @@ export const useSubscription = () => {
     advanced: "advanced",
   };
 
+  // Admin bypass: always enterprise
+  if (isAdminRole) {
+    return {
+      subscription: dbQuery.data,
+      isLoading: dbQuery.isLoading || stripeQuery.isLoading,
+      currentPlan: "enterprise" as PlanKey,
+      planDetails: PLANS["enterprise"],
+      stripeData: stripeData ?? null,
+      refetchStripe: stripeQuery.refetch,
+    };
+  }
+
   // Determine effective plan considering grace period and trial
   let currentPlan: PlanKey = planMap[rawPlan] ?? "standard";
   
@@ -72,12 +105,10 @@ export const useSubscription = () => {
     const now = new Date();
     const status = stripeData.status;
     
-    // If trial expired, downgrade
     if (status === "trialing" && stripeData.trial_end && new Date(stripeData.trial_end) < now) {
       currentPlan = "standard";
     }
     
-    // If past_due, check grace period
     if (status === "past_due") {
       if (stripeData.grace_period_end && new Date(stripeData.grace_period_end) > now) {
         // Keep current plan during grace
@@ -86,7 +117,6 @@ export const useSubscription = () => {
       }
     }
     
-    // If canceled/unpaid, always standard
     if (["canceled", "unpaid"].includes(status)) {
       currentPlan = "standard";
     }

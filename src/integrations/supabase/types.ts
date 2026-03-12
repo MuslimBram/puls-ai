@@ -369,6 +369,7 @@ export type Database = {
           id: string
           integration_status: string
           is_available: boolean
+          min_plan: string
           name: string
           setup_instructions: string | null
         }
@@ -381,6 +382,7 @@ export type Database = {
           id: string
           integration_status?: string
           is_available?: boolean
+          min_plan?: string
           name: string
           setup_instructions?: string | null
         }
@@ -393,6 +395,7 @@ export type Database = {
           id?: string
           integration_status?: string
           is_available?: boolean
+          min_plan?: string
           name?: string
           setup_instructions?: string | null
         }
