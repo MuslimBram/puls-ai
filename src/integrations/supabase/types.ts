@@ -200,6 +200,165 @@ export type Database = {
           },
         ]
       }
+      campaign_content: {
+        Row: {
+          body: string
+          campaign_id: string
+          content_post_id: string | null
+          content_type: string
+          created_at: string
+          funnel_stage: string
+          hashtags: string[] | null
+          id: string
+          media_suggestion: string | null
+          sort_order: number | null
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          body: string
+          campaign_id: string
+          content_post_id?: string | null
+          content_type?: string
+          created_at?: string
+          funnel_stage?: string
+          hashtags?: string[] | null
+          id?: string
+          media_suggestion?: string | null
+          sort_order?: number | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          body?: string
+          campaign_id?: string
+          content_post_id?: string | null
+          content_type?: string
+          created_at?: string
+          funnel_stage?: string
+          hashtags?: string[] | null
+          id?: string
+          media_suggestion?: string | null
+          sort_order?: number | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_content_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_content_content_post_id_fkey"
+            columns: ["content_post_id"]
+            isOneToOne: false
+            referencedRelation: "content_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_content_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          ai_generated: boolean | null
+          audience_personas: Json | null
+          budget_max: number | null
+          budget_min: number | null
+          created_at: string
+          cta_strategy: string | null
+          duration_end: string | null
+          duration_start: string | null
+          expected_kpis: Json | null
+          funnel_stages: Json | null
+          id: string
+          messaging_pillars: Json | null
+          name: string
+          objective: string
+          positioning_statement: string | null
+          preferred_channels: string[] | null
+          status: string
+          target_audience: string | null
+          updated_at: string
+          user_id: string
+          value_proposition: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          audience_personas?: Json | null
+          budget_max?: number | null
+          budget_min?: number | null
+          created_at?: string
+          cta_strategy?: string | null
+          duration_end?: string | null
+          duration_start?: string | null
+          expected_kpis?: Json | null
+          funnel_stages?: Json | null
+          id?: string
+          messaging_pillars?: Json | null
+          name: string
+          objective?: string
+          positioning_statement?: string | null
+          preferred_channels?: string[] | null
+          status?: string
+          target_audience?: string | null
+          updated_at?: string
+          user_id: string
+          value_proposition?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          audience_personas?: Json | null
+          budget_max?: number | null
+          budget_min?: number | null
+          created_at?: string
+          cta_strategy?: string | null
+          duration_end?: string | null
+          duration_start?: string | null
+          expected_kpis?: Json | null
+          funnel_stages?: Json | null
+          id?: string
+          messaging_pillars?: Json | null
+          name?: string
+          objective?: string
+          positioning_statement?: string | null
+          preferred_channels?: string[] | null
+          status?: string
+          target_audience?: string | null
+          updated_at?: string
+          user_id?: string
+          value_proposition?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_registry: {
         Row: {
           category: string
