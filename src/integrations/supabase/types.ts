@@ -439,6 +439,134 @@ export type Database = {
           },
         ]
       }
+      competitor_scans: {
+        Row: {
+          competitor_id: string
+          content_summary: string | null
+          created_at: string
+          detected_topics: string[] | null
+          id: string
+          promotion_signals: string[] | null
+          raw_data: Json | null
+          scan_type: string
+          scanned_at: string
+          source_url: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          competitor_id: string
+          content_summary?: string | null
+          created_at?: string
+          detected_topics?: string[] | null
+          id?: string
+          promotion_signals?: string[] | null
+          raw_data?: Json | null
+          scan_type?: string
+          scanned_at?: string
+          source_url?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          competitor_id?: string
+          content_summary?: string | null
+          created_at?: string
+          detected_topics?: string[] | null
+          id?: string
+          promotion_signals?: string[] | null
+          raw_data?: Json | null
+          scan_type?: string
+          scanned_at?: string
+          source_url?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_scans_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_scans_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitors: {
+        Row: {
+          ai_content_themes: Json | null
+          ai_engagement_style: string | null
+          ai_opportunities: Json | null
+          ai_positioning: string | null
+          ai_summary: string | null
+          category: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_scanned_at: string | null
+          name: string
+          scan_frequency: string | null
+          social_urls: Json | null
+          updated_at: string
+          user_id: string
+          website_url: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_content_themes?: Json | null
+          ai_engagement_style?: string | null
+          ai_opportunities?: Json | null
+          ai_positioning?: string | null
+          ai_summary?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_scanned_at?: string | null
+          name: string
+          scan_frequency?: string | null
+          social_urls?: Json | null
+          updated_at?: string
+          user_id: string
+          website_url?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_content_themes?: Json | null
+          ai_engagement_style?: string | null
+          ai_opportunities?: Json | null
+          ai_positioning?: string | null
+          ai_summary?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_scanned_at?: string | null
+          name?: string
+          scan_frequency?: string | null
+          social_urls?: Json | null
+          updated_at?: string
+          user_id?: string
+          website_url?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitors_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_ideas: {
         Row: {
           content_type: string
@@ -883,6 +1011,53 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "leads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_trends: {
+        Row: {
+          created_at: string
+          first_seen_at: string | null
+          frequency: number | null
+          id: string
+          last_seen_at: string | null
+          source_competitor_ids: string[] | null
+          trend_type: string
+          trend_value: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_seen_at?: string | null
+          frequency?: number | null
+          id?: string
+          last_seen_at?: string | null
+          source_competitor_ids?: string[] | null
+          trend_type?: string
+          trend_value: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_seen_at?: string | null
+          frequency?: number | null
+          id?: string
+          last_seen_at?: string | null
+          source_competitor_ids?: string[] | null
+          trend_type?: string
+          trend_value?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_trends_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
