@@ -23,6 +23,15 @@ export const useKeywords = () => {
 
   const addKeyword = useMutation({
     mutationFn: async (keyword: string) => {
+      // Server-side limit enforcement
+      const { data: limitCheck, error: limitError } = await supabase.functions.invoke("enforce-limits", {
+        body: { action: "add", resource: "keywords" },
+      });
+      if (limitError) throw new Error(limitError.message || "Failed to check limits");
+      if (limitCheck && !limitCheck.allowed) {
+        throw new Error(limitCheck.error || "Keyword limit reached. Please upgrade your plan.");
+      }
+
       const { error } = await supabase
         .from("keywords")
         .insert({ keyword: keyword.toLowerCase().trim(), user_id: user!.id });
@@ -37,10 +46,7 @@ export const useKeywords = () => {
 
   const toggleKeyword = useMutation({
     mutationFn: async ({ id, is_active }: { id: string; is_active: boolean }) => {
-      const { error } = await supabase
-        .from("keywords")
-        .update({ is_active })
-        .eq("id", id);
+      const { error } = await supabase.from("keywords").update({ is_active }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["keywords"] }),

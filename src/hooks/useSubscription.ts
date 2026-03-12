@@ -5,10 +5,20 @@ import { PlanKey, PLANS } from "@/config/plans";
 
 export { PLANS, type PlanKey } from "@/config/plans";
 
+export interface StripeSubscriptionData {
+  subscribed: boolean;
+  plan: PlanKey;
+  status: string;
+  subscription_end?: string;
+  trial_end?: string | null;
+  cancel_at_period_end?: boolean;
+}
+
 export const useSubscription = () => {
   const { user } = useAuth();
 
-  const query = useQuery({
+  // Local DB subscription
+  const dbQuery = useQuery({
     queryKey: ["subscription", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -22,8 +32,26 @@ export const useSubscription = () => {
     enabled: !!user,
   });
 
-  // Map old plan names to new ones
-  const rawPlan = query.data?.plan ?? "free";
+  // Stripe subscription check
+  const stripeQuery = useQuery({
+    queryKey: ["stripe-subscription", user?.id],
+    queryFn: async (): Promise<StripeSubscriptionData> => {
+      const { data, error } = await supabase.functions.invoke("check-subscription");
+      if (error) {
+        console.error("check-subscription error:", error);
+        return { subscribed: false, plan: "standard", status: "none" };
+      }
+      return data as StripeSubscriptionData;
+    },
+    enabled: !!user,
+    refetchInterval: 60000, // check every minute
+    staleTime: 30000,
+  });
+
+  // Use Stripe data if available, otherwise fall back to DB
+  const stripeData = stripeQuery.data;
+  const rawPlan = stripeData?.plan ?? dbQuery.data?.plan ?? "free";
+  
   const planMap: Record<string, PlanKey> = {
     free: "standard",
     pro: "professional",
@@ -35,9 +63,11 @@ export const useSubscription = () => {
   const currentPlan: PlanKey = planMap[rawPlan] ?? "standard";
 
   return {
-    subscription: query.data,
-    isLoading: query.isLoading,
+    subscription: dbQuery.data,
+    isLoading: dbQuery.isLoading || stripeQuery.isLoading,
     currentPlan,
     planDetails: PLANS[currentPlan],
+    stripeData: stripeData ?? null,
+    refetchStripe: stripeQuery.refetch,
   };
 };
