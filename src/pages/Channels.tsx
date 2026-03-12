@@ -203,9 +203,11 @@ const Channels = () => {
                 <Select value={form.channel_type} onValueChange={(v) => setForm((f) => ({ ...f, channel_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {registry.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                    ))}
+                {registry
+                  .filter((r) => LIVE_CHANNELS.has(r.id))
+                  .map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
                   </SelectContent>
                 </Select>
               </div>
