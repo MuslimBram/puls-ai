@@ -5,6 +5,26 @@ import { PlanKey, PLANS } from "@/config/plans";
 
 export { PLANS, type PlanKey } from "@/config/plans";
 
+const useIsAdminRole = () => {
+  const { user } = useAuth();
+  const query = useQuery({
+    queryKey: ["user-role-admin-check", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user!.id)
+        .eq("role", "admin")
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!user,
+    staleTime: 300000,
+  });
+  return query.data ?? false;
+};
+
 export interface StripeSubscriptionData {
   subscribed: boolean;
   plan: PlanKey;
