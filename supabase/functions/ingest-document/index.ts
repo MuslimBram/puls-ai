@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+// @ts-ignore - pdf-parse for Deno
+import pdfParse from "npm:pdf-parse@1.1.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,10 +59,47 @@ serve(async (req) => {
       
       if (fileError) throw new Error(`Failed to download file: ${fileError.message}`);
       
-      // Extract text based on file type
       const ext = file_path.split(".").pop()?.toLowerCase() || "";
       
-      if (ext === "txt" || ext === "md" || ext === "csv") {
+      if (ext === "pdf") {
+        // Parse PDF using pdf-parse
+        try {
+          const arrayBuffer = await fileData.arrayBuffer();
+          const buffer = new Uint8Array(arrayBuffer);
+          const pdfData = await pdfParse(buffer);
+          textContent = pdfData.text || "";
+          console.log(`PDF parsed: ${pdfData.numpages} pages, ${textContent.length} chars`);
+          
+          if (!textContent || textContent.length < 20) {
+            // Fallback: use AI to extract from raw text
+            const rawText = await fileData.text();
+            if (rawText.length > 50) {
+              const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${LOVABLE_API_KEY}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  model: "google/gemini-2.5-flash-lite",
+                  messages: [
+                    { role: "system", content: "Extract all readable text content from this document data. Return only the extracted text." },
+                    { role: "user", content: rawText.slice(0, 10000) },
+                  ],
+                }),
+              });
+              if (aiRes.ok) {
+                const aiData = await aiRes.json();
+                textContent = aiData.choices?.[0]?.message?.content || rawText;
+              }
+            }
+          }
+        } catch (pdfErr) {
+          console.error("PDF parse error:", pdfErr);
+          // Fallback to raw text extraction
+          textContent = await fileData.text();
+        }
+      } else if (ext === "txt" || ext === "md" || ext === "csv") {
         textContent = await fileData.text();
       } else if (ext === "json") {
         const raw = await fileData.text();
@@ -70,13 +109,13 @@ serve(async (req) => {
           textContent = raw;
         }
       } else {
-        // For PDF/DOC: Use AI to describe the content from raw text extraction
+        // For other formats, try text extraction
         textContent = await fileData.text();
       }
     }
 
     if (!textContent || textContent.length < 10) {
-      throw new Error("Could not extract meaningful text from document");
+      throw new Error("Could not extract meaningful text from document. For PDFs, ensure the file contains selectable text (not scanned images).");
     }
 
     // Limit content size

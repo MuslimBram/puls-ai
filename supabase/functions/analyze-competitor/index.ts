@@ -19,20 +19,80 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
+    // This can be called by cron (no auth) or by user
+    let userId: string | null = null;
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
-    const token = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !userData.user) throw new Error("Not authenticated");
-    const userId = userData.user.id;
+    if (authHeader && !authHeader.includes(Deno.env.get("SUPABASE_ANON_KEY") || "___")) {
+      const token = authHeader.replace("Bearer ", "");
+      const { data: userData } = await supabase.auth.getUser(token);
+      userId = userData.user?.id || null;
+    }
 
-    const { action, competitor_id, competitor_data } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { action, competitor_id, competitor_data } = body;
 
+    // ===== SCHEDULED SCAN: scan all active competitors =====
+    if (action === "scheduled_scan" || (!action && !competitor_id)) {
+      console.log("Running scheduled competitor scan...");
+      
+      // Get all active competitors with website URLs
+      const { data: competitors, error: compErr } = await supabase
+        .from("competitors")
+        .select("*")
+        .eq("is_active", true)
+        .not("website_url", "is", null);
+      
+      if (compErr) throw compErr;
+      if (!competitors?.length) {
+        return new Response(JSON.stringify({ message: "No active competitors to scan" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Filter by scan frequency
+      const now = new Date();
+      const toScan = competitors.filter((c: any) => {
+        if (!c.last_scanned_at) return true;
+        const lastScan = new Date(c.last_scanned_at);
+        const hoursSince = (now.getTime() - lastScan.getTime()) / (1000 * 60 * 60);
+        if (c.scan_frequency === "daily") return hoursSince >= 24;
+        if (c.scan_frequency === "weekly") return hoursSince >= 168;
+        return hoursSince >= 168; // default weekly
+      });
+
+      console.log(`Scanning ${toScan.length} of ${competitors.length} competitors`);
+
+      let scanned = 0;
+      let alertsCreated = 0;
+
+      for (const comp of toScan.slice(0, 5)) { // Limit to 5 per run
+        try {
+          const result = await scanSingleCompetitor(
+            supabase, comp, FIRECRAWL_API_KEY!, LOVABLE_API_KEY
+          );
+          scanned++;
+          alertsCreated += result.alertsCreated;
+        } catch (e) {
+          console.error(`Failed to scan ${comp.name}:`, e);
+        }
+      }
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        scanned, 
+        alerts_created: alertsCreated,
+        total_active: competitors.length,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ===== MANUAL SCAN: single competitor =====
     if (action === "scan_competitor") {
       if (!competitor_id) throw new Error("competitor_id required");
       if (!FIRECRAWL_API_KEY) throw new Error("Firecrawl connector not configured");
+      if (!userId) throw new Error("Not authenticated");
 
-      // Get competitor
       const { data: competitor, error: compErr } = await supabase
         .from("competitors")
         .select("*")
@@ -41,163 +101,16 @@ serve(async (req) => {
         .single();
       if (compErr || !competitor) throw new Error("Competitor not found");
 
-      const scrapedPages: any[] = [];
+      const result = await scanSingleCompetitor(
+        supabase, competitor, FIRECRAWL_API_KEY, LOVABLE_API_KEY
+      );
 
-      // Scrape website
-      if (competitor.website_url) {
-        const urls = [competitor.website_url];
-        // Try common pages
-        const base = competitor.website_url.replace(/\/$/, "");
-        for (const path of ["/about", "/services", "/pricing", "/blog"]) {
-          urls.push(base + path);
-        }
-
-        for (const url of urls) {
-          try {
-            const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
-            });
-            if (scrapeRes.ok) {
-              const data = await scrapeRes.json();
-              const md = data?.data?.markdown || data?.markdown || "";
-              if (md.length > 50) {
-                scrapedPages.push({
-                  url,
-                  content: md.slice(0, 3000),
-                  title: data?.data?.metadata?.title || url,
-                });
-              }
-            }
-          } catch { /* skip failed pages */ }
-        }
-      }
-
-      if (scrapedPages.length === 0) {
-        return new Response(JSON.stringify({ error: "Could not scrape any pages. Check the URL." }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Store scans
-      const scanRows = scrapedPages.map((p) => ({
-        competitor_id,
-        user_id: userId,
-        workspace_id: competitor.workspace_id,
-        scan_type: "website",
-        source_url: p.url,
-        content_summary: p.content.slice(0, 500),
-        raw_data: { title: p.title, content_length: p.content.length },
-      }));
-      await supabase.from("competitor_scans").insert(scanRows);
-
-      // AI analysis
-      const combinedContent = scrapedPages.map((p) => `## ${p.title}\n${p.content}`).join("\n\n---\n\n");
-
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-3-flash-preview",
-          messages: [
-            {
-              role: "system",
-              content: `You are a competitive intelligence analyst. Analyze competitor content and provide strategic insights. Return structured analysis via the provided tool.`,
-            },
-            {
-              role: "user",
-              content: `Analyze this competitor "${competitor.name}" based on their website content:\n\n${combinedContent.slice(0, 8000)}`,
-            },
-          ],
-          tools: [{
-            type: "function",
-            function: {
-              name: "competitor_analysis",
-              description: "Return competitor analysis",
-              parameters: {
-                type: "object",
-                properties: {
-                  summary: { type: "string", description: "2-3 sentence overview" },
-                  positioning: { type: "string", description: "How they position themselves" },
-                  content_themes: {
-                    type: "array",
-                    items: { type: "object", properties: { theme: { type: "string" }, description: { type: "string" } }, required: ["theme", "description"] },
-                  },
-                  engagement_style: { type: "string" },
-                  opportunities: {
-                    type: "array",
-                    items: { type: "object", properties: { opportunity: { type: "string" }, rationale: { type: "string" } }, required: ["opportunity", "rationale"] },
-                  },
-                  trending_keywords: { type: "array", items: { type: "string" } },
-                },
-                required: ["summary", "positioning", "content_themes", "engagement_style", "opportunities", "trending_keywords"],
-              },
-            },
-          }],
-          tool_choice: { type: "function", function: { name: "competitor_analysis" } },
-        }),
-      });
-
-      if (!aiResponse.ok) {
-        const status = aiResponse.status;
-        if (status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        if (status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted" }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-        throw new Error(`AI error: ${status}`);
-      }
-
-      const aiData = await aiResponse.json();
-      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-      if (!toolCall) throw new Error("No analysis generated");
-
-      const analysis = JSON.parse(toolCall.function.arguments);
-
-      // Update competitor with AI analysis
-      await supabase
-        .from("competitors")
-        .update({
-          ai_summary: analysis.summary,
-          ai_positioning: analysis.positioning,
-          ai_content_themes: analysis.content_themes,
-          ai_engagement_style: analysis.engagement_style,
-          ai_opportunities: analysis.opportunities,
-          last_scanned_at: new Date().toISOString(),
-        })
-        .eq("id", competitor_id);
-
-      // Store trending keywords as market trends
-      if (analysis.trending_keywords?.length) {
-        for (const kw of analysis.trending_keywords.slice(0, 10)) {
-          const { data: existing } = await supabase
-            .from("market_trends")
-            .select("id, frequency")
-            .eq("user_id", userId)
-            .eq("trend_value", kw)
-            .maybeSingle();
-
-          if (existing) {
-            await supabase.from("market_trends").update({
-              frequency: (existing.frequency || 0) + 1,
-              last_seen_at: new Date().toISOString(),
-            }).eq("id", existing.id);
-          } else {
-            await supabase.from("market_trends").insert({
-              user_id: userId,
-              workspace_id: competitor.workspace_id,
-              trend_type: "keyword",
-              trend_value: kw,
-            });
-          }
-        }
-      }
-
-      return new Response(JSON.stringify({ success: true, analysis, pages_scanned: scrapedPages.length }), {
+      return new Response(JSON.stringify({ 
+        success: true, 
+        analysis: result.analysis, 
+        pages_scanned: result.pagesScanned,
+        alerts_created: result.alertsCreated,
+      }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -212,3 +125,257 @@ serve(async (req) => {
     });
   }
 });
+
+async function scanSingleCompetitor(
+  supabase: any,
+  competitor: any,
+  firecrawlKey: string,
+  lovableKey: string
+) {
+  const scrapedPages: any[] = [];
+
+  // Scrape website
+  if (competitor.website_url) {
+    const urls = [competitor.website_url];
+    const base = competitor.website_url.replace(/\/$/, "");
+    for (const path of ["/about", "/services", "/pricing", "/blog", "/products"]) {
+      urls.push(base + path);
+    }
+
+    for (const url of urls) {
+      try {
+        const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${firecrawlKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ url, formats: ["markdown"], onlyMainContent: true }),
+        });
+        if (scrapeRes.ok) {
+          const data = await scrapeRes.json();
+          const md = data?.data?.markdown || data?.markdown || "";
+          if (md.length > 50) {
+            scrapedPages.push({
+              url,
+              content: md.slice(0, 3000),
+              title: data?.data?.metadata?.title || url,
+            });
+          }
+        }
+      } catch { /* skip failed pages */ }
+    }
+  }
+
+  if (scrapedPages.length === 0) {
+    throw new Error("Could not scrape any pages. Check the URL.");
+  }
+
+  // Store scans
+  const scanRows = scrapedPages.map((p) => ({
+    competitor_id: competitor.id,
+    user_id: competitor.user_id,
+    workspace_id: competitor.workspace_id,
+    scan_type: "website",
+    source_url: p.url,
+    content_summary: p.content.slice(0, 500),
+    raw_data: { title: p.title, content_length: p.content.length },
+  }));
+  await supabase.from("competitor_scans").insert(scanRows);
+
+  // AI analysis with enhanced prompts
+  const combinedContent = scrapedPages.map((p) => `## ${p.title}\n${p.content}`).join("\n\n---\n\n");
+  const previousData = competitor.previous_scan_data || {};
+
+  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${lovableKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        {
+          role: "system",
+          content: `You are a competitive intelligence analyst. Analyze competitor content and detect changes compared to previous scan data. Provide strategic insights including pricing changes, new promotions, posting frequency, and emerging trends. Return structured analysis via the provided tool.`,
+        },
+        {
+          role: "user",
+          content: `Analyze competitor "${competitor.name}" (${competitor.website_url}).
+
+Previous analysis summary: ${previousData.summary || "No previous data"}
+Previous pricing snapshot: ${JSON.stringify(previousData.pricing || {})}
+Previous content themes: ${JSON.stringify(previousData.themes || [])}
+
+Current website content:
+${combinedContent.slice(0, 8000)}`,
+        },
+      ],
+      tools: [{
+        type: "function",
+        function: {
+          name: "competitor_analysis",
+          description: "Return competitor analysis with change detection",
+          parameters: {
+            type: "object",
+            properties: {
+              summary: { type: "string", description: "2-3 sentence overview" },
+              positioning: { type: "string", description: "How they position themselves" },
+              content_themes: {
+                type: "array",
+                items: { type: "object", properties: { theme: { type: "string" }, description: { type: "string" } }, required: ["theme", "description"] },
+              },
+              engagement_style: { type: "string" },
+              opportunities: {
+                type: "array",
+                items: { type: "object", properties: { opportunity: { type: "string" }, rationale: { type: "string" } }, required: ["opportunity", "rationale"] },
+              },
+              trending_keywords: { type: "array", items: { type: "string" } },
+              pricing_info: {
+                type: "object",
+                properties: {
+                  has_pricing: { type: "boolean" },
+                  pricing_summary: { type: "string" },
+                  price_points: { type: "array", items: { type: "string" } },
+                },
+                required: ["has_pricing", "pricing_summary"],
+              },
+              promotions_detected: {
+                type: "array",
+                items: { type: "object", properties: { promotion: { type: "string" }, urgency: { type: "string" } }, required: ["promotion"] },
+              },
+              changes_detected: {
+                type: "array",
+                items: { type: "object", properties: { change_type: { type: "string" }, description: { type: "string" }, severity: { type: "string", enum: ["low", "medium", "high"] } }, required: ["change_type", "description", "severity"] },
+              },
+              suggested_keywords: { type: "array", items: { type: "string" }, description: "Keywords you should target based on competitor gaps" },
+              content_suggestions: { type: "array", items: { type: "string" }, description: "Content ideas to counter this competitor" },
+            },
+            required: ["summary", "positioning", "content_themes", "engagement_style", "opportunities", "trending_keywords", "pricing_info", "promotions_detected", "changes_detected", "suggested_keywords", "content_suggestions"],
+            additionalProperties: false,
+          },
+        },
+      }],
+      tool_choice: { type: "function", function: { name: "competitor_analysis" } },
+    }),
+  });
+
+  if (!aiResponse.ok) {
+    const status = aiResponse.status;
+    if (status === 429) throw new Error("Rate limit exceeded");
+    if (status === 402) throw new Error("AI credits exhausted");
+    throw new Error(`AI error: ${status}`);
+  }
+
+  const aiData = await aiResponse.json();
+  const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall) throw new Error("No analysis generated");
+
+  const analysis = JSON.parse(toolCall.function.arguments);
+
+  // Update competitor with AI analysis + store previous data for change detection
+  await supabase
+    .from("competitors")
+    .update({
+      ai_summary: analysis.summary,
+      ai_positioning: analysis.positioning,
+      ai_content_themes: analysis.content_themes,
+      ai_engagement_style: analysis.engagement_style,
+      ai_opportunities: analysis.opportunities,
+      last_scanned_at: new Date().toISOString(),
+      pricing_snapshot: analysis.pricing_info || {},
+      previous_scan_data: {
+        summary: analysis.summary,
+        pricing: analysis.pricing_info,
+        themes: analysis.content_themes?.map((t: any) => t.theme),
+        scanned_at: new Date().toISOString(),
+      },
+    })
+    .eq("id", competitor.id);
+
+  // Create alerts for detected changes
+  let alertsCreated = 0;
+  
+  if (analysis.changes_detected?.length) {
+    for (const change of analysis.changes_detected) {
+      await supabase.from("competitor_alerts").insert({
+        user_id: competitor.user_id,
+        workspace_id: competitor.workspace_id,
+        competitor_id: competitor.id,
+        alert_type: change.change_type,
+        title: `${competitor.name}: ${change.change_type}`,
+        description: change.description,
+        severity: change.severity,
+        metadata: { change },
+      });
+      alertsCreated++;
+    }
+  }
+
+  // Create alerts for promotions
+  if (analysis.promotions_detected?.length) {
+    for (const promo of analysis.promotions_detected) {
+      await supabase.from("competitor_alerts").insert({
+        user_id: competitor.user_id,
+        workspace_id: competitor.workspace_id,
+        competitor_id: competitor.id,
+        alert_type: "promotion",
+        title: `${competitor.name}: New Promotion`,
+        description: promo.promotion,
+        severity: promo.urgency === "high" ? "high" : "medium",
+        metadata: { promotion: promo },
+      });
+      alertsCreated++;
+    }
+  }
+
+  // Store trending keywords as market trends
+  if (analysis.trending_keywords?.length) {
+    for (const kw of analysis.trending_keywords.slice(0, 10)) {
+      const { data: existing } = await supabase
+        .from("market_trends")
+        .select("id, frequency")
+        .eq("user_id", competitor.user_id)
+        .eq("trend_value", kw)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("market_trends").update({
+          frequency: (existing.frequency || 0) + 1,
+          last_seen_at: new Date().toISOString(),
+        }).eq("id", existing.id);
+      } else {
+        await supabase.from("market_trends").insert({
+          user_id: competitor.user_id,
+          workspace_id: competitor.workspace_id,
+          trend_type: "keyword",
+          trend_value: kw,
+        });
+      }
+    }
+  }
+
+  // Store suggested keywords as market trends with type "suggested"
+  if (analysis.suggested_keywords?.length) {
+    for (const kw of analysis.suggested_keywords.slice(0, 5)) {
+      const { data: existing } = await supabase
+        .from("market_trends")
+        .select("id")
+        .eq("user_id", competitor.user_id)
+        .eq("trend_value", kw)
+        .maybeSingle();
+
+      if (!existing) {
+        await supabase.from("market_trends").insert({
+          user_id: competitor.user_id,
+          workspace_id: competitor.workspace_id,
+          trend_type: "suggested_keyword",
+          trend_value: kw,
+        });
+      }
+    }
+  }
+
+  return { analysis, pagesScanned: scrapedPages.length, alertsCreated };
+}
