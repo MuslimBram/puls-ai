@@ -1506,6 +1506,69 @@ export type Database = {
         }
         Relationships: []
       }
+      reengagement_tasks: {
+        Row: {
+          channel: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          metadata: Json | null
+          scheduled_at: string | null
+          status: string
+          suggested_message: string | null
+          task_type: string
+          updated_at: string
+          user_id: string
+          visitor_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          channel?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          scheduled_at?: string | null
+          status?: string
+          suggested_message?: string | null
+          task_type?: string
+          updated_at?: string
+          user_id: string
+          visitor_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          channel?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          scheduled_at?: string | null
+          status?: string
+          suggested_message?: string | null
+          task_type?: string
+          updated_at?: string
+          user_id?: string
+          visitor_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reengagement_tasks_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitor_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reengagement_tasks_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reply_drafts: {
         Row: {
           created_at: string
@@ -1732,6 +1795,154 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      visitor_events: {
+        Row: {
+          created_at: string
+          event_description: string | null
+          event_title: string | null
+          event_type: string
+          id: string
+          metadata: Json | null
+          user_id: string
+          visitor_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_description?: string | null
+          event_title?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+          visitor_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_description?: string | null
+          event_title?: string | null
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+          visitor_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_events_visitor_id_fkey"
+            columns: ["visitor_id"]
+            isOneToOne: false
+            referencedRelation: "visitor_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      visitor_profiles: {
+        Row: {
+          classification: string
+          created_at: string
+          deal_id: string | null
+          first_seen_at: string | null
+          id: string
+          intent_score: number | null
+          is_active: boolean | null
+          last_visit_at: string | null
+          lead_id: string | null
+          metadata: Json | null
+          tags: string[] | null
+          total_conversations: number | null
+          total_pages_viewed: number | null
+          total_time_seconds: number | null
+          total_visits: number | null
+          updated_at: string
+          user_id: string
+          visitor_email: string | null
+          visitor_identifier: string
+          visitor_name: string | null
+          visitor_phone: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          classification?: string
+          created_at?: string
+          deal_id?: string | null
+          first_seen_at?: string | null
+          id?: string
+          intent_score?: number | null
+          is_active?: boolean | null
+          last_visit_at?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          tags?: string[] | null
+          total_conversations?: number | null
+          total_pages_viewed?: number | null
+          total_time_seconds?: number | null
+          total_visits?: number | null
+          updated_at?: string
+          user_id: string
+          visitor_email?: string | null
+          visitor_identifier: string
+          visitor_name?: string | null
+          visitor_phone?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          classification?: string
+          created_at?: string
+          deal_id?: string | null
+          first_seen_at?: string | null
+          id?: string
+          intent_score?: number | null
+          is_active?: boolean | null
+          last_visit_at?: string | null
+          lead_id?: string | null
+          metadata?: Json | null
+          tags?: string[] | null
+          total_conversations?: number | null
+          total_pages_viewed?: number | null
+          total_time_seconds?: number | null
+          total_visits?: number | null
+          updated_at?: string
+          user_id?: string
+          visitor_email?: string | null
+          visitor_identifier?: string
+          visitor_name?: string | null
+          visitor_phone?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visitor_profiles_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_profiles_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visitor_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       workspace_members: {
         Row: {
