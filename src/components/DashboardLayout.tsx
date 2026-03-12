@@ -48,6 +48,7 @@ const navItems = [
   { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
+  { href: "/crm", label: "Sales CRM", icon: Briefcase },
   { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/business-profile", label: "Business Profile", icon: Building2 },
