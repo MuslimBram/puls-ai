@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
 import Login from "./pages/Login";
@@ -52,6 +53,7 @@ const App = () => (
   <ErrorBoundary fallback={<PageErrorFallback />}>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
+        <WorkspaceProvider>
         <TooltipProvider>
           <Toaster />
           <Sonner />
@@ -81,6 +83,7 @@ const App = () => (
             </Routes>
           </BrowserRouter>
         </TooltipProvider>
+        </WorkspaceProvider>
       </AuthProvider>
     </QueryClientProvider>
   </ErrorBoundary>

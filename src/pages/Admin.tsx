@@ -6,12 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText } from "lucide-react";
 import { format } from "date-fns";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
-  const { profiles, businesses, leads, channels, subscriptions, isLoading } = useAdminData();
+  const { profiles, businesses, leads, channels, subscriptions, auditLogs, isLoading } = useAdminData();
   const { suspendUser, resetUsage, updatePlan } = useAdminActions();
 
   if (roleLoading) {
@@ -88,6 +88,7 @@ const Admin = () => {
             <TabsTrigger value="leads">Leads</TabsTrigger>
             <TabsTrigger value="channels">Channels</TabsTrigger>
             <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+            <TabsTrigger value="audit">Audit Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
@@ -253,6 +254,40 @@ const Admin = () => {
                             <RotateCcw className="h-3 w-3" />
                           </Button>
                         </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="audit">
+            <Card>
+              <CardContent className="pt-4">
+                {auditLogs.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No audit logs</p>
+                ) : (
+                  <div className="space-y-2">
+                    {auditLogs.map((log: any) => (
+                      <div key={log.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-sm font-medium text-foreground">{log.action}</span>
+                            {log.target_type && (
+                              <Badge variant="secondary" className="text-xs">{log.target_type}</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Actor: {log.actor_id?.substring(0, 8)}… 
+                            {log.target_id && <> · Target: {log.target_id.substring(0, 8)}…</>}
+                            {log.metadata && Object.keys(log.metadata).length > 0 && (
+                              <> · {JSON.stringify(log.metadata)}</>
+                            )}
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{format(new Date(log.created_at), "MMM d, HH:mm")}</span>
                       </div>
                     ))}
                   </div>

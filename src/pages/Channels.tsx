@@ -39,29 +39,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   Channel implementation status mapping.
   Each channel gets a real status and a short explanation.
 */
+const LIVE_CHANNELS = new Set(["telegram", "email", "website_chat", "custom_webhook"]);
+
 const CHANNEL_STATUS: Record<string, { status: string; variant: "default" | "secondary" | "outline" | "destructive"; explanation: string }> = {
   telegram: { status: "Live", variant: "default", explanation: "Fully integrated. Connect your Telegram bot and start monitoring." },
   email: { status: "Live", variant: "default", explanation: "Backend ingestion ready. Connect via IMAP or webhook forwarding." },
   website_chat: { status: "Live", variant: "default", explanation: "Embed a chat widget on your website to capture visitor messages." },
   custom_webhook: { status: "Live", variant: "default", explanation: "Send data from any external system via webhook endpoint." },
-  whatsapp: { status: "Available for setup", variant: "default", explanation: "Connect your WhatsApp Business account. Requires Meta Business verification." },
-  facebook_messenger: { status: "Available for setup", variant: "default", explanation: "Connect your Facebook Page to receive Messenger conversations." },
-  instagram_dm: { status: "Available for setup", variant: "default", explanation: "Connect your Instagram Business account for direct message monitoring." },
-  twitter_dm: { status: "Available for setup", variant: "default", explanation: "Connect your X/Twitter account to monitor direct messages." },
-  linkedin: { status: "Available for setup", variant: "default", explanation: "Connect your LinkedIn company page for message monitoring." },
-  sms: { status: "Available for setup", variant: "default", explanation: "Connect an SMS provider to receive and respond to text messages." },
-  slack: { status: "Available for setup", variant: "default", explanation: "Connect Slack for team lead notifications and channel monitoring." },
-  discord: { status: "Available for setup", variant: "default", explanation: "Connect a Discord bot to monitor server channels for leads." },
-  live_chat: { status: "Available for setup", variant: "default", explanation: "Real-time live chat with AI-powered auto-reply and agent handoff." },
-  voice: { status: "Available for setup", variant: "default", explanation: "Voice call integration with transcription and lead analysis." },
-  contact_form: { status: "Available for setup", variant: "default", explanation: "Use the Custom Webhook channel to connect your contact forms." },
-  crm_webhook: { status: "Available for setup", variant: "default", explanation: "Use the Custom Webhook channel to receive data from your CRM." },
-  google_business: { status: "Available for setup", variant: "default", explanation: "Connect Google Business Messages for local customer inquiries." },
-  intercom: { status: "Available for setup", variant: "default", explanation: "Connect Intercom to sync conversations and lead data." },
 };
 
 const getChannelStatus = (channelId: string) => {
-  return CHANNEL_STATUS[channelId] || { status: "Planned", variant: "secondary" as const, explanation: "This channel is planned for a future release." };
+  if (CHANNEL_STATUS[channelId]) return CHANNEL_STATUS[channelId];
+  return { status: "Coming Soon", variant: "secondary" as const, explanation: "This integration is planned for a future release. Backend not yet available." };
 };
 
 const Channels = () => {
@@ -214,9 +203,11 @@ const Channels = () => {
                 <Select value={form.channel_type} onValueChange={(v) => setForm((f) => ({ ...f, channel_type: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {registry.map((r) => (
-                      <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                    ))}
+                {registry
+                  .filter((r) => LIVE_CHANNELS.has(r.id))
+                  .map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
                   </SelectContent>
                 </Select>
               </div>
