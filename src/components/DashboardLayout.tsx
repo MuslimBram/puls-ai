@@ -34,6 +34,7 @@ import {
   Handshake,
   Shield,
   Briefcase,
+  Brain,
 } from "lucide-react";
 
 const navItems = [
