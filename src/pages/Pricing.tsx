@@ -36,9 +36,8 @@ const Pricing = () => {
       setEnterpriseOpen(true);
       return;
     }
-    if (plan === "standard") return;
 
-    const tier = STRIPE_TIERS[plan as Exclude<PlanKey, "standard">];
+    const tier = STRIPE_TIERS[plan];
     if (!tier) return;
 
     setLoadingPlan(plan);
@@ -115,6 +114,13 @@ const Pricing = () => {
                     </Badge>
                   </div>
                 )}
+                {key === "standard" && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge variant="secondary" className="shadow-sm text-xs font-semibold">
+                      💰 Pay back 🔙 guaranteed
+                    </Badge>
+                  </div>
+                )}
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
                   <CardDescription className="text-xs min-h-[2.5rem]">{plan.description}</CardDescription>
@@ -169,8 +175,6 @@ const Pricing = () => {
 
                   {isCurrent ? (
                     <Button disabled className="w-full">Current Plan</Button>
-                  ) : key === "standard" ? (
-                    <Button disabled variant="outline" className="w-full">Free Plan</Button>
                   ) : (
                     <Button
                       className="w-full"

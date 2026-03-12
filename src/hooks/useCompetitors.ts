@@ -35,6 +35,19 @@ export interface CompetitorScan {
   scanned_at: string;
 }
 
+export interface CompetitorAlert {
+  id: string;
+  user_id: string;
+  competitor_id: string;
+  alert_type: string;
+  title: string;
+  description: string | null;
+  severity: string;
+  is_read: boolean;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface MarketTrend {
   id: string;
   trend_type: string;
@@ -94,6 +107,40 @@ export const useMarketTrends = () => {
       return (data || []) as unknown as MarketTrend[];
     },
     enabled: !!user,
+  });
+};
+
+export const useCompetitorAlerts = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["competitor-alerts", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("competitor_alerts")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data || []) as unknown as CompetitorAlert[];
+    },
+    enabled: !!user,
+  });
+};
+
+export const useMarkAlertRead = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (alertId: string) => {
+      const { error } = await supabase
+        .from("competitor_alerts")
+        .update({ is_read: true } as any)
+        .eq("id", alertId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["competitor-alerts"] });
+    },
   });
 };
 
