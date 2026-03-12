@@ -235,10 +235,10 @@ const VisitorTimelineDialog = ({
 
   const eventIcon = (type: string) => {
     switch (type) {
-      case "page_view": return <Eye className="h-3.5 w-3.5 text-blue-500" />;
+      case "page_view": return <Eye className="h-3.5 w-3.5 text-primary" />;
       case "chat": return <MessageSquare className="h-3.5 w-3.5 text-primary" />;
-      case "campaign_exposure": return <Target className="h-3.5 w-3.5 text-orange-500" />;
-      case "crm_stage_change": return <TrendingUp className="h-3.5 w-3.5 text-green-500" />;
+      case "campaign_exposure": return <Target className="h-3.5 w-3.5 text-accent-foreground" />;
+      case "crm_stage_change": return <TrendingUp className="h-3.5 w-3.5 text-primary" />;
       case "call": return <Phone className="h-3.5 w-3.5 text-destructive" />;
       default: return <Clock className="h-3.5 w-3.5 text-muted-foreground" />;
     }
