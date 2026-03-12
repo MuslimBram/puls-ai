@@ -214,6 +214,126 @@ export type Database = {
         }
         Relationships: []
       }
+      content_ideas: {
+        Row: {
+          content_type: string
+          created_at: string
+          id: string
+          idea_text: string
+          is_used: boolean
+          suggested_media: string | null
+          user_id: string
+        }
+        Insert: {
+          content_type?: string
+          created_at?: string
+          id?: string
+          idea_text: string
+          is_used?: boolean
+          suggested_media?: string | null
+          user_id: string
+        }
+        Update: {
+          content_type?: string
+          created_at?: string
+          id?: string
+          idea_text?: string
+          is_used?: boolean
+          suggested_media?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      content_knowledge: {
+        Row: {
+          created_at: string
+          extracted_data: Json
+          id: string
+          scanned_at: string
+          source_type: string
+          source_url: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          extracted_data?: Json
+          id?: string
+          scanned_at?: string
+          source_type?: string
+          source_url?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          extracted_data?: Json
+          id?: string
+          scanned_at?: string
+          source_type?: string
+          source_url?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      content_posts: {
+        Row: {
+          ai_generated: boolean
+          approved_at: string | null
+          caption: string
+          content_type: string
+          created_at: string
+          cta: string | null
+          engagement_metrics: Json | null
+          hashtags: string[] | null
+          id: string
+          media_type: string
+          published_at: string | null
+          scheduled_at: string | null
+          status: string
+          target_networks: string[] | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_generated?: boolean
+          approved_at?: string | null
+          caption: string
+          content_type?: string
+          created_at?: string
+          cta?: string | null
+          engagement_metrics?: Json | null
+          hashtags?: string[] | null
+          id?: string
+          media_type?: string
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          target_networks?: string[] | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_generated?: boolean
+          approved_at?: string | null
+          caption?: string
+          content_type?: string
+          created_at?: string
+          cta?: string | null
+          engagement_metrics?: Json | null
+          hashtags?: string[] | null
+          id?: string
+          media_type?: string
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          target_networks?: string[] | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       inbox_messages: {
         Row: {
           channel_id: string | null
