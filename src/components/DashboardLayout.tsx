@@ -31,6 +31,8 @@ import {
   BookOpen,
   Megaphone,
   Search,
+  Handshake,
+  Shield,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +50,8 @@ const navItems = [
   { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/business-profile", label: "Business Profile", icon: Building2 },
+  { href: "/partner", label: "Partner Program", icon: Handshake },
+  { href: "/security", label: "Security", icon: Shield },
   { href: "/subscription", label: "Subscription", icon: CreditCard },
   { href: "/pricing", label: "Pricing", icon: Zap },
 ];
