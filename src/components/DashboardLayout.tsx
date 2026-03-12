@@ -252,7 +252,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
             <Menu className="h-5 w-5" />
           </Button>
           <h2 className="text-lg font-semibold text-foreground">
-            {allNav.find((i) => i.href === location.pathname)?.label || "Dashboard"}
+            {currentPageTitle}
           </h2>
           <div className="ml-auto">
             <NotificationBell />
