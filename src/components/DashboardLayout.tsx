@@ -24,6 +24,7 @@ import {
   Link2,
   Bot,
   CalendarDays,
+  BookOpen,
 } from "lucide-react";
 
 const navItems = [
