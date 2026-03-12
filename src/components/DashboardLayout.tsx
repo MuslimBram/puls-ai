@@ -10,6 +10,7 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   LayoutDashboard,
   Building2,
@@ -35,29 +36,76 @@ import {
   Shield,
   Briefcase,
   Brain,
+  ChevronDown,
+  Settings,
 } from "lucide-react";
 
-const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/inbox", label: "Inbox", icon: Inbox },
-  { href: "/leads", label: "Leads", icon: Target },
-  { href: "/reply-workspace", label: "Reply Workspace", icon: MessageSquare },
-  { href: "/keywords", label: "Keywords", icon: Key },
-  { href: "/channels", label: "Channels", icon: Radio },
-  { href: "/dedicated-ai", label: "Dedicated AI", icon: Bot },
-  { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays },
-  { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
-  { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-  { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
-  { href: "/visitor-intelligence", label: "Visitor Intel", icon: Brain },
-  { href: "/crm", label: "Sales CRM", icon: Briefcase },
-  { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/business-profile", label: "Business Profile", icon: Building2 },
-  { href: "/partner", label: "Partner Program", icon: Handshake },
-  { href: "/security", label: "Security", icon: Shield },
-  { href: "/subscription", label: "Subscription", icon: CreditCard },
-  { href: "/pricing", label: "Pricing", icon: Zap },
+interface NavItem {
+  href: string;
+  label: string;
+  icon: any;
+}
+
+interface NavGroup {
+  label: string;
+  icon: any;
+  items: NavItem[];
+  defaultOpen?: boolean;
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Overview",
+    icon: LayoutDashboard,
+    defaultOpen: true,
+    items: [
+      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/inbox", label: "Inbox", icon: Inbox },
+      { href: "/analytics", label: "Analytics", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Leads & Sales",
+    icon: Target,
+    defaultOpen: true,
+    items: [
+      { href: "/leads", label: "Leads", icon: Target },
+      { href: "/reply-workspace", label: "Reply Workspace", icon: MessageSquare },
+      { href: "/crm", label: "Sales CRM", icon: Briefcase },
+      { href: "/visitor-intelligence", label: "Visitor Intel", icon: Brain },
+    ],
+  },
+  {
+    label: "Marketing",
+    icon: Megaphone,
+    items: [
+      { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays },
+      { href: "/keywords", label: "Keywords", icon: Key },
+      { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
+      { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
+    ],
+  },
+  {
+    label: "Channels & AI",
+    icon: Radio,
+    items: [
+      { href: "/channels", label: "Channels", icon: Radio },
+      { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
+      { href: "/dedicated-ai", label: "Dedicated AI", icon: Bot },
+    ],
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    items: [
+      { href: "/business-profile", label: "Business Profile", icon: Building2 },
+      { href: "/partner", label: "Partner Program", icon: Handshake },
+      { href: "/security", label: "Security", icon: Shield },
+      { href: "/subscription", label: "Subscription", icon: CreditCard },
+      { href: "/pricing", label: "Pricing", icon: Zap },
+    ],
+  },
 ];
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
