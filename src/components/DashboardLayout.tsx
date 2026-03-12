@@ -44,7 +44,7 @@ const navItems = [
   { href: "/reply-workspace", label: "Reply Workspace", icon: MessageSquare },
   { href: "/keywords", label: "Keywords", icon: Key },
   { href: "/channels", label: "Channels", icon: Radio },
-  { href: "/dedicated-ai", label: "AI i Dedikuar", icon: Bot },
+  { href: "/dedicated-ai", label: "Dedicated AI", icon: Bot },
   { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays },
   { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },

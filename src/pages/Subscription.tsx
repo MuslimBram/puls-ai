@@ -16,6 +16,7 @@ import { CreditCard, Zap, Crown, ArrowRight, ExternalLink, Loader2, Clock, Alert
 import { toast } from "@/components/ui/sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 
 const Subscription = () => {
   const { plan, currentPlanKey, checkLimit } = useFeatureGating();
@@ -57,9 +58,8 @@ const Subscription = () => {
       navigate("/pricing");
       return;
     }
-    if (target === "standard") return;
 
-    const tier = STRIPE_TIERS[target as Exclude<PlanKey, "standard">];
+    const tier = STRIPE_TIERS[target];
     if (!tier) return;
 
     setUpgradeLoading(target);
@@ -119,9 +119,9 @@ const Subscription = () => {
         )}
 
         {isCanceling && (
-          <Card className="border-yellow-500/50 bg-yellow-500/5">
+          <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="flex items-center gap-3 pt-6">
-              <AlertTriangle className="h-5 w-5 text-yellow-600" />
+              <AlertTriangle className="h-5 w-5 text-destructive" />
               <div>
                 <p className="text-sm font-medium text-foreground">Subscription canceling</p>
                 <p className="text-xs text-muted-foreground">
@@ -201,19 +201,37 @@ const Subscription = () => {
           </CardContent>
         </Card>
 
-        {/* Quick Plan Comparison */}
+        {/* Plan Cards - matching Pricing page design */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {PLAN_ORDER.map((key) => {
             const p = PLANS[key];
             const isCurrent = currentPlanKey === key;
             const isLoading = upgradeLoading === key;
             return (
-              <Card key={key} className={isCurrent ? "border-primary" : ""}>
+              <Card
+                key={key}
+                className={cn(
+                  "relative flex flex-col",
+                  p.highlighted && "border-primary shadow-lg ring-1 ring-primary/20",
+                  isCurrent && "border-primary/50"
+                )}
+              >
+                {p.highlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="bg-primary text-primary-foreground shadow-sm">
+                      <Crown className="h-3 w-3 mr-1" /> Recommended
+                    </Badge>
+                  </div>
+                )}
+                {!p.highlighted && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge variant="secondary" className="shadow-sm text-xs font-semibold">
+                      Pay back guaranteed
+                    </Badge>
+                  </div>
+                )}
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    {p.name}
-                    {p.highlighted && <Crown className="h-4 w-4 text-primary" />}
-                  </CardTitle>
+                  <CardTitle className="text-base">{p.name}</CardTitle>
                   <CardDescription>
                     {key === "enterprise" ? (
                       <span className="text-xl font-bold text-foreground">Custom</span>
@@ -228,8 +246,6 @@ const Subscription = () => {
                 <CardContent>
                   {isCurrent ? (
                     <Button disabled className="w-full" size="sm">Current Plan</Button>
-                  ) : key === "standard" ? (
-                    <Button disabled variant="outline" className="w-full" size="sm">Free</Button>
                   ) : (
                     <Button
                       className="w-full"
