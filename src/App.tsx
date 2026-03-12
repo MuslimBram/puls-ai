@@ -79,6 +79,7 @@ const App = () => (
               <Route path="/dedicated-ai" element={<ProtectedPage><DedicatedAI /></ProtectedPage>} />
               <Route path="/content-calendar" element={<ProtectedPage><ContentCalendar /></ProtectedPage>} />
               <Route path="/knowledge-base" element={<ProtectedPage><KnowledgeBase /></ProtectedPage>} />
+              <Route path="/campaigns" element={<ProtectedPage><Campaigns /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
