@@ -33,6 +33,7 @@ import {
   Search,
   Handshake,
   Shield,
+  Briefcase,
 } from "lucide-react";
 
 const navItems = [
