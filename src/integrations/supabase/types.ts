@@ -1065,6 +1065,84 @@ export type Database = {
           },
         ]
       }
+      partner_accounts: {
+        Row: {
+          billing_model: string
+          commission_rate: number | null
+          created_at: string
+          discount_percent: number
+          id: string
+          monthly_revenue: number | null
+          partner_name: string
+          status: string
+          total_businesses: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing_model?: string
+          commission_rate?: number | null
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          monthly_revenue?: number | null
+          partner_name: string
+          status?: string
+          total_businesses?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing_model?: string
+          commission_rate?: number | null
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          monthly_revenue?: number | null
+          partner_name?: string
+          status?: string
+          total_businesses?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      partner_businesses: {
+        Row: {
+          added_at: string
+          id: string
+          partner_id: string
+          workspace_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          partner_id: string
+          workspace_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          partner_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_businesses_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_businesses_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1285,6 +1363,39 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          last_active_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_active_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_active_at?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
