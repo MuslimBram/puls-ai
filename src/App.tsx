@@ -30,6 +30,7 @@ import Campaigns from "./pages/Campaigns";
 import CompetitorIntelligence from "./pages/CompetitorIntelligence";
 import PartnerDashboard from "./pages/PartnerDashboard";
 import SessionSecurity from "./pages/SessionSecurity";
+import CRM from "./pages/CRM";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
@@ -86,6 +87,7 @@ const App = () => (
               <Route path="/competitor-intelligence" element={<ProtectedPage><CompetitorIntelligence /></ProtectedPage>} />
               <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
               <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
+              <Route path="/crm" element={<ProtectedPage><CRM /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

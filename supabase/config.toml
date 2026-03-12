@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.analyze-competitor]
 verify_jwt = false
+
+[functions.ai-sales-assistant]
+verify_jwt = false
