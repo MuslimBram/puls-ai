@@ -88,6 +88,7 @@ const Admin = () => {
             <TabsTrigger value="leads">Leads</TabsTrigger>
             <TabsTrigger value="channels">Channels</TabsTrigger>
             <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+            <TabsTrigger value="audit">Audit Logs</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
