@@ -29,6 +29,7 @@ import {
   Bot,
   CalendarDays,
   BookOpen,
+  Megaphone,
 } from "lucide-react";
 
 const navItems = [
