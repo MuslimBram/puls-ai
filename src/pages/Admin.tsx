@@ -11,7 +11,7 @@ import { format } from "date-fns";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
-  const { profiles, businesses, leads, channels, subscriptions, isLoading } = useAdminData();
+  const { profiles, businesses, leads, channels, subscriptions, auditLogs, isLoading } = useAdminData();
   const { suspendUser, resetUsage, updatePlan } = useAdminActions();
 
   if (roleLoading) {
