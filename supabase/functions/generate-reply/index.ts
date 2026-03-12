@@ -7,15 +7,45 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Rate limiter
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 30;
+const RATE_WINDOW = 60_000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(clientIp)) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   try {
     const { message, senderName, channelType, keywords, tone, businessProfile, template, user_id } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    // --- ENFORCE AI REPLY LIMIT if user_id provided ---
+    if (message && message.length > 5000) {
+      return new Response(JSON.stringify({ error: "Message too long" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Enforce AI reply limit if user_id provided
     if (user_id) {
       const supabase = createClient(
         Deno.env.get("SUPABASE_URL")!,
@@ -61,9 +91,7 @@ serve(async (req) => {
     }
 
     let templateInstruction = "";
-    if (template) {
-      templateInstruction = `\nUse this template as a base, filling in placeholders:\n${template}`;
-    }
+    if (template) templateInstruction = `\nUse this template as a base, filling in placeholders:\n${template}`;
 
     const systemPrompt = `You are a business communication AI assistant.
 Generate a reply to a potential lead message.
@@ -98,23 +126,19 @@ Write a natural, helpful reply that:
           { role: "system", content: systemPrompt },
           { role: "user", content: `Generate a reply to this message: "${message}"` },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "generate_reply",
-              description: "Return the generated reply",
-              parameters: {
-                type: "object",
-                properties: {
-                  reply: { type: "string", description: "The generated reply text" },
-                },
-                required: ["reply"],
-                additionalProperties: false,
-              },
+        tools: [{
+          type: "function",
+          function: {
+            name: "generate_reply",
+            description: "Return the generated reply",
+            parameters: {
+              type: "object",
+              properties: { reply: { type: "string", description: "The generated reply text" } },
+              required: ["reply"],
+              additionalProperties: false,
             },
           },
-        ],
+        }],
         tool_choice: { type: "function", function: { name: "generate_reply" } },
       }),
     });
@@ -147,8 +171,7 @@ Write a natural, helpful reply that:
   } catch (e) {
     console.error("generate-reply error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

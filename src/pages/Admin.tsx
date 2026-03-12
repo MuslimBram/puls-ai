@@ -1,15 +1,18 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useIsAdmin, useAdminData } from "@/hooks/useAdmin";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown } from "lucide-react";
 import { format } from "date-fns";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
   const { profiles, businesses, leads, channels, subscriptions, isLoading } = useAdminData();
+  const { suspendUser, resetUsage, updatePlan } = useAdminActions();
 
   if (roleLoading) {
     return (
@@ -22,6 +25,8 @@ const Admin = () => {
   }
 
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
+
+  const getSubForUser = (userId: string) => subscriptions.find((s) => s.user_id === userId);
 
   return (
     <DashboardLayout>
@@ -92,15 +97,40 @@ const Admin = () => {
                   <p className="py-6 text-center text-sm text-muted-foreground">No users</p>
                 ) : (
                   <div className="space-y-2">
-                    {profiles.map((p) => (
-                      <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{p.full_name || "No name"}</p>
-                          <p className="text-xs text-muted-foreground">{p.user_id}</p>
+                    {profiles.map((p) => {
+                      const sub = getSubForUser(p.user_id);
+                      const isSuspended = (p as any).is_suspended;
+                      return (
+                        <div key={p.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-foreground">{p.full_name || "No name"}</p>
+                              {isSuspended && <Badge variant="destructive" className="text-xs">Suspended</Badge>}
+                              {sub && <Badge variant="secondary" className="text-xs">{sub.plan}</Badge>}
+                            </div>
+                            <p className="text-xs text-muted-foreground">{p.user_id}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">{format(new Date(p.created_at), "MMM d, yyyy")}</span>
+                            <Button
+                              variant={isSuspended ? "outline" : "destructive"}
+                              size="sm"
+                              onClick={() => suspendUser.mutate({ userId: p.user_id, suspend: !isSuspended })}
+                            >
+                              <Ban className="h-3 w-3 mr-1" />
+                              {isSuspended ? "Reactivate" : "Suspend"}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => resetUsage.mutate(p.user_id)}
+                            >
+                              <RotateCcw className="h-3 w-3 mr-1" /> Reset Usage
+                            </Button>
+                          </div>
                         </div>
-                        <span className="text-xs text-muted-foreground">{format(new Date(p.created_at), "MMM d, yyyy")}</span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </CardContent>
@@ -184,10 +214,44 @@ const Admin = () => {
                   <div className="space-y-2">
                     {subscriptions.map((s) => (
                       <div key={s.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <span className="text-xs text-muted-foreground">{s.user_id}</span>
+                        <div>
+                          <span className="text-xs text-muted-foreground block">{s.user_id}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge>{s.plan}</Badge>
+                            <Badge variant="outline">{s.subscription_status}</Badge>
+                            <span className="text-xs text-muted-foreground">
+                              {s.leads_used}/{s.leads_limit} leads · {s.ai_replies_today} AI today
+                            </span>
+                          </div>
+                          {s.trial_end && (
+                            <span className="text-xs text-muted-foreground">Trial ends: {format(new Date(s.trial_end), "MMM d")}</span>
+                          )}
+                          {s.grace_period_end && (
+                            <span className="text-xs text-destructive ml-2">Grace: {format(new Date(s.grace_period_end), "MMM d")}</span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-2">
-                          <Badge>{s.plan}</Badge>
-                          <span className="text-xs text-muted-foreground">{s.leads_used}/{s.leads_limit} leads</span>
+                          <Select
+                            value={s.plan}
+                            onValueChange={(plan) => updatePlan.mutate({ userId: s.user_id, plan })}
+                          >
+                            <SelectTrigger className="w-32 h-8 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="standard">Standard</SelectItem>
+                              <SelectItem value="professional">Professional</SelectItem>
+                              <SelectItem value="advanced">Advanced</SelectItem>
+                              <SelectItem value="enterprise">Enterprise</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => resetUsage.mutate(s.user_id)}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
                         </div>
                       </div>
                     ))}

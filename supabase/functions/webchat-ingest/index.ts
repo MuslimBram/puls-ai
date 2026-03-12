@@ -7,28 +7,51 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Rate limiter
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const RATE_LIMIT = 60;
+const RATE_WINDOW = 60_000;
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+    return true;
+  }
+  if (entry.count >= RATE_LIMIT) return false;
+  entry.count++;
+  return true;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!checkRateLimit(clientIp)) {
+    return new Response(JSON.stringify({ error: "Too many requests" }), {
+      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
 
   try {
     const body = await req.json();
-    const {
-      user_id,
-      visitor_name,
-      visitor_email,
-      message,
-      page_url,
-      channel_id,
-    } = body;
+    const { user_id, visitor_name, visitor_email, message, page_url, channel_id } = body;
 
     if (!user_id || !message) {
       return new Response(JSON.stringify({ error: "user_id and message are required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (message.length > 5000) {
+      return new Response(JSON.stringify({ error: "Message too long" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -46,10 +69,8 @@ serve(async (req) => {
 
     const intentScore = matched.length > 0 ? 0.6 : 0.2;
     const priority = matched.length > 0 ? "medium" : "normal";
-
     const sourceName = page_url ? `Website (${new URL(page_url).pathname})` : "Website Chat";
 
-    // Create inbox message
     const { error: inboxErr } = await supabase.from("inbox_messages").insert({
       user_id,
       channel_id: channel_id || null,
@@ -69,7 +90,6 @@ serve(async (req) => {
 
     if (inboxErr) console.error("Inbox insert error:", inboxErr);
 
-    // Create lead if matched
     let leadId = null;
     if (matched.length > 0) {
       const { data: lead } = await supabase
@@ -95,8 +115,7 @@ serve(async (req) => {
   } catch (e) {
     console.error("webchat-ingest error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
