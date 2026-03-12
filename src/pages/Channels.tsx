@@ -41,11 +41,8 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline"; icon: any }> = {
   live: { label: "Live", variant: "default", icon: CheckCircle2 },
-  setup_ready: { label: "Available for Setup", variant: "secondary", icon: Settings2 },
-  coming_soon: { label: "Coming Soon", variant: "outline", icon: Clock },
+  setup_ready: { label: "Setup Required", variant: "secondary", icon: Settings2 },
 };
-
-const LIVE_CHANNELS = new Set(["telegram", "email", "website_chat", "custom_webhook"]);
 
 const Channels = () => {
   const [showAdd, setShowAdd] = useState(false);
