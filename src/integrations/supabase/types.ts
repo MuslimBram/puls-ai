@@ -720,6 +720,220 @@ export type Database = {
           },
         ]
       }
+      deal_activities: {
+        Row: {
+          activity_type: string
+          created_at: string
+          deal_id: string
+          description: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          activity_type?: string
+          created_at?: string
+          deal_id: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          activity_type?: string
+          created_at?: string
+          deal_id?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_activities_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_notes: {
+        Row: {
+          content: string
+          created_at: string
+          deal_id: string
+          id: string
+          is_ai_generated: boolean | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          deal_id: string
+          id?: string
+          is_ai_generated?: boolean | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          deal_id?: string
+          id?: string
+          is_ai_generated?: boolean | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_notes_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deal_tasks: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          deal_id: string
+          description: string | null
+          due_date: string | null
+          id: string
+          is_completed: boolean | null
+          priority: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          deal_id: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean | null
+          priority?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          deal_id?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          is_completed?: boolean | null
+          priority?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_tasks_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deals: {
+        Row: {
+          assigned_to: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          currency: string | null
+          deal_value: number | null
+          expected_close_date: string | null
+          id: string
+          lead_id: string | null
+          lost_at: string | null
+          lost_reason: string | null
+          priority: string | null
+          source_channel: string | null
+          stage_id: string | null
+          tags: string[] | null
+          title: string
+          updated_at: string
+          user_id: string
+          won_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          currency?: string | null
+          deal_value?: number | null
+          expected_close_date?: string | null
+          id?: string
+          lead_id?: string | null
+          lost_at?: string | null
+          lost_reason?: string | null
+          priority?: string | null
+          source_channel?: string | null
+          stage_id?: string | null
+          tags?: string[] | null
+          title: string
+          updated_at?: string
+          user_id: string
+          won_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          currency?: string | null
+          deal_value?: number | null
+          expected_close_date?: string | null
+          id?: string
+          lead_id?: string | null
+          lost_at?: string | null
+          lost_reason?: string | null
+          priority?: string | null
+          source_channel?: string | null
+          stage_id?: string | null
+          tags?: string[] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+          won_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deals_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_messages: {
         Row: {
           channel_id: string | null
@@ -1136,6 +1350,47 @@ export type Database = {
           },
           {
             foreignKeyName: "partner_businesses_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pipeline_stages: {
+        Row: {
+          color: string | null
+          created_at: string
+          id: string
+          is_default: boolean | null
+          name: string
+          sort_order: number
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name: string
+          sort_order?: number
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          sort_order?: number
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stages_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
