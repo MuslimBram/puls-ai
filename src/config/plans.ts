@@ -282,74 +282,8 @@ export interface FeatureSection {
   features: FeatureRow[];
 }
 
-export const FEATURE_COMPARISON: FeatureSection[] = [
-  {
-    title: "Publishing & Content Planning",
-    features: [
-      { name: "Social profiles", standard: "5", professional: "Unlimited", advanced: "Unlimited", enterprise: "Custom" },
-      { name: "Basic publishing tools", standard: true, professional: true, advanced: true, enterprise: true },
-      { name: "Bulk scheduling", tooltip: "Schedule multiple posts at once across channels", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "Instagram grid planning", tooltip: "Visual Instagram feed planner", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "AI content enhancement", tooltip: "AI-powered content suggestions and optimization", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "Campaign tagging", standard: false, professional: true, advanced: true, enterprise: true },
-    ],
-  },
-  {
-    title: "Engagement & Customer Care",
-    features: [
-      { name: "Unified social inbox", standard: true, professional: true, advanced: true, enterprise: true },
-      { name: "Keyword monitoring", standard: "10 keywords", professional: "50 keywords", advanced: "100 keywords", enterprise: "Unlimited" },
-      { name: "AI replies per day", standard: "20", professional: "100", advanced: "500", enterprise: "Unlimited" },
-      { name: "Conversation history", standard: "90 days", professional: "1 year", advanced: "2 years", enterprise: "Unlimited" },
-      { name: "Saved replies", tooltip: "Reusable reply templates", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "Approval workflow", tooltip: "Multi-step approval for outgoing replies", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "Chatbot automation", tooltip: "AI chatbot workflows for auto-replies", standard: false, professional: false, advanced: true, enterprise: true },
-      { name: "Sentiment classification", tooltip: "Automatic sentiment analysis on messages", standard: false, professional: false, advanced: true, enterprise: true },
-      { name: "Case routing", tooltip: "Route conversations to specific team members", standard: false, professional: false, advanced: true, enterprise: true },
-    ],
-  },
-  {
-    title: "Reporting & Analytics",
-    features: [
-      { name: "Basic analytics reports", standard: true, professional: true, advanced: true, enterprise: true },
-      { name: "Engagement reporting", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "Competitor reports", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "Custom branding reports", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "Team productivity reports", standard: false, professional: false, advanced: true, enterprise: true },
-      { name: "Automation rule builder", standard: false, professional: false, advanced: true, enterprise: true },
-      { name: "Scheduled reports delivery", standard: false, professional: false, advanced: true, enterprise: true },
-      { name: "Full reporting suite", standard: false, professional: false, advanced: false, enterprise: true },
-    ],
-  },
-  {
-    title: "Integrations",
-    features: [
-      { name: "Core integrations", tooltip: "Telegram, Email, Webhook, Website Chat", standard: true, professional: true, advanced: true, enterprise: true },
-      { name: "E-commerce integrations", tooltip: "Shopify, WooCommerce, etc.", standard: false, professional: true, advanced: true, enterprise: true },
-      { name: "BI integrations", tooltip: "Connect to business intelligence platforms", standard: false, professional: false, advanced: true, enterprise: true },
-      { name: "CRM integrations", tooltip: "Salesforce, HubSpot, etc.", standard: false, professional: false, advanced: true, enterprise: true },
-      { name: "API access", tooltip: "Full REST API for custom integrations", standard: false, professional: false, advanced: false, enterprise: true },
-    ],
-  },
-  {
-    title: "Support",
-    features: [
-      { name: "Support availability", standard: "24/5", professional: "24/7", advanced: "24/7 Priority", enterprise: "Dedicated Manager" },
-      { name: "Custom onboarding", standard: false, professional: false, advanced: false, enterprise: true },
-      { name: "SLA support", standard: false, professional: false, advanced: false, enterprise: true },
-      { name: "Dedicated success manager", standard: false, professional: false, advanced: false, enterprise: true },
-    ],
-  },
-  {
-    title: "Security",
-    features: [
-      { name: "Advanced security controls", standard: false, professional: false, advanced: false, enterprise: true },
-      { name: "IP whitelisting", standard: false, professional: false, advanced: false, enterprise: true },
-      { name: "White-label capabilities", standard: false, professional: false, advanced: false, enterprise: true },
-      { name: "Advanced permissions", standard: false, professional: true, advanced: true, enterprise: true },
-    ],
-  },
-];
+// FEATURE_COMPARISON moved to src/config/featureComparison.ts
+export { FEATURE_COMPARISON } from "./featureComparison";
 
 export const formatLimit = (value: number): string => {
   if (value === -1) return "Unlimited";
