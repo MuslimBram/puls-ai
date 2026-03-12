@@ -26,6 +26,10 @@ import ConnectedAccounts from "./pages/ConnectedAccounts";
 import DedicatedAI from "./pages/DedicatedAI";
 import ContentCalendar from "./pages/ContentCalendar";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import Campaigns from "./pages/Campaigns";
+import CompetitorIntelligence from "./pages/CompetitorIntelligence";
+import PartnerDashboard from "./pages/PartnerDashboard";
+import SessionSecurity from "./pages/SessionSecurity";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
@@ -78,6 +82,10 @@ const App = () => (
               <Route path="/dedicated-ai" element={<ProtectedPage><DedicatedAI /></ProtectedPage>} />
               <Route path="/content-calendar" element={<ProtectedPage><ContentCalendar /></ProtectedPage>} />
               <Route path="/knowledge-base" element={<ProtectedPage><KnowledgeBase /></ProtectedPage>} />
+              <Route path="/campaigns" element={<ProtectedPage><Campaigns /></ProtectedPage>} />
+              <Route path="/competitor-intelligence" element={<ProtectedPage><CompetitorIntelligence /></ProtectedPage>} />
+              <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
+              <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

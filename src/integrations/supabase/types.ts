@@ -200,6 +200,165 @@ export type Database = {
           },
         ]
       }
+      campaign_content: {
+        Row: {
+          body: string
+          campaign_id: string
+          content_post_id: string | null
+          content_type: string
+          created_at: string
+          funnel_stage: string
+          hashtags: string[] | null
+          id: string
+          media_suggestion: string | null
+          sort_order: number | null
+          status: string
+          title: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          body: string
+          campaign_id: string
+          content_post_id?: string | null
+          content_type?: string
+          created_at?: string
+          funnel_stage?: string
+          hashtags?: string[] | null
+          id?: string
+          media_suggestion?: string | null
+          sort_order?: number | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          body?: string
+          campaign_id?: string
+          content_post_id?: string | null
+          content_type?: string
+          created_at?: string
+          funnel_stage?: string
+          hashtags?: string[] | null
+          id?: string
+          media_suggestion?: string | null
+          sort_order?: number | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_content_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_content_content_post_id_fkey"
+            columns: ["content_post_id"]
+            isOneToOne: false
+            referencedRelation: "content_posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_content_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaigns: {
+        Row: {
+          ai_generated: boolean | null
+          audience_personas: Json | null
+          budget_max: number | null
+          budget_min: number | null
+          created_at: string
+          cta_strategy: string | null
+          duration_end: string | null
+          duration_start: string | null
+          expected_kpis: Json | null
+          funnel_stages: Json | null
+          id: string
+          messaging_pillars: Json | null
+          name: string
+          objective: string
+          positioning_statement: string | null
+          preferred_channels: string[] | null
+          status: string
+          target_audience: string | null
+          updated_at: string
+          user_id: string
+          value_proposition: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_generated?: boolean | null
+          audience_personas?: Json | null
+          budget_max?: number | null
+          budget_min?: number | null
+          created_at?: string
+          cta_strategy?: string | null
+          duration_end?: string | null
+          duration_start?: string | null
+          expected_kpis?: Json | null
+          funnel_stages?: Json | null
+          id?: string
+          messaging_pillars?: Json | null
+          name: string
+          objective?: string
+          positioning_statement?: string | null
+          preferred_channels?: string[] | null
+          status?: string
+          target_audience?: string | null
+          updated_at?: string
+          user_id: string
+          value_proposition?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_generated?: boolean | null
+          audience_personas?: Json | null
+          budget_max?: number | null
+          budget_min?: number | null
+          created_at?: string
+          cta_strategy?: string | null
+          duration_end?: string | null
+          duration_start?: string | null
+          expected_kpis?: Json | null
+          funnel_stages?: Json | null
+          id?: string
+          messaging_pillars?: Json | null
+          name?: string
+          objective?: string
+          positioning_statement?: string | null
+          preferred_channels?: string[] | null
+          status?: string
+          target_audience?: string | null
+          updated_at?: string
+          user_id?: string
+          value_proposition?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaigns_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       channel_registry: {
         Row: {
           category: string
@@ -273,6 +432,134 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "channels_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitor_scans: {
+        Row: {
+          competitor_id: string
+          content_summary: string | null
+          created_at: string
+          detected_topics: string[] | null
+          id: string
+          promotion_signals: string[] | null
+          raw_data: Json | null
+          scan_type: string
+          scanned_at: string
+          source_url: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          competitor_id: string
+          content_summary?: string | null
+          created_at?: string
+          detected_topics?: string[] | null
+          id?: string
+          promotion_signals?: string[] | null
+          raw_data?: Json | null
+          scan_type?: string
+          scanned_at?: string
+          source_url?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          competitor_id?: string
+          content_summary?: string | null
+          created_at?: string
+          detected_topics?: string[] | null
+          id?: string
+          promotion_signals?: string[] | null
+          raw_data?: Json | null
+          scan_type?: string
+          scanned_at?: string
+          source_url?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_scans_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitor_scans_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitors: {
+        Row: {
+          ai_content_themes: Json | null
+          ai_engagement_style: string | null
+          ai_opportunities: Json | null
+          ai_positioning: string | null
+          ai_summary: string | null
+          category: string | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_scanned_at: string | null
+          name: string
+          scan_frequency: string | null
+          social_urls: Json | null
+          updated_at: string
+          user_id: string
+          website_url: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_content_themes?: Json | null
+          ai_engagement_style?: string | null
+          ai_opportunities?: Json | null
+          ai_positioning?: string | null
+          ai_summary?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_scanned_at?: string | null
+          name: string
+          scan_frequency?: string | null
+          social_urls?: Json | null
+          updated_at?: string
+          user_id: string
+          website_url?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_content_themes?: Json | null
+          ai_engagement_style?: string | null
+          ai_opportunities?: Json | null
+          ai_positioning?: string | null
+          ai_summary?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_scanned_at?: string | null
+          name?: string
+          scan_frequency?: string | null
+          social_urls?: Json | null
+          updated_at?: string
+          user_id?: string
+          website_url?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitors_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -731,6 +1018,131 @@ export type Database = {
           },
         ]
       }
+      market_trends: {
+        Row: {
+          created_at: string
+          first_seen_at: string | null
+          frequency: number | null
+          id: string
+          last_seen_at: string | null
+          source_competitor_ids: string[] | null
+          trend_type: string
+          trend_value: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_seen_at?: string | null
+          frequency?: number | null
+          id?: string
+          last_seen_at?: string | null
+          source_competitor_ids?: string[] | null
+          trend_type?: string
+          trend_value: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_seen_at?: string | null
+          frequency?: number | null
+          id?: string
+          last_seen_at?: string | null
+          source_competitor_ids?: string[] | null
+          trend_type?: string
+          trend_value?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_trends_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_accounts: {
+        Row: {
+          billing_model: string
+          commission_rate: number | null
+          created_at: string
+          discount_percent: number
+          id: string
+          monthly_revenue: number | null
+          partner_name: string
+          status: string
+          total_businesses: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          billing_model?: string
+          commission_rate?: number | null
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          monthly_revenue?: number | null
+          partner_name: string
+          status?: string
+          total_businesses?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          billing_model?: string
+          commission_rate?: number | null
+          created_at?: string
+          discount_percent?: number
+          id?: string
+          monthly_revenue?: number | null
+          partner_name?: string
+          status?: string
+          total_businesses?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      partner_businesses: {
+        Row: {
+          added_at: string
+          id: string
+          partner_id: string
+          workspace_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          partner_id: string
+          workspace_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          partner_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_businesses_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_businesses_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -951,6 +1363,39 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_sessions: {
+        Row: {
+          created_at: string
+          device_info: Json | null
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          last_active_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_active_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          device_info?: Json | null
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          last_active_at?: string | null
+          user_agent?: string | null
           user_id?: string
         }
         Relationships: []
