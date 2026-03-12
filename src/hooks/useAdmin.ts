@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useAuditLog } from "@/hooks/useAuditLog";
 import { toast } from "@/components/ui/sonner";
 
 export const useIsAdmin = () => {
@@ -77,18 +78,34 @@ export const useAdminData = () => {
     enabled: isAdmin,
   });
 
+  const auditLogs = useQuery({
+    queryKey: ["admin-audit-logs"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("audit_logs")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data;
+    },
+    enabled: isAdmin,
+  });
+
   return {
     profiles: profiles.data ?? [],
     businesses: businesses.data ?? [],
     leads: leads.data ?? [],
     channels: channels.data ?? [],
     subscriptions: subscriptions.data ?? [],
+    auditLogs: auditLogs.data ?? [],
     isLoading: profiles.isLoading || businesses.isLoading || leads.isLoading,
   };
 };
 
 export const useAdminActions = () => {
   const queryClient = useQueryClient();
+  const { log } = useAuditLog();
 
   const suspendUser = useMutation({
     mutationFn: async ({ userId, suspend }: { userId: string; suspend: boolean }) => {
@@ -98,8 +115,10 @@ export const useAdminActions = () => {
         .eq("user_id", userId);
       if (error) throw error;
     },
-    onSuccess: (_, { suspend }) => {
+    onSuccess: async (_, { userId, suspend }) => {
+      await log(suspend ? "user_suspended" : "user_reactivated", "user", userId);
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
       toast.success(suspend ? "User suspended" : "User reactivated");
     },
     onError: (e) => toast.error(`Failed: ${e.message}`),
@@ -113,8 +132,10 @@ export const useAdminActions = () => {
         .eq("user_id", userId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async (_, userId) => {
+      await log("usage_reset", "subscription", userId);
       queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
       toast.success("Usage counters reset");
     },
     onError: (e) => toast.error(`Failed: ${e.message}`),
@@ -128,8 +149,10 @@ export const useAdminActions = () => {
         .eq("user_id", userId);
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: async (_, { userId, plan }) => {
+      await log("plan_override", "subscription", userId, { new_plan: plan });
       queryClient.invalidateQueries({ queryKey: ["admin-subscriptions"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
       toast.success("Plan updated");
     },
     onError: (e) => toast.error(`Failed: ${e.message}`),

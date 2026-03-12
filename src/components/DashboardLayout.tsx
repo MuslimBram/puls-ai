@@ -1,11 +1,15 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useCallback } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useIsAdmin } from "@/hooks/useAdmin";
+import { useInactivityLogout } from "@/hooks/useInactivityLogout";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationBell } from "@/components/NotificationBell";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   LayoutDashboard,
   Building2,
@@ -46,9 +50,17 @@ const navItems = [
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const { signOut, user } = useAuth();
+  const { workspace, workspaces, switchWorkspace } = useWorkspace();
   const { isAdmin } = useIsAdmin();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
+
+  const onInactivityWarning = useCallback(() => {
+    setShowInactivityWarning(true);
+  }, []);
+
+  useInactivityLogout(onInactivityWarning);
 
   const allNav = isAdmin
     ? [...navItems, { href: "/admin", label: "Admin", icon: ShieldCheck }]
@@ -77,6 +89,24 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
             <X className="h-4 w-4" />
           </Button>
         </div>
+
+        {/* Workspace Switcher */}
+        {workspaces.length > 0 && (
+          <div className="border-b border-border p-3">
+            <Select value={workspace?.id ?? ""} onValueChange={switchWorkspace}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select workspace" />
+              </SelectTrigger>
+              <SelectContent>
+                {workspaces.map((ws) => (
+                  <SelectItem key={ws.id} value={ws.id} className="text-xs">
+                    {ws.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3">
           {allNav.map((item) => (
@@ -142,6 +172,21 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
+
+      {/* Inactivity Warning */}
+      <Dialog open={showInactivityWarning} onOpenChange={setShowInactivityWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Session Expiring</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Your session will expire in 2 minutes due to inactivity. Move your mouse or press a key to stay signed in.
+          </p>
+          <DialogFooter>
+            <Button onClick={() => setShowInactivityWarning(false)}>Stay Signed In</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
