@@ -86,6 +86,18 @@ export const useSubscription = () => {
     advanced: "advanced",
   };
 
+  // Admin bypass: always enterprise
+  if (isAdminRole) {
+    return {
+      subscription: dbQuery.data,
+      isLoading: dbQuery.isLoading || stripeQuery.isLoading,
+      currentPlan: "enterprise" as PlanKey,
+      planDetails: PLANS["enterprise"],
+      stripeData: stripeData ?? null,
+      refetchStripe: stripeQuery.refetch,
+    };
+  }
+
   // Determine effective plan considering grace period and trial
   let currentPlan: PlanKey = planMap[rawPlan] ?? "standard";
   
@@ -93,12 +105,10 @@ export const useSubscription = () => {
     const now = new Date();
     const status = stripeData.status;
     
-    // If trial expired, downgrade
     if (status === "trialing" && stripeData.trial_end && new Date(stripeData.trial_end) < now) {
       currentPlan = "standard";
     }
     
-    // If past_due, check grace period
     if (status === "past_due") {
       if (stripeData.grace_period_end && new Date(stripeData.grace_period_end) > now) {
         // Keep current plan during grace
@@ -107,7 +117,6 @@ export const useSubscription = () => {
       }
     }
     
-    // If canceled/unpaid, always standard
     if (["canceled", "unpaid"].includes(status)) {
       currentPlan = "standard";
     }
