@@ -34,6 +34,7 @@ import {
   Handshake,
   Shield,
   Briefcase,
+  Brain,
 } from "lucide-react";
 
 const navItems = [
@@ -48,6 +49,7 @@ const navItems = [
   { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
   { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
+  { href: "/visitor-intelligence", label: "Visitor Intel", icon: Brain },
   { href: "/crm", label: "Sales CRM", icon: Briefcase },
   { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },

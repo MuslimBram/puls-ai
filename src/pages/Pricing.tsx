@@ -114,7 +114,7 @@ const Pricing = () => {
                     </Badge>
                   </div>
                 )}
-                {key === "standard" && (
+                {!plan.highlighted && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                     <Badge variant="secondary" className="shadow-sm text-xs font-semibold">
                       💰 Pay back 🔙 guaranteed

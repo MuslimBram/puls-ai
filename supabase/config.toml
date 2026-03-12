@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.ai-sales-assistant]
 verify_jwt = false
+
+[functions.score-visitors]
+verify_jwt = false
