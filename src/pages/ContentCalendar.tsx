@@ -367,7 +367,7 @@ const ContentCalendar = () => {
               <Card><CardContent className="py-12 text-center text-muted-foreground">No sources scanned yet. Scan your website to build your knowledge base.</CardContent></Card>
             ) : (
               <div className="space-y-3">
-                {knowledge.map((k: { id: string; source_url: string | null; scanned_at: string; extracted_data: Record<string, unknown> }) => (
+                {knowledge.map((k: any) => (
                   <Card key={k.id}>
                     <CardContent className="py-4 space-y-2">
                       <div className="flex items-center justify-between">
