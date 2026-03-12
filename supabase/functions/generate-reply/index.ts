@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -10,9 +11,54 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { message, senderName, channelType, keywords, tone, businessProfile, template } = await req.json();
+    const { message, senderName, channelType, keywords, tone, businessProfile, template, user_id } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+
+    // --- ENFORCE AI REPLY LIMIT if user_id provided ---
+    if (user_id) {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+
+      const PLAN_LIMITS: Record<string, number> = {
+        standard: 20, professional: 100, advanced: 500, enterprise: -1,
+      };
+
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("plan, ai_replies_today, ai_replies_reset_at")
+        .eq("user_id", user_id)
+        .maybeSingle();
+
+      const planMap: Record<string, string> = { free: "standard", pro: "professional" };
+      const plan = planMap[sub?.plan || "standard"] || sub?.plan || "standard";
+      const limit = PLAN_LIMITS[plan] ?? 20;
+
+      const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
+      const now = new Date();
+      const hoursSinceReset = (now.getTime() - resetAt.getTime()) / (1000 * 60 * 60);
+      const currentUsed = hoursSinceReset >= 24 ? 0 : (sub?.ai_replies_today || 0);
+
+      if (limit !== -1 && currentUsed >= limit) {
+        return new Response(JSON.stringify({
+          error: `Daily AI reply limit reached (${currentUsed}/${limit}). Upgrade your plan.`,
+          limit_reached: true,
+        }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // Increment counter
+      if (hoursSinceReset >= 24) {
+        await supabase.from("subscriptions").update({
+          ai_replies_today: 1, ai_replies_reset_at: now.toISOString(),
+        }).eq("user_id", user_id);
+      } else {
+        await supabase.from("subscriptions").update({
+          ai_replies_today: currentUsed + 1,
+        }).eq("user_id", user_id);
+      }
+    }
 
     let templateInstruction = "";
     if (template) {
@@ -76,14 +122,12 @@ Write a natural, helpful reply that:
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "Credits required." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
