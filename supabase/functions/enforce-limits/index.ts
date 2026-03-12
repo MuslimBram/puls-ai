@@ -14,6 +14,8 @@ const PLAN_LIMITS: Record<string, Record<string, number>> = {
   enterprise: { channels: -1, keywords: -1, aiRepliesPerDay: -1, leadsPerMonth: -1, teamMembers: -1 },
 };
 
+const GRACE_PERIOD_DAYS = 7;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -34,29 +36,32 @@ serve(async (req) => {
     if (!user) throw new Error("User not authenticated");
 
     const { action, resource } = await req.json();
-    // action: "add" | "check", resource: "channels" | "keywords" | "leads" | etc.
 
-    // Get user's subscription
+    // Get user's subscription with all status info
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("plan, leads_used")
+      .select("plan, leads_used, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
       .eq("user_id", user.id)
       .maybeSingle();
 
     const plan = sub?.plan || "standard";
-    // Map old names
     const planMap: Record<string, string> = { free: "standard", pro: "professional" };
     const normalizedPlan = planMap[plan] || plan;
     const limits = PLAN_LIMITS[normalizedPlan] || PLAN_LIMITS.standard;
 
+    // Check subscription status - enforce downgrade if expired/past_due beyond grace
+    const subStatus = sub?.subscription_status || "active";
+    const effectivePlan = getEffectivePlan(normalizedPlan, subStatus, sub?.grace_period_end, sub?.trial_end);
+    const effectiveLimits = PLAN_LIMITS[effectivePlan] || PLAN_LIMITS.standard;
+
     if (resource === "channels") {
       const { count } = await supabase.from("channels").select("*", { count: "exact", head: true }).eq("user_id", user.id);
-      const limit = limits.channels;
+      const limit = effectiveLimits.channels;
       if (limit !== -1 && (count || 0) >= limit) {
         return new Response(JSON.stringify({
           allowed: false,
           error: `Channel limit reached (${count}/${limit}). Upgrade to add more channels.`,
-          currentPlan: normalizedPlan,
+          currentPlan: effectivePlan,
           limit,
           current: count,
         }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -65,12 +70,12 @@ serve(async (req) => {
 
     if (resource === "keywords") {
       const { count } = await supabase.from("keywords").select("*", { count: "exact", head: true }).eq("user_id", user.id);
-      const limit = limits.keywords;
+      const limit = effectiveLimits.keywords;
       if (limit !== -1 && (count || 0) >= limit) {
         return new Response(JSON.stringify({
           allowed: false,
           error: `Keyword limit reached (${count}/${limit}). Upgrade to add more keywords.`,
-          currentPlan: normalizedPlan,
+          currentPlan: effectivePlan,
           limit,
           current: count,
         }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
@@ -78,20 +83,55 @@ serve(async (req) => {
     }
 
     if (resource === "leads") {
-      const limit = limits.leadsPerMonth;
+      const limit = effectiveLimits.leadsPerMonth;
       const used = sub?.leads_used || 0;
       if (limit !== -1 && used >= limit) {
         return new Response(JSON.stringify({
           allowed: false,
           error: `Monthly lead limit reached (${used}/${limit}). Upgrade for more leads.`,
-          currentPlan: normalizedPlan,
+          currentPlan: effectivePlan,
           limit,
           current: used,
         }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
-    return new Response(JSON.stringify({ allowed: true, currentPlan: normalizedPlan }), {
+    if (resource === "ai_replies") {
+      const limit = effectiveLimits.aiRepliesPerDay;
+      const used = sub?.ai_replies_today || 0;
+
+      // Check if daily counter needs reset
+      const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
+      const now = new Date();
+      const hoursSinceReset = (now.getTime() - resetAt.getTime()) / (1000 * 60 * 60);
+      const effectiveUsed = hoursSinceReset >= 24 ? 0 : used;
+
+      if (limit !== -1 && effectiveUsed >= limit) {
+        return new Response(JSON.stringify({
+          allowed: false,
+          error: `Daily AI reply limit reached (${effectiveUsed}/${limit}). Upgrade for more AI replies.`,
+          currentPlan: effectivePlan,
+          limit,
+          current: effectiveUsed,
+        }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      // If action is "increment", bump the counter
+      if (action === "increment") {
+        if (hoursSinceReset >= 24) {
+          await supabase.from("subscriptions").update({
+            ai_replies_today: 1,
+            ai_replies_reset_at: now.toISOString(),
+          }).eq("user_id", user.id);
+        } else {
+          await supabase.from("subscriptions").update({
+            ai_replies_today: effectiveUsed + 1,
+          }).eq("user_id", user.id);
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ allowed: true, currentPlan: effectivePlan }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
@@ -102,3 +142,29 @@ serve(async (req) => {
     });
   }
 });
+
+function getEffectivePlan(plan: string, status: string, gracePeriodEnd: string | null, trialEnd: string | null): string {
+  const now = new Date();
+
+  // If trial has expired and status isn't active, downgrade
+  if (trialEnd && new Date(trialEnd) < now && status === "trialing") {
+    return "standard";
+  }
+
+  // If past_due, check grace period
+  if (status === "past_due") {
+    if (gracePeriodEnd && new Date(gracePeriodEnd) > now) {
+      // Still in grace period - keep current plan
+      return plan;
+    }
+    // Grace period expired - downgrade
+    return "standard";
+  }
+
+  // If canceled or unpaid, always standard
+  if (["canceled", "unpaid"].includes(status)) {
+    return "standard";
+  }
+
+  return plan;
+}
