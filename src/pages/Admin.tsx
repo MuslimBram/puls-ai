@@ -261,6 +261,40 @@ const Admin = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="audit">
+            <Card>
+              <CardContent className="pt-4">
+                {auditLogs.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No audit logs</p>
+                ) : (
+                  <div className="space-y-2">
+                    {auditLogs.map((log: any) => (
+                      <div key={log.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="text-sm font-medium text-foreground">{log.action}</span>
+                            {log.target_type && (
+                              <Badge variant="secondary" className="text-xs">{log.target_type}</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Actor: {log.actor_id?.substring(0, 8)}… 
+                            {log.target_id && <> · Target: {log.target_id.substring(0, 8)}…</>}
+                            {log.metadata && Object.keys(log.metadata).length > 0 && (
+                              <> · {JSON.stringify(log.metadata)}</>
+                            )}
+                          </p>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{format(new Date(log.created_at), "MMM d, HH:mm")}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
