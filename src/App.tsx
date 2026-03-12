@@ -23,6 +23,7 @@ import Inbox from "./pages/Inbox";
 import ReplyWorkspace from "./pages/ReplyWorkspace";
 import ConnectedAccounts from "./pages/ConnectedAccounts";
 import DedicatedAI from "./pages/DedicatedAI";
+import ContentCalendar from "./pages/ContentCalendar";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
