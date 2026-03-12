@@ -18,7 +18,7 @@ export interface UsageStatus {
 }
 
 export const useFeatureGating = () => {
-  const { currentPlan, subscription } = useSubscription();
+  const { currentPlan, subscription, stripeData, refetchStripe } = useSubscription();
 
   const plan = useMemo(() => {
     const key = (currentPlan as PlanKey) in PLANS ? (currentPlan as PlanKey) : "standard";
@@ -29,7 +29,6 @@ export const useFeatureGating = () => {
     if (plan.features[feature]) {
       return { allowed: true, requiredPlan: plan.key, currentPlan: plan.key };
     }
-    // Find minimum plan that has this feature
     const planOrder: PlanKey[] = ["standard", "professional", "advanced", "enterprise"];
     const requiredPlan = planOrder.find((p) => PLANS[p].features[feature]) || "enterprise";
     return { allowed: false, requiredPlan, currentPlan: plan.key };
@@ -62,5 +61,7 @@ export const useFeatureGating = () => {
     checkLimit,
     getUpgradePlan,
     subscription,
+    stripeData: stripeData ?? null,
+    refetchStripe,
   };
 };
