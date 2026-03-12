@@ -15,8 +15,11 @@ import {
   useAddCompetitor,
   useScanCompetitor,
   useDeleteCompetitor,
+  useCompetitorAlerts,
+  useMarkAlertRead,
   Competitor,
 } from "@/hooks/useCompetitors";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Search,
   Plus,
@@ -29,8 +32,15 @@ import {
   RefreshCw,
   Shield,
   BarChart3,
+  Bell,
+  AlertTriangle,
+  DollarSign,
+  Megaphone,
+  Target,
+  Calendar,
 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "@/components/ui/sonner";
 
 const CATEGORIES = [
   { value: "direct", label: "Direct Competitor" },
@@ -38,18 +48,45 @@ const CATEGORIES = [
   { value: "aspirational", label: "Aspirational" },
 ];
 
+const SCAN_FREQUENCIES = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "manual", label: "Manual Only" },
+];
+
+const SEVERITY_STYLES: Record<string, string> = {
+  high: "border-destructive/50 bg-destructive/5",
+  medium: "border-yellow-500/50 bg-yellow-500/5",
+  low: "border-muted",
+  info: "border-primary/30 bg-primary/5",
+};
+
+const ALERT_ICONS: Record<string, React.ElementType> = {
+  promotion: Megaphone,
+  pricing_change: DollarSign,
+  new_service: Target,
+  campaign: Megaphone,
+  general: AlertTriangle,
+};
+
 const CompetitorIntelligence = () => {
   const { data: competitors, isLoading } = useCompetitors();
   const { data: trends } = useMarketTrends();
+  const { data: alerts } = useCompetitorAlerts();
   const addMutation = useAddCompetitor();
   const scanMutation = useScanCompetitor();
   const deleteMutation = useDeleteCompetitor();
+  const markReadMutation = useMarkAlertRead();
 
   const [showAdd, setShowAdd] = useState(false);
   const [selectedComp, setSelectedComp] = useState<Competitor | null>(null);
   const [formName, setFormName] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formCategory, setFormCategory] = useState("direct");
+  const [formFrequency, setFormFrequency] = useState("weekly");
+
+  const unreadAlerts = alerts?.filter(a => !a.is_read).length || 0;
+  const suggestedKeywords = trends?.filter(t => t.trend_type === "suggested_keyword") || [];
 
   const handleAdd = async () => {
     const comp = await addMutation.mutateAsync({
@@ -57,10 +94,18 @@ const CompetitorIntelligence = () => {
       website_url: formUrl || undefined,
       category: formCategory,
     });
+    // Update scan frequency
+    if (comp) {
+      await supabase.from("competitors").update({ scan_frequency: formFrequency } as any).eq("id", comp.id);
+    }
     setShowAdd(false);
-    setFormName(""); setFormUrl(""); setFormCategory("direct");
-    // Auto-scan if URL provided
+    setFormName(""); setFormUrl(""); setFormCategory("direct"); setFormFrequency("weekly");
     if (comp && formUrl) scanMutation.mutate(comp.id);
+  };
+
+  const handleUpdateFrequency = async (compId: string, frequency: string) => {
+    await supabase.from("competitors").update({ scan_frequency: frequency } as any).eq("id", compId);
+    toast.success(`Scan frequency updated to ${frequency}`);
   };
 
   return (
@@ -79,7 +124,7 @@ const CompetitorIntelligence = () => {
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <div>
                 <p className="text-sm font-medium">Scanning competitor...</p>
-                <p className="text-xs text-muted-foreground">Crawling website and generating AI analysis</p>
+                <p className="text-xs text-muted-foreground">Crawling website, detecting changes, and generating AI analysis</p>
               </div>
             </CardContent>
           </Card>
@@ -88,8 +133,15 @@ const CompetitorIntelligence = () => {
         <Tabs defaultValue="competitors" className="space-y-4">
           <TabsList>
             <TabsTrigger value="competitors">Competitors ({competitors?.length || 0})</TabsTrigger>
+            <TabsTrigger value="alerts" className="relative">
+              Alerts
+              {unreadAlerts > 0 && (
+                <Badge variant="destructive" className="ml-1.5 h-5 min-w-5 px-1 text-[10px]">{unreadAlerts}</Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="trends">Market Trends ({trends?.length || 0})</TabsTrigger>
             <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
+            <TabsTrigger value="suggestions">AI Suggestions</TabsTrigger>
           </TabsList>
 
           {/* Competitors Tab */}
@@ -101,7 +153,7 @@ const CompetitorIntelligence = () => {
                 <CardContent className="py-16 text-center">
                   <Shield className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
                   <p className="text-lg font-medium mb-2">No competitors tracked</p>
-                  <p className="text-sm text-muted-foreground mb-4">Add competitors to monitor their strategy</p>
+                  <p className="text-sm text-muted-foreground mb-4">Add competitors to monitor their strategy with daily/weekly scanning</p>
                   <Button onClick={() => setShowAdd(true)}><Plus className="mr-2 h-4 w-4" /> Add Competitor</Button>
                 </CardContent>
               </Card>
@@ -116,7 +168,13 @@ const CompetitorIntelligence = () => {
                             <Globe className="h-4 w-4 text-primary" />
                             {comp.name}
                           </CardTitle>
-                          <Badge variant="outline" className="text-xs mt-1 capitalize">{comp.category}</Badge>
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="outline" className="text-xs capitalize">{comp.category}</Badge>
+                            <Badge variant="secondary" className="text-[10px]">
+                              <Calendar className="h-3 w-3 mr-1" />
+                              {comp.scan_frequency}
+                            </Badge>
+                          </div>
                         </div>
                         <div className="flex gap-1">
                           <Button size="sm" variant="ghost" onClick={() => setSelectedComp(comp)}><Eye className="h-4 w-4" /></Button>
@@ -138,9 +196,24 @@ const CompetitorIntelligence = () => {
                       ) : (
                         <p className="text-xs text-muted-foreground italic">Not scanned yet</p>
                       )}
-                      {comp.last_scanned_at && (
-                        <p className="text-[10px] text-muted-foreground">Last scanned: {format(new Date(comp.last_scanned_at), "MMM d, yyyy HH:mm")}</p>
-                      )}
+                      <div className="flex items-center justify-between">
+                        {comp.last_scanned_at && (
+                          <p className="text-[10px] text-muted-foreground">Last scanned: {format(new Date(comp.last_scanned_at), "MMM d, yyyy HH:mm")}</p>
+                        )}
+                        <Select
+                          value={comp.scan_frequency}
+                          onValueChange={(v) => handleUpdateFrequency(comp.id, v)}
+                        >
+                          <SelectTrigger className="h-6 w-24 text-[10px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SCAN_FREQUENCIES.map((f) => (
+                              <SelectItem key={f.value} value={f.value} className="text-xs">{f.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}
@@ -148,13 +221,52 @@ const CompetitorIntelligence = () => {
             )}
           </TabsContent>
 
+          {/* Alerts Tab */}
+          <TabsContent value="alerts" className="space-y-3">
+            {!alerts?.length ? (
+              <Card><CardContent className="py-12 text-center text-muted-foreground">
+                <Bell className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                <p>No alerts yet. Alerts are generated when changes are detected during competitor scans.</p>
+              </CardContent></Card>
+            ) : (
+              alerts.map((alert) => {
+                const Icon = ALERT_ICONS[alert.alert_type] || AlertTriangle;
+                return (
+                  <Card key={alert.id} className={`${SEVERITY_STYLES[alert.severity] || ""} ${!alert.is_read ? "ring-1 ring-primary/20" : "opacity-75"}`}>
+                    <CardContent className="flex items-start gap-3 py-3">
+                      <Icon className={`h-5 w-5 mt-0.5 shrink-0 ${alert.severity === "high" ? "text-destructive" : alert.severity === "medium" ? "text-yellow-600" : "text-primary"}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5">
+                          <p className="text-sm font-medium truncate">{alert.title}</p>
+                          <Badge variant={alert.severity === "high" ? "destructive" : "secondary"} className="text-[10px] shrink-0">
+                            {alert.severity}
+                          </Badge>
+                          {!alert.is_read && <Badge className="text-[10px] shrink-0">New</Badge>}
+                        </div>
+                        {alert.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2">{alert.description}</p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground mt-1">{format(new Date(alert.created_at), "MMM d, HH:mm")}</p>
+                      </div>
+                      {!alert.is_read && (
+                        <Button size="sm" variant="ghost" className="shrink-0 text-xs" onClick={() => markReadMutation.mutate(alert.id)}>
+                          Mark read
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </TabsContent>
+
           {/* Trends Tab */}
           <TabsContent value="trends" className="space-y-4">
-            {!trends?.length ? (
+            {!trends?.filter(t => t.trend_type === "keyword")?.length ? (
               <Card><CardContent className="py-12 text-center text-muted-foreground">No trends detected yet. Scan competitors to discover trends.</CardContent></Card>
             ) : (
               <div className="space-y-2">
-                {trends.map((trend) => (
+                {trends.filter(t => t.trend_type === "keyword").map((trend) => (
                   <Card key={trend.id}>
                     <CardContent className="flex items-center justify-between py-3">
                       <div className="flex items-center gap-3">
@@ -204,6 +316,54 @@ const CompetitorIntelligence = () => {
               </CardContent></Card>
             )}
           </TabsContent>
+
+          {/* AI Suggestions Tab */}
+          <TabsContent value="suggestions" className="space-y-4">
+            {suggestedKeywords.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" /> Suggested Keywords to Target
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-2">
+                    {suggestedKeywords.map((kw) => (
+                      <Badge key={kw.id} variant="outline" className="text-xs">
+                        {kw.trend_value}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-3">
+                    These keywords are based on gaps identified in competitor analysis. Add them to your keyword monitoring to capture leads.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Content suggestions from competitors */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <BarChart3 className="h-4 w-4 text-primary" /> How Insights Feed Your Strategy
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium text-foreground">📅 Content Calendar</p>
+                  <p className="text-xs text-muted-foreground mt-1">Competitor content themes and trending keywords automatically inform your AI content generation suggestions.</p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium text-foreground">🎯 Campaign Builder</p>
+                  <p className="text-xs text-muted-foreground mt-1">Opportunities and positioning gaps feed into campaign strategy recommendations.</p>
+                </div>
+                <div className="rounded-lg border border-border p-3">
+                  <p className="text-sm font-medium text-foreground">🔍 Lead Keywords</p>
+                  <p className="text-xs text-muted-foreground mt-1">Suggested keywords from competitor gaps can be added to your keyword monitoring for lead discovery.</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
 
         {/* Add Competitor Dialog */}
@@ -227,6 +387,16 @@ const CompetitorIntelligence = () => {
                     {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
+              </div>
+              <div>
+                <Label>Scan Frequency</Label>
+                <Select value={formFrequency} onValueChange={setFormFrequency}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {SCAN_FREQUENCIES.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground mt-1">How often to automatically scan this competitor's website</p>
               </div>
             </div>
             <DialogFooter>
