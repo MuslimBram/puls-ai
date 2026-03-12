@@ -124,6 +124,37 @@ serve(async (req) => {
 
     const keywordList = (keywords ?? []).map((k: any) => k.keyword);
 
+    // Fetch knowledge base context
+    let knowledgeContext = "";
+    try {
+      const { data: kbChunks } = await supabase
+        .from("knowledge_chunks")
+        .select("content, topic_tags, content_type")
+        .eq("user_id", user_id)
+        .limit(10);
+      
+      if (kbChunks && kbChunks.length > 0) {
+        const relevantChunks = kbChunks
+          .filter((c: any) => {
+            const msgLower = message.toLowerCase();
+            return c.topic_tags?.some((t: string) => msgLower.includes(t.toLowerCase())) ||
+              c.content.toLowerCase().split(/\s+/).some((w: string) => msgLower.includes(w) && w.length > 4);
+          })
+          .slice(0, 5);
+        
+        if (relevantChunks.length > 0) {
+          knowledgeContext = "\n\nRelevant Knowledge Base:\n" + 
+            relevantChunks.map((c: any) => `[${c.content_type}] ${c.content.slice(0, 500)}`).join("\n---\n");
+        } else {
+          // Use first few chunks as general context
+          knowledgeContext = "\n\nBusiness Knowledge:\n" + 
+            kbChunks.slice(0, 3).map((c: any) => c.content.slice(0, 300)).join("\n---\n");
+        }
+      }
+    } catch (e) {
+      console.error("KB context fetch error:", e);
+    }
+
     const simplePatterns = [
       /^(hi|hello|hey|merhaba|përshëndetje|çfarë bëni|what do you do|pricing|price|cost|hours|location|address|contact|phone|email)/i,
       /^.{0,60}$/,
@@ -135,7 +166,7 @@ serve(async (req) => {
       ? `Business: ${bizProfile.business_name}\nIndustry: ${bizProfile.industry || "General"}\nServices: ${bizProfile.main_services || "Various services"}\nDescription: ${bizProfile.short_description || ""}\nTarget Audience: ${bizProfile.target_audience || "General"}\nMission: ${bizProfile.mission_values || ""}\nTone: ${bizProfile.ai_tone || "professional"}\nLanguage: ${bizProfile.language || "en"}`
       : "No business profile available.";
 
-    const systemPrompt = `You are a Dedicated AI Assistant for a business. You respond to visitor inquiries based on the business information provided below.\n\n${businessContext}\n\nKeywords the business monitors: ${keywordList.join(", ") || "none"}\n\nRules:\n- Always respond in the language the visitor writes in\n- Be helpful, knowledgeable about the business's products/services\n- Present yourself as the business's dedicated AI assistant\n- For simple questions, provide a direct and helpful answer\n- For complex questions, provide an initial helpful response but mention that a team member will follow up\n- Always include a call-to-action\n- Keep responses concise (2-5 sentences)\n- Never make up specific prices, dates, or promises not mentioned in the business profile`;
+    const systemPrompt = `You are a Dedicated AI Assistant for a business. You respond to visitor inquiries based on the business information provided below.\n\n${businessContext}${knowledgeContext}\n\nKeywords the business monitors: ${keywordList.join(", ") || "none"}\n\nRules:\n- Always respond in the language the visitor writes in\n- Be helpful, knowledgeable about the business's products/services\n- Use the knowledge base information when relevant to provide detailed, accurate answers\n- Present yourself as the business's dedicated AI assistant\n- For simple questions, provide a direct and helpful answer\n- For complex questions, provide an initial helpful response but mention that a team member will follow up\n- Always include a call-to-action\n- Keep responses concise (2-5 sentences)\n- Never make up specific prices, dates, or promises not mentioned in the business profile or knowledge base`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
