@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Link2,
   Bot,
+  CalendarDays,
 } from "lucide-react";
 
 const navItems = [
