@@ -114,6 +114,13 @@ const Pricing = () => {
                     </Badge>
                   </div>
                 )}
+                {key === "standard" && (
+                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge variant="secondary" className="shadow-sm text-xs font-semibold">
+                      💰 Pay back 🔙 guaranteed
+                    </Badge>
+                  </div>
+                )}
                 <CardHeader className="pb-2">
                   <CardTitle className="text-lg">{plan.name}</CardTitle>
                   <CardDescription className="text-xs min-h-[2.5rem]">{plan.description}</CardDescription>
