@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,23 +9,52 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { PLANS, PLAN_ORDER, FEATURE_COMPARISON, PlanKey } from "@/config/plans";
+import { STRIPE_TIERS } from "@/config/stripe";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
-import { Check, X, Zap, HelpCircle, Crown, Mail } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { Check, X, Zap, HelpCircle, Crown, Mail, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { useSearchParams } from "react-router-dom";
 
 const Pricing = () => {
   const [annual, setAnnual] = useState(false);
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
+  const [loadingPlan, setLoadingPlan] = useState<PlanKey | null>(null);
   const { currentPlanKey } = useFeatureGating();
+  const [searchParams] = useSearchParams();
 
-  const handleUpgrade = (plan: PlanKey) => {
+  useEffect(() => {
+    if (searchParams.get("checkout") === "canceled") {
+      toast.info("Checkout was canceled.");
+    }
+  }, [searchParams]);
+
+  const handleUpgrade = async (plan: PlanKey) => {
     if (plan === "enterprise") {
       setEnterpriseOpen(true);
       return;
     }
-    toast.info(`Upgrade to ${PLANS[plan].name} — Payment integration coming soon.`);
+    if (plan === "standard") return;
+
+    const tier = STRIPE_TIERS[plan as Exclude<PlanKey, "standard">];
+    if (!tier) return;
+
+    setLoadingPlan(plan);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: { priceId: tier.price_id },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to start checkout");
+    } finally {
+      setLoadingPlan(null);
+    }
   };
 
   const handleEnterpriseSubmit = () => {
@@ -47,11 +76,10 @@ const Pricing = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        {/* Header */}
         <div className="text-center space-y-3">
           <h1 className="text-3xl font-bold text-foreground">Choose Your Plan</h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Scale your social engagement with the right tools. All plans include core features.
+            Scale your social engagement with the right tools. All plans include a 7-day free trial.
           </p>
           <div className="flex items-center justify-center gap-3">
             <span className={cn("text-sm", !annual ? "text-foreground font-medium" : "text-muted-foreground")}>Monthly</span>
@@ -69,6 +97,7 @@ const Pricing = () => {
             const plan = PLANS[key];
             const isCurrent = currentPlanKey === key;
             const price = annual ? Math.round(plan.annualPrice / 12) : plan.monthlyPrice;
+            const isLoading = loadingPlan === key;
 
             return (
               <Card
@@ -107,7 +136,6 @@ const Pricing = () => {
                     )}
                   </div>
 
-                  {/* Key limits */}
                   <div className="space-y-2 text-sm mb-4 flex-1">
                     <div className="flex items-center gap-2">
                       <Check className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -131,29 +159,30 @@ const Pricing = () => {
                       <Check className="h-3.5 w-3.5 text-primary shrink-0" />
                       <span className="text-foreground">{plan.support} support</span>
                     </div>
-                    {plan.features.automationWorkflows && (
+                    {key !== "standard" && (
                       <div className="flex items-center gap-2">
                         <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="text-foreground">Automation workflows</span>
-                      </div>
-                    )}
-                    {plan.features.apiAccess && (
-                      <div className="flex items-center gap-2">
-                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="text-foreground">API access</span>
+                        <span className="text-foreground">7-day free trial</span>
                       </div>
                     )}
                   </div>
 
                   {isCurrent ? (
                     <Button disabled className="w-full">Current Plan</Button>
+                  ) : key === "standard" ? (
+                    <Button disabled variant="outline" className="w-full">Free Plan</Button>
                   ) : (
                     <Button
                       className="w-full"
                       variant={plan.highlighted ? "default" : "outline"}
                       onClick={() => handleUpgrade(key)}
+                      disabled={isLoading}
                     >
-                      <Zap className="h-4 w-4 mr-1" />
+                      {isLoading ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <Zap className="h-4 w-4 mr-1" />
+                      )}
                       {plan.cta}
                     </Button>
                   )}
@@ -241,29 +270,15 @@ const Pricing = () => {
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-foreground">Name</label>
-                <Input
-                  value={contactForm.name}
-                  onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))}
-                  placeholder="Your name"
-                />
+                <Input value={contactForm.name} onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))} placeholder="Your name" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Email</label>
-                <Input
-                  type="email"
-                  value={contactForm.email}
-                  onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))}
-                  placeholder="you@company.com"
-                />
+                <Input type="email" value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
               </div>
               <div>
                 <label className="text-sm font-medium text-foreground">Message</label>
-                <Textarea
-                  value={contactForm.message}
-                  onChange={(e) => setContactForm((f) => ({ ...f, message: e.target.value }))}
-                  placeholder="Tell us about your needs..."
-                  rows={3}
-                />
+                <Textarea value={contactForm.message} onChange={(e) => setContactForm((f) => ({ ...f, message: e.target.value }))} placeholder="Tell us about your needs..." rows={3} />
               </div>
             </div>
             <DialogFooter>

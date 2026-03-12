@@ -29,15 +29,22 @@ export const useChannels = () => {
 
   const addChannel = useMutation({
     mutationFn: async (channel: ChannelData) => {
+      // Server-side limit enforcement
+      const { data: limitCheck, error: limitError } = await supabase.functions.invoke("enforce-limits", {
+        body: { action: "add", resource: "channels" },
+      });
+      if (limitError) throw new Error(limitError.message || "Failed to check limits");
+      if (limitCheck && !limitCheck.allowed) {
+        throw new Error(limitCheck.error || "Channel limit reached. Please upgrade your plan.");
+      }
+
       const row = {
-          channel_type: channel.channel_type,
-          channel_name: channel.channel_name,
-          settings: (channel.settings ?? {}) as any,
-          user_id: user!.id,
-        };
-      const { error } = await supabase
-        .from("channels")
-        .insert([row]);
+        channel_type: channel.channel_type,
+        channel_name: channel.channel_name,
+        settings: (channel.settings ?? {}) as any,
+        user_id: user!.id,
+      };
+      const { error } = await supabase.from("channels").insert([row]);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -49,15 +56,10 @@ export const useChannels = () => {
 
   const toggleChannel = useMutation({
     mutationFn: async ({ id, is_enabled }: { id: string; is_enabled: boolean }) => {
-      const { error } = await supabase
-        .from("channels")
-        .update({ is_enabled })
-        .eq("id", id);
+      const { error } = await supabase.from("channels").update({ is_enabled }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["channels"] });
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["channels"] }),
   });
 
   const deleteChannel = useMutation({

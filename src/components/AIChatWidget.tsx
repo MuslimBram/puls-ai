@@ -8,11 +8,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 
 interface AIChatWidgetProps {
-  userId: string;
+  userId?: string;
   businessName?: string;
 }
 
-export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps) => {
+export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
