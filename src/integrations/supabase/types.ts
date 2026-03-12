@@ -468,38 +468,62 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          ai_replies_reset_at: string
+          ai_replies_today: number
           billing_cycle_start: string
           channels_limit: number
           created_at: string
+          grace_period_end: string | null
           id: string
           keywords_limit: number
           leads_limit: number
           leads_used: number
           plan: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string
+          trial_end: string | null
+          trial_start: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          ai_replies_reset_at?: string
+          ai_replies_today?: number
           billing_cycle_start?: string
           channels_limit?: number
           created_at?: string
+          grace_period_end?: string | null
           id?: string
           keywords_limit?: number
           leads_limit?: number
           leads_used?: number
           plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string
+          trial_end?: string | null
+          trial_start?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          ai_replies_reset_at?: string
+          ai_replies_today?: number
           billing_cycle_start?: string
           channels_limit?: number
           created_at?: string
+          grace_period_end?: string | null
           id?: string
           keywords_limit?: number
           leads_limit?: number
           leads_used?: number
           plan?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string
+          trial_end?: string | null
+          trial_start?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -535,6 +559,8 @@ export type Database = {
         }
         Returns: boolean
       }
+      reset_daily_ai_replies: { Args: never; Returns: undefined }
+      reset_monthly_usage: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "support_agent" | "staff"
