@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.search-knowledge]
 verify_jwt = false
+
+[functions.generate-campaign]
+verify_jwt = false
