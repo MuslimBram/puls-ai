@@ -44,6 +44,7 @@ const navItems = [
   { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays },
   { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
   { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+  { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
   { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
   { href: "/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/business-profile", label: "Business Profile", icon: Building2 },
