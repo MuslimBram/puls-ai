@@ -31,6 +31,7 @@ import CompetitorIntelligence from "./pages/CompetitorIntelligence";
 import PartnerDashboard from "./pages/PartnerDashboard";
 import SessionSecurity from "./pages/SessionSecurity";
 import CRM from "./pages/CRM";
+import VisitorIntelligence from "./pages/VisitorIntelligence";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
