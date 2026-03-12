@@ -28,6 +28,8 @@ import ContentCalendar from "./pages/ContentCalendar";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Campaigns from "./pages/Campaigns";
 import CompetitorIntelligence from "./pages/CompetitorIntelligence";
+import PartnerDashboard from "./pages/PartnerDashboard";
+import SessionSecurity from "./pages/SessionSecurity";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
