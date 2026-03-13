@@ -257,20 +257,6 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
         </main>
       </div>
 
-      {/* Inactivity Warning */}
-      <Dialog open={showInactivityWarning} onOpenChange={setShowInactivityWarning}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Session Expiring</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Your session will expire in 2 minutes due to inactivity. Move your mouse or press a key to stay signed in.
-          </p>
-          <DialogFooter>
-            <Button onClick={() => setShowInactivityWarning(false)}>Stay Signed In</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
