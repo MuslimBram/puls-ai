@@ -1476,6 +1476,39 @@ export type Database = {
           },
         ]
       }
+      pricing_settings: {
+        Row: {
+          annual_price: number
+          donation_label: string | null
+          id: string
+          is_donation: boolean
+          monthly_price: number
+          plan_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          annual_price?: number
+          donation_label?: string | null
+          id?: string
+          is_donation?: boolean
+          monthly_price?: number
+          plan_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          annual_price?: number
+          donation_label?: string | null
+          id?: string
+          is_donation?: boolean
+          monthly_price?: number
+          plan_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
