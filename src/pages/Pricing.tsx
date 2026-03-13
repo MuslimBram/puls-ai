@@ -262,6 +262,35 @@ const Pricing = () => {
           </CardContent>
         </Card>
 
+        {/* Support / Donation Section */}
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+          <CardContent className="py-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-center md:text-left">
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-2 justify-center md:justify-start">
+                  ☕ Support LeadPulse
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Love the platform? Support our development with a one-time or monthly contribution. Available worldwide including Albania.
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={() => window.open("https://buymeacoffee.com/leadpulse", "_blank")}
+                >
+                  ☕ One-time
+                </Button>
+                <Button
+                  onClick={() => window.open("https://buymeacoffee.com/leadpulse/membership", "_blank")}
+                >
+                  💛 Monthly Support
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Enterprise Contact Modal */}
         <Dialog open={enterpriseOpen} onOpenChange={setEnterpriseOpen}>
           <DialogContent>

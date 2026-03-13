@@ -1,4 +1,4 @@
-import { ReactNode, useState, useCallback } from "react";
+import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationBell } from "@/components/NotificationBell";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   LayoutDashboard,
@@ -114,13 +114,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const { isAdmin } = useIsAdmin();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
-
-  const onInactivityWarning = useCallback(() => {
-    setShowInactivityWarning(true);
-  }, []);
-
-  useInactivityLogout(onInactivityWarning);
+  useInactivityLogout();
 
   // Build groups, add admin to Settings if admin
   const allGroups = isAdmin
@@ -263,20 +257,6 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
         </main>
       </div>
 
-      {/* Inactivity Warning */}
-      <Dialog open={showInactivityWarning} onOpenChange={setShowInactivityWarning}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Session Expiring</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-muted-foreground">
-            Your session will expire in 2 minutes due to inactivity. Move your mouse or press a key to stay signed in.
-          </p>
-          <DialogFooter>
-            <Button onClick={() => setShowInactivityWarning(false)}>Stay Signed In</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };
