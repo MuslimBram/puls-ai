@@ -18,6 +18,8 @@ const Admin = () => {
   const { profiles, businesses, leads, channels, subscriptions, auditLogs, isLoading } = useAdminData();
   const { suspendUser, resetUsage, updatePlan } = useAdminActions();
   const { partners, approvePartner, rejectPartner } = useAdminPartners();
+  const { settings: pricingSettings, updatePrice } = usePricingSettings();
+  const [editPrices, setEditPrices] = useState<Record<string, { monthly: string; annual: string; label: string }>>({});
 
   if (roleLoading) {
     return (
