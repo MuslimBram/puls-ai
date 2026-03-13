@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
+import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save } from "lucide-react";
 import { format } from "date-fns";
 
 const Admin = () => {
