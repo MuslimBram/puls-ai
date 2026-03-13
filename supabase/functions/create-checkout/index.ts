@@ -22,8 +22,8 @@ serve(async (req) => {
     const user = data.user;
     if (!user?.email) throw new Error("User not authenticated");
 
-    const { priceId } = await req.json();
-    if (!priceId) throw new Error("priceId is required");
+    const body = await req.json();
+    const { priceId, donationAmount, donationRecurring } = body;
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { apiVersion: "2025-08-27.basil" });
 
@@ -34,6 +34,58 @@ serve(async (req) => {
     }
 
     const origin = req.headers.get("origin") || "https://talk-finder-bot.lovable.app";
+
+    // Donation flow
+    if (donationAmount) {
+      const amountCents = Math.round(Number(donationAmount) * 100);
+      
+      if (donationRecurring) {
+        // Create a recurring donation price on the fly
+        const price = await stripe.prices.create({
+          unit_amount: amountCents,
+          currency: "usd",
+          recurring: { interval: "month" },
+          product_data: { name: "LeadPulse Monthly Support" },
+        });
+
+        const session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          customer_email: customerId ? undefined : user.email,
+          line_items: [{ price: price.id, quantity: 1 }],
+          mode: "subscription",
+          success_url: `${origin}/pricing?checkout=success&type=donation`,
+          cancel_url: `${origin}/pricing?checkout=canceled`,
+        });
+
+        return new Response(JSON.stringify({ url: session.url }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } else {
+        // One-time donation
+        const session = await stripe.checkout.sessions.create({
+          customer: customerId,
+          customer_email: customerId ? undefined : user.email,
+          line_items: [{
+            price_data: {
+              currency: "usd",
+              product_data: { name: "LeadPulse One-time Support" },
+              unit_amount: amountCents,
+            },
+            quantity: 1,
+          }],
+          mode: "payment",
+          success_url: `${origin}/pricing?checkout=success&type=donation`,
+          cancel_url: `${origin}/pricing?checkout=canceled`,
+        });
+
+        return new Response(JSON.stringify({ url: session.url }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // Regular subscription flow
+    if (!priceId) throw new Error("priceId is required");
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,

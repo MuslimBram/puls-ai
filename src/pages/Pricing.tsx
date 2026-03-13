@@ -11,8 +11,9 @@ import { Input } from "@/components/ui/input";
 import { PLANS, PLAN_ORDER, FEATURE_COMPARISON, PlanKey } from "@/config/plans";
 import { STRIPE_TIERS } from "@/config/stripe";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { usePricingSettings } from "@/hooks/usePricingSettings";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, X, Zap, HelpCircle, Crown, Mail, Loader2 } from "lucide-react";
+import { Check, X, Zap, HelpCircle, Crown, Mail, Loader2, Heart, Coffee } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { useSearchParams } from "react-router-dom";
@@ -21,8 +22,9 @@ const Pricing = () => {
   const [annual, setAnnual] = useState(false);
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
   const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
-  const [loadingPlan, setLoadingPlan] = useState<PlanKey | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const { currentPlanKey } = useFeatureGating();
+  const { getPlanPrice, donations } = usePricingSettings();
   const [searchParams] = useSearchParams();
 
   useEffect(() => {
@@ -56,6 +58,30 @@ const Pricing = () => {
     }
   };
 
+  const handleDonation = async (donationType: "donation_once" | "donation_monthly") => {
+    setLoadingPlan(donationType);
+    try {
+      const donation = donations.find((d) => d.plan_key === donationType);
+      const amount = donation ? Number(donation.monthly_price) : 5;
+      const isRecurring = donationType === "donation_monthly";
+
+      const { data, error } = await supabase.functions.invoke("create-checkout", {
+        body: {
+          donationAmount: amount,
+          donationRecurring: isRecurring,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (e: any) {
+      toast.error(e.message || "Failed to start donation checkout");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
   const handleEnterpriseSubmit = () => {
     if (!contactForm.email.trim()) {
       toast.error("Please enter your email.");
@@ -71,6 +97,15 @@ const Pricing = () => {
     if (val === false) return <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />;
     return <span className="text-sm text-foreground">{val}</span>;
   };
+
+  const getPrice = (key: PlanKey) => {
+    const dbPrice = getPlanPrice(key);
+    if (dbPrice) return dbPrice;
+    return { monthly: PLANS[key].monthlyPrice, annual: PLANS[key].annualPrice };
+  };
+
+  const donationOnce = donations.find((d) => d.plan_key === "donation_once");
+  const donationMonthly = donations.find((d) => d.plan_key === "donation_monthly");
 
   return (
     <DashboardLayout>
@@ -95,7 +130,8 @@ const Pricing = () => {
           {PLAN_ORDER.map((key) => {
             const plan = PLANS[key];
             const isCurrent = currentPlanKey === key;
-            const price = annual ? Math.round(plan.annualPrice / 12) : plan.monthlyPrice;
+            const prices = getPrice(key);
+            const price = annual ? Math.round(prices.annual / 12) : prices.monthly;
             const isLoading = loadingPlan === key;
 
             return (
@@ -135,7 +171,7 @@ const Pricing = () => {
                         <span className="text-sm text-muted-foreground">/mo</span>
                         {annual && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            ${plan.annualPrice}/year billed annually
+                            ${prices.annual}/year billed annually
                           </p>
                         )}
                       </>
@@ -195,6 +231,47 @@ const Pricing = () => {
             );
           })}
         </div>
+
+        {/* Donation / Support Section */}
+        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+          <CardContent className="py-6">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="text-center md:text-left">
+                <h3 className="text-lg font-bold text-foreground flex items-center gap-2 justify-center md:justify-start">
+                  <Heart className="h-5 w-5 text-destructive" /> Support LeadPulse
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Love the platform? Support our development with a one-time or monthly contribution via Stripe. Available worldwide including Albania.
+                </p>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button
+                  variant="outline"
+                  onClick={() => handleDonation("donation_once")}
+                  disabled={loadingPlan === "donation_once"}
+                >
+                  {loadingPlan === "donation_once" ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Coffee className="h-4 w-4 mr-1" />
+                  )}
+                  {donationOnce?.donation_label || "One-time"} (${donationOnce ? Number(donationOnce.monthly_price) : 5})
+                </Button>
+                <Button
+                  onClick={() => handleDonation("donation_monthly")}
+                  disabled={loadingPlan === "donation_monthly"}
+                >
+                  {loadingPlan === "donation_monthly" ? (
+                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                  ) : (
+                    <Heart className="h-4 w-4 mr-1" />
+                  )}
+                  {donationMonthly?.donation_label || "Monthly"} (${donationMonthly ? Number(donationMonthly.monthly_price) : 5}/mo)
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Feature Comparison Table */}
         <Card>
@@ -259,35 +336,6 @@ const Pricing = () => {
                 ))}
               </tbody>
             </table>
-          </CardContent>
-        </Card>
-
-        {/* Support / Donation Section */}
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardContent className="py-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="text-center md:text-left">
-                <h3 className="text-lg font-bold text-foreground flex items-center gap-2 justify-center md:justify-start">
-                  ☕ Support LeadPulse
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Love the platform? Support our development with a one-time or monthly contribution. Available worldwide including Albania.
-                </p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                <Button
-                  variant="outline"
-                  onClick={() => window.open("https://buymeacoffee.com/leadpulse", "_blank")}
-                >
-                  ☕ One-time
-                </Button>
-                <Button
-                  onClick={() => window.open("https://buymeacoffee.com/leadpulse/membership", "_blank")}
-                >
-                  💛 Monthly Support
-                </Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
 

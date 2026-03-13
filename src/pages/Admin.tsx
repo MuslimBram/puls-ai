@@ -1,13 +1,16 @@
+import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
+import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save } from "lucide-react";
 import { format } from "date-fns";
 
 const Admin = () => {
@@ -15,6 +18,8 @@ const Admin = () => {
   const { profiles, businesses, leads, channels, subscriptions, auditLogs, isLoading } = useAdminData();
   const { suspendUser, resetUsage, updatePlan } = useAdminActions();
   const { partners, approvePartner, rejectPartner } = useAdminPartners();
+  const { settings: pricingSettings, updatePrice } = usePricingSettings();
+  const [editPrices, setEditPrices] = useState<Record<string, { monthly: string; annual: string; label: string }>>({});
 
   if (roleLoading) {
     return (
@@ -98,6 +103,10 @@ const Admin = () => {
             <TabsTrigger value="leads">Leads</TabsTrigger>
             <TabsTrigger value="channels">Channels</TabsTrigger>
             <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+            <TabsTrigger value="pricing">
+              <DollarSign className="h-3 w-3 mr-1" />
+              Pricing
+            </TabsTrigger>
             <TabsTrigger value="audit">Audit Logs</TabsTrigger>
           </TabsList>
 
@@ -334,6 +343,110 @@ const Admin = () => {
                     ))}
                   </div>
                 )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Pricing Management Tab */}
+          <TabsContent value="pricing">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Pricing Management
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {pricingSettings.map((setting) => {
+                    const edit = editPrices[setting.id] || {
+                      monthly: String(setting.monthly_price),
+                      annual: String(setting.annual_price),
+                      label: setting.donation_label || "",
+                    };
+                    const hasChanges =
+                      edit.monthly !== String(setting.monthly_price) ||
+                      edit.annual !== String(setting.annual_price) ||
+                      edit.label !== (setting.donation_label || "");
+
+                    return (
+                      <div key={setting.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
+                        <div className="min-w-[140px]">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-foreground capitalize">
+                              {setting.plan_key.replace("_", " ")}
+                            </p>
+                            {setting.is_donation && (
+                              <Badge variant="secondary" className="text-xs">Donation</Badge>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">Monthly $</span>
+                            <Input
+                              type="number"
+                              className="w-20 h-8 text-xs"
+                              value={edit.monthly}
+                              onChange={(e) =>
+                                setEditPrices((prev) => ({
+                                  ...prev,
+                                  [setting.id]: { ...edit, monthly: e.target.value },
+                                }))
+                              }
+                            />
+                          </div>
+                          {!setting.is_donation && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-muted-foreground">Annual $</span>
+                              <Input
+                                type="number"
+                                className="w-24 h-8 text-xs"
+                                value={edit.annual}
+                                onChange={(e) =>
+                                  setEditPrices((prev) => ({
+                                    ...prev,
+                                    [setting.id]: { ...edit, annual: e.target.value },
+                                  }))
+                                }
+                              />
+                            </div>
+                          )}
+                          {setting.is_donation && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-xs text-muted-foreground">Label</span>
+                              <Input
+                                className="w-40 h-8 text-xs"
+                                value={edit.label}
+                                onChange={(e) =>
+                                  setEditPrices((prev) => ({
+                                    ...prev,
+                                    [setting.id]: { ...edit, label: e.target.value },
+                                  }))
+                                }
+                              />
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={!hasChanges || updatePrice.isPending}
+                          onClick={() =>
+                            updatePrice.mutate({
+                              id: setting.id,
+                              monthly_price: Number(edit.monthly),
+                              annual_price: Number(edit.annual),
+                              donation_label: edit.label || undefined,
+                            })
+                          }
+                        >
+                          <Save className="h-3 w-3 mr-1" /> Save
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
