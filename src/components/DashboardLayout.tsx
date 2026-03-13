@@ -114,13 +114,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const { isAdmin } = useIsAdmin();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [showInactivityWarning, setShowInactivityWarning] = useState(false);
-
-  const onInactivityWarning = useCallback(() => {
-    setShowInactivityWarning(true);
-  }, []);
-
-  useInactivityLogout(onInactivityWarning);
+  useInactivityLogout();
 
   // Build groups, add admin to Settings if admin
   const allGroups = isAdmin
