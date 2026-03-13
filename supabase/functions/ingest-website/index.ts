@@ -45,29 +45,109 @@ serve(async (req) => {
     if (userError || !userData.user) throw new Error("Not authenticated");
     const userId = userData.user.id;
 
-    const { url, source_id, crawl_depth = 5 } = await req.json();
+    const { url, source_id, crawl_depth = 5, force_rescan = false } = await req.json();
     if (!url) throw new Error("URL is required");
 
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http")) formattedUrl = `https://${formattedUrl}`;
 
+    // Check for cached scan - skip if source was scanned less than 24h ago
+    if (source_id && !force_rescan) {
+      const { data: existingSource } = await supabase
+        .from("knowledge_sources")
+        .select("last_scanned_at, status")
+        .eq("id", source_id)
+        .single();
+
+      if (existingSource?.last_scanned_at && existingSource.status === "active") {
+        const lastScan = new Date(existingSource.last_scanned_at).getTime();
+        const hoursSinceLastScan = (Date.now() - lastScan) / (1000 * 60 * 60);
+        
+        if (hoursSinceLastScan < 24) {
+          // Return cached data
+          const { data: cachedChunks } = await supabase
+            .from("knowledge_chunks")
+            .select("id")
+            .eq("source_id", source_id);
+
+          const { data: sourceData } = await supabase
+            .from("knowledge_sources")
+            .select("metadata")
+            .eq("id", source_id)
+            .single();
+
+          const meta = sourceData?.metadata as any;
+          return new Response(JSON.stringify({
+            success: true,
+            cached: true,
+            source_id: source_id,
+            pages_crawled: meta?.pages_crawled || 0,
+            chunks_created: cachedChunks?.length || 0,
+            topics: meta?.topics || [],
+            message: `Using cached scan from ${Math.round(hoursSinceLastScan)}h ago. Use force_rescan=true to refresh.`,
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+      }
+    }
+
     // Create or update source
     let sourceId = source_id;
     if (!sourceId) {
-      const { data: src, error: srcErr } = await supabase.from("knowledge_sources").insert({
-        user_id: userId,
-        source_type: "website",
-        source_name: new URL(formattedUrl).hostname,
-        source_url: formattedUrl,
-        status: "scanning",
-      }).select().single();
-      if (srcErr) throw srcErr;
-      sourceId = src.id;
-    } else {
-      await supabase.from("knowledge_sources")
-        .update({ status: "scanning", last_scanned_at: new Date().toISOString() })
-        .eq("id", sourceId);
+      // Check if URL already exists for this user
+      const { data: existingSrc } = await supabase
+        .from("knowledge_sources")
+        .select("id, last_scanned_at, status")
+        .eq("user_id", userId)
+        .eq("source_url", formattedUrl)
+        .maybeSingle();
+
+      if (existingSrc && !force_rescan) {
+        const lastScan = existingSrc.last_scanned_at ? new Date(existingSrc.last_scanned_at).getTime() : 0;
+        const hoursSinceLastScan = (Date.now() - lastScan) / (1000 * 60 * 60);
+
+        if (hoursSinceLastScan < 24 && existingSrc.status === "active") {
+          const { data: cachedChunks } = await supabase
+            .from("knowledge_chunks")
+            .select("id")
+            .eq("source_id", existingSrc.id);
+
+          const { data: sourceData } = await supabase
+            .from("knowledge_sources")
+            .select("metadata")
+            .eq("id", existingSrc.id)
+            .single();
+
+          const meta = sourceData?.metadata as any;
+          return new Response(JSON.stringify({
+            success: true,
+            cached: true,
+            source_id: existingSrc.id,
+            pages_crawled: meta?.pages_crawled || 0,
+            chunks_created: cachedChunks?.length || 0,
+            topics: meta?.topics || [],
+            message: `This URL was already scanned ${Math.round(hoursSinceLastScan)}h ago. Reusing cached data.`,
+          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }
+
+        sourceId = existingSrc.id;
+      }
+
+      if (!sourceId) {
+        const { data: src, error: srcErr } = await supabase.from("knowledge_sources").insert({
+          user_id: userId,
+          source_type: "website",
+          source_name: new URL(formattedUrl).hostname,
+          source_url: formattedUrl,
+          status: "scanning",
+        }).select().single();
+        if (srcErr) throw srcErr;
+        sourceId = src.id;
+      }
     }
+
+    await supabase.from("knowledge_sources")
+      .update({ status: "scanning", last_scanned_at: new Date().toISOString() })
+      .eq("id", sourceId);
 
     // Crawl website with Firecrawl
     console.log("Crawling:", formattedUrl, "depth:", crawl_depth);
@@ -150,7 +230,7 @@ serve(async (req) => {
 
         // Use AI to extract topic tags for meaningful chunks
         let topicTags: string[] = [];
-        if (wordCount > 20 && i < 5) { // Only tag first 5 chunks per page to save API calls
+        if (wordCount > 20 && i < 5) {
           try {
             const tagRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
               method: "POST",

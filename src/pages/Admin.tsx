@@ -5,14 +5,16 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
+import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle } from "lucide-react";
 import { format } from "date-fns";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
   const { profiles, businesses, leads, channels, subscriptions, auditLogs, isLoading } = useAdminData();
   const { suspendUser, resetUsage, updatePlan } = useAdminActions();
+  const { partners, approvePartner, rejectPartner } = useAdminPartners();
 
   if (roleLoading) {
     return (
@@ -71,10 +73,10 @@ const Admin = () => {
           </Card>
           <Card>
             <CardContent className="flex items-center gap-3 pt-6">
-              <CreditCard className="h-5 w-5 text-primary" />
+              <Handshake className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-2xl font-bold text-foreground">{subscriptions.length}</p>
-                <p className="text-xs text-muted-foreground">Subscriptions</p>
+                <p className="text-2xl font-bold text-foreground">{partners.filter(p => p.status === "pending").length}</p>
+                <p className="text-xs text-muted-foreground">Pending Partners</p>
               </div>
             </CardContent>
           </Card>
@@ -84,6 +86,14 @@ const Admin = () => {
         <Tabs defaultValue="users">
           <TabsList>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="partners">
+              Partners
+              {partners.filter(p => p.status === "pending").length > 0 && (
+                <Badge variant="destructive" className="ml-1.5 h-5 w-5 rounded-full p-0 text-[10px] flex items-center justify-center">
+                  {partners.filter(p => p.status === "pending").length}
+                </Badge>
+              )}
+            </TabsTrigger>
             <TabsTrigger value="businesses">Businesses</TabsTrigger>
             <TabsTrigger value="leads">Leads</TabsTrigger>
             <TabsTrigger value="channels">Channels</TabsTrigger>
@@ -132,6 +142,72 @@ const Admin = () => {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Partners Tab */}
+          <TabsContent value="partners">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base flex items-center gap-2">
+                  <Handshake className="h-4 w-4" />
+                  Partner Applications
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {partners.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No partner applications</p>
+                ) : (
+                  <div className="space-y-2">
+                    {partners.map((partner) => (
+                      <div key={partner.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-foreground">{partner.partner_name}</p>
+                            <Badge
+                              variant={partner.status === "active" ? "default" : partner.status === "pending" ? "secondary" : "destructive"}
+                              className="text-xs"
+                            >
+                              {partner.status}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Applied {format(new Date(partner.created_at), "MMM d, yyyy")} · Discount: {partner.discount_percent}% · Model: {partner.billing_model}
+                          </p>
+                          <p className="text-xs text-muted-foreground">User: {partner.user_id.substring(0, 8)}...</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {partner.status === "pending" && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="default"
+                                onClick={() => approvePartner.mutate(partner.id)}
+                                disabled={approvePartner.isPending}
+                              >
+                                <CheckCircle className="h-3 w-3 mr-1" /> Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                onClick={() => rejectPartner.mutate(partner.id)}
+                                disabled={rejectPartner.isPending}
+                              >
+                                <XCircle className="h-3 w-3 mr-1" /> Reject
+                              </Button>
+                            </>
+                          )}
+                          {partner.status === "active" && (
+                            <span className="text-xs text-muted-foreground">
+                              {partner.total_businesses || 0} businesses · ${partner.monthly_revenue || 0}/mo
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </CardContent>
