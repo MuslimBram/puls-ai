@@ -74,6 +74,13 @@ const Leads = () => {
             </Select>
             <Input type="date" className="w-40" value={filters.dateFrom ?? ""} onChange={(e) => handleFilterChange((f) => ({ ...f, dateFrom: e.target.value || undefined }))} />
             <Input type="date" className="w-40" value={filters.dateTo ?? ""} onChange={(e) => handleFilterChange((f) => ({ ...f, dateTo: e.target.value || undefined }))} />
+            <Select value={(filters as any).intentType ?? "all"} onValueChange={(v) => handleFilterChange((f) => ({ ...f, intentType: v === "all" ? undefined : v }))}>
+              <SelectTrigger className="w-36"><SelectValue placeholder="Intent" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All intents</SelectItem>
+                {INTENT_TYPE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+              </SelectContent>
+            </Select>
             <Button variant="ghost" size="sm" onClick={() => { setPage(0); setFilters({}); }}>Clear</Button>
           </CardContent>
         </Card>
