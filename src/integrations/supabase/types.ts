@@ -1015,6 +1015,76 @@ export type Database = {
           },
         ]
       }
+      discovered_items: {
+        Row: {
+          author_name: string | null
+          content_text: string | null
+          content_url: string | null
+          created_at: string
+          discovered_at: string
+          engagement: Json | null
+          external_id: string | null
+          id: string
+          platform: string
+          scan_id: string
+          source_id: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          author_name?: string | null
+          content_text?: string | null
+          content_url?: string | null
+          created_at?: string
+          discovered_at?: string
+          engagement?: Json | null
+          external_id?: string | null
+          id?: string
+          platform?: string
+          scan_id: string
+          source_id: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          author_name?: string | null
+          content_text?: string | null
+          content_url?: string | null
+          created_at?: string
+          discovered_at?: string
+          engagement?: Json | null
+          external_id?: string | null
+          id?: string
+          platform?: string
+          scan_id?: string
+          source_id?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discovered_items_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "source_scans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discovered_items_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "scan_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discovered_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_integrations: {
         Row: {
           category: string
@@ -1365,6 +1435,57 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "knowledge_sources_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_matches: {
+        Row: {
+          ai_summary: string | null
+          created_at: string
+          discovered_item_id: string
+          id: string
+          intent_score: number | null
+          matched_keyword: string
+          suggested_reply: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          created_at?: string
+          discovered_item_id: string
+          id?: string
+          intent_score?: number | null
+          matched_keyword: string
+          suggested_reply?: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          ai_summary?: string | null
+          created_at?: string
+          discovered_item_id?: string
+          id?: string
+          intent_score?: number | null
+          matched_keyword?: string
+          suggested_reply?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_matches_discovered_item_id_fkey"
+            columns: ["discovered_item_id"]
+            isOneToOne: false
+            referencedRelation: "discovered_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_matches_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1812,6 +1933,113 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "reply_templates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scan_sources: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          label: string | null
+          last_scan_at: string | null
+          platform: string
+          scan_status: string
+          source_type: string
+          updated_at: string
+          url_or_identifier: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          last_scan_at?: string | null
+          platform?: string
+          scan_status?: string
+          source_type?: string
+          updated_at?: string
+          url_or_identifier: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          last_scan_at?: string | null
+          platform?: string
+          scan_status?: string
+          source_type?: string
+          updated_at?: string
+          url_or_identifier?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_sources_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      source_scans: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          items_found: number
+          source_id: string
+          started_at: string
+          status: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          items_found?: number
+          source_id: string
+          started_at?: string
+          status?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          items_found?: number
+          source_id?: string
+          started_at?: string
+          status?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "source_scans_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "scan_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "source_scans_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
