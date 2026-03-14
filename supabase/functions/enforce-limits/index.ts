@@ -92,7 +92,7 @@ serve(async (req) => {
           currentPlan: effectivePlan,
           limit,
           current: used,
-        }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     }
 
