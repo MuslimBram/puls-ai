@@ -181,11 +181,27 @@ const Campaigns = () => {
             </DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Campaign Name</Label>
+                <FieldLabelWithGuide
+                  label="Campaign Name"
+                  guide={getFieldGuide(campaignFieldGuides, "campaign_name")!}
+                  onAiSuggest={async () => {
+                    setAiSuggestField("campaign_name");
+                    try {
+                      const { data } = await supabase.functions.invoke("ai-sales-assistant", {
+                        body: { prompt: `Suggest 1 campaign name for a ${profile?.industry || "general"} business. Objective: ${formObjective}. Return only the name.` },
+                      });
+                      if (data?.reply) setFormName(data.reply.trim());
+                    } catch {} finally { setAiSuggestField(null); }
+                  }}
+                  isAiLoading={aiSuggestField === "campaign_name"}
+                />
                 <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Summer Lead Gen Campaign" />
               </div>
               <div>
-                <Label>Objective</Label>
+                <FieldLabelWithGuide
+                  label="Objective"
+                  guide={getFieldGuide(campaignFieldGuides, "campaign_objective")!}
+                />
                 <Select value={formObjective} onValueChange={setFormObjective}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -194,12 +210,28 @@ const Campaigns = () => {
                 </Select>
               </div>
               <div>
-                <Label>Target Audience</Label>
+                <FieldLabelWithGuide
+                  label="Target Audience"
+                  guide={getFieldGuide(campaignFieldGuides, "campaign_audience")!}
+                  onAiSuggest={async () => {
+                    setAiSuggestField("campaign_audience");
+                    try {
+                      const { data } = await supabase.functions.invoke("ai-sales-assistant", {
+                        body: { prompt: `Suggest a target audience description for a ${profile?.industry || "general"} business offering ${profile?.main_services || "services"}. Campaign objective: ${formObjective}. Return 1-2 sentences.` },
+                      });
+                      if (data?.reply) setFormAudience(data.reply.trim());
+                    } catch {} finally { setAiSuggestField(null); }
+                  }}
+                  isAiLoading={aiSuggestField === "campaign_audience"}
+                />
                 <Textarea value={formAudience} onChange={(e) => setFormAudience(e.target.value)} placeholder="Small business owners in tech sector..." rows={2} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Budget Min ($)</Label>
+                  <FieldLabelWithGuide
+                    label="Budget Min ($)"
+                    guide={getFieldGuide(campaignFieldGuides, "campaign_budget")!}
+                  />
                   <Input type="number" value={formBudgetMin} onChange={(e) => setFormBudgetMin(e.target.value)} placeholder="500" />
                 </div>
                 <div>
@@ -218,7 +250,10 @@ const Campaigns = () => {
                 </div>
               </div>
               <div>
-                <Label>Preferred Channels</Label>
+                <FieldLabelWithGuide
+                  label="Preferred Channels"
+                  guide={getFieldGuide(campaignFieldGuides, "campaign_channels")!}
+                />
                 <div className="flex flex-wrap gap-2 mt-2">
                   {CHANNELS.map((ch) => (
                     <div key={ch} className="flex items-center gap-1.5">
