@@ -33,6 +33,7 @@ import SessionSecurity from "./pages/SessionSecurity";
 import CRM from "./pages/CRM";
 import VisitorIntelligence from "./pages/VisitorIntelligence";
 import ExternalIntegrations from "./pages/ExternalIntegrations";
+import Sources from "./pages/Sources";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
