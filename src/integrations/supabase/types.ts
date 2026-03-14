@@ -1611,6 +1611,50 @@ export type Database = {
           },
         ]
       }
+      onboarding_progress: {
+        Row: {
+          completion_score: number
+          created_at: string
+          id: string
+          is_dismissed: boolean
+          last_seen_step: string | null
+          steps_completed: Json
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          completion_score?: number
+          created_at?: string
+          id?: string
+          is_dismissed?: boolean
+          last_seen_step?: string | null
+          steps_completed?: Json
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          completion_score?: number
+          created_at?: string
+          id?: string
+          is_dismissed?: boolean
+          last_seen_step?: string | null
+          steps_completed?: Json
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_progress_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partner_accounts: {
         Row: {
           billing_model: string
