@@ -131,13 +131,19 @@ const CompetitorIntelligence = () => {
           </Button>
         </div>
 
-        {scanMutation.isPending && (
+        {(scanMutation.isPending || autoAnalyzeMutation.isPending) && (
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="flex items-center gap-3 py-4">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <div>
-                <p className="text-sm font-medium">Scanning competitor...</p>
-                <p className="text-xs text-muted-foreground">Crawling website, detecting changes, and generating AI analysis</p>
+                <p className="text-sm font-medium">
+                  {autoAnalyzeMutation.isPending ? "Generating AI insights..." : "Scanning competitor..."}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {autoAnalyzeMutation.isPending
+                    ? "Creating preliminary competitive analysis from available data"
+                    : "Crawling website, detecting changes, and generating AI analysis"}
+                </p>
               </div>
             </CardContent>
           </Card>
