@@ -28,6 +28,7 @@ import {
   MessageSquare,
   Link2,
   Bot,
+  Radar,
   CalendarDays,
   BookOpen,
   Megaphone,
