@@ -17,6 +17,7 @@ import {
   useDeleteCompetitor,
   useCompetitorAlerts,
   useMarkAlertRead,
+  useAutoAnalyzeCompetitor,
   Competitor,
 } from "@/hooks/useCompetitors";
 import { supabase } from "@/integrations/supabase/client";
