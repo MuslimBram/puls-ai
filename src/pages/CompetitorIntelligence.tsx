@@ -87,6 +87,8 @@ const CompetitorIntelligence = () => {
   const [formUrl, setFormUrl] = useState("");
   const [formCategory, setFormCategory] = useState("direct");
   const [formFrequency, setFormFrequency] = useState("weekly");
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+  const { profile } = useBusinessProfile();
 
   const unreadAlerts = alerts?.filter(a => !a.is_read).length || 0;
   const suggestedKeywords = trends?.filter(t => t.trend_type === "suggested_keyword") || [];
