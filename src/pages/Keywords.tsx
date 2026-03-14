@@ -42,9 +42,10 @@ const Keywords = () => {
                   onKeyDown={(e) => e.key === "Enter" && handleAdd()}
                 />
               </div>
-              <Button onClick={handleAdd} disabled={addKeyword.isPending}>
+              <Button className="mt-auto" onClick={handleAdd} disabled={addKeyword.isPending}>
                 <Plus className="h-4 w-4 mr-1" /> Add
               </Button>
+            </div>
             </div>
 
             {isLoading ? (
