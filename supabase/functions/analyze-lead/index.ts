@@ -19,6 +19,9 @@ Determine:
 2. The intent score (0.0 to 1.0) where 1.0 is highest buying intent
 3. Which keyword was detected (if any)
 4. A suggested professional reply the business could send
+5. The intent type: curiosity, research, comparison, ready_to_buy, complaint, or unknown
+6. The urgency level: low, medium, or high
+7. The recommended action: ignore, monitor, engage_soft, or engage_direct
 
 Business context:
 - Name: ${businessProfile?.business_name || "Unknown"}
