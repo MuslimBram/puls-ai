@@ -377,15 +377,35 @@ const CompetitorIntelligence = () => {
             <DialogHeader><DialogTitle>Add Competitor</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Competitor Name</Label>
+                <FieldLabelWithGuide
+                  label="Competitor Name"
+                  guide={getFieldGuide(competitorFieldGuides, "competitor_name")!}
+                  onAiSuggest={async () => {
+                    if (!profile) return;
+                    setAiSuggestLoading(true);
+                    try {
+                      const { data } = await supabase.functions.invoke("ai-sales-assistant", {
+                        body: { prompt: `Suggest 1 competitor name for a ${profile.industry || "general"} business offering ${profile.main_services || "services"}. Return only the company name, nothing else.` },
+                      });
+                      if (data?.reply) setFormName(data.reply.trim());
+                    } catch {} finally { setAiSuggestLoading(false); }
+                  }}
+                  isAiLoading={aiSuggestLoading}
+                />
                 <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Acme Corp" />
               </div>
               <div>
-                <Label>Website URL</Label>
+                <FieldLabelWithGuide
+                  label="Website URL"
+                  guide={getFieldGuide(competitorFieldGuides, "competitor_website")!}
+                />
                 <Input value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="https://competitor.com" />
               </div>
               <div>
-                <Label>Category</Label>
+                <FieldLabelWithGuide
+                  label="Category"
+                  guide={getFieldGuide(competitorFieldGuides, "competitor_category")!}
+                />
                 <Select value={formCategory} onValueChange={setFormCategory}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -394,14 +414,16 @@ const CompetitorIntelligence = () => {
                 </Select>
               </div>
               <div>
-                <Label>Scan Frequency</Label>
+                <FieldLabelWithGuide
+                  label="Scan Frequency"
+                  guide={getFieldGuide(competitorFieldGuides, "competitor_scan_frequency")!}
+                />
                 <Select value={formFrequency} onValueChange={setFormFrequency}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {SCAN_FREQUENCIES.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">How often to automatically scan this competitor's website</p>
               </div>
             </div>
             <DialogFooter>
