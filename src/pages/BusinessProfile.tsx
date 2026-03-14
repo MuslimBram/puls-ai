@@ -170,14 +170,24 @@ const BusinessProfile = () => {
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="main_services" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Main Services</FormLabel>
+                    <FieldLabelWithGuide
+                      label="Main Services"
+                      guide={getFieldGuide(businessProfileFieldGuides, "main_services")!}
+                      onAiSuggest={() => aiSuggest("main_services", `List 3-5 main services for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return a comma-separated list.`, (v) => form.setValue("main_services", v))}
+                      isAiLoading={aiField === "main_services"}
+                    />
                     <FormControl><Textarea placeholder="List your main services" rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="mission_values" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mission & Values</FormLabel>
+                    <FieldLabelWithGuide
+                      label="Mission & Values"
+                      guide={getFieldGuide(businessProfileFieldGuides, "mission_values")!}
+                      onAiSuggest={() => aiSuggest("mission_values", `Write a short mission statement for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return 1-2 sentences.`, (v) => form.setValue("mission_values", v))}
+                      isAiLoading={aiField === "mission_values"}
+                    />
                     <FormControl><Textarea placeholder="Your company mission and core values" rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
