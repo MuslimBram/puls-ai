@@ -44,6 +44,7 @@ const languageOptions = [
 
 const BusinessProfile = () => {
   const { profile, isLoading, upsert } = useBusinessProfile();
+  const [aiField, setAiField] = useState<string | null>(null);
 
   const form = useForm<BusinessProfileData>({
     resolver: zodResolver(schema),
@@ -76,6 +77,16 @@ const BusinessProfile = () => {
 
   const onSubmit = (values: BusinessProfileData) => {
     upsert.mutate(values);
+  };
+
+  const aiSuggest = async (fieldId: string, prompt: string, setter: (v: string) => void) => {
+    setAiField(fieldId);
+    try {
+      const { data } = await supabase.functions.invoke("ai-sales-assistant", {
+        body: { prompt },
+      });
+      if (data?.reply) setter(data.reply.trim());
+    } catch {} finally { setAiField(null); }
   };
 
   if (isLoading) {
