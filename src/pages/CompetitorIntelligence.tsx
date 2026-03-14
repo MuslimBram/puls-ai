@@ -81,6 +81,7 @@ const CompetitorIntelligence = () => {
   const scanMutation = useScanCompetitor();
   const deleteMutation = useDeleteCompetitor();
   const markReadMutation = useMarkAlertRead();
+  const autoAnalyzeMutation = useAutoAnalyzeCompetitor();
 
   const [showAdd, setShowAdd] = useState(false);
   const [selectedComp, setSelectedComp] = useState<Competitor | null>(null);
@@ -100,13 +101,19 @@ const CompetitorIntelligence = () => {
       website_url: formUrl || undefined,
       category: formCategory,
     });
-    // Update scan frequency
     if (comp) {
       await supabase.from("competitors").update({ scan_frequency: formFrequency } as any).eq("id", comp.id);
     }
     setShowAdd(false);
     setFormName(""); setFormUrl(""); setFormCategory("direct"); setFormFrequency("weekly");
-    if (comp && formUrl) scanMutation.mutate(comp.id);
+    if (comp) {
+      if (formUrl) {
+        scanMutation.mutate(comp.id);
+      } else {
+        // Auto-analyze from name/category when no URL provided
+        autoAnalyzeMutation.mutate(comp.id);
+      }
+    }
   };
 
   const handleUpdateFrequency = async (compId: string, frequency: string) => {
