@@ -46,7 +46,6 @@ const Keywords = () => {
                 <Plus className="h-4 w-4 mr-1" /> Add
               </Button>
             </div>
-            </div>
 
             {isLoading ? (
               <div className="flex justify-center py-6">
