@@ -84,6 +84,8 @@ const Campaigns = () => {
   const [formStart, setFormStart] = useState("");
   const [formEnd, setFormEnd] = useState("");
   const [formChannels, setFormChannels] = useState<string[]>([]);
+  const [aiSuggestField, setAiSuggestField] = useState<string | null>(null);
+  const { profile } = useBusinessProfile();
 
   const resetForm = () => {
     setFormName(""); setFormObjective("lead_generation"); setFormAudience("");
