@@ -115,6 +115,111 @@ serve(async (req) => {
       });
     }
 
+    // ===== AUTO-ANALYZE: generate insights from name/category without full scan =====
+    if (action === "auto_analyze") {
+      if (!competitor_id) throw new Error("competitor_id required");
+      if (!userId) throw new Error("Not authenticated");
+
+      const { data: competitor, error: compErr } = await supabase
+        .from("competitors")
+        .select("*")
+        .eq("id", competitor_id)
+        .eq("user_id", userId)
+        .single();
+      if (compErr || !competitor) throw new Error("Competitor not found");
+
+      // Get user's business profile for context
+      const { data: profile } = await supabase
+        .from("business_profiles")
+        .select("*")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content: "You are a competitive intelligence analyst. Based on a competitor name, category, and optional website URL, generate preliminary strategic insights. Be specific and actionable.",
+            },
+            {
+              role: "user",
+              content: `Generate preliminary competitive insights for:
+Competitor: ${competitor.name}
+Category: ${competitor.category || "direct"}
+Website: ${competitor.website_url || "unknown"}
+
+My business context:
+Industry: ${profile?.industry || "general"}
+Services: ${profile?.main_services || "various"}
+Target audience: ${profile?.target_audience || "general"}`,
+            },
+          ],
+          tools: [{
+            type: "function",
+            function: {
+              name: "competitor_insights",
+              description: "Return preliminary competitor insights",
+              parameters: {
+                type: "object",
+                properties: {
+                  positioning_guess: { type: "string" },
+                  target_audience_guess: { type: "string" },
+                  content_focus_guess: { type: "string" },
+                  pricing_signal_guess: { type: "string" },
+                  marketing_strengths: { type: "array", items: { type: "string" } },
+                  marketing_weaknesses: { type: "array", items: { type: "string" } },
+                  opportunity_for_user: { type: "string" },
+                  summary: { type: "string" },
+                },
+                required: ["positioning_guess", "target_audience_guess", "content_focus_guess", "pricing_signal_guess", "marketing_strengths", "marketing_weaknesses", "opportunity_for_user", "summary"],
+              },
+            },
+          }],
+          tool_choice: { type: "function", function: { name: "competitor_insights" } },
+        }),
+      });
+
+      if (!aiResponse.ok) throw new Error(`AI error: ${aiResponse.status}`);
+
+      const aiData = await aiResponse.json();
+      const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
+      if (!toolCall) throw new Error("No insights generated");
+
+      const insights = JSON.parse(toolCall.function.arguments);
+
+      // Update competitor with preliminary insights
+      await supabase
+        .from("competitors")
+        .update({
+          ai_summary: insights.summary,
+          ai_positioning: insights.positioning_guess,
+          ai_content_themes: [
+            { theme: "Content Focus", description: insights.content_focus_guess },
+            { theme: "Target Audience", description: insights.target_audience_guess },
+          ],
+          ai_engagement_style: insights.pricing_signal_guess,
+          ai_opportunities: [
+            { opportunity: insights.opportunity_for_user, rationale: "Based on preliminary AI analysis" },
+            ...insights.marketing_weaknesses.slice(0, 2).map((w: string) => ({
+              opportunity: `Exploit weakness: ${w}`,
+              rationale: "Competitor vulnerability detected",
+            })),
+          ],
+        })
+        .eq("id", competitor.id);
+
+      return new Response(JSON.stringify({ success: true, insights }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

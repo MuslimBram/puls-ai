@@ -172,6 +172,27 @@ export const useAddCompetitor = () => {
   });
 };
 
+export const useAutoAnalyzeCompetitor = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async (competitorId: string) => {
+      const { data, error } = await supabase.functions.invoke("analyze-competitor", {
+        body: { action: "auto_analyze", competitor_id: competitorId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["competitors"] });
+      toast({ title: "AI analysis complete", description: "Preliminary insights generated" });
+    },
+    onError: (e: Error) => toast({ title: "Analysis failed", description: e.message, variant: "destructive" }),
+  });
+};
+
 export const useScanCompetitor = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();

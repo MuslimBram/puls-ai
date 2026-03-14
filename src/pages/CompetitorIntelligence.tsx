@@ -17,9 +17,13 @@ import {
   useDeleteCompetitor,
   useCompetitorAlerts,
   useMarkAlertRead,
+  useAutoAnalyzeCompetitor,
   Competitor,
 } from "@/hooks/useCompetitors";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusinessProfile } from "@/hooks/useBusinessProfile";
+import { competitorFieldGuides, getFieldGuide } from "@/config/fieldGuides";
+import { FieldLabelWithGuide } from "@/components/FieldGuide";
 import {
   Search,
   Plus,
@@ -77,6 +81,7 @@ const CompetitorIntelligence = () => {
   const scanMutation = useScanCompetitor();
   const deleteMutation = useDeleteCompetitor();
   const markReadMutation = useMarkAlertRead();
+  const autoAnalyzeMutation = useAutoAnalyzeCompetitor();
 
   const [showAdd, setShowAdd] = useState(false);
   const [selectedComp, setSelectedComp] = useState<Competitor | null>(null);
@@ -84,6 +89,8 @@ const CompetitorIntelligence = () => {
   const [formUrl, setFormUrl] = useState("");
   const [formCategory, setFormCategory] = useState("direct");
   const [formFrequency, setFormFrequency] = useState("weekly");
+  const [aiSuggestLoading, setAiSuggestLoading] = useState(false);
+  const { profile } = useBusinessProfile();
 
   const unreadAlerts = alerts?.filter(a => !a.is_read).length || 0;
   const suggestedKeywords = trends?.filter(t => t.trend_type === "suggested_keyword") || [];
@@ -94,13 +101,19 @@ const CompetitorIntelligence = () => {
       website_url: formUrl || undefined,
       category: formCategory,
     });
-    // Update scan frequency
     if (comp) {
       await supabase.from("competitors").update({ scan_frequency: formFrequency } as any).eq("id", comp.id);
     }
     setShowAdd(false);
     setFormName(""); setFormUrl(""); setFormCategory("direct"); setFormFrequency("weekly");
-    if (comp && formUrl) scanMutation.mutate(comp.id);
+    if (comp) {
+      if (formUrl) {
+        scanMutation.mutate(comp.id);
+      } else {
+        // Auto-analyze from name/category when no URL provided
+        autoAnalyzeMutation.mutate(comp.id);
+      }
+    }
   };
 
   const handleUpdateFrequency = async (compId: string, frequency: string) => {
@@ -118,13 +131,19 @@ const CompetitorIntelligence = () => {
           </Button>
         </div>
 
-        {scanMutation.isPending && (
+        {(scanMutation.isPending || autoAnalyzeMutation.isPending) && (
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="flex items-center gap-3 py-4">
               <Loader2 className="h-5 w-5 animate-spin text-primary" />
               <div>
-                <p className="text-sm font-medium">Scanning competitor...</p>
-                <p className="text-xs text-muted-foreground">Crawling website, detecting changes, and generating AI analysis</p>
+                <p className="text-sm font-medium">
+                  {autoAnalyzeMutation.isPending ? "Generating AI insights..." : "Scanning competitor..."}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {autoAnalyzeMutation.isPending
+                    ? "Creating preliminary competitive analysis from available data"
+                    : "Crawling website, detecting changes, and generating AI analysis"}
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -372,15 +391,35 @@ const CompetitorIntelligence = () => {
             <DialogHeader><DialogTitle>Add Competitor</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <div>
-                <Label>Competitor Name</Label>
+                <FieldLabelWithGuide
+                  label="Competitor Name"
+                  guide={getFieldGuide(competitorFieldGuides, "competitor_name")!}
+                  onAiSuggest={async () => {
+                    if (!profile) return;
+                    setAiSuggestLoading(true);
+                    try {
+                      const { data } = await supabase.functions.invoke("ai-sales-assistant", {
+                        body: { prompt: `Suggest 1 competitor name for a ${profile.industry || "general"} business offering ${profile.main_services || "services"}. Return only the company name, nothing else.` },
+                      });
+                      if (data?.reply) setFormName(data.reply.trim());
+                    } catch {} finally { setAiSuggestLoading(false); }
+                  }}
+                  isAiLoading={aiSuggestLoading}
+                />
                 <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Acme Corp" />
               </div>
               <div>
-                <Label>Website URL</Label>
+                <FieldLabelWithGuide
+                  label="Website URL"
+                  guide={getFieldGuide(competitorFieldGuides, "competitor_website")!}
+                />
                 <Input value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="https://competitor.com" />
               </div>
               <div>
-                <Label>Category</Label>
+                <FieldLabelWithGuide
+                  label="Category"
+                  guide={getFieldGuide(competitorFieldGuides, "competitor_category")!}
+                />
                 <Select value={formCategory} onValueChange={setFormCategory}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -389,14 +428,16 @@ const CompetitorIntelligence = () => {
                 </Select>
               </div>
               <div>
-                <Label>Scan Frequency</Label>
+                <FieldLabelWithGuide
+                  label="Scan Frequency"
+                  guide={getFieldGuide(competitorFieldGuides, "competitor_scan_frequency")!}
+                />
                 <Select value={formFrequency} onValueChange={setFormFrequency}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {SCAN_FREQUENCIES.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground mt-1">How often to automatically scan this competitor's website</p>
               </div>
             </div>
             <DialogFooter>

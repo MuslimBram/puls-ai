@@ -19,6 +19,9 @@ Determine:
 2. The intent score (0.0 to 1.0) where 1.0 is highest buying intent
 3. Which keyword was detected (if any)
 4. A suggested professional reply the business could send
+5. The intent type: curiosity, research, comparison, ready_to_buy, complaint, or unknown
+6. The urgency level: low, medium, or high
+7. The recommended action: ignore, monitor, engage_soft, or engage_direct
 
 Business context:
 - Name: ${businessProfile?.business_name || "Unknown"}
@@ -52,8 +55,11 @@ Business context:
                   detected_keyword: { type: "string", description: "The matched keyword or empty string" },
                   suggested_reply: { type: "string", description: "A professional reply suggestion" },
                   is_lead: { type: "boolean", description: "Whether this is a genuine lead" },
+                  intent_type: { type: "string", enum: ["curiosity", "research", "comparison", "ready_to_buy", "complaint", "unknown"], description: "Type of intent detected" },
+                  urgency_level: { type: "string", enum: ["low", "medium", "high"], description: "How urgent the lead's need appears" },
+                  recommended_action: { type: "string", enum: ["ignore", "monitor", "engage_soft", "engage_direct"], description: "Recommended follow-up action" },
                 },
-                required: ["intent_score", "detected_keyword", "suggested_reply", "is_lead"],
+                required: ["intent_score", "detected_keyword", "suggested_reply", "is_lead", "intent_type", "urgency_level", "recommended_action"],
                 additionalProperties: false,
               },
             },

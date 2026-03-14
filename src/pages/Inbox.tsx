@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useInbox, InboxFilters } from "@/hooks/useInbox";
 import { useLeads } from "@/hooks/useLeads";
 import { Inbox as InboxIcon, Search, Star, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { IntentBadge, INTENT_TYPE_OPTIONS } from "@/components/IntentBadge";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
@@ -125,6 +126,12 @@ const Inbox = () => {
                         ))}
                         <Badge variant={priorityColor(msg.priority)} className="text-xs">{msg.priority}</Badge>
                         {msg.intent_score > 0 && <Badge variant="outline" className="text-xs">Intent: {Math.round(Number(msg.intent_score) * 100)}%</Badge>}
+                        <IntentBadge
+                          intentType={(msg as any).intent_type}
+                          urgencyLevel={(msg as any).urgency_level}
+                          recommendedAction={(msg as any).recommended_action}
+                          compact
+                        />
                       </div>
                     </div>
                   </div>
