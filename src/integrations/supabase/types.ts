@@ -1012,6 +1012,80 @@ export type Database = {
           },
         ]
       }
+      external_integrations: {
+        Row: {
+          category: string
+          config: Json | null
+          created_at: string
+          credentials: Json | null
+          description: string | null
+          id: string
+          integration_key: string
+          integration_name: string
+          is_enabled: boolean
+          keyword_match_threshold: number
+          last_scan_at: string | null
+          last_used_at: string | null
+          min_scan_interval_minutes: number
+          rate_limit_per_hour: number
+          status: string
+          updated_at: string
+          usage_count: number
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          category?: string
+          config?: Json | null
+          created_at?: string
+          credentials?: Json | null
+          description?: string | null
+          id?: string
+          integration_key: string
+          integration_name: string
+          is_enabled?: boolean
+          keyword_match_threshold?: number
+          last_scan_at?: string | null
+          last_used_at?: string | null
+          min_scan_interval_minutes?: number
+          rate_limit_per_hour?: number
+          status?: string
+          updated_at?: string
+          usage_count?: number
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          category?: string
+          config?: Json | null
+          created_at?: string
+          credentials?: Json | null
+          description?: string | null
+          id?: string
+          integration_key?: string
+          integration_name?: string
+          is_enabled?: boolean
+          keyword_match_threshold?: number
+          last_scan_at?: string | null
+          last_used_at?: string | null
+          min_scan_interval_minutes?: number
+          rate_limit_per_hour?: number
+          status?: string
+          updated_at?: string
+          usage_count?: number
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_integrations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inbox_messages: {
         Row: {
           channel_id: string | null
@@ -1096,6 +1170,44 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_event_logs: {
+        Row: {
+          created_at: string
+          event_message: string
+          event_type: string
+          id: string
+          integration_id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_message: string
+          event_type?: string
+          id?: string
+          integration_id: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_message?: string
+          event_type?: string
+          id?: string
+          integration_id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_event_logs_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "external_integrations"
             referencedColumns: ["id"]
           },
         ]
