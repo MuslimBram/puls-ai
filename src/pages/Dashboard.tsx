@@ -8,7 +8,7 @@ import { useKeywords } from "@/hooks/useKeywords";
 import { useInbox } from "@/hooks/useInbox";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { UsageIndicator } from "@/components/UsageIndicator";
-import { SetupChecklist } from "@/components/SetupChecklist";
+import { OnboardingWizard, GrowthAssistant } from "@/components/OnboardingWizard";
 import { SafeRender } from "@/components/SafeRender";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
