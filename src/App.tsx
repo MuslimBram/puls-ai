@@ -91,6 +91,7 @@ const App = () => (
               <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
               <Route path="/crm" element={<ProtectedPage><CRM /></ProtectedPage>} />
               <Route path="/visitor-intelligence" element={<ProtectedPage><VisitorIntelligence /></ProtectedPage>} />
+              <Route path="/external-integrations" element={<ProtectedPage><ExternalIntegrations /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
