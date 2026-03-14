@@ -11,6 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import { usePipelineStages, useDeals, useDealNotes, useDealTasks, useDealActivities, usePipelineStats, useAllTasks, Deal } from "@/hooks/useCRM";
 import { supabase } from "@/integrations/supabase/client";
+import { crmFieldGuides, getFieldGuide } from "@/config/fieldGuides";
+import { FieldLabelWithGuide } from "@/components/FieldGuide";
 import { Plus, Trash2, Bot, GripVertical, StickyNote, CheckSquare, BarChart3, DollarSign, Target, TrendingUp, Calendar, ChevronRight } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
