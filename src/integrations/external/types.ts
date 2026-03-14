@@ -71,6 +71,10 @@ export interface IntegrationDefinition {
   minPlan: string;
   rateLimitPerHour: number;
   minScanIntervalMinutes: number;
+  /** URL where the business can obtain their API credentials */
+  helpUrl?: string;
+  /** Short label for the help link */
+  helpLabel?: string;
 }
 
 /**

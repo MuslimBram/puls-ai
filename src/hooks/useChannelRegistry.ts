@@ -21,6 +21,7 @@ export interface ChannelRegistryItem {
   setup_instructions: string | null;
   credential_fields: CredentialFieldDef[];
   min_plan: string;
+  help_url: string | null;
 }
 
 export const useChannelRegistry = () => {

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +21,7 @@ interface ChannelCredentialSetupProps {
   setupInstructions: string | null;
   credentialFields: CredentialField[];
   integrationStatus: string;
+  helpUrl?: string | null;
   onClose: () => void;
   open: boolean;
 }
@@ -32,6 +32,7 @@ export const ChannelCredentialSetup = ({
   setupInstructions,
   credentialFields,
   integrationStatus,
+  helpUrl,
   onClose,
   open,
 }: ChannelCredentialSetupProps) => {
@@ -95,6 +96,21 @@ export const ChannelCredentialSetup = ({
                 Requires external API credentials. Backend processing will be enabled once full integration is deployed.
               </p>
             </div>
+          )}
+
+          {helpUrl && (
+            <a
+              href={helpUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary hover:bg-primary/10 transition-colors"
+            >
+              <ExternalLink className="h-4 w-4 shrink-0" />
+              <span className="font-medium">Get your credentials here →</span>
+              <span className="text-xs text-muted-foreground ml-auto truncate max-w-[200px]">
+                {new URL(helpUrl).hostname}
+              </span>
+            </a>
           )}
 
           {existingChannel && hasCredentials && (

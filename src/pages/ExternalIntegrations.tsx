@@ -213,6 +213,22 @@ const ExternalIntegrations = () => {
               </DialogHeader>
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">{setupDef.description}</p>
+
+                {setupDef.helpUrl && (
+                  <a
+                    href={setupDef.helpUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <Activity className="h-4 w-4 shrink-0" />
+                    <span className="font-medium">{setupDef.helpLabel || "Get your credentials here →"}</span>
+                    <span className="text-xs text-muted-foreground ml-auto truncate max-w-[200px]">
+                      {new URL(setupDef.helpUrl).hostname}
+                    </span>
+                  </a>
+                )}
+
                 {setupDef.credentialFields.length === 0 && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 rounded p-3">
                     <AlertCircle className="h-4 w-4" />

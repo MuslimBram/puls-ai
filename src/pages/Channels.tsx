@@ -280,6 +280,7 @@ const Channels = () => {
             setupInstructions={setupChannel.setup_instructions}
             credentialFields={setupChannel.credential_fields}
             integrationStatus={setupChannel.integration_status}
+            helpUrl={setupChannel.help_url}
             onClose={() => setSetupChannel(null)}
           />
         )}
