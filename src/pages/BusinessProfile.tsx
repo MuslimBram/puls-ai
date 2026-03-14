@@ -122,14 +122,19 @@ const BusinessProfile = () => {
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="business_name" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Business Name *</FormLabel>
+                    <FieldLabelWithGuide label="Business Name *" guide={getFieldGuide(businessProfileFieldGuides, "business_name")!} />
                     <FormControl><Input placeholder="Your company name" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="short_description" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Short Description</FormLabel>
+                    <FieldLabelWithGuide
+                      label="Short Description"
+                      guide={getFieldGuide(businessProfileFieldGuides, "short_description")!}
+                      onAiSuggest={() => aiSuggest("short_description", `Write a 1-2 sentence business description for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return only the description.`, (v) => form.setValue("short_description", v))}
+                      isAiLoading={aiField === "short_description"}
+                    />
                     <FormControl><Textarea placeholder="Brief description of your business" rows={2} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -137,14 +142,19 @@ const BusinessProfile = () => {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={form.control} name="industry" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Industry</FormLabel>
+                      <FieldLabelWithGuide label="Industry" guide={getFieldGuide(businessProfileFieldGuides, "industry")!} />
                       <FormControl><Input placeholder="e.g. Technology, Marketing" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="target_audience" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Target Audience</FormLabel>
+                      <FieldLabelWithGuide
+                        label="Target Audience"
+                        guide={getFieldGuide(businessProfileFieldGuides, "target_audience")!}
+                        onAiSuggest={() => aiSuggest("target_audience", `Suggest a target audience for a ${form.getValues("industry") || "general"} business offering ${form.getValues("main_services") || "services"}. Return 1 sentence.`, (v) => form.setValue("target_audience", v))}
+                        isAiLoading={aiField === "target_audience"}
+                      />
                       <FormControl><Input placeholder="e.g. Small businesses, Startups" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
