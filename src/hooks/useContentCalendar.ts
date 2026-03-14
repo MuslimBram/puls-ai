@@ -107,8 +107,12 @@ export const useScanWebsite = () => {
       if (data?.error) throw new Error(data.error);
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: { warning?: string }) => {
       queryClient.invalidateQueries({ queryKey: ["content-knowledge"] });
+      if (data?.warning) {
+        toast({ title: "Source saved", description: data.warning });
+        return;
+      }
       toast({ title: "Website scanned", description: "Content knowledge base updated." });
     },
     onError: (error: Error) => {
