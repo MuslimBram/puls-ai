@@ -243,12 +243,12 @@ const CRM = () => {
             <DialogHeader><DialogTitle>New Deal</DialogTitle></DialogHeader>
             <div className="space-y-3">
               <div>
-                <label className="text-sm font-medium text-foreground">Title *</label>
+                <FieldLabelWithGuide label="Title *" guide={getFieldGuide(crmFieldGuides, "deal_title")!} />
                 <Input value={newDeal.title} onChange={(e) => setNewDeal((f) => ({ ...f, title: e.target.value }))} placeholder="Deal title" />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-foreground">Contact Name</label>
+                  <FieldLabelWithGuide label="Contact Name" guide={getFieldGuide(crmFieldGuides, "deal_contact_name")!} />
                   <Input value={newDeal.contact_name} onChange={(e) => setNewDeal((f) => ({ ...f, contact_name: e.target.value }))} />
                 </div>
                 <div>
@@ -258,11 +258,11 @@ const CRM = () => {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-sm font-medium text-foreground">Value ($)</label>
+                  <FieldLabelWithGuide label="Value ($)" guide={getFieldGuide(crmFieldGuides, "deal_value")!} />
                   <Input type="number" value={newDeal.deal_value} onChange={(e) => setNewDeal((f) => ({ ...f, deal_value: Number(e.target.value) }))} />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-foreground">Priority</label>
+                  <FieldLabelWithGuide label="Priority" guide={getFieldGuide(crmFieldGuides, "deal_priority")!} />
                   <Select value={newDeal.priority} onValueChange={(v) => setNewDeal((f) => ({ ...f, priority: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
