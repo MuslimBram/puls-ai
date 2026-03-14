@@ -85,7 +85,7 @@ const BusinessProfile = () => {
       const { data } = await supabase.functions.invoke("ai-sales-assistant", {
         body: { prompt },
       });
-      if (data?.reply) setter(data.reply.trim());
+      if (data?.result) setter(data.result.trim());
     } catch {} finally { setAiField(null); }
   };
 
