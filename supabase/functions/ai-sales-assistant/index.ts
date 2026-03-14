@@ -9,14 +9,16 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { deal, notes, action } = await req.json();
+    const { deal, notes, action, prompt } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     let systemPrompt = "You are an AI sales assistant. Be concise and actionable.";
     let userPrompt = "";
 
-    if (action === "suggest_followup") {
+    if (prompt && !action) {
+      userPrompt = prompt;
+    } else if (action === "suggest_followup") {
       systemPrompt += " Generate a professional follow-up message for this deal.";
       userPrompt = `Deal: ${deal.title}\nContact: ${deal.contact_name || "Unknown"}\nSource: ${deal.source_channel}\nValue: ${deal.deal_value} ${deal.currency}\nNotes: ${(notes || []).map((n: any) => n.content).join("\n")}`;
     } else if (action === "summarize") {
