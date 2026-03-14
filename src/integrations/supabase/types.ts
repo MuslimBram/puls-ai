@@ -365,6 +365,7 @@ export type Database = {
           config_schema: Json | null
           credential_fields: Json | null
           description: string | null
+          help_url: string | null
           icon: string | null
           id: string
           integration_status: string
@@ -378,6 +379,7 @@ export type Database = {
           config_schema?: Json | null
           credential_fields?: Json | null
           description?: string | null
+          help_url?: string | null
           icon?: string | null
           id: string
           integration_status?: string
@@ -391,6 +393,7 @@ export type Database = {
           config_schema?: Json | null
           credential_fields?: Json | null
           description?: string | null
+          help_url?: string | null
           icon?: string | null
           id?: string
           integration_status?: string

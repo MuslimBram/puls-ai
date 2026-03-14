@@ -16,6 +16,8 @@ export const EXTERNAL_INTEGRATIONS: IntegrationDefinition[] = [
     minPlan: "professional",
     rateLimitPerHour: 4,
     minScanIntervalMinutes: 60,
+    helpUrl: "https://www.talkwalker.com/api",
+    helpLabel: "Get your Talkwalker API credentials",
   },
   {
     key: "brand_analytics",
@@ -31,6 +33,8 @@ export const EXTERNAL_INTEGRATIONS: IntegrationDefinition[] = [
     minPlan: "professional",
     rateLimitPerHour: 6,
     minScanIntervalMinutes: 30,
+    helpUrl: "https://brandanalytics.com/developers",
+    helpLabel: "Get your Brand Analytics API key",
   },
   {
     key: "telegram_analytics",
@@ -46,6 +50,8 @@ export const EXTERNAL_INTEGRATIONS: IntegrationDefinition[] = [
     minPlan: "standard",
     rateLimitPerHour: 10,
     minScanIntervalMinutes: 30,
+    helpUrl: "https://t.me/BotFather",
+    helpLabel: "Create a bot via @BotFather on Telegram",
   },
   {
     key: "whatsapp_analytics",
@@ -61,6 +67,8 @@ export const EXTERNAL_INTEGRATIONS: IntegrationDefinition[] = [
     minPlan: "professional",
     rateLimitPerHour: 20,
     minScanIntervalMinutes: 30,
+    helpUrl: "https://business.facebook.com/settings/whatsapp-business-accounts",
+    helpLabel: "Go to Meta WhatsApp Business settings",
   },
 
   // ── Publishing & Management ──
@@ -78,6 +86,8 @@ export const EXTERNAL_INTEGRATIONS: IntegrationDefinition[] = [
     minPlan: "professional",
     rateLimitPerHour: 10,
     minScanIntervalMinutes: 60,
+    helpUrl: "https://developer.hootsuite.com/",
+    helpLabel: "Go to Hootsuite Developer Portal",
   },
   {
     key: "buffer",
@@ -92,6 +102,8 @@ export const EXTERNAL_INTEGRATIONS: IntegrationDefinition[] = [
     minPlan: "standard",
     rateLimitPerHour: 10,
     minScanIntervalMinutes: 60,
+    helpUrl: "https://buffer.com/developers/api",
+    helpLabel: "Get your Buffer access token",
   },
   {
     key: "zoho_social",
@@ -108,6 +120,8 @@ export const EXTERNAL_INTEGRATIONS: IntegrationDefinition[] = [
     minPlan: "professional",
     rateLimitPerHour: 8,
     minScanIntervalMinutes: 60,
+    helpUrl: "https://api-console.zoho.com/",
+    helpLabel: "Go to Zoho API Console",
   },
 
   // ── Automation & Messaging ──
@@ -125,6 +139,8 @@ export const EXTERNAL_INTEGRATIONS: IntegrationDefinition[] = [
     minPlan: "professional",
     rateLimitPerHour: 20,
     minScanIntervalMinutes: 30,
+    helpUrl: "https://manychat.com/settings/api",
+    helpLabel: "Get your ManyChat API key",
   },
 
   // ── OSINT Monitoring ──
