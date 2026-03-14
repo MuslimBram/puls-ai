@@ -126,6 +126,12 @@ const Inbox = () => {
                         ))}
                         <Badge variant={priorityColor(msg.priority)} className="text-xs">{msg.priority}</Badge>
                         {msg.intent_score > 0 && <Badge variant="outline" className="text-xs">Intent: {Math.round(Number(msg.intent_score) * 100)}%</Badge>}
+                        <IntentBadge
+                          intentType={(msg as any).intent_type}
+                          urgencyLevel={(msg as any).urgency_level}
+                          recommendedAction={(msg as any).recommended_action}
+                          compact
+                        />
                       </div>
                     </div>
                   </div>
