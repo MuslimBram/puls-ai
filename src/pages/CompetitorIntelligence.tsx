@@ -20,6 +20,9 @@ import {
   Competitor,
 } from "@/hooks/useCompetitors";
 import { supabase } from "@/integrations/supabase/client";
+import { useBusinessProfile } from "@/hooks/useBusinessProfile";
+import { competitorFieldGuides, getFieldGuide } from "@/config/fieldGuides";
+import { FieldLabelWithGuide } from "@/components/FieldGuide";
 import {
   Search,
   Plus,
