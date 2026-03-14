@@ -92,6 +92,7 @@ const navGroups: NavGroup[] = [
     icon: Radio,
     items: [
       { href: "/channels", label: "Channels", icon: Radio },
+      { href: "/sources", label: "Sources", icon: Radar },
       { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
       { href: "/dedicated-ai", label: "Dedicated AI", icon: Bot },
     ],
