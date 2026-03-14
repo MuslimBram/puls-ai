@@ -258,7 +258,7 @@ const Channels = () => {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground">Name</label>
+                <FieldLabelWithGuide label="Channel Name" guide={getFieldGuide(channelFieldGuides, "channel_name")!} />
                 <Input
                   placeholder="e.g. Main Telegram Group"
                   value={form.channel_name}
