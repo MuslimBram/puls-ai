@@ -116,6 +116,12 @@ const Leads = () => {
                       <div className="flex items-center gap-2 mt-1">
                         {lead.detected_keyword && <Badge variant="secondary" className="text-xs">{lead.detected_keyword}</Badge>}
                         <Badge variant={intentColor(Number(lead.intent_score))} className="text-xs">Intent: {Math.round(Number(lead.intent_score) * 100)}%</Badge>
+                        <IntentBadge
+                          intentType={(lead as any).intent_type}
+                          urgencyLevel={(lead as any).urgency_level}
+                          recommendedAction={(lead as any).recommended_action}
+                          compact
+                        />
                         <Badge variant="outline" className="text-xs">{lead.status}</Badge>
                       </div>
                     </div>
