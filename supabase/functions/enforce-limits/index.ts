@@ -113,7 +113,7 @@ serve(async (req) => {
           currentPlan: effectivePlan,
           limit,
           current: effectiveUsed,
-        }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
 
       // If action is "increment", bump the counter
