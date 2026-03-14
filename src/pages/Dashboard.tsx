@@ -8,7 +8,7 @@ import { useKeywords } from "@/hooks/useKeywords";
 import { useInbox } from "@/hooks/useInbox";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { UsageIndicator } from "@/components/UsageIndicator";
-import { SetupChecklist } from "@/components/SetupChecklist";
+import { OnboardingWizard, GrowthAssistant } from "@/components/OnboardingWizard";
 import { SafeRender } from "@/components/SafeRender";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -48,15 +48,14 @@ const Dashboard = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {!isLoading && (
-          <SafeRender label="Setup Checklist">
-            <SetupChecklist
-              hasProfile={!!profile}
-              hasKeywords={(keywords ?? []).length > 0}
-              hasTelegram={hasTelegram}
-              hasLeads={(leads ?? []).length > 0}
-            />
+          <SafeRender label="Onboarding Wizard">
+            <OnboardingWizard />
           </SafeRender>
         )}
+
+        <SafeRender label="Growth Assistant">
+          <GrowthAssistant />
+        </SafeRender>
 
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <Card>

@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useKeywords } from "@/hooks/useKeywords";
 import { Plus, Trash2, Key } from "lucide-react";
+import { keywordFieldGuides, getFieldGuide } from "@/config/fieldGuides";
+import { FieldLabelWithGuide } from "@/components/FieldGuide";
 
 const Keywords = () => {
   const [newKeyword, setNewKeyword] = useState("");
@@ -30,13 +32,17 @@ const Keywords = () => {
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 mb-4">
-              <Input
-                placeholder="Add a keyword…"
-                value={newKeyword}
-                onChange={(e) => setNewKeyword(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-              />
-              <Button onClick={handleAdd} disabled={addKeyword.isPending}>
+              <div className="flex-1">
+                <FieldLabelWithGuide label="Add Keyword" guide={getFieldGuide(keywordFieldGuides, "keyword")!} />
+                <Input
+                  className="mt-1.5"
+                  placeholder="e.g. looking for web developer"
+                  value={newKeyword}
+                  onChange={(e) => setNewKeyword(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAdd()}
+                />
+              </div>
+              <Button className="mt-auto" onClick={handleAdd} disabled={addKeyword.isPending}>
                 <Plus className="h-4 w-4 mr-1" /> Add
               </Button>
             </div>

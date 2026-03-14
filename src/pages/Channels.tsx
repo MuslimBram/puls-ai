@@ -19,6 +19,8 @@ import { WebsiteChatSetup } from "@/components/WebsiteChatSetup";
 import { WebhookSetup } from "@/components/WebhookSetup";
 import { SafeRender } from "@/components/SafeRender";
 import { PLAN_ORDER, PlanKey, PLANS } from "@/config/plans";
+import { channelFieldGuides, getFieldGuide } from "@/config/fieldGuides";
+import { FieldLabelWithGuide } from "@/components/FieldGuide";
 import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
@@ -256,7 +258,7 @@ const Channels = () => {
                 </Select>
               </div>
               <div>
-                <label className="text-sm font-medium text-foreground">Name</label>
+                <FieldLabelWithGuide label="Channel Name" guide={getFieldGuide(channelFieldGuides, "channel_name")!} />
                 <Input
                   placeholder="e.g. Main Telegram Group"
                   value={form.channel_name}

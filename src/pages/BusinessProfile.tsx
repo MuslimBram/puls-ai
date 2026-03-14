@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -8,9 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2 } from "lucide-react";
+import { businessProfileFieldGuides, getFieldGuide } from "@/config/fieldGuides";
+import { FieldLabelWithGuide } from "@/components/FieldGuide";
+import { supabase } from "@/integrations/supabase/client";
 
 const schema = z.object({
   business_name: z.string().min(1, "Business name is required").max(100),
@@ -41,6 +44,7 @@ const languageOptions = [
 
 const BusinessProfile = () => {
   const { profile, isLoading, upsert } = useBusinessProfile();
+  const [aiField, setAiField] = useState<string | null>(null);
 
   const form = useForm<BusinessProfileData>({
     resolver: zodResolver(schema),
@@ -73,6 +77,16 @@ const BusinessProfile = () => {
 
   const onSubmit = (values: BusinessProfileData) => {
     upsert.mutate(values);
+  };
+
+  const aiSuggest = async (fieldId: string, prompt: string, setter: (v: string) => void) => {
+    setAiField(fieldId);
+    try {
+      const { data } = await supabase.functions.invoke("ai-sales-assistant", {
+        body: { prompt },
+      });
+      if (data?.reply) setter(data.reply.trim());
+    } catch {} finally { setAiField(null); }
   };
 
   if (isLoading) {
@@ -108,14 +122,19 @@ const BusinessProfile = () => {
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="business_name" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Business Name *</FormLabel>
+                    <FieldLabelWithGuide label="Business Name *" guide={getFieldGuide(businessProfileFieldGuides, "business_name")!} />
                     <FormControl><Input placeholder="Your company name" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="short_description" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Short Description</FormLabel>
+                    <FieldLabelWithGuide
+                      label="Short Description"
+                      guide={getFieldGuide(businessProfileFieldGuides, "short_description")!}
+                      onAiSuggest={() => aiSuggest("short_description", `Write a 1-2 sentence business description for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return only the description.`, (v) => form.setValue("short_description", v))}
+                      isAiLoading={aiField === "short_description"}
+                    />
                     <FormControl><Textarea placeholder="Brief description of your business" rows={2} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -123,14 +142,19 @@ const BusinessProfile = () => {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={form.control} name="industry" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Industry</FormLabel>
+                      <FieldLabelWithGuide label="Industry" guide={getFieldGuide(businessProfileFieldGuides, "industry")!} />
                       <FormControl><Input placeholder="e.g. Technology, Marketing" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="target_audience" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Target Audience</FormLabel>
+                      <FieldLabelWithGuide
+                        label="Target Audience"
+                        guide={getFieldGuide(businessProfileFieldGuides, "target_audience")!}
+                        onAiSuggest={() => aiSuggest("target_audience", `Suggest a target audience for a ${form.getValues("industry") || "general"} business offering ${form.getValues("main_services") || "services"}. Return 1 sentence.`, (v) => form.setValue("target_audience", v))}
+                        isAiLoading={aiField === "target_audience"}
+                      />
                       <FormControl><Input placeholder="e.g. Small businesses, Startups" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
@@ -146,14 +170,24 @@ const BusinessProfile = () => {
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="main_services" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Main Services</FormLabel>
+                    <FieldLabelWithGuide
+                      label="Main Services"
+                      guide={getFieldGuide(businessProfileFieldGuides, "main_services")!}
+                      onAiSuggest={() => aiSuggest("main_services", `List 3-5 main services for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return a comma-separated list.`, (v) => form.setValue("main_services", v))}
+                      isAiLoading={aiField === "main_services"}
+                    />
                     <FormControl><Textarea placeholder="List your main services" rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="mission_values" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Mission & Values</FormLabel>
+                    <FieldLabelWithGuide
+                      label="Mission & Values"
+                      guide={getFieldGuide(businessProfileFieldGuides, "mission_values")!}
+                      onAiSuggest={() => aiSuggest("mission_values", `Write a short mission statement for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return 1-2 sentences.`, (v) => form.setValue("mission_values", v))}
+                      isAiLoading={aiField === "mission_values"}
+                    />
                     <FormControl><Textarea placeholder="Your company mission and core values" rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -170,7 +204,7 @@ const BusinessProfile = () => {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={form.control} name="ai_tone" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>AI Tone</FormLabel>
+                      <FieldLabelWithGuide label="AI Tone" guide={getFieldGuide(businessProfileFieldGuides, "ai_tone")!} />
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue /></SelectTrigger>
@@ -186,7 +220,7 @@ const BusinessProfile = () => {
                   )} />
                   <FormField control={form.control} name="language" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Language</FormLabel>
+                      <FieldLabelWithGuide label="Language" guide={getFieldGuide(businessProfileFieldGuides, "language")!} />
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue /></SelectTrigger>
