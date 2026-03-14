@@ -1166,6 +1166,7 @@ export type Database = {
           created_at: string
           id: string
           intent_score: number | null
+          intent_type: string
           is_unread: boolean
           lead_id: string | null
           matched_keywords: string[] | null
@@ -1173,11 +1174,13 @@ export type Database = {
           message_timestamp: string
           metadata: Json | null
           priority: string
+          recommended_action: string
           sender_identifier: string | null
           sender_name: string | null
           source_name: string
           status: string
           updated_at: string
+          urgency_level: string
           user_id: string
           workspace_id: string | null
         }
@@ -1187,6 +1190,7 @@ export type Database = {
           created_at?: string
           id?: string
           intent_score?: number | null
+          intent_type?: string
           is_unread?: boolean
           lead_id?: string | null
           matched_keywords?: string[] | null
@@ -1194,11 +1198,13 @@ export type Database = {
           message_timestamp?: string
           metadata?: Json | null
           priority?: string
+          recommended_action?: string
           sender_identifier?: string | null
           sender_name?: string | null
           source_name: string
           status?: string
           updated_at?: string
+          urgency_level?: string
           user_id: string
           workspace_id?: string | null
         }
@@ -1208,6 +1214,7 @@ export type Database = {
           created_at?: string
           id?: string
           intent_score?: number | null
+          intent_type?: string
           is_unread?: boolean
           lead_id?: string | null
           matched_keywords?: string[] | null
@@ -1215,11 +1222,13 @@ export type Database = {
           message_timestamp?: string
           metadata?: Json | null
           priority?: string
+          recommended_action?: string
           sender_identifier?: string | null
           sender_name?: string | null
           source_name?: string
           status?: string
           updated_at?: string
+          urgency_level?: string
           user_id?: string
           workspace_id?: string | null
         }
@@ -1499,12 +1508,15 @@ export type Database = {
           detected_keyword: string | null
           id: string
           intent_score: number | null
+          intent_type: string
           message_content: string
           message_date: string
+          recommended_action: string
           source_name: string
           source_type: string
           status: string
           suggested_reply: string | null
+          urgency_level: string
           user_id: string
           workspace_id: string | null
         }
@@ -1513,12 +1525,15 @@ export type Database = {
           detected_keyword?: string | null
           id?: string
           intent_score?: number | null
+          intent_type?: string
           message_content: string
           message_date?: string
+          recommended_action?: string
           source_name: string
           source_type?: string
           status?: string
           suggested_reply?: string | null
+          urgency_level?: string
           user_id: string
           workspace_id?: string | null
         }
@@ -1527,12 +1542,15 @@ export type Database = {
           detected_keyword?: string | null
           id?: string
           intent_score?: number | null
+          intent_type?: string
           message_content?: string
           message_date?: string
+          recommended_action?: string
           source_name?: string
           source_type?: string
           status?: string
           suggested_reply?: string | null
+          urgency_level?: string
           user_id?: string
           workspace_id?: string | null
         }
