@@ -1,8 +1,7 @@
-import { useState } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { HelpCircle, Sparkles, Lightbulb, Target, Search, BookOpen } from "lucide-react";
+import { HelpCircle, Sparkles, Lightbulb, Target, Search, BookOpen, ExternalLink } from "lucide-react";
 import type { FieldGuide } from "@/config/fieldGuides";
 
 interface FieldGuideProps {
@@ -62,6 +61,26 @@ export const FieldGuideIcon = ({ guide, onAiSuggest, isAiLoading }: FieldGuidePr
               ))}
             </div>
           </div>
+
+          {guide.validationHelp && (
+            <div className="rounded-md bg-muted/50 p-2">
+              <p className="text-[10px] text-muted-foreground">
+                💡 <span className="font-medium">Format:</span> {guide.validationHelp}
+              </p>
+            </div>
+          )}
+
+          {guide.integrationLink && (
+            <a
+              href={guide.integrationLink}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <ExternalLink className="h-3 w-3" />
+              Where to find this?
+            </a>
+          )}
 
           {guide.aiEnabled && onAiSuggest && (
             <Button
