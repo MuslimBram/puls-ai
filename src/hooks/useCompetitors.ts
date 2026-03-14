@@ -191,8 +191,7 @@ export const useAutoAnalyzeCompetitor = () => {
     },
     onError: (e: Error) => toast({ title: "Analysis failed", description: e.message, variant: "destructive" }),
   });
-
-export const useScanCompetitor = () => {
+};
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
