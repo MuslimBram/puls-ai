@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { useKeywords } from "@/hooks/useKeywords";
 import { Plus, Trash2, Key } from "lucide-react";
+import { keywordFieldGuides, getFieldGuide } from "@/config/fieldGuides";
+import { FieldLabelWithGuide } from "@/components/FieldGuide";
 
 const Keywords = () => {
   const [newKeyword, setNewKeyword] = useState("");
