@@ -32,6 +32,7 @@ import PartnerDashboard from "./pages/PartnerDashboard";
 import SessionSecurity from "./pages/SessionSecurity";
 import CRM from "./pages/CRM";
 import VisitorIntelligence from "./pages/VisitorIntelligence";
+import ExternalIntegrations from "./pages/ExternalIntegrations";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
