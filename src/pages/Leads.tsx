@@ -12,6 +12,8 @@ import { Copy, Eye, Search, Target, MessageSquare, ChevronLeft, ChevronRight } f
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { IntentBadge, INTENT_TYPE_OPTIONS } from "@/components/IntentBadge";
+import { useNavigate } from "react-router-dom";
 
 const Leads = () => {
   const [filters, setFilters] = useState<LeadFilters>({});
