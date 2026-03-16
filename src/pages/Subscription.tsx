@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UsageIndicator } from "@/components/UsageIndicator";
+import { AIUsageDashboard } from "@/components/AIUsageDashboard";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useLeads } from "@/hooks/useLeads";
@@ -135,6 +136,9 @@ const Subscription = () => {
             </CardContent>
           </Card>
         )}
+
+        {/* AI Usage */}
+        <AIUsageDashboard />
 
         {/* Current Plan */}
         <Card>
