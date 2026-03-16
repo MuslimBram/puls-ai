@@ -120,7 +120,14 @@ const Admin = () => {
               <Activity className="h-3 w-3 mr-1" />
               Health
             </TabsTrigger>
+            <TabsTrigger value="refunds">
+              <Shield className="h-3 w-3 mr-1" />
+              Refunds
+            </TabsTrigger>
             <TabsTrigger value="launch">
+              <Rocket className="h-3 w-3 mr-1" />
+              Launch
+            </TabsTrigger>
               <Rocket className="h-3 w-3 mr-1" />
               Launch
             </TabsTrigger>
