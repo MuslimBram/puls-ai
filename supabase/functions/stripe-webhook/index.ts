@@ -140,6 +140,99 @@ serve(async (req) => {
         if (subId) {
           const subscription = await stripe.subscriptions.retrieve(subId);
           await handleSubscription(subscription);
+
+          // Generate commission for referred workspaces
+          const customerId = invoice.customer as string;
+          const customer = await stripe.customers.retrieve(customerId);
+          if (!(customer as any).deleted) {
+            const email = (customer as Stripe.Customer).email;
+            if (email) {
+              const { data: users } = await supabase.auth.admin.listUsers();
+              const user = users?.users?.find((u) => u.email === email);
+              if (user) {
+                const { data: sub } = await supabase
+                  .from("subscriptions")
+                  .select("workspace_id, plan")
+                  .eq("user_id", user.id)
+                  .maybeSingle();
+
+                if (sub?.workspace_id) {
+                  const { data: ws } = await supabase
+                    .from("workspaces")
+                    .select("referred_by_partner_id")
+                    .eq("id", sub.workspace_id)
+                    .maybeSingle();
+
+                  if (ws?.referred_by_partner_id) {
+                    const { data: partner } = await supabase
+                      .from("partner_accounts")
+                      .select("id, commission_rate, status")
+                      .eq("id", ws.referred_by_partner_id)
+                      .maybeSingle();
+
+                    if (partner && partner.status === "active") {
+                      const PLAN_PRICES: Record<string, number> = {
+                        standard: 29, professional: 79, advanced: 149, enterprise: 399,
+                      };
+                      const planName = sub.plan || "standard";
+                      const grossAmount = PLAN_PRICES[planName] || 0;
+                      const commRate = partner.commission_rate || 10;
+                      const commAmount = (grossAmount * commRate) / 100;
+
+                      if (grossAmount > 0) {
+                        const now = new Date();
+                        const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+                        const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+                        // Avoid duplicate
+                        const { data: existing } = await supabase
+                          .from("partner_commissions")
+                          .select("id")
+                          .eq("partner_id", partner.id)
+                          .eq("workspace_id", sub.workspace_id)
+                          .gte("billing_period_start", periodStart.toISOString())
+                          .maybeSingle();
+
+                        if (!existing) {
+                          await supabase.from("partner_commissions").insert({
+                            partner_id: partner.id,
+                            workspace_id: sub.workspace_id,
+                            subscription_id: subId,
+                            plan_name: planName,
+                            billing_period_start: periodStart.toISOString(),
+                            billing_period_end: periodEnd.toISOString(),
+                            gross_amount: grossAmount,
+                            commission_percent: commRate,
+                            commission_amount: commAmount,
+                            commission_status: "pending",
+                          });
+
+                          // Update wallet pending
+                          const { data: wallet } = await supabase
+                            .from("partner_wallets")
+                            .select("pending_amount")
+                            .eq("partner_id", partner.id)
+                            .maybeSingle();
+
+                          if (wallet) {
+                            await supabase
+                              .from("partner_wallets")
+                              .update({
+                                pending_amount: Number(wallet.pending_amount) + commAmount,
+                                updated_at: new Date().toISOString(),
+                              })
+                              .eq("partner_id", partner.id);
+                          }
+
+                          console.log(`[STRIPE-WEBHOOK] Commission created: $${commAmount} for partner ${partner.id}`);
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
         break;
       }
