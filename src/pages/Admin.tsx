@@ -111,6 +111,10 @@ const Admin = () => {
               Pricing
             </TabsTrigger>
             <TabsTrigger value="audit">Audit Logs</TabsTrigger>
+            <TabsTrigger value="commissions">
+              <DollarSign className="h-3 w-3 mr-1" />
+              Commissions
+            </TabsTrigger>
             <TabsTrigger value="health">
               <Activity className="h-3 w-3 mr-1" />
               Health
