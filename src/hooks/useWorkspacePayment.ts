@@ -25,7 +25,7 @@ export const useWorkspacePayment = (workspaceId: string | null) => {
         .eq("id", workspaceId!)
         .maybeSingle();
       if (error) throw error;
-      return data as {
+      return data as unknown as {
         id: string;
         payment_mode: string;
         payment_accounts: PaymentAccount[];
