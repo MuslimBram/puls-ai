@@ -43,6 +43,8 @@ import CallHistory from "./pages/CallHistory";
 import DeepAnalytics from "./pages/DeepAnalytics";
 import ContactHub from "./pages/ContactHub";
 import BusinessInsights from "./pages/BusinessInsights";
+import ReferralProgram from "./pages/ReferralProgram";
+import MediaStudio from "./pages/MediaStudio";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
@@ -115,6 +117,8 @@ const App = () => (
               <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
               <Route path="/contact-hub" element={<ProtectedPage><ContactHub /></ProtectedPage>} />
               <Route path="/business-insights" element={<ProtectedPage><BusinessInsights /></ProtectedPage>} />
+              <Route path="/referrals" element={<ProtectedPage><ReferralProgram /></ProtectedPage>} />
+              <Route path="/media-studio" element={<ProtectedPage><MediaStudio /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

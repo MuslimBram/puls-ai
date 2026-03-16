@@ -288,6 +288,71 @@ export type Database = {
           },
         ]
       }
+      billing_history: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string | null
+          description: string | null
+          discount_amount: number | null
+          id: string
+          invoice_pdf: string | null
+          invoice_url: string | null
+          period_end: string | null
+          period_start: string | null
+          plan_name: string | null
+          refund_amount: number | null
+          status: string | null
+          stripe_invoice_id: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          id?: string
+          invoice_pdf?: string | null
+          invoice_url?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          plan_name?: string | null
+          refund_amount?: number | null
+          status?: string | null
+          stripe_invoice_id?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string | null
+          description?: string | null
+          discount_amount?: number | null
+          id?: string
+          invoice_pdf?: string | null
+          invoice_url?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          plan_name?: string | null
+          refund_amount?: number | null
+          status?: string | null
+          stripe_invoice_id?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broadcast_recipients: {
         Row: {
           broadcast_id: string
@@ -552,6 +617,81 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      business_referral_codes: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          referral_code: string
+          referred_count: number | null
+          reward_type: string | null
+          reward_value: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          referral_code: string
+          referred_count?: number | null
+          reward_type?: string | null
+          reward_value?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          referral_code?: string
+          referred_count?: number | null
+          reward_type?: string | null
+          reward_value?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      business_referrals: {
+        Row: {
+          converted_at: string | null
+          created_at: string | null
+          id: string
+          referral_code: string
+          referred_email: string | null
+          referred_user_id: string | null
+          referrer_user_id: string
+          reward_amount: number | null
+          reward_status: string | null
+          status: string | null
+          subscription_plan: string | null
+        }
+        Insert: {
+          converted_at?: string | null
+          created_at?: string | null
+          id?: string
+          referral_code: string
+          referred_email?: string | null
+          referred_user_id?: string | null
+          referrer_user_id: string
+          reward_amount?: number | null
+          reward_status?: string | null
+          status?: string | null
+          subscription_plan?: string | null
+        }
+        Update: {
+          converted_at?: string | null
+          created_at?: string | null
+          id?: string
+          referral_code?: string
+          referred_email?: string | null
+          referred_user_id?: string | null
+          referrer_user_id?: string
+          reward_amount?: number | null
+          reward_status?: string | null
+          status?: string | null
+          subscription_plan?: string | null
+        }
+        Relationships: []
       }
       business_registrations: {
         Row: {
@@ -3082,6 +3222,56 @@ export type Database = {
             columns: ["partner_id"]
             isOneToOne: true
             referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_notifications: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_dismissed: boolean | null
+          is_read: boolean | null
+          message: string
+          metadata: Json | null
+          notification_type: string
+          severity: string | null
+          title: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_dismissed?: boolean | null
+          is_read?: boolean | null
+          message: string
+          metadata?: Json | null
+          notification_type?: string
+          severity?: string | null
+          title: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_dismissed?: boolean | null
+          is_read?: boolean | null
+          message?: string
+          metadata?: Json | null
+          notification_type?: string
+          severity?: string | null
+          title?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_notifications_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
