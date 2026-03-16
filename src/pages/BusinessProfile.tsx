@@ -48,6 +48,28 @@ const languageOptions = [
 const BusinessProfile = () => {
   const { profile, isLoading, upsert } = useBusinessProfile();
   const [aiField, setAiField] = useState<string | null>(null);
+  const { currentWorkspace } = useWorkspace();
+
+  // Fetch partner ownership info
+  const { data: ownerPartner } = useQuery({
+    queryKey: ["workspace-owner-partner", currentWorkspace?.id],
+    queryFn: async () => {
+      const { data: ws } = await supabase
+        .from("workspaces")
+        .select("workspace_owner_partner_id, referred_by_partner_id, payment_mode")
+        .eq("id", currentWorkspace!.id)
+        .maybeSingle();
+      if (!ws?.workspace_owner_partner_id && !ws?.referred_by_partner_id) return null;
+      const partnerId = ws.workspace_owner_partner_id || ws.referred_by_partner_id;
+      const { data: partner } = await supabase
+        .from("partner_accounts")
+        .select("partner_name, referral_code")
+        .eq("id", partnerId!)
+        .maybeSingle();
+      return partner ? { ...partner, payment_mode: ws.payment_mode } : null;
+    },
+    enabled: !!currentWorkspace?.id,
+  });
 
   const form = useForm<BusinessProfileData>({
     resolver: zodResolver(schema),
