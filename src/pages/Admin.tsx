@@ -14,6 +14,7 @@ import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCc
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
+import { AdminCommissionManager } from "@/components/AdminCommissionManager";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
