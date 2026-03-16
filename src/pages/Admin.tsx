@@ -500,6 +500,10 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="commissions">
+            <AdminCommissionManager />
+          </TabsContent>
+
           <TabsContent value="health">
             <AdminSystemHealth />
           </TabsContent>
