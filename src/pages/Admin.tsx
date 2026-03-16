@@ -539,6 +539,14 @@ const Admin = () => {
           <TabsContent value="registrations">
             <BusinessReviewQueue />
           </TabsContent>
+
+          <TabsContent value="freelancers">
+            <AdminFreelancerPanel />
+          </TabsContent>
+
+          <TabsContent value="payments">
+            <AdminPaymentOverview />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
