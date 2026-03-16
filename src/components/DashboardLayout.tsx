@@ -117,6 +117,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
       { href: "/partner", label: "Partner Program", icon: Handshake },
+      { href: "/partner-clients", label: "Partner Clients", icon: Building2 },
       { href: "/security", label: "Security", icon: Shield },
       { href: "/subscription", label: "Subscription", icon: CreditCard },
       { href: "/pricing", label: "Pricing", icon: Zap },

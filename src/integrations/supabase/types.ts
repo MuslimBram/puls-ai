@@ -2637,6 +2637,7 @@ export type Database = {
           partner_name: string
           referral_code: string | null
           referral_discount_percent: number
+          refund_window_days: number | null
           status: string
           total_businesses: number | null
           updated_at: string
@@ -2653,6 +2654,7 @@ export type Database = {
           partner_name: string
           referral_code?: string | null
           referral_discount_percent?: number
+          refund_window_days?: number | null
           status?: string
           total_businesses?: number | null
           updated_at?: string
@@ -2669,6 +2671,7 @@ export type Database = {
           partner_name?: string
           referral_code?: string | null
           referral_discount_percent?: number
+          refund_window_days?: number | null
           status?: string
           total_businesses?: number | null
           updated_at?: string
@@ -2768,6 +2771,53 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_risk_flags: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          flag_type: string
+          id: string
+          is_resolved: boolean | null
+          metadata: Json | null
+          partner_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          flag_type?: string
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          partner_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          flag_type?: string
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          partner_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_risk_flags_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -3334,6 +3384,59 @@ export type Database = {
           },
           {
             foreignKeyName: "source_scans_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscription_refunds: {
+        Row: {
+          created_at: string | null
+          id: string
+          payment_intent_id: string | null
+          refund_amount: number | null
+          refund_reason: string | null
+          refund_status: string
+          refund_window_expires_at: string | null
+          subscription_id: string | null
+          updated_at: string | null
+          usage_snapshot_json: Json | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          payment_intent_id?: string | null
+          refund_amount?: number | null
+          refund_reason?: string | null
+          refund_status?: string
+          refund_window_expires_at?: string | null
+          subscription_id?: string | null
+          updated_at?: string | null
+          usage_snapshot_json?: Json | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          payment_intent_id?: string | null
+          refund_amount?: number | null
+          refund_reason?: string | null
+          refund_status?: string
+          refund_window_expires_at?: string | null
+          subscription_id?: string | null
+          updated_at?: string | null
+          usage_snapshot_json?: Json | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_refunds_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"

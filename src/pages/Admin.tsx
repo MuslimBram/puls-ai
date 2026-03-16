@@ -10,11 +10,12 @@ import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
 import { AdminCommissionManager } from "@/components/AdminCommissionManager";
+import { AdminRefundPanel } from "@/components/AdminRefundPanel";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -118,6 +119,10 @@ const Admin = () => {
             <TabsTrigger value="health">
               <Activity className="h-3 w-3 mr-1" />
               Health
+            </TabsTrigger>
+            <TabsTrigger value="refunds">
+              <Shield className="h-3 w-3 mr-1" />
+              Refunds
             </TabsTrigger>
             <TabsTrigger value="launch">
               <Rocket className="h-3 w-3 mr-1" />
@@ -506,6 +511,10 @@ const Admin = () => {
 
           <TabsContent value="health">
             <AdminSystemHealth />
+          </TabsContent>
+
+          <TabsContent value="refunds">
+            <AdminRefundPanel />
           </TabsContent>
 
           <TabsContent value="launch">

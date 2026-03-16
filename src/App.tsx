@@ -29,6 +29,7 @@ import KnowledgeBase from "./pages/KnowledgeBase";
 import Campaigns from "./pages/Campaigns";
 import CompetitorIntelligence from "./pages/CompetitorIntelligence";
 import PartnerDashboard from "./pages/PartnerDashboard";
+import PartnerClients from "./pages/PartnerClients";
 import SessionSecurity from "./pages/SessionSecurity";
 import CRM from "./pages/CRM";
 import VisitorIntelligence from "./pages/VisitorIntelligence";
@@ -100,6 +101,7 @@ const App = () => (
               <Route path="/campaigns" element={<ProtectedPage><Campaigns /></ProtectedPage>} />
               <Route path="/competitor-intelligence" element={<ProtectedPage><CompetitorIntelligence /></ProtectedPage>} />
               <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
+              <Route path="/partner-clients" element={<ProtectedPage><PartnerClients /></ProtectedPage>} />
               <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
               <Route path="/crm" element={<ProtectedPage><CRM /></ProtectedPage>} />
               <Route path="/visitor-intelligence" element={<ProtectedPage><VisitorIntelligence /></ProtectedPage>} />

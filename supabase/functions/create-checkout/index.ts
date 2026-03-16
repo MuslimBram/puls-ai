@@ -12,7 +12,8 @@ serve(async (req) => {
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_ANON_KEY") ?? ""
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    { auth: { persistSession: false } }
   );
 
   try {
@@ -40,7 +41,6 @@ serve(async (req) => {
       const amountCents = Math.round(Number(donationAmount) * 100);
       
       if (donationRecurring) {
-        // Create a recurring donation price on the fly
         const price = await stripe.prices.create({
           unit_amount: amountCents,
           currency: "usd",
@@ -61,7 +61,6 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       } else {
-        // One-time donation
         const session = await stripe.checkout.sessions.create({
           customer: customerId,
           customer_email: customerId ? undefined : user.email,
@@ -87,16 +86,91 @@ serve(async (req) => {
     // Regular subscription flow
     if (!priceId) throw new Error("priceId is required");
 
-    const session = await stripe.checkout.sessions.create({
+    // Check for referral discount
+    let discountCouponId: string | undefined;
+    const referralCode = user.user_metadata?.referral_code;
+    
+    if (referralCode) {
+      // Look up the partner and their discount config
+      const { data: partner } = await supabaseClient
+        .from("partner_accounts")
+        .select("referral_discount_percent, discount_duration_months, status")
+        .eq("referral_code", referralCode)
+        .eq("status", "active")
+        .maybeSingle();
+
+      if (partner && partner.referral_discount_percent > 0) {
+        try {
+          // Create a Stripe coupon for this referral
+          const coupon = await stripe.coupons.create({
+            percent_off: partner.referral_discount_percent,
+            duration: partner.discount_duration_months > 1 ? "repeating" : "once",
+            duration_in_months: partner.discount_duration_months > 1 ? partner.discount_duration_months : undefined,
+            name: `Referral Discount (${partner.referral_discount_percent}%)`,
+          });
+          discountCouponId = coupon.id;
+          console.log(`[CREATE-CHECKOUT] Applied referral discount: ${partner.referral_discount_percent}% for ${partner.discount_duration_months} months`);
+        } catch (couponErr) {
+          console.error("[CREATE-CHECKOUT] Failed to create coupon:", couponErr);
+        }
+      }
+    } else {
+      // Also check workspace referral (user may have signed up via referral link)
+      const { data: sub } = await supabaseClient
+        .from("subscriptions")
+        .select("workspace_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (sub?.workspace_id) {
+        const { data: ws } = await supabaseClient
+          .from("workspaces")
+          .select("referred_by_partner_id")
+          .eq("id", sub.workspace_id)
+          .maybeSingle();
+
+        if (ws?.referred_by_partner_id) {
+          const { data: partner } = await supabaseClient
+            .from("partner_accounts")
+            .select("referral_discount_percent, discount_duration_months")
+            .eq("id", ws.referred_by_partner_id)
+            .eq("status", "active")
+            .maybeSingle();
+
+          if (partner && partner.referral_discount_percent > 0) {
+            try {
+              const coupon = await stripe.coupons.create({
+                percent_off: partner.referral_discount_percent,
+                duration: partner.discount_duration_months > 1 ? "repeating" : "once",
+                duration_in_months: partner.discount_duration_months > 1 ? partner.discount_duration_months : undefined,
+                name: `Partner Referral (${partner.referral_discount_percent}%)`,
+              });
+              discountCouponId = coupon.id;
+            } catch (couponErr) {
+              console.error("[CREATE-CHECKOUT] Coupon error:", couponErr);
+            }
+          }
+        }
+      }
+    }
+
+    const sessionConfig: any = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      allow_promotion_codes: true,
+      allow_promotion_codes: !discountCouponId, // Disable promo codes if referral discount applied
       subscription_data: { trial_period_days: 7 },
       success_url: `${origin}/subscription?checkout=success`,
       cancel_url: `${origin}/pricing?checkout=canceled`,
-    });
+    };
+
+    // Apply referral coupon if available
+    if (discountCouponId) {
+      sessionConfig.discounts = [{ coupon: discountCouponId }];
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionConfig);
 
     return new Response(JSON.stringify({ url: session.url }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
