@@ -7,7 +7,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, XCircle, Shield, AlertTriangle, Loader2, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
-import Stripe from "https://esm.sh/stripe@18.5.0";
 import { useState } from "react";
 
 const statusColor: Record<string, string> = {
