@@ -135,6 +135,14 @@ const Admin = () => {
               <Building2 className="h-3 w-3 mr-1" />
               Registrations
             </TabsTrigger>
+            <TabsTrigger value="freelancers">
+              <Briefcase className="h-3 w-3 mr-1" />
+              Freelancers
+            </TabsTrigger>
+            <TabsTrigger value="payments">
+              <Wallet className="h-3 w-3 mr-1" />
+              Payments
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
