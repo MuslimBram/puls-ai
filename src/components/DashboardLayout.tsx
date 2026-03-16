@@ -70,6 +70,7 @@ const navGroups: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: Inbox },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/deep-analytics", label: "Deep Analytics", icon: PieChart },
     ],
   },
   {
