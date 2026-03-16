@@ -34,6 +34,10 @@ import CRM from "./pages/CRM";
 import VisitorIntelligence from "./pages/VisitorIntelligence";
 import ExternalIntegrations from "./pages/ExternalIntegrations";
 import Sources from "./pages/Sources";
+import Helpdesk from "./pages/Helpdesk";
+import LeadQualification from "./pages/LeadQualification";
+import BroadcastMessaging from "./pages/BroadcastMessaging";
+import Automations from "./pages/Automations";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
@@ -94,6 +98,10 @@ const App = () => (
               <Route path="/visitor-intelligence" element={<ProtectedPage><VisitorIntelligence /></ProtectedPage>} />
               <Route path="/external-integrations" element={<ProtectedPage><ExternalIntegrations /></ProtectedPage>} />
               <Route path="/sources" element={<ProtectedPage><Sources /></ProtectedPage>} />
+              <Route path="/helpdesk" element={<ProtectedPage><Helpdesk /></ProtectedPage>} />
+              <Route path="/lead-qualification" element={<ProtectedPage><LeadQualification /></ProtectedPage>} />
+              <Route path="/broadcast" element={<ProtectedPage><BroadcastMessaging /></ProtectedPage>} />
+              <Route path="/automations" element={<ProtectedPage><Automations /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
             </Routes>

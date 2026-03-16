@@ -39,6 +39,9 @@ import {
   Brain,
   ChevronDown,
   Settings,
+  Headphones,
+  Workflow,
+  Send,
 } from "lucide-react";
 
 interface NavItem {
@@ -62,6 +65,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/inbox", label: "Inbox", icon: Inbox },
+      { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
@@ -71,6 +75,7 @@ const navGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/leads", label: "Leads", icon: Target },
+      { href: "/lead-qualification", label: "Qualification Bot", icon: Bot },
       { href: "/reply-workspace", label: "Reply Workspace", icon: MessageSquare },
       { href: "/crm", label: "Sales CRM", icon: Briefcase },
       { href: "/visitor-intelligence", label: "Visitor Intel", icon: Brain },
@@ -81,6 +86,7 @@ const navGroups: NavGroup[] = [
     icon: Megaphone,
     items: [
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/broadcast", label: "Broadcast", icon: Send },
       { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays },
       { href: "/keywords", label: "Keywords", icon: Key },
       { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
@@ -95,6 +101,7 @@ const navGroups: NavGroup[] = [
       { href: "/sources", label: "Sources", icon: Radar },
       { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
       { href: "/dedicated-ai", label: "Dedicated AI", icon: Bot },
+      { href: "/automations", label: "Automations", icon: Workflow },
     ],
   },
   {
