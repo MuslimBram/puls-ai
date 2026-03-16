@@ -10,6 +10,9 @@ export interface PlanLimits {
   teamMembers: number;
   conversationHistoryDays: number;
   leadsPerMonth: number;
+  imagesPerMonth: number;
+  videosPerMonth: number;
+  videoMaxSeconds: number;
 }
 
 export interface PlanFeatures {
@@ -49,6 +52,7 @@ export interface PlanFeatures {
   keywordMonitoring: boolean;
   basicPublishing: boolean;
   coreIntegrations: boolean;
+  mediaGeneration: boolean;
 }
 
 export interface Plan {
@@ -63,6 +67,27 @@ export interface Plan {
   highlighted?: boolean;
   support: string;
 }
+
+export interface PackageVariant {
+  type: "monthly" | "3-month" | "6-month" | "yearly";
+  durationMonths: number;
+  discountPercent: number;
+  referralEligible: boolean;
+}
+
+export const PACKAGE_VARIANTS: PackageVariant[] = [
+  { type: "monthly", durationMonths: 1, discountPercent: 0, referralEligible: false },
+  { type: "3-month", durationMonths: 3, discountPercent: 10, referralEligible: true },
+  { type: "6-month", durationMonths: 6, discountPercent: 15, referralEligible: true },
+  { type: "yearly", durationMonths: 12, discountPercent: 20, referralEligible: false },
+];
+
+export const MEDIA_ADDON_PACKS = [
+  { type: "image_pack_10", label: "10 Extra Images", quantity: 10, price: 5 },
+  { type: "image_pack_50", label: "50 Extra Images", quantity: 50, price: 19 },
+  { type: "video_pack_5", label: "5 Extra Videos", quantity: 5, price: 15 },
+  { type: "video_pack_20", label: "20 Extra Videos", quantity: 20, price: 49 },
+];
 
 const BASE_FEATURES: PlanFeatures = {
   bulkScheduling: false,
@@ -101,6 +126,7 @@ const BASE_FEATURES: PlanFeatures = {
   keywordMonitoring: true,
   basicPublishing: true,
   coreIntegrations: true,
+  mediaGeneration: false,
 };
 
 export const PLANS: Record<PlanKey, Plan> = {
@@ -122,6 +148,9 @@ export const PLANS: Record<PlanKey, Plan> = {
       teamMembers: 1,
       conversationHistoryDays: 90,
       leadsPerMonth: 100,
+      imagesPerMonth: 5,
+      videosPerMonth: 0,
+      videoMaxSeconds: 0,
     },
     features: {
       ...BASE_FEATURES,
@@ -137,7 +166,7 @@ export const PLANS: Record<PlanKey, Plan> = {
     highlighted: true,
     support: "24/7",
     limits: {
-      socialProfiles: -1, // unlimited
+      socialProfiles: -1,
       channels: 15,
       keywords: 50,
       keywordsPerGroup: 10,
@@ -146,6 +175,9 @@ export const PLANS: Record<PlanKey, Plan> = {
       teamMembers: 5,
       conversationHistoryDays: 365,
       leadsPerMonth: 500,
+      imagesPerMonth: 30,
+      videosPerMonth: 5,
+      videoMaxSeconds: 30,
     },
     features: {
       ...BASE_FEATURES,
@@ -162,6 +194,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       advancedPermissions: true,
       savedReplies: true,
       advancedAnalytics: true,
+      mediaGeneration: true,
     },
   },
   advanced: {
@@ -182,6 +215,9 @@ export const PLANS: Record<PlanKey, Plan> = {
       teamMembers: 20,
       conversationHistoryDays: 730,
       leadsPerMonth: 2000,
+      imagesPerMonth: 100,
+      videosPerMonth: 20,
+      videoMaxSeconds: 60,
     },
     features: {
       ...BASE_FEATURES,
@@ -207,6 +243,7 @@ export const PLANS: Record<PlanKey, Plan> = {
       biIntegrations: true,
       scheduledReportsDelivery: true,
       crmIntegrations: true,
+      mediaGeneration: true,
     },
   },
   enterprise: {
@@ -227,6 +264,9 @@ export const PLANS: Record<PlanKey, Plan> = {
       teamMembers: -1,
       conversationHistoryDays: -1,
       leadsPerMonth: -1,
+      imagesPerMonth: -1,
+      videosPerMonth: -1,
+      videoMaxSeconds: -1,
     },
     features: {
       ...BASE_FEATURES,
@@ -261,13 +301,13 @@ export const PLANS: Record<PlanKey, Plan> = {
       whiteLabel: true,
       fullReporting: true,
       prioritySupport: true,
+      mediaGeneration: true,
     },
   },
 };
 
 export const PLAN_ORDER: PlanKey[] = ["standard", "professional", "advanced", "enterprise"];
 
-// Feature comparison table structure
 export interface FeatureRow {
   name: string;
   tooltip?: string;
@@ -282,7 +322,6 @@ export interface FeatureSection {
   features: FeatureRow[];
 }
 
-// FEATURE_COMPARISON moved to src/config/featureComparison.ts
 export { FEATURE_COMPARISON } from "./featureComparison";
 
 export const formatLimit = (value: number): string => {

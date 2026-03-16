@@ -26,6 +26,14 @@ serve(async (req) => {
     if (dailyErr) console.error("[RESET-USAGE] Daily reset error:", dailyErr);
     else console.log("[RESET-USAGE] Daily ai_replies_today reset complete");
 
+    // Reset monthly media counters
+    const { error: mediaErr } = await supabase
+      .from("subscriptions")
+      .update({ images_generated_this_month: 0, videos_generated_this_month: 0, media_reset_at: new Date().toISOString() })
+      .lte("media_reset_at", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+    if (mediaErr) console.error("[RESET-USAGE] Media reset error:", mediaErr);
+    else console.log("[RESET-USAGE] Monthly media counters reset complete");
+
     return new Response(JSON.stringify({ ok: true, timestamp: new Date().toISOString() }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

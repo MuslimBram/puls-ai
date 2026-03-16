@@ -16,6 +16,7 @@ import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
 import { AdminCommissionManager } from "@/components/AdminCommissionManager";
 import { AdminRefundPanel } from "@/components/AdminRefundPanel";
+import { BusinessReviewQueue } from "@/components/BusinessReviewQueue";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -127,6 +128,10 @@ const Admin = () => {
             <TabsTrigger value="launch">
               <Rocket className="h-3 w-3 mr-1" />
               Launch
+            </TabsTrigger>
+            <TabsTrigger value="registrations">
+              <Building2 className="h-3 w-3 mr-1" />
+              Registrations
             </TabsTrigger>
           </TabsList>
 
@@ -519,6 +524,10 @@ const Admin = () => {
 
           <TabsContent value="launch">
             <AdminLaunchControls />
+          </TabsContent>
+
+          <TabsContent value="registrations">
+            <BusinessReviewQueue />
           </TabsContent>
         </Tabs>
       </div>
