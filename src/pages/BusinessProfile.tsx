@@ -48,7 +48,7 @@ const languageOptions = [
 const BusinessProfile = () => {
   const { profile, isLoading, upsert } = useBusinessProfile();
   const [aiField, setAiField] = useState<string | null>(null);
-  const { currentWorkspace } = useWorkspace();
+  const { workspace: currentWorkspace } = useWorkspace();
 
   // Fetch partner ownership info
   const { data: ownerPartner } = useQuery({
