@@ -65,6 +65,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/inbox", label: "Inbox", icon: Inbox },
+      { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
@@ -74,6 +75,7 @@ const navGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/leads", label: "Leads", icon: Target },
+      { href: "/lead-qualification", label: "Qualification Bot", icon: Bot },
       { href: "/reply-workspace", label: "Reply Workspace", icon: MessageSquare },
       { href: "/crm", label: "Sales CRM", icon: Briefcase },
       { href: "/visitor-intelligence", label: "Visitor Intel", icon: Brain },
