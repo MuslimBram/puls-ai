@@ -13,6 +13,7 @@ export interface PartnerAccount {
   total_businesses: number;
   monthly_revenue: number;
   commission_rate: number;
+  referral_code: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -22,6 +23,12 @@ export interface PartnerBusiness {
   partner_id: string;
   workspace_id: string;
   added_at: string;
+}
+
+export interface ReferralStats {
+  totalReferrals: number;
+  activeBusinesses: number;
+  totalRevenue: number;
 }
 
 export const usePartnerAccount = () => {
@@ -51,6 +58,44 @@ export const usePartnerBusinesses = (partnerId: string | null) => {
         .eq("partner_id", partnerId!);
       if (error) throw error;
       return data || [];
+    },
+    enabled: !!partnerId,
+  });
+};
+
+export const usePartnerReferrals = (partnerId: string | null) => {
+  return useQuery({
+    queryKey: ["partner-referrals", partnerId],
+    queryFn: async (): Promise<ReferralStats> => {
+      // Get workspaces referred by this partner
+      const { data: workspaces, error } = await supabase
+        .from("workspaces")
+        .select("id, created_at")
+        .eq("referred_by_partner_id", partnerId!) as any;
+      if (error) throw error;
+
+      const wsIds = (workspaces || []).map((w: any) => w.id);
+
+      let totalRevenue = 0;
+      if (wsIds.length > 0) {
+        const { data: subs } = await supabase
+          .from("subscriptions")
+          .select("plan_key")
+          .in("workspace_id", wsIds) as any;
+
+        const planPrices: Record<string, number> = {
+          standard: 29, professional: 79, advanced: 149, enterprise: 399,
+        };
+        totalRevenue = (subs || []).reduce((sum: number, s: any) => {
+          return sum + (planPrices[s.plan_key] || 0);
+        }, 0);
+      }
+
+      return {
+        totalReferrals: (workspaces || []).length,
+        activeBusinesses: wsIds.length,
+        totalRevenue,
+      };
     },
     enabled: !!partnerId,
   });
