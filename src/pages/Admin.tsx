@@ -525,6 +525,10 @@ const Admin = () => {
           <TabsContent value="launch">
             <AdminLaunchControls />
           </TabsContent>
+
+          <TabsContent value="registrations">
+            <BusinessReviewQueue />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>

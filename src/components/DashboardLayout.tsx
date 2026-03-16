@@ -129,9 +129,9 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const { signOut, user } = useAuth();
   const { workspace, workspaces, switchWorkspace } = useWorkspace();
   const { isAdmin } = useIsAdmin();
+  const { isController, isWorker } = useRolePermissions();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  useInactivityLogout();
 
   // Build groups, add admin to Settings if admin
   const allGroups = isAdmin
