@@ -2634,6 +2634,7 @@ export type Database = {
           id: string
           monthly_revenue: number | null
           partner_name: string
+          referral_code: string | null
           status: string
           total_businesses: number | null
           updated_at: string
@@ -2647,6 +2648,7 @@ export type Database = {
           id?: string
           monthly_revenue?: number | null
           partner_name: string
+          referral_code?: string | null
           status?: string
           total_businesses?: number | null
           updated_at?: string
@@ -2660,6 +2662,7 @@ export type Database = {
           id?: string
           monthly_revenue?: number | null
           partner_name?: string
+          referral_code?: string | null
           status?: string
           total_businesses?: number | null
           updated_at?: string
@@ -3469,6 +3472,7 @@ export type Database = {
           id: string
           name: string
           owner_id: string
+          referred_by_partner_id: string | null
           slug: string | null
           updated_at: string
         }
@@ -3477,6 +3481,7 @@ export type Database = {
           id?: string
           name: string
           owner_id: string
+          referred_by_partner_id?: string | null
           slug?: string | null
           updated_at?: string
         }
@@ -3485,10 +3490,19 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string
+          referred_by_partner_id?: string | null
           slug?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "workspaces_referred_by_partner_id_fkey"
+            columns: ["referred_by_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

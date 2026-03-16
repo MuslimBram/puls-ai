@@ -5,8 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { usePartnerAccount, usePartnerBusinesses, useApplyForPartner } from "@/hooks/usePartner";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { usePartnerAccount, usePartnerBusinesses, usePartnerReferrals, useApplyForPartner } from "@/hooks/usePartner";
 import {
   Handshake,
   Loader2,
@@ -15,14 +14,33 @@ import {
   Users,
   TrendingUp,
   Clock,
+  Copy,
+  Check,
+  Link as LinkIcon,
 } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "@/components/ui/sonner";
 
 const PartnerDashboard = () => {
   const { data: partner, isLoading } = usePartnerAccount();
   const { data: businesses } = usePartnerBusinesses(partner?.id || null);
+  const { data: referralStats } = usePartnerReferrals(partner?.id || null);
   const applyMutation = useApplyForPartner();
   const [partnerName, setPartnerName] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const referralLink = partner?.referral_code
+    ? `${window.location.origin}/register?ref=${partner.referral_code}`
+    : null;
+
+  const copyLink = () => {
+    if (referralLink) {
+      navigator.clipboard.writeText(referralLink);
+      setCopied(true);
+      toast.success("Referral link copied!");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -104,15 +122,53 @@ const PartnerDashboard = () => {
           </Card>
         )}
 
+        {/* Referral Link */}
+        {partner.status === "active" && referralLink && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <LinkIcon className="h-4 w-4" />
+                Your Referral Link
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-2">
+                <Input
+                  readOnly
+                  value={referralLink}
+                  className="font-mono text-xs bg-background"
+                />
+                <Button size="sm" variant="outline" onClick={copyLink}>
+                  {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Share this link with businesses. They'll be automatically linked to your partner account.
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats */}
         <div className="grid gap-4 md:grid-cols-4">
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center gap-3">
-                <Building2 className="h-8 w-8 text-primary" />
+                <Users className="h-8 w-8 text-primary" />
                 <div>
-                  <p className="text-2xl font-bold">{businesses?.length || 0}</p>
-                  <p className="text-xs text-muted-foreground">Businesses</p>
+                  <p className="text-2xl font-bold">{referralStats?.totalReferrals ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">Total Referrals</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="py-4">
+              <div className="flex items-center gap-3">
+                <Building2 className="h-8 w-8 text-blue-600" />
+                <div>
+                  <p className="text-2xl font-bold">{referralStats?.activeBusinesses ?? 0}</p>
+                  <p className="text-xs text-muted-foreground">Active Businesses</p>
                 </div>
               </div>
             </CardContent>
@@ -122,18 +178,7 @@ const PartnerDashboard = () => {
               <div className="flex items-center gap-3">
                 <DollarSign className="h-8 w-8 text-green-600" />
                 <div>
-                  <p className="text-2xl font-bold">{partner.discount_percent}%</p>
-                  <p className="text-xs text-muted-foreground">Discount</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardContent className="py-4">
-              <div className="flex items-center gap-3">
-                <TrendingUp className="h-8 w-8 text-blue-600" />
-                <div>
-                  <p className="text-2xl font-bold">${partner.monthly_revenue}</p>
+                  <p className="text-2xl font-bold">${referralStats?.totalRevenue ?? 0}</p>
                   <p className="text-xs text-muted-foreground">Monthly Revenue</p>
                 </div>
               </div>
@@ -142,10 +187,10 @@ const PartnerDashboard = () => {
           <Card>
             <CardContent className="py-4">
               <div className="flex items-center gap-3">
-                <Users className="h-8 w-8 text-purple-600" />
+                <TrendingUp className="h-8 w-8 text-purple-600" />
                 <div>
-                  <p className="text-2xl font-bold">{partner.billing_model === "partner_pays" ? "Direct" : "Hybrid"}</p>
-                  <p className="text-xs text-muted-foreground">Billing Model</p>
+                  <p className="text-2xl font-bold">{partner.discount_percent}%</p>
+                  <p className="text-xs text-muted-foreground">Your Discount</p>
                 </div>
               </div>
             </CardContent>
@@ -171,7 +216,7 @@ const PartnerDashboard = () => {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">No businesses managed yet.</p>
+              <p className="text-sm text-muted-foreground text-center py-8">No businesses managed yet. Share your referral link to get started.</p>
             )}
           </CardContent>
         </Card>
