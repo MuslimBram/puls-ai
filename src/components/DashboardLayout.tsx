@@ -106,6 +106,7 @@ const navGroups: NavGroup[] = [
       { href: "/sources", label: "Sources", icon: Radar },
       { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
       { href: "/dedicated-ai", label: "Dedicated AI", icon: Bot },
+      { href: "/media-studio", label: "Media Studio", icon: Megaphone },
       { href: "/automations", label: "Automations", icon: Workflow },
       { href: "/call-history", label: "Call History", icon: Phone },
       { href: "/contact-hub", label: "Contact Hub", icon: Users },
