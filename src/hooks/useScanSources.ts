@@ -106,30 +106,34 @@ export const useScanSources = () => {
         user_id: user!.id,
         workspace_id: workspace!.id,
         status: "running",
+        scan_phase: "queued",
       } as any).select().single();
       if (scanErr) throw scanErr;
 
       const scan = scanData as any;
 
-      // Simulate placeholder scan completion after a short delay
-      await new Promise((r) => setTimeout(r, 1500));
+      // Call extraction edge function
+      const { data, error } = await supabase.functions.invoke("scan-source-extract", {
+        body: {
+          source_id: sourceId,
+          scan_id: scan.id,
+          workspace_id: workspace!.id,
+        },
+      });
 
-      // Complete scan
-      await supabase.from("source_scans").update({
-        status: "completed",
-        completed_at: new Date().toISOString(),
-        items_found: 0,
-      } as any).eq("id", scan.id);
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
-      // Update source
-      await supabase.from("scan_sources").update({
-        scan_status: "active",
-        last_scan_at: new Date().toISOString(),
-      } as any).eq("id", sourceId);
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: qk });
-      toast({ title: "Scan completed", description: "Placeholder scan finished. No real scraping engine yet." });
+      qc.invalidateQueries({ queryKey: ["scan-insights"] });
+      qc.invalidateQueries({ queryKey: ["scan-history"] });
+      toast({
+        title: "Scan completed",
+        description: `Found ${data?.insights_count || 0} insights in ${((data?.duration_ms || 0) / 1000).toFixed(1)}s`,
+      });
     },
     onError: async (e: any, sourceId) => {
       await supabase.from("scan_sources").update({ scan_status: "error" } as any).eq("id", sourceId);

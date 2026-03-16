@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useScanSources, PLATFORMS, SOURCE_TYPES, type NewScanSource } from "@/hooks/useScanSources";
-import { Plus, MoreHorizontal, Play, Pause, Trash2, Pencil, Globe, Loader2 } from "lucide-react";
+import ScanResultViewer from "@/components/ScanResultViewer";
+import { Plus, MoreHorizontal, Play, Pause, Trash2, Pencil, Globe, Loader2, Eye } from "lucide-react";
 
 const platformIcons: Record<string, string> = {
   web: "🌐", instagram: "📸", facebook: "📘", telegram: "✈️",
@@ -40,6 +42,7 @@ export default function Sources() {
   const { sources, isLoading, addSource, updateSource, deleteSource, triggerScan } = useScanSources();
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [viewSourceId, setViewSourceId] = useState<string | null>(null);
   const [form, setForm] = useState<NewScanSource & { label: string }>({
     platform: "web", source_type: "website", url_or_identifier: "", label: "",
   });
@@ -65,6 +68,8 @@ export default function Sources() {
     setEditId(s.id);
     setShowAdd(true);
   };
+
+  const viewingSource = sources.find((s) => s.id === viewSourceId);
 
   return (
     <DashboardLayout>
@@ -123,6 +128,9 @@ export default function Sources() {
                             <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setViewSourceId(s.id)}>
+                              <Eye className="mr-2 h-4 w-4" /> View Insights
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEdit(s)}>
                               <Pencil className="mr-2 h-4 w-4" /> Edit
                             </DropdownMenuItem>
@@ -149,6 +157,25 @@ export default function Sources() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Scan Result Viewer Sheet */}
+      <Sheet open={!!viewSourceId} onOpenChange={(o) => { if (!o) setViewSourceId(null); }}>
+        <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              {viewingSource && (
+                <>
+                  <span>{platformIcons[viewingSource.platform] || "🔗"}</span>
+                  <span className="truncate">{viewingSource.label || viewingSource.url_or_identifier}</span>
+                </>
+              )}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4">
+            {viewSourceId && <ScanResultViewer sourceId={viewSourceId} />}
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Add/Edit Dialog */}
       <Dialog open={showAdd} onOpenChange={(o) => { if (!o) { setShowAdd(false); resetForm(); setEditId(null); } }}>

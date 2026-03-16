@@ -2002,6 +2002,73 @@ export type Database = {
           },
         ]
       }
+      scan_insights: {
+        Row: {
+          confidence_score: number
+          created_at: string
+          description: string | null
+          id: string
+          insight_type: string
+          is_important: boolean
+          raw_value_json: Json
+          scan_id: string
+          source_id: string
+          title: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          confidence_score?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          insight_type?: string
+          is_important?: boolean
+          raw_value_json?: Json
+          scan_id: string
+          source_id: string
+          title: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          confidence_score?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          insight_type?: string
+          is_important?: boolean
+          raw_value_json?: Json
+          scan_id?: string
+          source_id?: string
+          title?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_insights_scan_id_fkey"
+            columns: ["scan_id"]
+            isOneToOne: false
+            referencedRelation: "source_scans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_insights_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "scan_sources"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scan_insights_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       scan_sources: {
         Row: {
           created_at: string
@@ -2059,9 +2126,13 @@ export type Database = {
         Row: {
           completed_at: string | null
           created_at: string
+          duration_ms: number | null
           error_message: string | null
           id: string
+          insights_found: number
           items_found: number
+          pages_scanned: number
+          scan_phase: string
           source_id: string
           started_at: string
           status: string
@@ -2071,9 +2142,13 @@ export type Database = {
         Insert: {
           completed_at?: string | null
           created_at?: string
+          duration_ms?: number | null
           error_message?: string | null
           id?: string
+          insights_found?: number
           items_found?: number
+          pages_scanned?: number
+          scan_phase?: string
           source_id: string
           started_at?: string
           status?: string
@@ -2083,9 +2158,13 @@ export type Database = {
         Update: {
           completed_at?: string | null
           created_at?: string
+          duration_ms?: number | null
           error_message?: string | null
           id?: string
+          insights_found?: number
           items_found?: number
+          pages_scanned?: number
+          scan_phase?: string
           source_id?: string
           started_at?: string
           status?: string
