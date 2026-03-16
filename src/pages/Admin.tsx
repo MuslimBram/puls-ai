@@ -128,9 +128,6 @@ const Admin = () => {
               <Rocket className="h-3 w-3 mr-1" />
               Launch
             </TabsTrigger>
-              <Rocket className="h-3 w-3 mr-1" />
-              Launch
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
