@@ -139,6 +139,28 @@ const BusinessProfile = () => {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Partner ownership badge */}
+            {ownerPartner && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="flex items-center gap-3 py-4">
+                  <Handshake className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Managed by Partner: {ownerPartner.partner_name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {ownerPartner.referral_code && (
+                        <Badge variant="outline" className="text-xs">Code: {ownerPartner.referral_code}</Badge>
+                      )}
+                      <Badge variant="secondary" className="text-xs capitalize">
+                        {(ownerPartner as any).payment_mode?.replace("_", " ") || "Undeclared"}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Basic Information</CardTitle>
