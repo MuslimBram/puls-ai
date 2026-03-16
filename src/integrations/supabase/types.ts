@@ -444,6 +444,59 @@ export type Database = {
           },
         ]
       }
+      business_notifications: {
+        Row: {
+          action_url: string | null
+          category: string
+          created_at: string
+          id: string
+          is_dismissed: boolean
+          is_read: boolean
+          message: string
+          metadata: Json | null
+          notification_type: string
+          title: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          action_url?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_dismissed?: boolean
+          is_read?: boolean
+          message: string
+          metadata?: Json | null
+          notification_type?: string
+          title: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          action_url?: string | null
+          category?: string
+          created_at?: string
+          id?: string
+          is_dismissed?: boolean
+          is_read?: boolean
+          message?: string
+          metadata?: Json | null
+          notification_type?: string
+          title?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_notifications_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_profiles: {
         Row: {
           ai_tone: string | null
@@ -1184,6 +1237,53 @@ export type Database = {
           },
         ]
       }
+      config_versions: {
+        Row: {
+          change_summary: string | null
+          change_type: string
+          created_at: string
+          current_snapshot: Json
+          entity_id: string
+          entity_type: string
+          id: string
+          previous_snapshot: Json
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          change_summary?: string | null
+          change_type?: string
+          created_at?: string
+          current_snapshot?: Json
+          entity_id: string
+          entity_type: string
+          id?: string
+          previous_snapshot?: Json
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          change_summary?: string | null
+          change_type?: string
+          created_at?: string
+          current_snapshot?: Json
+          entity_id?: string
+          entity_type?: string
+          id?: string
+          previous_snapshot?: Json
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "config_versions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_segments: {
         Row: {
           contact_count: number | null
@@ -1888,6 +1988,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "external_integrations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      health_scores: {
+        Row: {
+          automation_usage_score: number | null
+          breakdown: Json | null
+          campaign_engagement_score: number | null
+          channel_activity_score: number | null
+          computed_at: string
+          id: string
+          lead_volume_score: number | null
+          overall_score: number
+          response_speed_score: number | null
+          suggestions: Json | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          automation_usage_score?: number | null
+          breakdown?: Json | null
+          campaign_engagement_score?: number | null
+          channel_activity_score?: number | null
+          computed_at?: string
+          id?: string
+          lead_volume_score?: number | null
+          overall_score?: number
+          response_speed_score?: number | null
+          suggestions?: Json | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          automation_usage_score?: number | null
+          breakdown?: Json | null
+          campaign_engagement_score?: number | null
+          channel_activity_score?: number | null
+          computed_at?: string
+          id?: string
+          lead_volume_score?: number | null
+          overall_score?: number
+          response_speed_score?: number | null
+          suggestions?: Json | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "health_scores_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
