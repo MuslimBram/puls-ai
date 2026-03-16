@@ -110,6 +110,14 @@ const Admin = () => {
               Pricing
             </TabsTrigger>
             <TabsTrigger value="audit">Audit Logs</TabsTrigger>
+            <TabsTrigger value="health">
+              <Activity className="h-3 w-3 mr-1" />
+              Health
+            </TabsTrigger>
+            <TabsTrigger value="launch">
+              <Rocket className="h-3 w-3 mr-1" />
+              Launch
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
