@@ -7,15 +7,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// product_id → plan key mapping
 const PRODUCT_MAP: Record<string, string> = {
   "prod_U8LrDc0TasNxNH": "standard",
+  "prod_U8Qdd9foXaeqnn": "standard",
   "prod_U8Lr5611OwyJSV": "professional",
   "prod_U8LrRodC8eZsTT": "advanced",
   "prod_U8LsXPlxbqhpmK": "enterprise",
 };
 
+const PLAN_PRICES: Record<string, number> = {
+  standard: 29, professional: 79, advanced: 149, enterprise: 399,
+};
+
 const GRACE_PERIOD_DAYS = 7;
+const REFUND_WINDOW_DAYS = 7;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -36,17 +41,20 @@ serve(async (req) => {
     const body = await req.text();
     let event: Stripe.Event;
 
-    // Verify webhook signature if secret is configured
     if (webhookSecret) {
       const signature = req.headers.get("stripe-signature");
       if (!signature) return new Response("Missing stripe-signature", { status: 400 });
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
     } else {
-      // Fallback: parse without verification (dev mode)
       event = JSON.parse(body) as Stripe.Event;
     }
 
     console.log(`[STRIPE-WEBHOOK] Event: ${event.type}, ID: ${event.id}`);
+
+    const findUserByEmail = async (email: string) => {
+      const { data: users } = await supabase.auth.admin.listUsers();
+      return users?.users?.find((u) => u.email === email) || null;
+    };
 
     const handleSubscription = async (subscription: Stripe.Subscription) => {
       const customerId = subscription.customer as string;
@@ -54,22 +62,14 @@ serve(async (req) => {
       if ((customer as any).deleted) return;
 
       const email = (customer as Stripe.Customer).email;
-      if (!email) {
-        console.error("[STRIPE-WEBHOOK] No email on customer", customerId);
-        return;
-      }
+      if (!email) return;
 
-      // Find user by email
-      const { data: users } = await supabase.auth.admin.listUsers();
-      const user = users?.users?.find((u) => u.email === email);
-      if (!user) {
-        console.error("[STRIPE-WEBHOOK] No user found for email", email);
-        return;
-      }
+      const user = await findUserByEmail(email);
+      if (!user) return;
 
       const productId = subscription.items.data[0]?.price?.product as string;
       const plan = PRODUCT_MAP[productId] || "standard";
-      const status = subscription.status; // active, trialing, past_due, canceled, unpaid
+      const status = subscription.status;
 
       const updateData: Record<string, any> = {
         plan: ["active", "trialing"].includes(status) ? plan : "standard",
@@ -80,39 +80,130 @@ serve(async (req) => {
         updated_at: new Date().toISOString(),
       };
 
-      // Trial tracking
-      if (subscription.trial_start) {
-        updateData.trial_start = new Date(subscription.trial_start * 1000).toISOString();
-      }
-      if (subscription.trial_end) {
-        updateData.trial_end = new Date(subscription.trial_end * 1000).toISOString();
-      }
+      if (subscription.trial_start) updateData.trial_start = new Date(subscription.trial_start * 1000).toISOString();
+      if (subscription.trial_end) updateData.trial_end = new Date(subscription.trial_end * 1000).toISOString();
 
-      // Grace period on payment failure
       if (status === "past_due") {
         const graceEnd = new Date();
         graceEnd.setDate(graceEnd.getDate() + GRACE_PERIOD_DAYS);
         updateData.grace_period_end = graceEnd.toISOString();
       }
 
-      // If canceled or unpaid, clear grace period and downgrade
       if (["canceled", "unpaid"].includes(status)) {
         updateData.grace_period_end = null;
         updateData.plan = "standard";
       }
 
-      // If active, clear grace period
       if (status === "active") {
         updateData.grace_period_end = null;
       }
 
-      const { error } = await supabase
-        .from("subscriptions")
-        .update(updateData)
-        .eq("user_id", user.id);
-
+      const { error } = await supabase.from("subscriptions").update(updateData).eq("user_id", user.id);
       if (error) console.error("[STRIPE-WEBHOOK] DB update error:", error);
       else console.log(`[STRIPE-WEBHOOK] Updated user ${user.id} to plan=${updateData.plan}, status=${status}`);
+    };
+
+    // Create commission with refund window lock
+    const createCommission = async (
+      partnerId: string, workspaceId: string, subId: string,
+      planName: string, commRate: number
+    ) => {
+      const grossAmount = PLAN_PRICES[planName] || 0;
+      if (grossAmount === 0) return;
+
+      const commAmount = (grossAmount * commRate) / 100;
+      const now = new Date();
+      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+      // Avoid duplicate
+      const { data: existing } = await supabase
+        .from("partner_commissions")
+        .select("id")
+        .eq("partner_id", partnerId)
+        .eq("workspace_id", workspaceId)
+        .gte("billing_period_start", periodStart.toISOString())
+        .maybeSingle();
+
+      if (existing) return;
+
+      // Get partner's refund window config
+      const { data: partnerConfig } = await supabase
+        .from("partner_accounts")
+        .select("refund_window_days")
+        .eq("id", partnerId)
+        .maybeSingle();
+
+      const refundWindowDays = partnerConfig?.refund_window_days ?? REFUND_WINDOW_DAYS;
+
+      // Commission starts as pending_refund_window
+      await supabase.from("partner_commissions").insert({
+        partner_id: partnerId,
+        workspace_id: workspaceId,
+        subscription_id: subId,
+        plan_name: planName,
+        billing_period_start: periodStart.toISOString(),
+        billing_period_end: periodEnd.toISOString(),
+        gross_amount: grossAmount,
+        commission_percent: commRate,
+        commission_amount: commAmount,
+        commission_status: "pending_refund_window",
+      });
+
+      // Update wallet pending
+      const { data: wallet } = await supabase
+        .from("partner_wallets")
+        .select("pending_amount")
+        .eq("partner_id", partnerId)
+        .maybeSingle();
+
+      if (wallet) {
+        await supabase
+          .from("partner_wallets")
+          .update({
+            pending_amount: Number(wallet.pending_amount) + commAmount,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("partner_id", partnerId);
+      }
+
+      console.log(`[STRIPE-WEBHOOK] Commission created (pending_refund_window): $${commAmount} for partner ${partnerId}`);
+    };
+
+    // Anti-abuse: detect rapid refunds from same partner
+    const checkPartnerAbuse = async (partnerId: string) => {
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+      const { count } = await supabase
+        .from("subscription_refunds")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", thirtyDaysAgo.toISOString());
+
+      // Check workspaces referred by this partner that have refunds
+      const { data: refWs } = await supabase
+        .from("workspaces")
+        .select("id")
+        .eq("referred_by_partner_id", partnerId);
+
+      if (refWs && refWs.length > 0) {
+        const wsIds = refWs.map(w => w.id);
+        const { count: refundCount } = await supabase
+          .from("subscription_refunds")
+          .select("id", { count: "exact", head: true })
+          .in("workspace_id", wsIds)
+          .gte("created_at", thirtyDaysAgo.toISOString());
+
+        if ((refundCount || 0) >= 3) {
+          // Flag partner
+          await supabase.from("partner_risk_flags").insert({
+            partner_id: partnerId,
+            flag_type: "rapid_refunds",
+            description: `${refundCount} refunds from referred workspaces in 30 days`,
+            severity: (refundCount || 0) >= 5 ? "high" : "medium",
+          });
+        }
+      }
     };
 
     switch (event.type) {
@@ -121,6 +212,34 @@ serve(async (req) => {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscription(subscription);
+
+        // On deletion, cancel pending commissions
+        if (event.type === "customer.subscription.deleted") {
+          const customerId = subscription.customer as string;
+          const customer = await stripe.customers.retrieve(customerId);
+          if (!(customer as any).deleted) {
+            const email = (customer as Stripe.Customer).email;
+            if (email) {
+              const user = await findUserByEmail(email);
+              if (user) {
+                const { data: sub } = await supabase
+                  .from("subscriptions")
+                  .select("workspace_id")
+                  .eq("user_id", user.id)
+                  .maybeSingle();
+
+                if (sub?.workspace_id) {
+                  // Cancel pending commissions for this workspace
+                  await supabase
+                    .from("partner_commissions")
+                    .update({ commission_status: "cancelled" })
+                    .eq("workspace_id", sub.workspace_id)
+                    .in("commission_status", ["pending", "pending_refund_window"]);
+                }
+              }
+            }
+          }
+        }
         break;
       }
 
@@ -141,14 +260,13 @@ serve(async (req) => {
           const subscription = await stripe.subscriptions.retrieve(subId);
           await handleSubscription(subscription);
 
-          // Generate commission for referred workspaces
+          // Commission tracking for referred workspaces
           const customerId = invoice.customer as string;
           const customer = await stripe.customers.retrieve(customerId);
           if (!(customer as any).deleted) {
             const email = (customer as Stripe.Customer).email;
             if (email) {
-              const { data: users } = await supabase.auth.admin.listUsers();
-              const user = users?.users?.find((u) => u.email === email);
+              const user = await findUserByEmail(email);
               if (user) {
                 const { data: sub } = await supabase
                   .from("subscriptions")
@@ -171,66 +289,57 @@ serve(async (req) => {
                       .maybeSingle();
 
                     if (partner && partner.status === "active") {
-                      const PLAN_PRICES: Record<string, number> = {
-                        standard: 29, professional: 79, advanced: 149, enterprise: 399,
-                      };
-                      const planName = sub.plan || "standard";
-                      const grossAmount = PLAN_PRICES[planName] || 0;
-                      const commRate = partner.commission_rate || 10;
-                      const commAmount = (grossAmount * commRate) / 100;
-
-                      if (grossAmount > 0) {
-                        const now = new Date();
-                        const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-                        const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-                        // Avoid duplicate
-                        const { data: existing } = await supabase
-                          .from("partner_commissions")
-                          .select("id")
-                          .eq("partner_id", partner.id)
-                          .eq("workspace_id", sub.workspace_id)
-                          .gte("billing_period_start", periodStart.toISOString())
-                          .maybeSingle();
-
-                        if (!existing) {
-                          await supabase.from("partner_commissions").insert({
-                            partner_id: partner.id,
-                            workspace_id: sub.workspace_id,
-                            subscription_id: subId,
-                            plan_name: planName,
-                            billing_period_start: periodStart.toISOString(),
-                            billing_period_end: periodEnd.toISOString(),
-                            gross_amount: grossAmount,
-                            commission_percent: commRate,
-                            commission_amount: commAmount,
-                            commission_status: "pending",
-                          });
-
-                          // Update wallet pending
-                          const { data: wallet } = await supabase
-                            .from("partner_wallets")
-                            .select("pending_amount")
-                            .eq("partner_id", partner.id)
-                            .maybeSingle();
-
-                          if (wallet) {
-                            await supabase
-                              .from("partner_wallets")
-                              .update({
-                                pending_amount: Number(wallet.pending_amount) + commAmount,
-                                updated_at: new Date().toISOString(),
-                              })
-                              .eq("partner_id", partner.id);
-                          }
-
-                          console.log(`[STRIPE-WEBHOOK] Commission created: $${commAmount} for partner ${partner.id}`);
-                        }
-                      }
+                      await createCommission(
+                        partner.id, sub.workspace_id, subId,
+                        sub.plan || "standard", partner.commission_rate || 10
+                      );
                     }
                   }
                 }
               }
+            }
+          }
+        }
+        break;
+      }
+
+      case "charge.refunded": {
+        // Handle refund → cancel related commission
+        const charge = event.data.object as Stripe.Charge;
+        const paymentIntentId = charge.payment_intent as string;
+
+        if (paymentIntentId) {
+          // Find the refund request and update it
+          await supabase
+            .from("subscription_refunds")
+            .update({ refund_status: "processed", updated_at: new Date().toISOString() })
+            .eq("payment_intent_id", paymentIntentId)
+            .eq("refund_status", "approved");
+
+          // Get workspace from the refund
+          const { data: refund } = await supabase
+            .from("subscription_refunds")
+            .select("workspace_id")
+            .eq("payment_intent_id", paymentIntentId)
+            .maybeSingle();
+
+          if (refund?.workspace_id) {
+            // Cancel pending commissions
+            await supabase
+              .from("partner_commissions")
+              .update({ commission_status: "cancelled" })
+              .eq("workspace_id", refund.workspace_id)
+              .in("commission_status", ["pending", "pending_refund_window"]);
+
+            // Check for partner abuse
+            const { data: ws } = await supabase
+              .from("workspaces")
+              .select("referred_by_partner_id")
+              .eq("id", refund.workspace_id)
+              .maybeSingle();
+
+            if (ws?.referred_by_partner_id) {
+              await checkPartnerAbuse(ws.referred_by_partner_id);
             }
           }
         }
