@@ -30,7 +30,7 @@ const Register = () => {
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName, ...(refCode ? { referral_code: refCode } : {}) },
         emailRedirectTo: window.location.origin,
       },
     });
