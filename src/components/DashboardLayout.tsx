@@ -86,6 +86,7 @@ const navGroups: NavGroup[] = [
     icon: Megaphone,
     items: [
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
+      { href: "/broadcast", label: "Broadcast", icon: Send },
       { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays },
       { href: "/keywords", label: "Keywords", icon: Key },
       { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
