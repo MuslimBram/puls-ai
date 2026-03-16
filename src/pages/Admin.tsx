@@ -16,6 +16,7 @@ import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
 import { AdminCommissionManager } from "@/components/AdminCommissionManager";
 import { AdminRefundPanel } from "@/components/AdminRefundPanel";
+import { BusinessReviewQueue } from "@/components/BusinessReviewQueue";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
