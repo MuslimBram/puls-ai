@@ -3814,7 +3814,14 @@ export type Database = {
       reset_monthly_usage: { Args: never; Returns: undefined }
     }
     Enums: {
-      app_role: "admin" | "moderator" | "user" | "support_agent" | "staff"
+      app_role:
+        | "admin"
+        | "moderator"
+        | "user"
+        | "support_agent"
+        | "staff"
+        | "controller"
+        | "worker"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3942,7 +3949,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "moderator", "user", "support_agent", "staff"],
+      app_role: [
+        "admin",
+        "moderator",
+        "user",
+        "support_agent",
+        "staff",
+        "controller",
+        "worker",
+      ],
     },
   },
 } as const
