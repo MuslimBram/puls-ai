@@ -516,6 +516,10 @@ const Admin = () => {
             <AdminSystemHealth />
           </TabsContent>
 
+          <TabsContent value="refunds">
+            <AdminRefundPanel />
+          </TabsContent>
+
           <TabsContent value="launch">
             <AdminLaunchControls />
           </TabsContent>
