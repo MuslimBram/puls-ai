@@ -2966,10 +2966,12 @@ export type Database = {
           id: string
           monthly_revenue: number | null
           partner_name: string
+          payout_details: Json | null
           referral_code: string | null
           referral_discount_percent: number
           refund_window_days: number | null
           status: string
+          stripe_connect_id: string | null
           total_businesses: number | null
           updated_at: string
           user_id: string
@@ -2983,10 +2985,12 @@ export type Database = {
           id?: string
           monthly_revenue?: number | null
           partner_name: string
+          payout_details?: Json | null
           referral_code?: string | null
           referral_discount_percent?: number
           refund_window_days?: number | null
           status?: string
+          stripe_connect_id?: string | null
           total_businesses?: number | null
           updated_at?: string
           user_id: string
@@ -3000,10 +3004,12 @@ export type Database = {
           id?: string
           monthly_revenue?: number | null
           partner_name?: string
+          payout_details?: Json | null
           referral_code?: string | null
           referral_discount_percent?: number
           refund_window_days?: number | null
           status?: string
+          stripe_connect_id?: string | null
           total_businesses?: number | null
           updated_at?: string
           user_id?: string
@@ -3039,6 +3045,51 @@ export type Database = {
           },
           {
             foreignKeyName: "partner_businesses_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_clients: {
+        Row: {
+          created_at: string | null
+          id: string
+          partner_id: string
+          relationship_status: string
+          total_revenue_generated: number | null
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          partner_id: string
+          relationship_status?: string
+          total_revenue_generated?: number | null
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          partner_id?: string
+          relationship_status?: string
+          total_revenue_generated?: number | null
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_clients_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_clients_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -3226,6 +3277,50 @@ export type Database = {
           },
         ]
       }
+      payment_account_verifications: {
+        Row: {
+          account_index: number
+          created_at: string | null
+          flag_reason: string | null
+          flagged: boolean | null
+          id: string
+          verified: boolean | null
+          verified_at: string | null
+          verified_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          account_index?: number
+          created_at?: string | null
+          flag_reason?: string | null
+          flagged?: boolean | null
+          id?: string
+          verified?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          account_index?: number
+          created_at?: string | null
+          flag_reason?: string | null
+          flagged?: boolean | null
+          id?: string
+          verified?: boolean | null
+          verified_at?: string | null
+          verified_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_account_verifications_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_notifications: {
         Row: {
           created_at: string | null
@@ -3282,30 +3377,36 @@ export type Database = {
           created_at: string
           id: string
           partner_id: string
+          payout_details: Json | null
           payout_method: string
           payout_status: string
           processed_at: string | null
           requested_amount: number
+          stripe_transfer_id: string | null
         }
         Insert: {
           admin_note?: string | null
           created_at?: string
           id?: string
           partner_id: string
+          payout_details?: Json | null
           payout_method?: string
           payout_status?: string
           processed_at?: string | null
           requested_amount: number
+          stripe_transfer_id?: string | null
         }
         Update: {
           admin_note?: string | null
           created_at?: string
           id?: string
           partner_id?: string
+          payout_details?: Json | null
           payout_method?: string
           payout_status?: string
           processed_at?: string | null
           requested_amount?: number
+          stripe_transfer_id?: string | null
         }
         Relationships: [
           {
@@ -4203,9 +4304,12 @@ export type Database = {
           id: string
           name: string
           owner_id: string
+          payment_accounts: Json | null
+          payment_mode: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id: string | null
           slug: string | null
           updated_at: string
+          workspace_owner_partner_id: string | null
         }
         Insert: {
           billing_mode?: string
@@ -4213,9 +4317,12 @@ export type Database = {
           id?: string
           name: string
           owner_id: string
+          payment_accounts?: Json | null
+          payment_mode?: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id?: string | null
           slug?: string | null
           updated_at?: string
+          workspace_owner_partner_id?: string | null
         }
         Update: {
           billing_mode?: string
@@ -4223,14 +4330,24 @@ export type Database = {
           id?: string
           name?: string
           owner_id?: string
+          payment_accounts?: Json | null
+          payment_mode?: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id?: string | null
           slug?: string | null
           updated_at?: string
+          workspace_owner_partner_id?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "workspaces_referred_by_partner_id_fkey"
             columns: ["referred_by_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspaces_workspace_owner_partner_id_fkey"
+            columns: ["workspace_owner_partner_id"]
             isOneToOne: false
             referencedRelation: "partner_accounts"
             referencedColumns: ["id"]
@@ -4269,6 +4386,7 @@ export type Database = {
         | "staff"
         | "controller"
         | "worker"
+      payment_mode: "declared_payment" | "undeclared_payment"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -4405,6 +4523,7 @@ export const Constants = {
         "controller",
         "worker",
       ],
+      payment_mode: ["declared_payment", "undeclared_payment"],
     },
   },
 } as const

@@ -10,10 +10,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Building2, Handshake } from "lucide-react";
 import { businessProfileFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useQuery } from "@tanstack/react-query";
 
 const schema = z.object({
   business_name: z.string().min(1, "Business name is required").max(100),
@@ -45,6 +48,28 @@ const languageOptions = [
 const BusinessProfile = () => {
   const { profile, isLoading, upsert } = useBusinessProfile();
   const [aiField, setAiField] = useState<string | null>(null);
+  const { workspace: currentWorkspace } = useWorkspace();
+
+  // Fetch partner ownership info
+  const { data: ownerPartner } = useQuery({
+    queryKey: ["workspace-owner-partner", currentWorkspace?.id],
+    queryFn: async () => {
+      const { data: ws } = await supabase
+        .from("workspaces")
+        .select("workspace_owner_partner_id, referred_by_partner_id, payment_mode")
+        .eq("id", currentWorkspace!.id)
+        .maybeSingle();
+      if (!ws?.workspace_owner_partner_id && !ws?.referred_by_partner_id) return null;
+      const partnerId = ws.workspace_owner_partner_id || ws.referred_by_partner_id;
+      const { data: partner } = await supabase
+        .from("partner_accounts")
+        .select("partner_name, referral_code")
+        .eq("id", partnerId!)
+        .maybeSingle();
+      return partner ? { ...partner, payment_mode: ws.payment_mode } : null;
+    },
+    enabled: !!currentWorkspace?.id,
+  });
 
   const form = useForm<BusinessProfileData>({
     resolver: zodResolver(schema),
@@ -114,6 +139,28 @@ const BusinessProfile = () => {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {/* Partner ownership badge */}
+            {ownerPartner && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="flex items-center gap-3 py-4">
+                  <Handshake className="h-5 w-5 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Managed by Partner: {ownerPartner.partner_name}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      {ownerPartner.referral_code && (
+                        <Badge variant="outline" className="text-xs">Code: {ownerPartner.referral_code}</Badge>
+                      )}
+                      <Badge variant="secondary" className="text-xs capitalize">
+                        {(ownerPartner as any).payment_mode?.replace("_", " ") || "Undeclared"}
+                      </Badge>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Basic Information</CardTitle>

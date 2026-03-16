@@ -10,13 +10,15 @@ import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
 import { AdminCommissionManager } from "@/components/AdminCommissionManager";
 import { AdminRefundPanel } from "@/components/AdminRefundPanel";
 import { BusinessReviewQueue } from "@/components/BusinessReviewQueue";
+import { AdminFreelancerPanel } from "@/components/AdminFreelancerPanel";
+import { AdminPaymentOverview } from "@/components/AdminPaymentOverview";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -132,6 +134,14 @@ const Admin = () => {
             <TabsTrigger value="registrations">
               <Building2 className="h-3 w-3 mr-1" />
               Registrations
+            </TabsTrigger>
+            <TabsTrigger value="freelancers">
+              <Briefcase className="h-3 w-3 mr-1" />
+              Freelancers
+            </TabsTrigger>
+            <TabsTrigger value="payments">
+              <Wallet className="h-3 w-3 mr-1" />
+              Payments
             </TabsTrigger>
           </TabsList>
 
@@ -528,6 +538,14 @@ const Admin = () => {
 
           <TabsContent value="registrations">
             <BusinessReviewQueue />
+          </TabsContent>
+
+          <TabsContent value="freelancers">
+            <AdminFreelancerPanel />
+          </TabsContent>
+
+          <TabsContent value="payments">
+            <AdminPaymentOverview />
           </TabsContent>
         </Tabs>
       </div>
