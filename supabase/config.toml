@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.integration-webhook]
 verify_jwt = false
+
+[functions.business-insight-ai]
+verify_jwt = false
