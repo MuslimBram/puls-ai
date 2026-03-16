@@ -250,6 +250,36 @@ serve(async (req) => {
           const subscription = await stripe.subscriptions.retrieve(subId);
           await handleSubscription(subscription);
         }
+
+        // Create payment failure notification
+        const failCustomerId = invoice.customer as string;
+        const failCustomer = await stripe.customers.retrieve(failCustomerId);
+        if (!(failCustomer as any).deleted) {
+          const failEmail = (failCustomer as Stripe.Customer).email;
+          if (failEmail) {
+            const failUser = await findUserByEmail(failEmail);
+            if (failUser) {
+              await supabase.from("payment_notifications").insert({
+                user_id: failUser.id,
+                notification_type: "payment_failed",
+                title: "Payment Failed",
+                message: `Your payment of $${((invoice.amount_due || 0) / 100).toFixed(2)} failed. Please update your payment method to avoid service interruption.`,
+                severity: "critical",
+                metadata: { invoice_id: invoice.id, amount: invoice.amount_due },
+              });
+
+              // Also add to business_notifications for in-app visibility
+              await supabase.from("business_notifications").insert({
+                user_id: failUser.id,
+                notification_type: "warning",
+                category: "billing",
+                title: "Payment Failed",
+                message: "Your subscription payment failed. Update your payment method to keep your plan active.",
+                action_url: "/subscription",
+              });
+            }
+          }
+        }
         break;
       }
 
@@ -260,25 +290,46 @@ serve(async (req) => {
           const subscription = await stripe.subscriptions.retrieve(subId);
           await handleSubscription(subscription);
 
-          // Commission tracking for referred workspaces
-          const customerId = invoice.customer as string;
-          const customer = await stripe.customers.retrieve(customerId);
-          if (!(customer as any).deleted) {
-            const email = (customer as Stripe.Customer).email;
-            if (email) {
-              const user = await findUserByEmail(email);
-              if (user) {
-                const { data: sub } = await supabase
+          // Record billing history
+          const succCustomerId = invoice.customer as string;
+          const succCustomer = await stripe.customers.retrieve(succCustomerId);
+          if (!(succCustomer as any).deleted) {
+            const succEmail = (succCustomer as Stripe.Customer).email;
+            if (succEmail) {
+              const succUser = await findUserByEmail(succEmail);
+              if (succUser) {
+                const { data: userSub } = await supabase
                   .from("subscriptions")
                   .select("workspace_id, plan")
-                  .eq("user_id", user.id)
+                  .eq("user_id", succUser.id)
                   .maybeSingle();
 
-                if (sub?.workspace_id) {
+                const discount = invoice.discount
+                  ? (invoice.subtotal - invoice.total) / 100
+                  : 0;
+
+                await supabase.from("billing_history").insert({
+                  user_id: succUser.id,
+                  workspace_id: userSub?.workspace_id || null,
+                  stripe_invoice_id: invoice.id,
+                  amount: (invoice.amount_paid || 0) / 100,
+                  currency: invoice.currency || "usd",
+                  status: invoice.status || "paid",
+                  description: invoice.lines?.data?.[0]?.description || null,
+                  plan_name: userSub?.plan || null,
+                  discount_amount: Math.abs(discount),
+                  invoice_url: invoice.hosted_invoice_url || null,
+                  invoice_pdf: invoice.invoice_pdf || null,
+                  period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
+                  period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
+                });
+
+                // Commission tracking for referred workspaces
+                if (userSub?.workspace_id) {
                   const { data: ws } = await supabase
                     .from("workspaces")
                     .select("referred_by_partner_id")
-                    .eq("id", sub.workspace_id)
+                    .eq("id", userSub.workspace_id)
                     .maybeSingle();
 
                   if (ws?.referred_by_partner_id) {
@@ -290,14 +341,45 @@ serve(async (req) => {
 
                     if (partner && partner.status === "active") {
                       await createCommission(
-                        partner.id, sub.workspace_id, subId,
-                        sub.plan || "standard", partner.commission_rate || 10
+                        partner.id, userSub.workspace_id, subId,
+                        userSub.plan || "standard", partner.commission_rate || 10
                       );
                     }
                   }
                 }
               }
             }
+          }
+        }
+        break;
+      }
+
+      case "checkout.session.completed": {
+        // Handle addon purchases
+        const session = event.data.object as any;
+        if (session.metadata?.addon_type && session.metadata?.user_id) {
+          const addonType = session.metadata.addon_type;
+          const quantity = Number(session.metadata.addon_quantity) || 0;
+          const userId = session.metadata.user_id;
+
+          const mediaType = addonType.startsWith("image") ? "image" : "video";
+
+          // Get user's workspace
+          const { data: userSub } = await supabase
+            .from("subscriptions")
+            .select("workspace_id")
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          if (userSub?.workspace_id) {
+            await supabase.from("media_addons").insert({
+              workspace_id: userSub.workspace_id,
+              user_id: userId,
+              addon_type: mediaType,
+              quantity,
+              remaining: quantity,
+            });
+            console.log(`[STRIPE-WEBHOOK] Media addon added: ${quantity} ${mediaType}s for workspace ${userSub.workspace_id}`);
           }
         }
         break;
