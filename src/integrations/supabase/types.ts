@@ -553,6 +553,71 @@ export type Database = {
           },
         ]
       }
+      business_registrations: {
+        Row: {
+          business_data: Json | null
+          business_name: string
+          created_at: string | null
+          created_by_user_id: string
+          discount_applied: number | null
+          discount_reason: string | null
+          id: string
+          industry: string | null
+          package_type: string | null
+          referral_code_used: string | null
+          review_notes: string | null
+          review_status: string | null
+          reviewed_at: string | null
+          reviewed_by_user_id: string | null
+          updated_at: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          business_data?: Json | null
+          business_name: string
+          created_at?: string | null
+          created_by_user_id: string
+          discount_applied?: number | null
+          discount_reason?: string | null
+          id?: string
+          industry?: string | null
+          package_type?: string | null
+          referral_code_used?: string | null
+          review_notes?: string | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          business_data?: Json | null
+          business_name?: string
+          created_at?: string | null
+          created_by_user_id?: string
+          discount_applied?: number | null
+          discount_reason?: string | null
+          id?: string
+          industry?: string | null
+          package_type?: string | null
+          referral_code_used?: string | null
+          review_notes?: string | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by_user_id?: string | null
+          updated_at?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_registrations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_records: {
         Row: {
           ai_call_summary: string | null
@@ -1851,6 +1916,44 @@ export type Database = {
           },
         ]
       }
+      discount_audit_log: {
+        Row: {
+          action: string
+          actor_id: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          registration_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          registration_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          registration_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_audit_log_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "business_registrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discovered_items: {
         Row: {
           author_name: string | null
@@ -2581,6 +2684,94 @@ export type Database = {
           },
         ]
       }
+      media_addons: {
+        Row: {
+          addon_type: string
+          expires_at: string | null
+          id: string
+          price_paid: number | null
+          purchased_at: string | null
+          quantity: number
+          remaining: number
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          addon_type: string
+          expires_at?: string | null
+          id?: string
+          price_paid?: number | null
+          purchased_at?: string | null
+          quantity?: number
+          remaining?: number
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          addon_type?: string
+          expires_at?: string | null
+          id?: string
+          price_paid?: number | null
+          purchased_at?: string | null
+          quantity?: number
+          remaining?: number
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_addons_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_generations: {
+        Row: {
+          created_at: string | null
+          duration_seconds: number | null
+          id: string
+          media_type: string
+          prompt: string | null
+          result_url: string | null
+          status: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          media_type?: string
+          prompt?: string | null
+          result_url?: string | null
+          status?: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          media_type?: string
+          prompt?: string | null
+          result_url?: string | null
+          status?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_generations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_progress: {
         Row: {
           completion_score: number
@@ -2976,6 +3167,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_roadmap: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          feature_key: string
+          id: string
+          priority: string | null
+          status: string | null
+          target_phase: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          feature_key: string
+          id?: string
+          priority?: string | null
+          status?: string | null
+          target_phase?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          feature_key?: string
+          id?: string
+          priority?: string | null
+          status?: string | null
+          target_phase?: string | null
+          title?: string
+        }
+        Relationships: []
       }
       pricing_settings: {
         Row: {
@@ -3453,10 +3677,20 @@ export type Database = {
           created_at: string
           grace_period_end: string | null
           id: string
+          images_generated_this_month: number | null
           keywords_limit: number
           leads_limit: number
           leads_used: number
+          media_reset_at: string | null
+          package_discount_percent: number | null
+          package_duration_months: number | null
+          package_end_at: string | null
+          package_start_at: string | null
+          package_type: string | null
           plan: string
+          qualifying_package_type: string | null
+          referral_eligible: boolean | null
+          referral_eligible_at: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_status: string
@@ -3464,6 +3698,7 @@ export type Database = {
           trial_start: string | null
           updated_at: string
           user_id: string
+          videos_generated_this_month: number | null
           workspace_id: string | null
         }
         Insert: {
@@ -3474,10 +3709,20 @@ export type Database = {
           created_at?: string
           grace_period_end?: string | null
           id?: string
+          images_generated_this_month?: number | null
           keywords_limit?: number
           leads_limit?: number
           leads_used?: number
+          media_reset_at?: string | null
+          package_discount_percent?: number | null
+          package_duration_months?: number | null
+          package_end_at?: string | null
+          package_start_at?: string | null
+          package_type?: string | null
           plan?: string
+          qualifying_package_type?: string | null
+          referral_eligible?: boolean | null
+          referral_eligible_at?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
@@ -3485,6 +3730,7 @@ export type Database = {
           trial_start?: string | null
           updated_at?: string
           user_id: string
+          videos_generated_this_month?: number | null
           workspace_id?: string | null
         }
         Update: {
@@ -3495,10 +3741,20 @@ export type Database = {
           created_at?: string
           grace_period_end?: string | null
           id?: string
+          images_generated_this_month?: number | null
           keywords_limit?: number
           leads_limit?: number
           leads_used?: number
+          media_reset_at?: string | null
+          package_discount_percent?: number | null
+          package_duration_months?: number | null
+          package_end_at?: string | null
+          package_start_at?: string | null
+          package_type?: string | null
           plan?: string
+          qualifying_package_type?: string | null
+          referral_eligible?: boolean | null
+          referral_eligible_at?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
@@ -3506,6 +3762,7 @@ export type Database = {
           trial_start?: string | null
           updated_at?: string
           user_id?: string
+          videos_generated_this_month?: number | null
           workspace_id?: string | null
         }
         Relationships: [
