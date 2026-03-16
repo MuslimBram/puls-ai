@@ -144,6 +144,268 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_logs: {
+        Row: {
+          actions_executed: Json | null
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          status: string
+          trigger_event: string | null
+          user_id: string
+          workflow_id: string
+        }
+        Insert: {
+          actions_executed?: Json | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string
+          trigger_event?: string | null
+          user_id: string
+          workflow_id: string
+        }
+        Update: {
+          actions_executed?: Json | null
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          status?: string
+          trigger_event?: string | null
+          user_id?: string
+          workflow_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_logs_workflow_id_fkey"
+            columns: ["workflow_id"]
+            isOneToOne: false
+            referencedRelation: "automation_workflows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_workflows: {
+        Row: {
+          actions: Json
+          conditions: Json | null
+          created_at: string
+          description: string | null
+          execution_count: number | null
+          id: string
+          is_active: boolean | null
+          last_executed_at: string | null
+          name: string
+          trigger_config: Json
+          trigger_type: string
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          actions?: Json
+          conditions?: Json | null
+          created_at?: string
+          description?: string | null
+          execution_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          name: string
+          trigger_config?: Json
+          trigger_type: string
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          actions?: Json
+          conditions?: Json | null
+          created_at?: string
+          description?: string | null
+          execution_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          last_executed_at?: string | null
+          name?: string
+          trigger_config?: Json
+          trigger_type?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_workflows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broadcast_recipients: {
+        Row: {
+          broadcast_id: string
+          clicked_at: string | null
+          contact_identifier: string
+          contact_name: string | null
+          created_at: string
+          delivered_at: string | null
+          error_message: string | null
+          id: string
+          opened_at: string | null
+          sent_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          broadcast_id: string
+          clicked_at?: string | null
+          contact_identifier: string
+          contact_name?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          broadcast_id?: string
+          clicked_at?: string | null
+          contact_identifier?: string
+          contact_name?: string | null
+          created_at?: string
+          delivered_at?: string | null
+          error_message?: string | null
+          id?: string
+          opened_at?: string | null
+          sent_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_recipients_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "broadcasts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broadcasts: {
+        Row: {
+          campaign_id: string | null
+          channel_type: string
+          clicked_count: number | null
+          completed_at: string | null
+          created_at: string
+          delivered_count: number | null
+          failed_count: number | null
+          id: string
+          message_content: string
+          name: string
+          opened_count: number | null
+          response_count: number | null
+          scheduled_at: string | null
+          segment_id: string | null
+          sent_count: number | null
+          started_at: string | null
+          status: string
+          subject: string | null
+          template_data: Json | null
+          throttle_per_minute: number | null
+          total_recipients: number | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          channel_type?: string
+          clicked_count?: number | null
+          completed_at?: string | null
+          created_at?: string
+          delivered_count?: number | null
+          failed_count?: number | null
+          id?: string
+          message_content: string
+          name: string
+          opened_count?: number | null
+          response_count?: number | null
+          scheduled_at?: string | null
+          segment_id?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          subject?: string | null
+          template_data?: Json | null
+          throttle_per_minute?: number | null
+          total_recipients?: number | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          channel_type?: string
+          clicked_count?: number | null
+          completed_at?: string | null
+          created_at?: string
+          delivered_count?: number | null
+          failed_count?: number | null
+          id?: string
+          message_content?: string
+          name?: string
+          opened_count?: number | null
+          response_count?: number | null
+          scheduled_at?: string | null
+          segment_id?: string | null
+          sent_count?: number | null
+          started_at?: string | null
+          status?: string
+          subject?: string | null
+          template_data?: Json | null
+          throttle_per_minute?: number | null
+          total_recipients?: number | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcasts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broadcasts_segment_id_fkey"
+            columns: ["segment_id"]
+            isOneToOne: false
+            referencedRelation: "contact_segments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broadcasts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_profiles: {
         Row: {
           ai_tone: string | null
@@ -454,6 +716,158 @@ export type Database = {
           },
         ]
       }
+      chatbot_flows: {
+        Row: {
+          completion_message: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          questions: Json
+          scoring_rules: Json | null
+          target_pipeline_stage_id: string | null
+          updated_at: string
+          user_id: string
+          welcome_message: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          completion_message?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          questions?: Json
+          scoring_rules?: Json | null
+          target_pipeline_stage_id?: string | null
+          updated_at?: string
+          user_id: string
+          welcome_message?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          completion_message?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          questions?: Json
+          scoring_rules?: Json | null
+          target_pipeline_stage_id?: string | null
+          updated_at?: string
+          user_id?: string
+          welcome_message?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_flows_target_pipeline_stage_id_fkey"
+            columns: ["target_pipeline_stage_id"]
+            isOneToOne: false
+            referencedRelation: "pipeline_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_flows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chatbot_sessions: {
+        Row: {
+          ai_summary: string | null
+          channel_type: string | null
+          completed_at: string | null
+          created_at: string
+          deal_id: string | null
+          flow_id: string
+          id: string
+          lead_id: string | null
+          quality_score: number | null
+          responses: Json
+          status: string
+          updated_at: string
+          user_id: string
+          visitor_email: string | null
+          visitor_name: string | null
+          visitor_phone: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          channel_type?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deal_id?: string | null
+          flow_id: string
+          id?: string
+          lead_id?: string | null
+          quality_score?: number | null
+          responses?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+          visitor_email?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          channel_type?: string | null
+          completed_at?: string | null
+          created_at?: string
+          deal_id?: string | null
+          flow_id?: string
+          id?: string
+          lead_id?: string | null
+          quality_score?: number | null
+          responses?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+          visitor_email?: string | null
+          visitor_name?: string | null
+          visitor_phone?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chatbot_sessions_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_sessions_flow_id_fkey"
+            columns: ["flow_id"]
+            isOneToOne: false
+            referencedRelation: "chatbot_flows"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_sessions_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chatbot_sessions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitor_alerts: {
         Row: {
           alert_type: string
@@ -648,6 +1062,50 @@ export type Database = {
           },
         ]
       }
+      contact_segments: {
+        Row: {
+          contact_count: number | null
+          created_at: string
+          description: string | null
+          filter_criteria: Json
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          contact_count?: number | null
+          created_at?: string
+          description?: string | null
+          filter_criteria?: Json
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          contact_count?: number | null
+          created_at?: string
+          description?: string | null
+          filter_criteria?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_segments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       content_ideas: {
         Row: {
           content_type: string
@@ -794,6 +1252,121 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "content_posts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_ai_generated: boolean | null
+          thread_id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_ai_generated?: boolean | null
+          thread_id: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_ai_generated?: boolean | null
+          thread_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_notes_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_threads: {
+        Row: {
+          ai_summary: string | null
+          assigned_to: string | null
+          channel_type: string
+          contact_identifier: string | null
+          contact_name: string | null
+          created_at: string
+          first_response_at: string | null
+          id: string
+          is_auto_reply_enabled: boolean | null
+          last_message_at: string | null
+          message_count: number | null
+          metadata: Json | null
+          priority: string
+          resolved_at: string | null
+          sla_response_due: string | null
+          status: string
+          subject: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_summary?: string | null
+          assigned_to?: string | null
+          channel_type?: string
+          contact_identifier?: string | null
+          contact_name?: string | null
+          created_at?: string
+          first_response_at?: string | null
+          id?: string
+          is_auto_reply_enabled?: boolean | null
+          last_message_at?: string | null
+          message_count?: number | null
+          metadata?: Json | null
+          priority?: string
+          resolved_at?: string | null
+          sla_response_due?: string | null
+          status?: string
+          subject?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_summary?: string | null
+          assigned_to?: string | null
+          channel_type?: string
+          contact_identifier?: string | null
+          contact_name?: string | null
+          created_at?: string
+          first_response_at?: string | null
+          id?: string
+          is_auto_reply_enabled?: boolean | null
+          last_message_at?: string | null
+          message_count?: number | null
+          metadata?: Json | null
+          priority?: string
+          resolved_at?: string | null
+          sla_response_due?: string | null
+          status?: string
+          subject?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_threads_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1161,12 +1734,16 @@ export type Database = {
       }
       inbox_messages: {
         Row: {
+          ai_summary: string | null
+          assigned_to: string | null
           channel_id: string | null
           channel_type: string
           created_at: string
+          first_response_at: string | null
           id: string
           intent_score: number | null
           intent_type: string
+          internal_notes_count: number | null
           is_unread: boolean
           lead_id: string | null
           matched_keywords: string[] | null
@@ -1177,20 +1754,26 @@ export type Database = {
           recommended_action: string
           sender_identifier: string | null
           sender_name: string | null
+          sla_response_due: string | null
           source_name: string
           status: string
+          thread_id: string | null
           updated_at: string
           urgency_level: string
           user_id: string
           workspace_id: string | null
         }
         Insert: {
+          ai_summary?: string | null
+          assigned_to?: string | null
           channel_id?: string | null
           channel_type?: string
           created_at?: string
+          first_response_at?: string | null
           id?: string
           intent_score?: number | null
           intent_type?: string
+          internal_notes_count?: number | null
           is_unread?: boolean
           lead_id?: string | null
           matched_keywords?: string[] | null
@@ -1201,20 +1784,26 @@ export type Database = {
           recommended_action?: string
           sender_identifier?: string | null
           sender_name?: string | null
+          sla_response_due?: string | null
           source_name: string
           status?: string
+          thread_id?: string | null
           updated_at?: string
           urgency_level?: string
           user_id: string
           workspace_id?: string | null
         }
         Update: {
+          ai_summary?: string | null
+          assigned_to?: string | null
           channel_id?: string | null
           channel_type?: string
           created_at?: string
+          first_response_at?: string | null
           id?: string
           intent_score?: number | null
           intent_type?: string
+          internal_notes_count?: number | null
           is_unread?: boolean
           lead_id?: string | null
           matched_keywords?: string[] | null
@@ -1225,8 +1814,10 @@ export type Database = {
           recommended_action?: string
           sender_identifier?: string | null
           sender_name?: string | null
+          sla_response_due?: string | null
           source_name?: string
           status?: string
+          thread_id?: string | null
           updated_at?: string
           urgency_level?: string
           user_id?: string
@@ -1245,6 +1836,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inbox_messages_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
             referencedColumns: ["id"]
           },
           {
