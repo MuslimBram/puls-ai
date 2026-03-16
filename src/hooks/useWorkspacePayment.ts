@@ -88,7 +88,7 @@ export const useAdminWorkspacePayments = (enabled: boolean) => {
         .select("id, name, payment_mode, payment_accounts, workspace_owner_partner_id, referred_by_partner_id, created_at")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return (data || []) as Array<{
+      return (data || []) as unknown as Array<{
         id: string;
         name: string;
         payment_mode: string;
