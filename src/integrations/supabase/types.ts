@@ -111,6 +111,44 @@ export type Database = {
           },
         ]
       }
+      analytics_cache: {
+        Row: {
+          cache_data: Json
+          cache_key: string
+          computed_at: string
+          expires_at: string
+          id: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          cache_data?: Json
+          cache_key: string
+          computed_at?: string
+          expires_at?: string
+          id?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          cache_data?: Json
+          cache_key?: string
+          computed_at?: string
+          expires_at?: string
+          id?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_cache_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -455,6 +493,90 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "business_profiles_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_records: {
+        Row: {
+          ai_call_summary: string | null
+          ai_transcription: string | null
+          call_direction: string
+          call_duration: number | null
+          call_outcome: string | null
+          call_status: string
+          channel_provider: string
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          deal_id: string | null
+          follow_up_recommendation: string | null
+          id: string
+          notes: string | null
+          recording_url: string | null
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_call_summary?: string | null
+          ai_transcription?: string | null
+          call_direction?: string
+          call_duration?: number | null
+          call_outcome?: string | null
+          call_status?: string
+          channel_provider?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          deal_id?: string | null
+          follow_up_recommendation?: string | null
+          id?: string
+          notes?: string | null
+          recording_url?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_call_summary?: string | null
+          ai_transcription?: string | null
+          call_direction?: string
+          call_duration?: number | null
+          call_outcome?: string | null
+          call_status?: string
+          channel_provider?: string
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          deal_id?: string | null
+          follow_up_recommendation?: string | null
+          id?: string
+          notes?: string | null
+          recording_url?: string | null
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_records_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_records_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1099,6 +1221,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "contact_segments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_tags: {
+        Row: {
+          contact_identifier: string
+          contact_name: string | null
+          created_at: string
+          id: string
+          tag_type: string
+          tag_value: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          contact_identifier: string
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          tag_type?: string
+          tag_value: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          contact_identifier?: string
+          contact_name?: string | null
+          created_at?: string
+          id?: string
+          tag_type?: string
+          tag_value?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_tags_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1888,6 +2051,62 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "external_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_queue: {
+        Row: {
+          attempts: number | null
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          job_payload: Json
+          job_type: string
+          max_attempts: number | null
+          scheduled_for: string
+          started_at: string | null
+          status: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_payload?: Json
+          job_type: string
+          max_attempts?: number | null
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          job_payload?: Json
+          job_type?: string
+          max_attempts?: number | null
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_queue_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
