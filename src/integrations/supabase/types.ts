@@ -2630,11 +2630,13 @@ export type Database = {
           billing_model: string
           commission_rate: number | null
           created_at: string
+          discount_duration_months: number
           discount_percent: number
           id: string
           monthly_revenue: number | null
           partner_name: string
           referral_code: string | null
+          referral_discount_percent: number
           status: string
           total_businesses: number | null
           updated_at: string
@@ -2644,11 +2646,13 @@ export type Database = {
           billing_model?: string
           commission_rate?: number | null
           created_at?: string
+          discount_duration_months?: number
           discount_percent?: number
           id?: string
           monthly_revenue?: number | null
           partner_name: string
           referral_code?: string | null
+          referral_discount_percent?: number
           status?: string
           total_businesses?: number | null
           updated_at?: string
@@ -2658,11 +2662,13 @@ export type Database = {
           billing_model?: string
           commission_rate?: number | null
           created_at?: string
+          discount_duration_months?: number
           discount_percent?: number
           id?: string
           monthly_revenue?: number | null
           partner_name?: string
           referral_code?: string | null
+          referral_discount_percent?: number
           status?: string
           total_businesses?: number | null
           updated_at?: string
@@ -2702,6 +2708,180 @@ export type Database = {
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_commissions: {
+        Row: {
+          billing_period_end: string | null
+          billing_period_start: string | null
+          commission_amount: number
+          commission_percent: number
+          commission_status: string
+          created_at: string
+          gross_amount: number
+          id: string
+          partner_id: string
+          plan_name: string
+          subscription_id: string | null
+          workspace_id: string
+        }
+        Insert: {
+          billing_period_end?: string | null
+          billing_period_start?: string | null
+          commission_amount?: number
+          commission_percent?: number
+          commission_status?: string
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          partner_id: string
+          plan_name?: string
+          subscription_id?: string | null
+          workspace_id: string
+        }
+        Update: {
+          billing_period_end?: string | null
+          billing_period_start?: string | null
+          commission_amount?: number
+          commission_percent?: number
+          commission_status?: string
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          partner_id?: string
+          plan_name?: string
+          subscription_id?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_commissions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partner_commissions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_wallet_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          description: string | null
+          id: string
+          partner_id: string
+          reference_id: string | null
+          type: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          partner_id: string
+          reference_id?: string | null
+          type?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          description?: string | null
+          id?: string
+          partner_id?: string
+          reference_id?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_wallet_transactions_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partner_wallets: {
+        Row: {
+          current_balance: number
+          id: string
+          lifetime_earnings: number
+          partner_id: string
+          pending_amount: number
+          updated_at: string
+        }
+        Insert: {
+          current_balance?: number
+          id?: string
+          lifetime_earnings?: number
+          partner_id: string
+          pending_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          current_balance?: number
+          id?: string
+          lifetime_earnings?: number
+          partner_id?: string
+          pending_amount?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partner_wallets_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: true
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payout_requests: {
+        Row: {
+          admin_note: string | null
+          created_at: string
+          id: string
+          partner_id: string
+          payout_method: string
+          payout_status: string
+          processed_at: string | null
+          requested_amount: number
+        }
+        Insert: {
+          admin_note?: string | null
+          created_at?: string
+          id?: string
+          partner_id: string
+          payout_method?: string
+          payout_status?: string
+          processed_at?: string | null
+          requested_amount: number
+        }
+        Update: {
+          admin_note?: string | null
+          created_at?: string
+          id?: string
+          partner_id?: string
+          payout_method?: string
+          payout_status?: string
+          processed_at?: string | null
+          requested_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payout_requests_partner_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -3468,6 +3648,7 @@ export type Database = {
       }
       workspaces: {
         Row: {
+          billing_mode: string
           created_at: string
           id: string
           name: string
@@ -3477,6 +3658,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_mode?: string
           created_at?: string
           id?: string
           name: string
@@ -3486,6 +3668,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_mode?: string
           created_at?: string
           id?: string
           name?: string

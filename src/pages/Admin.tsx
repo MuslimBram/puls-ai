@@ -14,6 +14,7 @@ import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCc
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
+import { AdminCommissionManager } from "@/components/AdminCommissionManager";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -110,6 +111,10 @@ const Admin = () => {
               Pricing
             </TabsTrigger>
             <TabsTrigger value="audit">Audit Logs</TabsTrigger>
+            <TabsTrigger value="commissions">
+              <DollarSign className="h-3 w-3 mr-1" />
+              Commissions
+            </TabsTrigger>
             <TabsTrigger value="health">
               <Activity className="h-3 w-3 mr-1" />
               Health
@@ -493,6 +498,10 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="commissions">
+            <AdminCommissionManager />
           </TabsContent>
 
           <TabsContent value="health">

@@ -5,7 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePartnerAccount, usePartnerBusinesses, usePartnerReferrals, useApplyForPartner } from "@/hooks/usePartner";
+import { PartnerEarnings } from "@/components/PartnerEarnings";
 import {
   Handshake,
   Loader2,
@@ -17,6 +19,7 @@ import {
   Copy,
   Check,
   Link as LinkIcon,
+  Wallet,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
@@ -50,7 +53,7 @@ const PartnerDashboard = () => {
     );
   }
 
-  // Not a partner yet - show application
+  // Not a partner yet
   if (!partner) {
     return (
       <DashboardLayout>
@@ -62,7 +65,6 @@ const PartnerDashboard = () => {
               Manage multiple businesses with discounted pricing. Apply to become a partner and enjoy 30-40% savings on all managed subscriptions.
             </p>
           </div>
-
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Apply for Partner Account</CardTitle>
@@ -70,25 +72,15 @@ const PartnerDashboard = () => {
             <CardContent className="space-y-4">
               <div>
                 <Label>Agency / Partner Name</Label>
-                <Input
-                  value={partnerName}
-                  onChange={(e) => setPartnerName(e.target.value)}
-                  placeholder="Your Agency Name"
-                />
+                <Input value={partnerName} onChange={(e) => setPartnerName(e.target.value)} placeholder="Your Agency Name" />
               </div>
-
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>✓ Manage unlimited business accounts</p>
                 <p>✓ 30-40% discount on subscription plans</p>
                 <p>✓ Centralized billing dashboard</p>
                 <p>✓ Priority support</p>
               </div>
-
-              <Button
-                onClick={() => applyMutation.mutate(partnerName)}
-                disabled={!partnerName.trim() || applyMutation.isPending}
-                className="w-full"
-              >
+              <Button onClick={() => applyMutation.mutate(partnerName)} disabled={!partnerName.trim() || applyMutation.isPending} className="w-full">
                 {applyMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Handshake className="mr-2 h-4 w-4" />}
                 Apply Now
               </Button>
@@ -99,7 +91,6 @@ const PartnerDashboard = () => {
     );
   }
 
-  // Partner dashboard
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -133,11 +124,7 @@ const PartnerDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2">
-                <Input
-                  readOnly
-                  value={referralLink}
-                  className="font-mono text-xs bg-background"
-                />
+                <Input readOnly value={referralLink} className="font-mono text-xs bg-background" />
                 <Button size="sm" variant="outline" onClick={copyLink}>
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
@@ -197,29 +184,48 @@ const PartnerDashboard = () => {
           </Card>
         </div>
 
-        {/* Managed Businesses */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Managed Businesses</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {businesses?.length ? (
-              <div className="space-y-2">
-                {businesses.map((biz: any) => (
-                  <div key={biz.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                    <div>
-                      <p className="text-sm font-medium">{biz.workspaces?.name || "Unknown"}</p>
-                      <p className="text-xs text-muted-foreground">Added {format(new Date(biz.added_at), "MMM d, yyyy")}</p>
-                    </div>
-                    <Badge variant="outline" className="text-xs">Active</Badge>
+        {/* Tabs: Businesses + Earnings */}
+        <Tabs defaultValue="businesses">
+          <TabsList>
+            <TabsTrigger value="businesses">
+              <Building2 className="h-3 w-3 mr-1" />
+              Businesses
+            </TabsTrigger>
+            <TabsTrigger value="earnings">
+              <Wallet className="h-3 w-3 mr-1" />
+              Earnings & Payouts
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="businesses">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Managed Businesses</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {businesses?.length ? (
+                  <div className="space-y-2">
+                    {businesses.map((biz: any) => (
+                      <div key={biz.id} className="flex items-center justify-between rounded-lg border border-border p-3">
+                        <div>
+                          <p className="text-sm font-medium">{biz.workspaces?.name || "Unknown"}</p>
+                          <p className="text-xs text-muted-foreground">Added {format(new Date(biz.added_at), "MMM d, yyyy")}</p>
+                        </div>
+                        <Badge variant="outline" className="text-xs">Active</Badge>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">No businesses managed yet. Share your referral link to get started.</p>
-            )}
-          </CardContent>
-        </Card>
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-8">No businesses managed yet. Share your referral link to get started.</p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="earnings">
+            <PartnerEarnings partnerId={partner.id} />
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
