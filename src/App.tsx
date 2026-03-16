@@ -38,6 +38,9 @@ import Helpdesk from "./pages/Helpdesk";
 import LeadQualification from "./pages/LeadQualification";
 import BroadcastMessaging from "./pages/BroadcastMessaging";
 import Automations from "./pages/Automations";
+import CallHistory from "./pages/CallHistory";
+import DeepAnalytics from "./pages/DeepAnalytics";
+import ContactHub from "./pages/ContactHub";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
