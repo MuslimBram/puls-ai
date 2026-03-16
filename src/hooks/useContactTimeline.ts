@@ -110,7 +110,7 @@ export const useContactTimeline = (contactIdentifier: string | null) => {
         .from("leads")
         .select("id, source_name, message_content, detected_keyword, message_date")
         .eq("user_id", user!.id)
-        .eq("author_username", contactIdentifier)
+        .eq("author_username" as any, contactIdentifier)
         .order("message_date", { ascending: false })
         .limit(20);
 
