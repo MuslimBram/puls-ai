@@ -42,6 +42,9 @@ import {
   Headphones,
   Workflow,
   Send,
+  Phone,
+  PieChart,
+  Users,
 } from "lucide-react";
 
 interface NavItem {
