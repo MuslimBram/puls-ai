@@ -106,11 +106,12 @@ export const useContactTimeline = (contactIdentifier: string | null) => {
       });
 
       // Leads
-      const { data: leads } = await supabase
+      const leadsQ = supabase
         .from("leads")
         .select("id, source_name, message_content, detected_keyword, message_date")
-        .eq("user_id", user!.id)
-        .eq("author_username" as any, contactIdentifier)
+        .eq("user_id", user!.id);
+      const { data: leads } = await (leadsQ as any)
+        .eq("author_username", contactIdentifier)
         .order("message_date", { ascending: false })
         .limit(20);
 
