@@ -39,6 +39,9 @@ import {
   Brain,
   ChevronDown,
   Settings,
+  Headphones,
+  Workflow,
+  Send,
 } from "lucide-react";
 
 interface NavItem {
