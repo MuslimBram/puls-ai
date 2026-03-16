@@ -137,6 +137,9 @@ const Subscription = () => {
           </Card>
         )}
 
+        {/* AI Usage */}
+        <AIUsageDashboard />
+
         {/* Current Plan */}
         <Card>
           <CardHeader>

@@ -494,6 +494,14 @@ const Admin = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="health">
+            <AdminSystemHealth />
+          </TabsContent>
+
+          <TabsContent value="launch">
+            <AdminLaunchControls />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
