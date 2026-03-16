@@ -67,6 +67,7 @@ const navGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/business-insights", label: "Business Insights", icon: Brain },
       { href: "/inbox", label: "Inbox", icon: Inbox },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },

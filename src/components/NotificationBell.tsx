@@ -1,82 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { format } from "date-fns";
+import { useBusinessNotifications } from "@/hooks/useBusinessInsights";
+import { format, parseISO } from "date-fns";
 
-interface Notification {
-  id: string;
-  message: string;
-  timestamp: string;
-  read: boolean;
-}
+const typeColors: Record<string, string> = {
+  info: "border-l-primary",
+  recommendation: "border-l-yellow-500",
+  warning: "border-l-orange-500",
+  critical: "border-l-destructive",
+};
 
 export const NotificationBell = () => {
-  const { user } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const navigate = useNavigate();
+  const { notifications, unreadCount, markRead, markAllRead } = useBusinessNotifications();
   const [open, setOpen] = useState(false);
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  useEffect(() => {
-    if (!user) return;
-
-    // Load recent high-intent leads as notifications
-    const loadNotifications = async () => {
-      const { data } = await supabase
-        .from("leads")
-        .select("id, source_name, message_content, intent_score, created_at")
-        .eq("user_id", user.id)
-        .gte("intent_score", 0.7)
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      if (data) {
-        setNotifications(
-          data.map((l) => ({
-            id: l.id,
-            message: `High-intent lead from ${l.source_name}: "${(l.message_content ?? "").slice(0, 60)}..."`,
-            timestamp: l.created_at,
-            read: false,
-          }))
-        );
-      }
-    };
-
-    loadNotifications();
-
-    // Subscribe to realtime new leads
-    const channel = supabase
-      .channel("lead-notifications")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "leads", filter: `user_id=eq.${user.id}` },
-        (payload) => {
-          const lead = payload.new as any;
-          if (lead.intent_score >= 0.7) {
-            setNotifications((prev) => [
-              {
-                id: lead.id,
-                message: `New high-intent lead from ${lead.source_name}`,
-                timestamp: lead.created_at,
-                read: false,
-              },
-              ...prev,
-            ].slice(0, 20));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -93,24 +34,39 @@ export const NotificationBell = () => {
       <PopoverContent className="w-80 p-0" align="end">
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <span className="text-sm font-semibold text-foreground">Notifications</span>
-          {unreadCount > 0 && (
-            <Button variant="ghost" size="sm" className="text-xs h-auto py-1" onClick={markAllRead}>
-              Mark all read
+          <div className="flex gap-1">
+            {unreadCount > 0 && (
+              <Button variant="ghost" size="sm" className="text-xs h-auto py-1" onClick={() => markAllRead.mutate()}>
+                Mark all read
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" className="text-xs h-auto py-1" onClick={() => { setOpen(false); navigate("/business-insights"); }}>
+              View all
             </Button>
-          )}
+          </div>
         </div>
-        <div className="max-h-64 overflow-y-auto">
+        <div className="max-h-72 overflow-y-auto">
           {notifications.length === 0 ? (
             <p className="p-4 text-center text-sm text-muted-foreground">No notifications yet</p>
           ) : (
-            notifications.map((n) => (
+            notifications.slice(0, 15).map((n) => (
               <div
                 key={n.id}
-                className={`border-b border-border px-4 py-3 text-sm ${n.read ? "opacity-60" : ""}`}
+                className={`border-b border-border border-l-2 px-4 py-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors ${
+                  typeColors[n.notification_type] || "border-l-border"
+                } ${n.is_read ? "opacity-60" : ""}`}
+                onClick={() => {
+                  markRead.mutate(n.id);
+                  if (n.action_url) { setOpen(false); navigate(n.action_url); }
+                }}
               >
-                <p className="text-foreground line-clamp-2">{n.message}</p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {(() => { try { return format(new Date(n.timestamp), "MMM d, HH:mm"); } catch { return "—"; } })()}
+                <div className="flex items-center gap-1.5">
+                  <p className="text-foreground font-medium text-xs line-clamp-1">{n.title}</p>
+                  <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{n.notification_type}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {(() => { try { return format(parseISO(n.created_at), "MMM d, HH:mm"); } catch { return "—"; } })()}
                 </p>
               </div>
             ))
