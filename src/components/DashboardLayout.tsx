@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useIsAdmin } from "@/hooks/useAdmin";
-import { useInactivityLogout } from "@/hooks/useInactivityLogout";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
