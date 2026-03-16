@@ -34,6 +34,10 @@ import CRM from "./pages/CRM";
 import VisitorIntelligence from "./pages/VisitorIntelligence";
 import ExternalIntegrations from "./pages/ExternalIntegrations";
 import Sources from "./pages/Sources";
+import Helpdesk from "./pages/Helpdesk";
+import LeadQualification from "./pages/LeadQualification";
+import BroadcastMessaging from "./pages/BroadcastMessaging";
+import Automations from "./pages/Automations";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
