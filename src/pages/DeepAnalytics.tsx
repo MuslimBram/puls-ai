@@ -206,7 +206,7 @@ const DeepAnalytics = () => {
                   <p className="text-xs text-muted-foreground">Total Runs</p>
                 </div>
                 <div>
-                  <p className="text-2xl font-bold text-green-600">{m.autoSuccess}</p>
+                  <p className="text-2xl font-bold text-primary">{m.autoSuccess}</p>
                   <p className="text-xs text-muted-foreground">Successful</p>
                 </div>
                 <div>

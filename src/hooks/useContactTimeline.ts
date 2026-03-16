@@ -127,7 +127,7 @@ export const useContactTimeline = (contactIdentifier: string | null) => {
 
       // Call records
       const { data: calls } = await supabase
-        .from("call_records")
+        .from("call_records" as any)
         .select("id, call_direction, call_status, call_outcome, call_duration, created_at")
         .eq("user_id", user!.id)
         .or(`contact_phone.eq.${contactIdentifier},contact_email.eq.${contactIdentifier}`)
