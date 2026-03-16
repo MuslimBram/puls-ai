@@ -43,6 +43,8 @@ import CallHistory from "./pages/CallHistory";
 import DeepAnalytics from "./pages/DeepAnalytics";
 import ContactHub from "./pages/ContactHub";
 import BusinessInsights from "./pages/BusinessInsights";
+import ReferralProgram from "./pages/ReferralProgram";
+import MediaStudio from "./pages/MediaStudio";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
