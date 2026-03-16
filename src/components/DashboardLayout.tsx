@@ -42,6 +42,9 @@ import {
   Headphones,
   Workflow,
   Send,
+  Phone,
+  PieChart,
+  Users,
 } from "lucide-react";
 
 interface NavItem {
@@ -67,6 +70,7 @@ const navGroups: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: Inbox },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/deep-analytics", label: "Deep Analytics", icon: PieChart },
     ],
   },
   {
@@ -102,6 +106,8 @@ const navGroups: NavGroup[] = [
       { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
       { href: "/dedicated-ai", label: "Dedicated AI", icon: Bot },
       { href: "/automations", label: "Automations", icon: Workflow },
+      { href: "/call-history", label: "Call History", icon: Phone },
+      { href: "/contact-hub", label: "Contact Hub", icon: Users },
     ],
   },
   {

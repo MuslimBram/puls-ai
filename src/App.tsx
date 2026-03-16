@@ -38,6 +38,9 @@ import Helpdesk from "./pages/Helpdesk";
 import LeadQualification from "./pages/LeadQualification";
 import BroadcastMessaging from "./pages/BroadcastMessaging";
 import Automations from "./pages/Automations";
+import CallHistory from "./pages/CallHistory";
+import DeepAnalytics from "./pages/DeepAnalytics";
+import ContactHub from "./pages/ContactHub";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 
@@ -102,6 +105,9 @@ const App = () => (
               <Route path="/lead-qualification" element={<ProtectedPage><LeadQualification /></ProtectedPage>} />
               <Route path="/broadcast" element={<ProtectedPage><BroadcastMessaging /></ProtectedPage>} />
               <Route path="/automations" element={<ProtectedPage><Automations /></ProtectedPage>} />
+              <Route path="/call-history" element={<ProtectedPage><CallHistory /></ProtectedPage>} />
+              <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
+              <Route path="/contact-hub" element={<ProtectedPage><ContactHub /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
             </Routes>
