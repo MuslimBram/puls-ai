@@ -24,7 +24,7 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated");
 
     const body = await req.json();
-    const { priceId, donationAmount, donationRecurring } = body;
+    const { priceId, donationAmount, donationRecurring, addonType, addonLabel, addonPrice, addonQuantity } = body;
 
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", { apiVersion: "2025-08-27.basil" });
 
