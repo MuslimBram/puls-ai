@@ -270,32 +270,30 @@ const Subscription = () => {
           })}
         </div>
 
-        {/* Billing History */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Billing & Invoices</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {stripeData?.subscribed ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Next billing date</span>
-                  <span className="text-foreground font-medium">
-                    {stripeData.subscription_end ? format(new Date(stripeData.subscription_end), "MMM d, yyyy") : "—"}
-                  </span>
+        {/* Billing & Invoices Tabs */}
+        <Tabs defaultValue="billing">
+          <TabsList>
+            <TabsTrigger value="billing">Billing History</TabsTrigger>
+            <TabsTrigger value="usage">Usage Details</TabsTrigger>
+          </TabsList>
+          <TabsContent value="billing">
+            <BillingHistoryPanel />
+          </TabsContent>
+          <TabsContent value="usage">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Current Usage</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <UsageIndicator label="Leads" current={leadsUsage.current} limit={leadsUsage.limit} />
+                  <UsageIndicator label="Channels" current={channelsUsage.current} limit={channelsUsage.limit} />
+                  <UsageIndicator label="Keywords" current={keywordsUsage.current} limit={keywordsUsage.limit} />
                 </div>
-                <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={portalLoading}>
-                  <ExternalLink className="h-4 w-4 mr-1" />
-                  View Invoices & Payment Methods
-                </Button>
-              </div>
-            ) : (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                No active subscription. Choose a plan to get started.
-              </p>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

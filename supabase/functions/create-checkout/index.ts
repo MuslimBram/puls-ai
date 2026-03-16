@@ -83,6 +83,35 @@ serve(async (req) => {
       }
     }
 
+    // Add-on media pack checkout
+    if (addonType && addonPrice) {
+      const amountCents = Math.round(Number(addonPrice) * 100);
+      const session = await stripe.checkout.sessions.create({
+        customer: customerId,
+        customer_email: customerId ? undefined : user.email,
+        line_items: [{
+          price_data: {
+            currency: "usd",
+            product_data: { name: addonLabel || `Media Pack: ${addonType}` },
+            unit_amount: amountCents,
+          },
+          quantity: 1,
+        }],
+        mode: "payment",
+        metadata: {
+          addon_type: addonType,
+          addon_quantity: String(addonQuantity || 0),
+          user_id: user.id,
+        },
+        success_url: `${origin}/media-studio?checkout=success&type=addon`,
+        cancel_url: `${origin}/media-studio?checkout=canceled`,
+      });
+
+      return new Response(JSON.stringify({ url: session.url }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // Regular subscription flow
     if (!priceId) throw new Error("priceId is required");
 
