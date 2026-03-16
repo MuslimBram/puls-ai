@@ -29,6 +29,7 @@ import KnowledgeBase from "./pages/KnowledgeBase";
 import Campaigns from "./pages/Campaigns";
 import CompetitorIntelligence from "./pages/CompetitorIntelligence";
 import PartnerDashboard from "./pages/PartnerDashboard";
+import PartnerClients from "./pages/PartnerClients";
 import SessionSecurity from "./pages/SessionSecurity";
 import CRM from "./pages/CRM";
 import VisitorIntelligence from "./pages/VisitorIntelligence";
