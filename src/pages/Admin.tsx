@@ -10,8 +10,10 @@ import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket } from "lucide-react";
 import { format } from "date-fns";
+import { AdminSystemHealth } from "@/components/AdminSystemHealth";
+import { AdminLaunchControls } from "@/components/AdminLaunchControls";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
