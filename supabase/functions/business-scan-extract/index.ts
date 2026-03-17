@@ -66,7 +66,7 @@ serve(async (req) => {
     const { data: userData, error: userError } = await sb.auth.getUser(jwt);
     if (userError || !userData.user) throw new Error("Not authenticated");
 
-    const { business_id, scan_history_id, workspace_id, url } = await req.json();
+    const { business_id, scan_history_id, source_id, source_scan_id, workspace_id, url } = await req.json();
     if (!business_id || !scan_history_id || !workspace_id || !url) {
       throw new Error("business_id, scan_history_id, workspace_id, url required");
     }
