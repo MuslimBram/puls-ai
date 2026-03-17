@@ -265,7 +265,7 @@ function BusinessScanRow({
             size="sm"
             variant="default"
             onClick={() => onGenerate(business, latestCompletedScan?.id)}
-            disabled={isGenerating}
+            disabled={isGenerating || !latestCompletedScan}
           >
             {isGenerating ? (
               <Loader2 className="mr-1 h-3 w-3 animate-spin" />
