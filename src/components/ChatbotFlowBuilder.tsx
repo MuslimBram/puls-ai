@@ -23,7 +23,7 @@ import { toast } from "@/components/ui/sonner";
 
 const QUESTION_TYPES = [
   { value: "text", label: "Free Text", icon: Type },
-  { value: "select", label: "Multiple Choice", icon: ListChecked },
+  { value: "select", label: "Multiple Choice", icon: ListCheck },
   { value: "number", label: "Number", icon: Hash },
   { value: "email", label: "Email", icon: Mail },
   { value: "phone", label: "Phone", icon: Phone },
