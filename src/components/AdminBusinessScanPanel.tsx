@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ interface ScanDialogState {
 }
 
 export const AdminBusinessScanPanel = ({ businesses }: { businesses: Business[] }) => {
+  const navigate = useNavigate();
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [scanDialogState, setScanDialogState] = useState<ScanDialogState | null>(null);
   const [insightsDialogOpen, setInsightsDialogOpen] = useState(false);
@@ -55,6 +57,10 @@ export const AdminBusinessScanPanel = ({ businesses }: { businesses: Business[] 
     setSelectedBusiness(business);
     setViewingScan(initialScan ?? null);
     setInsightsDialogOpen(true);
+  };
+
+  const openDedicatedInsightsPage = (businessId: string) => {
+    navigate(`/admin/businesses/${businessId}/scan-insights`);
   };
 
   const closeScanDialog = (open: boolean) => {
@@ -112,6 +118,7 @@ export const AdminBusinessScanPanel = ({ businesses }: { businesses: Business[] 
                   business={business}
                   onScan={openScanDialog}
                   onViewInsights={handleViewInsights}
+                  onOpenInsightsPage={openDedicatedInsightsPage}
                   onGenerate={handleGenerate}
                   isGenerating={generateContent.isPending}
                 />
@@ -185,12 +192,14 @@ function BusinessScanRow({
   business,
   onScan,
   onViewInsights,
+  onOpenInsightsPage,
   onGenerate,
   isGenerating,
 }: {
   business: Business;
   onScan: (business: Business, options?: { url?: string; mode?: "scan" | "rescan" }) => void;
   onViewInsights: (business: Business, initialScan?: BusinessScanHistory | null) => void;
+  onOpenInsightsPage: (businessId: string) => void;
   onGenerate: (business: Business, scanHistoryId?: string) => void;
   isGenerating: boolean;
 }) {
@@ -247,7 +256,10 @@ function BusinessScanRow({
             <Search className="mr-1 h-3 w-3" /> Scan Website
           </Button>
           <Button size="sm" variant="outline" onClick={() => onViewInsights(business, latestScan)}>
-            <Eye className="mr-1 h-3 w-3" /> View Scan Insights
+            <Eye className="mr-1 h-3 w-3" /> Quick View
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => onOpenInsightsPage(business.id)}>
+            <Globe className="mr-1 h-3 w-3" /> Open Insights Page
           </Button>
           <Button
             size="sm"

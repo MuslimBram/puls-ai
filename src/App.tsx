@@ -19,6 +19,7 @@ import Channels from "./pages/Channels";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
 import Admin from "./pages/Admin";
+import AdminBusinessScanInsights from "./pages/AdminBusinessScanInsights";
 import Inbox from "./pages/Inbox";
 import ConnectedAccounts from "./pages/ConnectedAccounts";
 import KnowledgeBase from "./pages/KnowledgeBase";
@@ -99,6 +100,7 @@ const App = () => (
               <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
               <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
+              <Route path="/admin/businesses/:businessId/scan-insights" element={<ProtectedPage><AdminBusinessScanInsights /></ProtectedPage>} />
               <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
               <Route path="/public-api" element={<ProtectedPage><PublicApi /></ProtectedPage>} />
               <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
