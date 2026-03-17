@@ -20,6 +20,7 @@ import { BusinessReviewQueue } from "@/components/BusinessReviewQueue";
 import { AdminFreelancerPanel } from "@/components/AdminFreelancerPanel";
 import { AdminPaymentOverview } from "@/components/AdminPaymentOverview";
 import { AdminChurnRiskPanel } from "@/components/AdminChurnRiskPanel";
+import { AdminApiErrorLog } from "@/components/AdminApiErrorLog";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
