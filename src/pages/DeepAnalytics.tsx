@@ -231,6 +231,8 @@ const DeepAnalytics = () => {
           </Card>
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 };
