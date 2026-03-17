@@ -65,11 +65,12 @@ const DeepAnalytics = () => {
 
   return (
     <DashboardLayout>
-      <Tabs defaultValue="analytics" className="space-y-4">
+      <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="analytics">Deep Analytics</TabsTrigger>
           <TabsTrigger value="trends">Historical Trends</TabsTrigger>
           <TabsTrigger value="ops">Operational Intelligence</TabsTrigger>
+          <TabsTrigger value="insights">Business Insights</TabsTrigger>
         </TabsList>
         <TabsContent value="trends">
           <HistoricalTrends />
