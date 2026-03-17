@@ -202,14 +202,55 @@ export const useTeamPresence = (workspaceId: string | null) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["team-presence"] }),
   });
 
-  // Auto-heartbeat: keep online
+  // Auto-heartbeat with idle detection via Page Visibility API
+  const lastActivityRef = useRef(Date.now());
+
   useEffect(() => {
     if (!user || !workspaceId) return;
+
+    const IDLE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+
+    const trackActivity = () => { lastActivityRef.current = Date.now(); };
+
+    const sendHeartbeat = () => {
+      const isHidden = document.visibilityState === "hidden";
+      const isIdle = Date.now() - lastActivityRef.current > IDLE_THRESHOLD_MS;
+
+      if (isHidden || isIdle) {
+        updatePresence.mutate("idle");
+      } else {
+        updatePresence.mutate("online");
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        lastActivityRef.current = Date.now();
+        updatePresence.mutate("online");
+      } else {
+        updatePresence.mutate("idle");
+      }
+    };
+
+    // Initial presence
     updatePresence.mutate("online");
-    const interval = setInterval(() => updatePresence.mutate("online"), 60000);
+
+    // Listeners
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("mousemove", trackActivity, { passive: true });
+    window.addEventListener("keydown", trackActivity, { passive: true });
+    window.addEventListener("click", trackActivity, { passive: true });
+    window.addEventListener("scroll", trackActivity, { passive: true });
+
+    const interval = setInterval(sendHeartbeat, 60000);
+
     return () => {
       clearInterval(interval);
-      // Fire-and-forget offline on unmount
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("mousemove", trackActivity);
+      window.removeEventListener("keydown", trackActivity);
+      window.removeEventListener("click", trackActivity);
+      window.removeEventListener("scroll", trackActivity);
       supabase
         .from("team_presence")
         .update({ status: "offline", updated_at: new Date().toISOString() } as any)
