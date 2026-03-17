@@ -125,3 +125,9 @@ verify_jwt = false
 
 [functions.daily-analytics-snapshot]
 verify_jwt = false
+
+[functions.job-worker]
+verify_jwt = false
+
+[functions.health-monitor]
+verify_jwt = false
