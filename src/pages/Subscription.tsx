@@ -15,10 +15,10 @@ import { useKeywords } from "@/hooks/useKeywords";
 import { PLANS, PLAN_ORDER, PlanKey } from "@/config/plans";
 import { STRIPE_TIERS } from "@/config/stripe";
 import { supabase } from "@/integrations/supabase/client";
-import { CreditCard, Zap, Crown, ArrowRight, ExternalLink, Loader2, Clock, AlertTriangle } from "lucide-react";
+import { CreditCard, Zap, Crown, ArrowRight, ExternalLink, Loader2, Clock, AlertTriangle, Gift, Percent } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const Subscription = () => {
