@@ -285,7 +285,7 @@ const ExternalIntegrations = () => {
           </Dialog>
         )}
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 
