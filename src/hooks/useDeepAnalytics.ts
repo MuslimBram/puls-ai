@@ -121,6 +121,8 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     const deals = dealsQuery.data ?? [];
     const broadcasts = broadcastsQuery.data ?? [];
     const automations = automationQuery.data ?? [];
+    const aiConvos = aiQuery.data ?? [];
+    const churn = churnQuery.data;
 
     const currentLeads = leads.filter((l: any) => isAfter(parseISO(l.message_date), rangeStart));
     const prevLeads = leads.filter((l: any) => !isAfter(parseISO(l.message_date), rangeStart));
@@ -177,6 +179,21 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       ? Math.round(automations.reduce((s: number, a: any) => s + (a.duration_ms || 0), 0) / automations.length)
       : 0;
 
+    // AI metrics
+    const aiTotal = aiConvos.length;
+    const aiAutoReplied = aiConvos.filter((a: any) => a.is_auto_reply).length;
+    const aiAutoReplyRate = aiTotal > 0 ? Math.round((aiAutoReplied / aiTotal) * 100) : 0;
+    const aiByComplexity: Record<string, number> = {};
+    aiConvos.forEach((a: any) => {
+      aiByComplexity[a.complexity] = (aiByComplexity[a.complexity] || 0) + 1;
+    });
+
+    // Churn metrics
+    const churnRiskLevel = churn?.risk_level ?? "unknown";
+    const churnScore = churn?.risk_score ?? 0;
+    const churnSignals = churn?.signals ?? [];
+    const churnDaysInactive = churn?.days_inactive ?? 0;
+
     // Growth comparison
     const leadGrowth = prevLeads.length ? Math.round(((currentLeads.length - prevLeads.length) / prevLeads.length) * 100) : 0;
 
@@ -202,8 +219,18 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       autoAvgDuration,
       autoTotal: automations.length,
       channels: Object.keys(leadsByChannel),
+      // AI metrics
+      aiTotal,
+      aiAutoReplied,
+      aiAutoReplyRate,
+      aiByComplexity: Object.entries(aiByComplexity).map(([name, value]) => ({ name, value })),
+      // Churn metrics
+      churnRiskLevel,
+      churnScore,
+      churnSignals,
+      churnDaysInactive,
     };
-  }, [leadsQuery.data, inboxQuery.data, dealsQuery.data, broadcastsQuery.data, automationQuery.data, dateRange, rangeStart, days]);
+  }, [leadsQuery.data, inboxQuery.data, dealsQuery.data, broadcastsQuery.data, automationQuery.data, aiQuery.data, churnQuery.data, dateRange, rangeStart, days]);
 
   return {
     ...metrics,
