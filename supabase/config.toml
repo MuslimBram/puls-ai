@@ -134,3 +134,6 @@ verify_jwt = false
 
 [functions.sla-breach-checker]
 verify_jwt = false
+
+[functions.totp-manage]
+verify_jwt = false
