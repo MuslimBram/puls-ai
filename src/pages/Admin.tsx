@@ -149,6 +149,10 @@ const Admin = () => {
               <AlertTriangle className="h-3 w-3 mr-1" />
               Churn Risk
             </TabsTrigger>
+            <TabsTrigger value="errors">
+              <Server className="h-3 w-3 mr-1" />
+              API Errors
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
