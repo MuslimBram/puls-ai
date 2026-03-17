@@ -250,7 +250,6 @@ serve(async (req) => {
 
     const durationMs = Date.now() - startTime;
 
-    // Update scan history with structured results
     await sb.from("business_scan_history").update({
       status: "completed",
       scan_phase: "completed",
@@ -269,6 +268,27 @@ serve(async (req) => {
       cta_signals: ctas.map((c) => ({ cta: c })),
       competitor_hints: competitorHints,
     } as any).eq("id", scan_history_id);
+
+    if (source_scan_id) {
+      await sb.from("source_scans").update({
+        business_id,
+        status: "completed",
+        scan_phase: "completed",
+        completed_at: new Date().toISOString(),
+        items_found: insightRows.length,
+        insights_found: insightRows.length,
+        pages_scanned: pagesScanned,
+        duration_ms: durationMs,
+      } as any).eq("id", source_scan_id);
+    }
+
+    if (source_id) {
+      await sb.from("scan_sources").update({
+        business_id,
+        scan_status: "active",
+        last_scan_at: new Date().toISOString(),
+      } as any).eq("id", source_id);
+    }
 
     return new Response(
       JSON.stringify({ success: true, insights_count: insightRows.length, pages_scanned: pagesScanned, duration_ms: durationMs }),
