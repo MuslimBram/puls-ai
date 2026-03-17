@@ -2073,7 +2073,9 @@ export type Database = {
           first_response_at: string | null
           id: string
           is_auto_reply_enabled: boolean | null
+          labels: string[] | null
           last_message_at: string | null
+          last_message_preview: string | null
           message_count: number | null
           metadata: Json | null
           priority: string
@@ -2082,6 +2084,7 @@ export type Database = {
           status: string
           subject: string | null
           tags: string[] | null
+          unread_count: number | null
           updated_at: string
           user_id: string
           workspace_id: string | null
@@ -2096,7 +2099,9 @@ export type Database = {
           first_response_at?: string | null
           id?: string
           is_auto_reply_enabled?: boolean | null
+          labels?: string[] | null
           last_message_at?: string | null
+          last_message_preview?: string | null
           message_count?: number | null
           metadata?: Json | null
           priority?: string
@@ -2105,6 +2110,7 @@ export type Database = {
           status?: string
           subject?: string | null
           tags?: string[] | null
+          unread_count?: number | null
           updated_at?: string
           user_id: string
           workspace_id?: string | null
@@ -2119,7 +2125,9 @@ export type Database = {
           first_response_at?: string | null
           id?: string
           is_auto_reply_enabled?: boolean | null
+          labels?: string[] | null
           last_message_at?: string | null
+          last_message_preview?: string | null
           message_count?: number | null
           metadata?: Json | null
           priority?: string
@@ -2128,6 +2136,7 @@ export type Database = {
           status?: string
           subject?: string | null
           tags?: string[] | null
+          unread_count?: number | null
           updated_at?: string
           user_id?: string
           workspace_id?: string | null
@@ -2794,6 +2803,8 @@ export type Database = {
           channel_id: string | null
           channel_type: string
           created_at: string
+          delivery_status: string | null
+          direction: string | null
           first_response_at: string | null
           id: string
           intent_score: number | null
@@ -2802,10 +2813,12 @@ export type Database = {
           is_unread: boolean
           lead_id: string | null
           matched_keywords: string[] | null
+          media_attachments: Json | null
           message_content: string
           message_timestamp: string
           metadata: Json | null
           priority: string
+          provider_message_id: string | null
           recommended_action: string
           sender_identifier: string | null
           sender_name: string | null
@@ -2824,6 +2837,8 @@ export type Database = {
           channel_id?: string | null
           channel_type?: string
           created_at?: string
+          delivery_status?: string | null
+          direction?: string | null
           first_response_at?: string | null
           id?: string
           intent_score?: number | null
@@ -2832,10 +2847,12 @@ export type Database = {
           is_unread?: boolean
           lead_id?: string | null
           matched_keywords?: string[] | null
+          media_attachments?: Json | null
           message_content: string
           message_timestamp?: string
           metadata?: Json | null
           priority?: string
+          provider_message_id?: string | null
           recommended_action?: string
           sender_identifier?: string | null
           sender_name?: string | null
@@ -2854,6 +2871,8 @@ export type Database = {
           channel_id?: string | null
           channel_type?: string
           created_at?: string
+          delivery_status?: string | null
+          direction?: string | null
           first_response_at?: string | null
           id?: string
           intent_score?: number | null
@@ -2862,10 +2881,12 @@ export type Database = {
           is_unread?: boolean
           lead_id?: string | null
           matched_keywords?: string[] | null
+          media_attachments?: Json | null
           message_content?: string
           message_timestamp?: string
           metadata?: Json | null
           priority?: string
+          provider_message_id?: string | null
           recommended_action?: string
           sender_identifier?: string | null
           sender_name?: string | null
@@ -3458,6 +3479,154 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "media_generations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_delivery_states: {
+        Row: {
+          broadcast_recipient_id: string | null
+          channel_type: string
+          created_at: string
+          delivery_status: string
+          direction: string
+          failure_code: string | null
+          failure_reason: string | null
+          id: string
+          inbox_message_id: string | null
+          metadata: Json | null
+          provider_message_id: string | null
+          provider_timestamp: string | null
+          status_updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          broadcast_recipient_id?: string | null
+          channel_type: string
+          created_at?: string
+          delivery_status?: string
+          direction?: string
+          failure_code?: string | null
+          failure_reason?: string | null
+          id?: string
+          inbox_message_id?: string | null
+          metadata?: Json | null
+          provider_message_id?: string | null
+          provider_timestamp?: string | null
+          status_updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          broadcast_recipient_id?: string | null
+          channel_type?: string
+          created_at?: string
+          delivery_status?: string
+          direction?: string
+          failure_code?: string | null
+          failure_reason?: string | null
+          id?: string
+          inbox_message_id?: string | null
+          metadata?: Json | null
+          provider_message_id?: string | null
+          provider_timestamp?: string | null
+          status_updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_delivery_states_broadcast_recipient_id_fkey"
+            columns: ["broadcast_recipient_id"]
+            isOneToOne: false
+            referencedRelation: "broadcast_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_delivery_states_inbox_message_id_fkey"
+            columns: ["inbox_message_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_delivery_states_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_media: {
+        Row: {
+          caption: string | null
+          created_at: string
+          duration_seconds: number | null
+          file_name: string | null
+          file_size: number | null
+          id: string
+          inbox_message_id: string | null
+          media_type: string
+          metadata: Json | null
+          mime_type: string | null
+          provider_media_id: string | null
+          provider_url: string | null
+          storage_path: string | null
+          thumbnail_path: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          inbox_message_id?: string | null
+          media_type: string
+          metadata?: Json | null
+          mime_type?: string | null
+          provider_media_id?: string | null
+          provider_url?: string | null
+          storage_path?: string | null
+          thumbnail_path?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          file_name?: string | null
+          file_size?: number | null
+          id?: string
+          inbox_message_id?: string | null
+          media_type?: string
+          metadata?: Json | null
+          mime_type?: string | null
+          provider_media_id?: string | null
+          provider_url?: string | null
+          storage_path?: string | null
+          thumbnail_path?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_media_inbox_message_id_fkey"
+            columns: ["inbox_message_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_media_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -4926,6 +5095,83 @@ export type Database = {
           },
         ]
       }
+      whatsapp_templates: {
+        Row: {
+          approved_at: string | null
+          body_text: string
+          buttons: Json | null
+          category: string
+          created_at: string
+          footer_text: string | null
+          header_content: string | null
+          header_type: string | null
+          id: string
+          last_synced_at: string | null
+          meta_template_id: string | null
+          rejection_reason: string | null
+          sample_values: Json | null
+          status: string
+          submitted_at: string | null
+          template_language: string
+          template_name: string
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          body_text: string
+          buttons?: Json | null
+          category?: string
+          created_at?: string
+          footer_text?: string | null
+          header_content?: string | null
+          header_type?: string | null
+          id?: string
+          last_synced_at?: string | null
+          meta_template_id?: string | null
+          rejection_reason?: string | null
+          sample_values?: Json | null
+          status?: string
+          submitted_at?: string | null
+          template_language?: string
+          template_name: string
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          body_text?: string
+          buttons?: Json | null
+          category?: string
+          created_at?: string
+          footer_text?: string | null
+          header_content?: string | null
+          header_type?: string | null
+          id?: string
+          last_synced_at?: string | null
+          meta_template_id?: string | null
+          rejection_reason?: string | null
+          sample_values?: Json | null
+          status?: string
+          submitted_at?: string | null
+          template_language?: string
+          template_name?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_templates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           created_at: string
@@ -5054,6 +5300,17 @@ export type Database = {
       }
       reset_daily_ai_replies: { Args: never; Returns: undefined }
       reset_monthly_usage: { Args: never; Returns: undefined }
+      upsert_conversation_thread: {
+        Args: {
+          _channel_type: string
+          _contact_identifier: string
+          _contact_name: string
+          _direction?: string
+          _message_preview: string
+          _user_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role:
