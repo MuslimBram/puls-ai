@@ -191,7 +191,7 @@ export const AutoAutomationBuilder = ({ isBuilding, onBuild, onOpenTemplates }: 
 
               <div className="mb-3 flex flex-wrap gap-1.5">
                 <Badge variant="outline" className="text-xs capitalize">
-                  {blueprint.triggerType.replaceAll("_", " ")}
+                  {blueprint.triggerType.split("_").join(" ")}
                 </Badge>
                 {blueprint.tags.map((tag) => (
                   <Badge key={tag} variant="secondary" className="text-xs">
@@ -203,7 +203,7 @@ export const AutoAutomationBuilder = ({ isBuilding, onBuild, onOpenTemplates }: 
               <div className="mb-4 space-y-1.5">
                 {blueprint.actions.map((action, index) => (
                   <div key={action.id} className="rounded-md bg-muted/60 px-2.5 py-2 text-xs text-muted-foreground">
-                    {index + 1}. {action.type.replaceAll("_", " ")}
+                    {index + 1}. {action.type.split("_").join(" ")}
                   </div>
                 ))}
               </div>
