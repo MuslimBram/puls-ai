@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DashboardLayout } from "@/components/DashboardLayout";
+// Content Calendar - renders as standalone content (embedded in Campaigns page)
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

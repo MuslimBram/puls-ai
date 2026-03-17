@@ -22,8 +22,10 @@ import { SafeRender } from "@/components/SafeRender";
 import { PLAN_ORDER, PlanKey, PLANS } from "@/config/plans";
 import { channelFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
-import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown } from "lucide-react";
+import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+
+const SourcesContent = lazy(() => import("@/pages/Sources"));
 
 const CATEGORY_ICONS: Record<string, any> = {
   messaging: MessageSquare,

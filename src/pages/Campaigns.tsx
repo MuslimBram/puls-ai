@@ -1,7 +1,7 @@
 import { useState, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 
-const ContentCalendarContent = lazy(() => import("@/pages/ContentCalendar").then(m => ({ default: m.default.__content || m.default })));
+const ContentCalendarContent = lazy(() => import("@/pages/ContentCalendar"));
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
