@@ -17,6 +17,7 @@ import {
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
 import { OperationalDashboard as OpsPanel } from "@/components/OperationalDashboard";
+import { HistoricalTrends } from "@/components/HistoricalTrends";
 
 const COLORS = [
   "hsl(var(--primary))",
