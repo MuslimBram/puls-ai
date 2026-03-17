@@ -120,6 +120,22 @@ export const useStorageQuota = () => {
   });
 };
 
+export const useCheckQuota = () => {
+  const { workspace } = useWorkspace();
+  return useCallback(
+    async (resourceType: "messages" | "documents" | "media"): Promise<boolean> => {
+      if (!workspace?.id) return true;
+      const { data, error } = await supabase.rpc("check_storage_quota", {
+        _workspace_id: workspace.id,
+        _resource_type: resourceType,
+      });
+      if (error) { console.error("Quota check error:", error); return true; }
+      return data as boolean;
+    },
+    [workspace?.id]
+  );
+};
+
 // ── Security Events ──
 export const useSecurityEvents = (limit: number = 50) => {
   const { user } = useAuth();
