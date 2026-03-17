@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useLeads } from "@/hooks/useLeads";
 import { useReplyDrafts, useReplyTemplates, useGenerateReply } from "@/hooks/useReplyWorkspace";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
+import { AIContextPanel } from "@/components/AIContextPanel";
 import { Copy, RefreshCw, Star, Trash2, Plus, MessageSquare, Save } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
@@ -147,6 +148,17 @@ const ReplyWorkspace = () => {
               </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* AI Context Panel */}
+        {lead && (
+          <AIContextPanel
+            contactIdentifier={lead.source_name}
+            contactName={lead.source_name}
+            leadId={lead.id}
+            channelType={lead.source_type}
+            latestMessage={lead.message_content}
+          />
         )}
 
         {/* Reply Generator */}

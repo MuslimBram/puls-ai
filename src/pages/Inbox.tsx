@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useInbox, InboxFilters } from "@/hooks/useInbox";
 import { useLeads } from "@/hooks/useLeads";
+import { AIContextPanel } from "@/components/AIContextPanel";
 import { Inbox as InboxIcon, Search, Star, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { IntentBadge, INTENT_TYPE_OPTIONS } from "@/components/IntentBadge";
 import { toast } from "@/components/ui/sonner";
@@ -200,6 +201,14 @@ const Inbox = () => {
                     </Button>
                   )}
                 </div>
+                {/* AI Context Panel */}
+                <AIContextPanel
+                  contactIdentifier={selectedMsg.sender_name || selectedMsg.sender_identifier}
+                  contactName={selectedMsg.sender_name}
+                  leadId={selectedMsg.lead_id}
+                  channelType={selectedMsg.channel_type}
+                  latestMessage={selectedMsg.message_content}
+                />
               </div>
             )}
           </DialogContent>
