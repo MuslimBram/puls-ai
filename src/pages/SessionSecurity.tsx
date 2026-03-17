@@ -239,6 +239,11 @@ const SessionSecurity = () => {
             )}
           </TabsContent>
 
+          {/* Audit Log Tab */}
+          <TabsContent value="audit" className="space-y-4">
+            <AuditLogViewer />
+          </TabsContent>
+
           {/* Security Settings Tab */}
           <TabsContent value="security" className="space-y-4">
             <Card>
