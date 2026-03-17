@@ -34,7 +34,7 @@ export interface SLAConfig {
   business_hours_only: boolean;
   business_start_hour: number;
   business_end_hour: number;
-  is_active: boolean;
+  is_active?: boolean;
 }
 
 export const useSLAConfig = (workspaceId: string | null) => {
