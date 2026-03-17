@@ -292,7 +292,7 @@ const DeepAnalytics = () => {
                   <span className="text-xs text-muted-foreground">{m.churnDaysInactive}d inactive</span>
                 )}
               </div>
-              {m.churnSignals.length > 0 && (
+              {Array.isArray(m.churnSignals) && m.churnSignals.length > 0 && (
                 <div className="space-y-1">
                   {(m.churnSignals as string[]).slice(0, 4).map((s, i) => (
                     <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
