@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type AppRole = "admin" | "controller" | "worker" | "user" | "moderator";
+export type AppRole = "admin" | "super_admin" | "controller" | "worker" | "user" | "moderator" | "business_owner" | "partner";
 
 export interface RolePermissions {
   canCreateAdmin: boolean;
@@ -17,22 +17,45 @@ export interface RolePermissions {
   canViewAllWorkspaces: boolean;
   canSuspendUsers: boolean;
   canChangePlans: boolean;
+  bypassSubscription: boolean;
+  bypassFeatureGating: boolean;
+  bypassUsageLimits: boolean;
 }
 
 const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
+  super_admin: {
+    canCreateAdmin: true,
+    canCreateController: true,
+    canCreateWorker: true,
+    canRegisterBusiness: false,
+    canReviewBusinesses: true,
+    canApprovePayouts: true,
+    canManageCommissions: true,
+    canAccessBilling: false,
+    canCreateReferralLinks: false,
+    canViewAllWorkspaces: true,
+    canSuspendUsers: true,
+    canChangePlans: true,
+    bypassSubscription: true,
+    bypassFeatureGating: true,
+    bypassUsageLimits: true,
+  },
   admin: {
     canCreateAdmin: true,
     canCreateController: true,
     canCreateWorker: true,
-    canRegisterBusiness: true,
+    canRegisterBusiness: false,
     canReviewBusinesses: true,
     canApprovePayouts: true,
     canManageCommissions: true,
-    canAccessBilling: true,
-    canCreateReferralLinks: true,
+    canAccessBilling: false,
+    canCreateReferralLinks: false,
     canViewAllWorkspaces: true,
     canSuspendUsers: true,
     canChangePlans: true,
+    bypassSubscription: true,
+    bypassFeatureGating: true,
+    bypassUsageLimits: true,
   },
   controller: {
     canCreateAdmin: false,
@@ -47,6 +70,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAllWorkspaces: true,
     canSuspendUsers: false,
     canChangePlans: false,
+    bypassSubscription: false,
+    bypassFeatureGating: false,
+    bypassUsageLimits: false,
   },
   worker: {
     canCreateAdmin: false,
@@ -61,6 +87,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAllWorkspaces: false,
     canSuspendUsers: false,
     canChangePlans: false,
+    bypassSubscription: false,
+    bypassFeatureGating: false,
+    bypassUsageLimits: false,
   },
   moderator: {
     canCreateAdmin: false,
@@ -75,6 +104,43 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAllWorkspaces: false,
     canSuspendUsers: false,
     canChangePlans: false,
+    bypassSubscription: false,
+    bypassFeatureGating: false,
+    bypassUsageLimits: false,
+  },
+  business_owner: {
+    canCreateAdmin: false,
+    canCreateController: false,
+    canCreateWorker: false,
+    canRegisterBusiness: true,
+    canReviewBusinesses: false,
+    canApprovePayouts: false,
+    canManageCommissions: false,
+    canAccessBilling: true,
+    canCreateReferralLinks: true,
+    canViewAllWorkspaces: false,
+    canSuspendUsers: false,
+    canChangePlans: false,
+    bypassSubscription: false,
+    bypassFeatureGating: false,
+    bypassUsageLimits: false,
+  },
+  partner: {
+    canCreateAdmin: false,
+    canCreateController: false,
+    canCreateWorker: false,
+    canRegisterBusiness: true,
+    canReviewBusinesses: false,
+    canApprovePayouts: false,
+    canManageCommissions: false,
+    canAccessBilling: true,
+    canCreateReferralLinks: true,
+    canViewAllWorkspaces: false,
+    canSuspendUsers: false,
+    canChangePlans: false,
+    bypassSubscription: false,
+    bypassFeatureGating: false,
+    bypassUsageLimits: false,
   },
   user: {
     canCreateAdmin: false,
@@ -89,6 +155,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAllWorkspaces: false,
     canSuspendUsers: false,
     canChangePlans: false,
+    bypassSubscription: false,
+    bypassFeatureGating: false,
+    bypassUsageLimits: false,
   },
 };
 
@@ -117,36 +186,30 @@ export const useRolePermissions = () => {
   const permissions: RolePermissions = roles.reduce<RolePermissions>(
     (acc, role) => {
       const rp = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.user;
-      return {
-        canCreateAdmin: acc.canCreateAdmin || rp.canCreateAdmin,
-        canCreateController: acc.canCreateController || rp.canCreateController,
-        canCreateWorker: acc.canCreateWorker || rp.canCreateWorker,
-        canRegisterBusiness: acc.canRegisterBusiness || rp.canRegisterBusiness,
-        canReviewBusinesses: acc.canReviewBusinesses || rp.canReviewBusinesses,
-        canApprovePayouts: acc.canApprovePayouts || rp.canApprovePayouts,
-        canManageCommissions: acc.canManageCommissions || rp.canManageCommissions,
-        canAccessBilling: acc.canAccessBilling || rp.canAccessBilling,
-        canCreateReferralLinks: acc.canCreateReferralLinks || rp.canCreateReferralLinks,
-        canViewAllWorkspaces: acc.canViewAllWorkspaces || rp.canViewAllWorkspaces,
-        canSuspendUsers: acc.canSuspendUsers || rp.canSuspendUsers,
-        canChangePlans: acc.canChangePlans || rp.canChangePlans,
-      };
+      return Object.keys(acc).reduce((merged, key) => {
+        (merged as any)[key] = (acc as any)[key] || (rp as any)[key];
+        return merged;
+      }, {} as RolePermissions);
     },
     { ...ROLE_PERMISSIONS.user }
   );
 
   const hasRole = (role: AppRole) => roles.includes(role);
-  const isAdmin = hasRole("admin");
+  const isAdmin = hasRole("admin") || hasRole("super_admin");
+  const isSuperAdmin = hasRole("super_admin");
   const isController = hasRole("controller");
   const isWorker = hasRole("worker");
+  const isSystemRole = isAdmin || isSuperAdmin;
 
   return {
     roles,
     permissions,
     hasRole,
     isAdmin,
+    isSuperAdmin,
     isController,
     isWorker,
+    isSystemRole,
     isLoading,
   };
 };
