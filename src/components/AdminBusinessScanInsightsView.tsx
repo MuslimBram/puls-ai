@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
+  BookOpen,
   Briefcase,
   Clock,
   Globe,
@@ -21,6 +22,7 @@ import {
   useBusinessAIContent,
   useBusinessScanHistory,
   useGenerateBusinessContent,
+  useSaveBusinessScanToKnowledgeBase,
   type BusinessAIContent,
   type BusinessScanHistory,
 } from "@/hooks/useBusinessScans";
@@ -43,6 +45,7 @@ export function AdminBusinessScanInsightsView({
   const { data: scans = [], isLoading: scansLoading } = useBusinessScanHistory(business.id);
   const { data: aiContents = [], isLoading: contentsLoading } = useBusinessAIContent(business.id);
   const generateContent = useGenerateBusinessContent();
+  const saveToKnowledgeBase = useSaveBusinessScanToKnowledgeBase();
 
   const activeScan = useMemo(() => viewingScan || scans[0] || null, [viewingScan, scans]);
 
@@ -50,6 +53,13 @@ export function AdminBusinessScanInsightsView({
     generateContent.mutate({
       businessId: business.id,
       workspaceId: business.workspace_id || "",
+      scanHistoryId,
+    });
+  };
+
+  const handleSaveToKnowledgeBase = (scanHistoryId: string) => {
+    saveToKnowledgeBase.mutate({
+      businessId: business.id,
       scanHistoryId,
     });
   };
@@ -72,56 +82,80 @@ export function AdminBusinessScanInsightsView({
             No scans yet for this business.
           </Card>
         ) : (
-          scans.map((scan) => (
-            <div
-              key={scan.id}
-              className={`cursor-pointer rounded-lg border p-4 transition-colors ${
-                activeScan?.id === scan.id ? "border-primary bg-accent/40" : "border-border hover:bg-muted/40"
-              }`}
-              onClick={() => setViewingScan(scan)}
-            >
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Globe className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm font-medium text-foreground">{scan.scanned_url}</span>
-                    <Badge
-                      variant={scan.status === "completed" ? "default" : scan.status === "scanning" ? "secondary" : "destructive"}
-                      className="text-xs"
-                    >
-                      {scan.status}
-                    </Badge>
+          scans.map((scan) => {
+            const saveDisabled = saveToKnowledgeBase.isPending || scan.status !== "completed";
+            const generateDisabled = generateContent.isPending || scan.status !== "completed";
+
+            return (
+              <div
+                key={scan.id}
+                className={`cursor-pointer rounded-lg border p-4 transition-colors ${
+                  activeScan?.id === scan.id ? "border-primary bg-accent/40" : "border-border hover:bg-muted/40"
+                }`}
+                onClick={() => setViewingScan(scan)}
+              >
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Globe className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium text-foreground">{scan.scanned_url}</span>
+                      <Badge
+                        variant={scan.status === "completed" ? "default" : scan.status === "scanning" ? "secondary" : "destructive"}
+                        className="text-xs"
+                      >
+                        {scan.status}
+                      </Badge>
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span>
+                        <Clock className="mr-1 inline h-3 w-3" />
+                        {format(new Date(scan.created_at), "MMM d, HH:mm")}
+                      </span>
+                      {scan.insights_count > 0 && <span>{scan.insights_count} insights</span>}
+                      {scan.pages_scanned > 0 && <span>{scan.pages_scanned} page(s)</span>}
+                      {scan.duration_ms && <span>{(scan.duration_ms / 1000).toFixed(1)}s</span>}
+                    </div>
                   </div>
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                    <span>
-                      <Clock className="mr-1 inline h-3 w-3" />
-                      {format(new Date(scan.created_at), "MMM d, HH:mm")}
-                    </span>
-                    {scan.insights_count > 0 && <span>{scan.insights_count} insights</span>}
-                    {scan.pages_scanned > 0 && <span>{scan.pages_scanned} page(s)</span>}
-                    {scan.duration_ms && <span>{(scan.duration_ms / 1000).toFixed(1)}s</span>}
+
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleSaveToKnowledgeBase(scan.id);
+                      }}
+                      disabled={saveDisabled}
+                    >
+                      {saveToKnowledgeBase.isPending ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <BookOpen className="mr-1 h-3 w-3" />
+                      )}
+                      Save to Knowledge Base
+                    </Button>
+
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        handleGenerate(scan.id);
+                      }}
+                      disabled={generateDisabled}
+                    >
+                      {generateContent.isPending ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="mr-1 h-3 w-3" />
+                      )}
+                      Generate AI Content
+                    </Button>
                   </div>
                 </div>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    handleGenerate(scan.id);
-                  }}
-                  disabled={generateContent.isPending || scan.status !== "completed"}
-                >
-                  {generateContent.isPending ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-1 h-3 w-3" />
-                  )}
-                  Generate AI Content
-                </Button>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </TabsContent>
 
