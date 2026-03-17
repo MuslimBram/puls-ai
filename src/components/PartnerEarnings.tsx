@@ -120,6 +120,36 @@ export const PartnerEarnings = ({ partnerId }: PartnerEarningsProps) => {
         </Card>
       </div>
 
+      {/* Commission Projections */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Revenue Projections
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs text-muted-foreground">3-Month Forecast</p>
+              <p className="text-lg font-bold text-foreground">${threeMonthProjection.toFixed(2)}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs text-muted-foreground">6-Month Forecast</p>
+              <p className="text-lg font-bold text-foreground">${sixMonthProjection.toFixed(2)}</p>
+            </div>
+            <div className="rounded-lg border border-border p-3">
+              <p className="text-xs text-muted-foreground">Annual Forecast</p>
+              <p className="text-lg font-bold text-foreground">${annualProjection.toFixed(2)}</p>
+            </div>
+          </div>
+          <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+            <span>Based on avg monthly commission: ${monthlyAvg.toFixed(2)}</span>
+            <span>Total gross from referrals: ${totalGrossRevenue.toFixed(2)}</span>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Payout Request */}
       <Card>
         <CardHeader className="pb-2">
