@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -13,10 +14,14 @@ import {
   useAddSuppression,
   useRemoveSuppression,
   useSendingReputation,
+  useSendQueueStats,
   reputationColor,
   reputationLabel,
 } from "@/hooks/useSendingCompliance";
-import { useOptouts } from "@/hooks/useBroadcastCompliance";
+import { useOptouts, useApproveBroadcast, computeSpamScore, CHANNEL_LIMITS } from "@/hooks/useBroadcastCompliance";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -26,6 +31,9 @@ import {
   BarChart3,
   Loader2,
   AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  FileCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -97,8 +105,10 @@ export const ComplianceDashboard = () => {
       <Tabs defaultValue="reputation">
         <TabsList>
           <TabsTrigger value="reputation">Reputation</TabsTrigger>
+          <TabsTrigger value="approvals">Template Approvals</TabsTrigger>
           <TabsTrigger value="suppressions">Suppression List ({suppressions.length})</TabsTrigger>
           <TabsTrigger value="optouts">Opt-outs ({optouts.length})</TabsTrigger>
+          <TabsTrigger value="rules">Sending Rules</TabsTrigger>
         </TabsList>
 
         {/* Reputation Tab */}
@@ -242,6 +252,51 @@ export const ComplianceDashboard = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Template Approvals Tab */}
+        <TabsContent value="approvals">
+          <TemplateApprovalQueue />
+        </TabsContent>
+
+        {/* Sending Rules Tab */}
+        <TabsContent value="rules">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Channel Sending Rules</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Channel</TableHead>
+                    <TableHead>Max / Minute</TableHead>
+                    <TableHead>Max / Day</TableHead>
+                    <TableHead>Requires Approval</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(CHANNEL_LIMITS).map(([ch, limits]) => (
+                    <TableRow key={ch}>
+                      <TableCell className="font-medium capitalize">{ch}</TableCell>
+                      <TableCell>{limits.maxPerMinute}</TableCell>
+                      <TableCell>{limits.maxPerDay.toLocaleString()}</TableCell>
+                      <TableCell>
+                        {limits.requiresApproval ? (
+                          <Badge variant="destructive" className="text-xs">Required</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Optional</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <p className="text-xs text-muted-foreground mt-3">
+                These limits are enforced automatically by the broadcast send engine. Messages exceeding limits are queued and processed in the next cycle.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Add Suppression Dialog */}
@@ -319,5 +374,128 @@ const AddSuppressionDialog = ({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  );
+};
+
+// ── Template Approval Queue ──
+const TemplateApprovalQueue = () => {
+  const { user } = useAuth();
+  const approveBroadcast = useApproveBroadcast();
+  const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+
+  const { data: pendingBroadcasts, isLoading } = useQuery({
+    queryKey: ["pending-approvals", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("broadcasts")
+        .select("id, name, channel_type, message_content, subject, total_recipients, created_at, approval_status, spam_score")
+        .eq("user_id", user!.id)
+        .in("approval_status", ["pending", "rejected"])
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!user,
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <FileCheck className="h-4 w-4 text-primary" />
+          Broadcast Approval Queue
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin" /></div>
+        ) : !pendingBroadcasts?.length ? (
+          <p className="text-sm text-muted-foreground text-center py-8">No broadcasts pending approval.</p>
+        ) : (
+          <div className="space-y-4">
+            {pendingBroadcasts.map((bc) => {
+              const spamScore = bc.spam_score ?? computeSpamScore(bc.message_content, bc.subject);
+              return (
+                <div key={bc.id} className="rounded-lg border border-border p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-foreground text-sm">{bc.name}</h4>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                        <Badge variant="outline" className="text-xs capitalize">{bc.channel_type}</Badge>
+                        <span>{bc.total_recipients || 0} recipients</span>
+                        <span>{format(new Date(bc.created_at), "PP")}</span>
+                      </div>
+                    </div>
+                    <Badge variant={bc.approval_status === "rejected" ? "destructive" : "secondary"} className="text-xs">
+                      {bc.approval_status}
+                    </Badge>
+                  </div>
+
+                  {/* Message Preview */}
+                  <div className="rounded bg-muted/50 p-3 text-xs text-foreground max-h-24 overflow-y-auto whitespace-pre-wrap">
+                    {bc.message_content.substring(0, 500)}
+                  </div>
+
+                  {/* Spam Score */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Spam Score:</span>
+                    <Badge variant={spamScore > 50 ? "destructive" : spamScore > 25 ? "secondary" : "outline"} className="text-xs">
+                      {spamScore}/100
+                    </Badge>
+                    {spamScore > 50 && (
+                      <span className="text-xs text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> High spam risk
+                      </span>
+                    )}
+                    {!bc.message_content.toLowerCase().includes("unsubscribe") && (
+                      <span className="text-xs text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" /> Missing unsubscribe link
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Review Notes */}
+                  <Textarea
+                    placeholder="Review notes (optional)..."
+                    className="text-xs"
+                    rows={2}
+                    value={reviewNotes[bc.id] || ""}
+                    onChange={(e) => setReviewNotes({ ...reviewNotes, [bc.id]: e.target.value })}
+                  />
+
+                  {/* Actions */}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => approveBroadcast.mutate({
+                        broadcastId: bc.id,
+                        approved: true,
+                        notes: reviewNotes[bc.id],
+                      })}
+                      disabled={approveBroadcast.isPending}
+                    >
+                      <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => approveBroadcast.mutate({
+                        broadcastId: bc.id,
+                        approved: false,
+                        notes: reviewNotes[bc.id],
+                      })}
+                      disabled={approveBroadcast.isPending}
+                    >
+                      <XCircle className="h-3 w-3 mr-1" /> Reject
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 };
