@@ -94,8 +94,9 @@ export const useTriggerBusinessScan = () => {
           workspace_id: workspaceId,
           triggered_by: user!.id,
           scanned_url: normalizedUrl,
-          status: "scanning",
+          status: "pending",
           scan_phase: "queued",
+          error_message: null,
         } as any)
         .select()
         .single();
@@ -126,7 +127,7 @@ export const useTriggerBusinessScan = () => {
             url_or_identifier: normalizedUrl,
             label: normalizedUrl,
             is_active: true,
-            scan_status: "scanning",
+            scan_status: "pending",
           } as any)
           .select("id")
           .single();
@@ -136,7 +137,7 @@ export const useTriggerBusinessScan = () => {
       } else {
         const { error: updateSourceError } = await supabase
           .from("scan_sources")
-          .update({ scan_status: "scanning", business_id: businessId } as any)
+          .update({ scan_status: "pending", business_id: businessId } as any)
           .eq("id", sourceId);
         if (updateSourceError) throw updateSourceError;
       }
@@ -148,30 +149,52 @@ export const useTriggerBusinessScan = () => {
           business_id: businessId,
           user_id: user!.id,
           workspace_id: workspaceId,
-          status: "running",
+          status: "pending",
           scan_phase: "queued",
           items_found: 0,
           insights_found: 0,
           pages_scanned: 0,
+          error_message: null,
         } as any)
         .select("id")
         .single();
       if (sourceScanError) throw sourceScanError;
 
-      const { data, error } = await supabase.functions.invoke("business-scan-extract", {
-        body: {
-          business_id: businessId,
-          scan_history_id: scan.id,
-          source_id: sourceId,
-          source_scan_id: sourceScanRecord.id,
-          workspace_id: workspaceId,
-          url: normalizedUrl,
-        },
-      });
+      try {
+        const { data, error } = await supabase.functions.invoke("business-scan-extract", {
+          body: {
+            business_id: businessId,
+            scan_history_id: scan.id,
+            source_id: sourceId,
+            source_scan_id: sourceScanRecord.id,
+            workspace_id: workspaceId,
+            url: normalizedUrl,
+          },
+        });
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
+        if (error) throw error;
+        if (data?.error) throw new Error(data.error);
+        return data;
+      } catch (invokeError: any) {
+        const errorMessage = invokeError?.message || "Unknown scan failure";
+
+        await Promise.all([
+          supabase
+            .from("business_scan_history")
+            .update({ status: "failed", scan_phase: "failed", error_message: errorMessage } as any)
+            .eq("id", scan.id),
+          supabase
+            .from("source_scans")
+            .update({ status: "failed", scan_phase: "failed", error_message: errorMessage } as any)
+            .eq("id", sourceScanRecord.id),
+          supabase
+            .from("scan_sources")
+            .update({ scan_status: "failed", business_id: businessId } as any)
+            .eq("id", sourceId),
+        ]);
+
+        throw invokeError;
+      }
     },
     onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: ["business-scan-history", variables.businessId] });
@@ -183,7 +206,11 @@ export const useTriggerBusinessScan = () => {
         description: `Found ${data?.insights_count || 0} insights in ${((data?.duration_ms || 0) / 1000).toFixed(1)}s`,
       });
     },
-    onError: (e: any) => {
+    onError: (e: any, variables) => {
+      qc.invalidateQueries({ queryKey: ["business-scan-history", variables.businessId] });
+      qc.invalidateQueries({ queryKey: ["scan-insights"] });
+      qc.invalidateQueries({ queryKey: ["scan-history"] });
+      qc.invalidateQueries({ queryKey: ["scan-sources"] });
       toast({ title: "Scan failed", description: e.message, variant: "destructive" });
     },
   });
