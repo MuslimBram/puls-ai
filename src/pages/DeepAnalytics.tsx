@@ -68,11 +68,15 @@ const DeepAnalytics = () => {
     <DashboardLayout>
       <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList>
+          <TabsTrigger value="executive">Executive Brief</TabsTrigger>
           <TabsTrigger value="analytics">Deep Analytics</TabsTrigger>
           <TabsTrigger value="trends">Historical Trends</TabsTrigger>
           <TabsTrigger value="ops">Operational Intelligence</TabsTrigger>
           <TabsTrigger value="insights">Business Insights</TabsTrigger>
         </TabsList>
+        <TabsContent value="executive">
+          <ExecutiveSummary dateRange={dateRange} />
+        </TabsContent>
         <TabsContent value="trends">
           <HistoricalTrends />
         </TabsContent>
