@@ -33,6 +33,8 @@ const COLORS = [
 ];
 
 const DeepAnalytics = () => {
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") === "insights" ? "insights" : "analytics";
   const [dateRange, setDateRange] = useState<AnalyticsRange>("30d");
   const m = useDeepAnalytics(dateRange);
 
