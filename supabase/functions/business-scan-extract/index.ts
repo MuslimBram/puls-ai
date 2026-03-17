@@ -297,16 +297,33 @@ serve(async (req) => {
   } catch (error) {
     console.error("business-scan-extract error:", error);
 
-    // Try to update scan status to failed
     try {
       const sb = supabaseAdmin();
       const body = await req.clone().json().catch(() => ({}));
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
       if (body.scan_history_id) {
         await sb.from("business_scan_history").update({
           status: "failed",
           scan_phase: "failed",
-          error_message: error instanceof Error ? error.message : "Unknown error",
+          error_message: errorMessage,
         } as any).eq("id", body.scan_history_id);
+      }
+
+      if (body.source_scan_id) {
+        await sb.from("source_scans").update({
+          business_id: body.business_id,
+          status: "error",
+          scan_phase: "error",
+          error_message: errorMessage,
+        } as any).eq("id", body.source_scan_id);
+      }
+
+      if (body.source_id) {
+        await sb.from("scan_sources").update({
+          business_id: body.business_id,
+          scan_status: "error",
+        } as any).eq("id", body.source_id);
       }
     } catch (_) { /* ignore */ }
 
