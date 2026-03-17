@@ -103,13 +103,13 @@ export const OperationalDashboard = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4 items-center">
-              <Badge variant="outline" className="bg-green-500/10 text-green-700">
+              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-700">
                 {workforce.online} online
               </Badge>
-              <Badge variant="outline" className="bg-yellow-500/10 text-yellow-700">
+              <Badge variant="outline" className="bg-amber-500/10 text-amber-700">
                 {workforce.idle} idle
               </Badge>
-              <Badge variant="outline" className="bg-orange-500/10 text-orange-700">
+              <Badge variant="outline" className="bg-destructive/10 text-destructive">
                 {workforce.busy} busy
               </Badge>
               <span className="text-sm text-muted-foreground">|</span>
