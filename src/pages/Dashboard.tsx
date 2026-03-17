@@ -9,6 +9,7 @@ import { useInbox } from "@/hooks/useInbox";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { UsageIndicator } from "@/components/UsageIndicator";
 import { OnboardingWizard, GrowthAssistant } from "@/components/OnboardingWizard";
+import { SetupChecklist } from "@/components/SetupChecklist";
 import { SafeRender } from "@/components/SafeRender";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -48,9 +49,23 @@ const Dashboard = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {!isLoading && (
-          <SafeRender label="Onboarding Wizard">
-            <OnboardingWizard />
-          </SafeRender>
+          <>
+            <SafeRender label="Setup Checklist">
+              <SetupChecklist
+                hasProfile={!!profile}
+                hasKeywords={(keywords ?? []).length > 0}
+                hasTelegram={hasTelegram}
+                hasLeads={(leads ?? []).length > 0}
+                hasChannel={(channels ?? []).length > 0}
+                hasKnowledge={false}
+                hasAutomation={false}
+                hasInbox={(messages ?? []).length > 0}
+              />
+            </SafeRender>
+            <SafeRender label="Onboarding Wizard">
+              <OnboardingWizard />
+            </SafeRender>
+          </>
         )}
 
         <SafeRender label="Growth Assistant">
