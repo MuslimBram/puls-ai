@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +33,7 @@ interface ScanDialogState {
 }
 
 export const AdminBusinessScanPanel = ({ businesses }: { businesses: Business[] }) => {
+  const navigate = useNavigate();
   const [selectedBusiness, setSelectedBusiness] = useState<Business | null>(null);
   const [scanDialogState, setScanDialogState] = useState<ScanDialogState | null>(null);
   const [insightsDialogOpen, setInsightsDialogOpen] = useState(false);
@@ -55,6 +57,10 @@ export const AdminBusinessScanPanel = ({ businesses }: { businesses: Business[] 
     setSelectedBusiness(business);
     setViewingScan(initialScan ?? null);
     setInsightsDialogOpen(true);
+  };
+
+  const openDedicatedInsightsPage = (businessId: string) => {
+    navigate(`/admin/businesses/${businessId}/scan-insights`);
   };
 
   const closeScanDialog = (open: boolean) => {
@@ -112,6 +118,7 @@ export const AdminBusinessScanPanel = ({ businesses }: { businesses: Business[] 
                   business={business}
                   onScan={openScanDialog}
                   onViewInsights={handleViewInsights}
+                  onOpenInsightsPage={openDedicatedInsightsPage}
                   onGenerate={handleGenerate}
                   isGenerating={generateContent.isPending}
                 />
