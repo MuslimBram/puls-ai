@@ -7,17 +7,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PRODUCT_MAP: Record<string, string> = {
-  "prod_U8LrDc0TasNxNH": "standard",
-  "prod_U8Qdd9foXaeqnn": "standard",
-  "prod_U8Lr5611OwyJSV": "professional",
-  "prod_U8LrRodC8eZsTT": "advanced",
-  "prod_U8LsXPlxbqhpmK": "enterprise",
-};
+// Dynamic product mapping — loaded from DB at runtime
+let PRODUCT_MAP: Record<string, string> = {};
+let PLAN_PRICES: Record<string, number> = {};
 
-const PLAN_PRICES: Record<string, number> = {
-  standard: 29, professional: 79, advanced: 149, enterprise: 399,
-};
+async function loadProductMap(supabase: any) {
+  if (Object.keys(PRODUCT_MAP).length > 0) return; // cached for this invocation
+  const { data } = await supabase
+    .from("stripe_product_plans")
+    .select("stripe_product_id, plan_name, monthly_price")
+    .eq("is_active", true);
+  if (data) {
+    for (const row of data) {
+      PRODUCT_MAP[row.stripe_product_id] = row.plan_name;
+      PLAN_PRICES[row.plan_name] = Number(row.monthly_price);
+    }
+  }
+  // Fallback if table is empty
+  if (Object.keys(PRODUCT_MAP).length === 0) {
+    PRODUCT_MAP = {
+      "prod_U8LrDc0TasNxNH": "standard",
+      "prod_U8Qdd9foXaeqnn": "standard",
+      "prod_U8Lr5611OwyJSV": "professional",
+      "prod_U8LrRodC8eZsTT": "advanced",
+      "prod_U8LsXPlxbqhpmK": "enterprise",
+    };
+    PLAN_PRICES = { standard: 29, professional: 79, advanced: 149, enterprise: 399 };
+  }
+}
 
 const GRACE_PERIOD_DAYS = 7;
 const REFUND_WINDOW_DAYS = 7;
