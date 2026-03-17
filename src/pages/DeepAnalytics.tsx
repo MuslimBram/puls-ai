@@ -62,8 +62,12 @@ const DeepAnalytics = () => {
       <Tabs defaultValue="analytics" className="space-y-4">
         <TabsList>
           <TabsTrigger value="analytics">Deep Analytics</TabsTrigger>
+          <TabsTrigger value="trends">Historical Trends</TabsTrigger>
           <TabsTrigger value="ops">Operational Intelligence</TabsTrigger>
         </TabsList>
+        <TabsContent value="trends">
+          <HistoricalTrends />
+        </TabsContent>
         <TabsContent value="ops">
           <OpsPanel />
         </TabsContent>
