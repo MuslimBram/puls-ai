@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import {
   Download, TrendingUp, Clock, Zap, Target, ArrowUpRight, ArrowDownRight,
-  BarChart3, Send, Activity,
+  BarChart3, Send, Activity, Brain, AlertTriangle, Shield,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
