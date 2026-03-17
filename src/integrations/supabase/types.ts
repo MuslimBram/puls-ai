@@ -255,6 +255,50 @@ export type Database = {
           },
         ]
       }
+      api_error_log: {
+        Row: {
+          created_at: string
+          endpoint: string
+          error_message: string | null
+          id: string
+          method: string | null
+          request_metadata: Json | null
+          status_code: number | null
+          user_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          endpoint: string
+          error_message?: string | null
+          id?: string
+          method?: string | null
+          request_metadata?: Json | null
+          status_code?: number | null
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          endpoint?: string
+          error_message?: string | null
+          id?: string
+          method?: string | null
+          request_metadata?: Json | null
+          status_code?: number | null
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_error_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignment_rules: {
         Row: {
           created_at: string
@@ -2183,6 +2227,7 @@ export type Database = {
       conversation_threads: {
         Row: {
           ai_summary: string | null
+          archived_at: string | null
           assigned_to: string | null
           channel_type: string
           contact_identifier: string | null
@@ -2190,6 +2235,7 @@ export type Database = {
           created_at: string
           first_response_at: string | null
           id: string
+          is_archived: boolean
           is_auto_reply_enabled: boolean | null
           labels: string[] | null
           last_message_at: string | null
@@ -2214,6 +2260,7 @@ export type Database = {
         }
         Insert: {
           ai_summary?: string | null
+          archived_at?: string | null
           assigned_to?: string | null
           channel_type?: string
           contact_identifier?: string | null
@@ -2221,6 +2268,7 @@ export type Database = {
           created_at?: string
           first_response_at?: string | null
           id?: string
+          is_archived?: boolean
           is_auto_reply_enabled?: boolean | null
           labels?: string[] | null
           last_message_at?: string | null
@@ -2245,6 +2293,7 @@ export type Database = {
         }
         Update: {
           ai_summary?: string | null
+          archived_at?: string | null
           assigned_to?: string | null
           channel_type?: string
           contact_identifier?: string | null
@@ -2252,6 +2301,7 @@ export type Database = {
           created_at?: string
           first_response_at?: string | null
           id?: string
+          is_archived?: boolean
           is_auto_reply_enabled?: boolean | null
           labels?: string[] | null
           last_message_at?: string | null
@@ -2932,6 +2982,7 @@ export type Database = {
       inbox_messages: {
         Row: {
           ai_summary: string | null
+          archived_at: string | null
           assigned_to: string | null
           channel_id: string | null
           channel_type: string
@@ -2943,6 +2994,7 @@ export type Database = {
           intent_score: number | null
           intent_type: string
           internal_notes_count: number | null
+          is_archived: boolean
           is_unread: boolean
           lead_id: string | null
           matched_keywords: string[] | null
@@ -2966,6 +3018,7 @@ export type Database = {
         }
         Insert: {
           ai_summary?: string | null
+          archived_at?: string | null
           assigned_to?: string | null
           channel_id?: string | null
           channel_type?: string
@@ -2977,6 +3030,7 @@ export type Database = {
           intent_score?: number | null
           intent_type?: string
           internal_notes_count?: number | null
+          is_archived?: boolean
           is_unread?: boolean
           lead_id?: string | null
           matched_keywords?: string[] | null
@@ -3000,6 +3054,7 @@ export type Database = {
         }
         Update: {
           ai_summary?: string | null
+          archived_at?: string | null
           assigned_to?: string | null
           channel_id?: string | null
           channel_type?: string
@@ -3011,6 +3066,7 @@ export type Database = {
           intent_score?: number | null
           intent_type?: string
           internal_notes_count?: number | null
+          is_archived?: boolean
           is_unread?: boolean
           lead_id?: string | null
           matched_keywords?: string[] | null
@@ -3110,7 +3166,11 @@ export type Database = {
           id: string
           job_payload: Json
           job_type: string
+          locked_at: string | null
+          locked_by: string | null
           max_attempts: number | null
+          next_retry_at: string | null
+          priority: number
           scheduled_for: string
           started_at: string | null
           status: string
@@ -3125,7 +3185,11 @@ export type Database = {
           id?: string
           job_payload?: Json
           job_type: string
+          locked_at?: string | null
+          locked_by?: string | null
           max_attempts?: number | null
+          next_retry_at?: string | null
+          priority?: number
           scheduled_for?: string
           started_at?: string | null
           status?: string
@@ -3140,7 +3204,11 @@ export type Database = {
           id?: string
           job_payload?: Json
           job_type?: string
+          locked_at?: string | null
+          locked_by?: string | null
           max_attempts?: number | null
+          next_retry_at?: string | null
+          priority?: number
           scheduled_for?: string
           started_at?: string | null
           status?: string
@@ -3425,10 +3493,12 @@ export type Database = {
       leads: {
         Row: {
           created_at: string
+          deleted_at: string | null
           detected_keyword: string | null
           id: string
           intent_score: number | null
           intent_type: string
+          is_deleted: boolean
           message_content: string
           message_date: string
           recommended_action: string
@@ -3442,10 +3512,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           detected_keyword?: string | null
           id?: string
           intent_score?: number | null
           intent_type?: string
+          is_deleted?: boolean
           message_content: string
           message_date?: string
           recommended_action?: string
@@ -3459,10 +3531,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           detected_keyword?: string | null
           id?: string
           intent_score?: number | null
           intent_type?: string
+          is_deleted?: boolean
           message_content?: string
           message_date?: string
           recommended_action?: string
@@ -4410,6 +4484,65 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_buckets: {
+        Row: {
+          abuse_flag: boolean
+          abuse_reason: string | null
+          bucket_key: string
+          created_at: string
+          endpoint: string | null
+          id: string
+          last_refill_at: string
+          max_tokens: number
+          refill_interval_sec: number
+          refill_rate: number
+          suspended_until: string | null
+          tokens_remaining: number
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          abuse_flag?: boolean
+          abuse_reason?: string | null
+          bucket_key: string
+          created_at?: string
+          endpoint?: string | null
+          id?: string
+          last_refill_at?: string
+          max_tokens?: number
+          refill_interval_sec?: number
+          refill_rate?: number
+          suspended_until?: string | null
+          tokens_remaining?: number
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          abuse_flag?: boolean
+          abuse_reason?: string | null
+          bucket_key?: string
+          created_at?: string
+          endpoint?: string | null
+          id?: string
+          last_refill_at?: string
+          max_tokens?: number
+          refill_interval_sec?: number
+          refill_rate?: number
+          suspended_until?: string | null
+          tokens_remaining?: number
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_limit_buckets_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reengagement_tasks: {
         Row: {
           channel: string
@@ -4695,6 +4828,42 @@ export type Database = {
           },
         ]
       }
+      security_events: {
+        Row: {
+          country_code: string | null
+          created_at: string
+          event_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          risk_score: number | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          country_code?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          risk_score?: number | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          country_code?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          risk_score?: number | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       sending_reputation: {
         Row: {
           channel_type: string
@@ -4947,6 +5116,59 @@ export type Database = {
           },
         ]
       }
+      subscription_state_cache: {
+        Row: {
+          cached_at: string
+          current_period_end: string | null
+          failed_payment_count: number
+          grace_period_end: string | null
+          id: string
+          last_webhook_at: string | null
+          plan_name: string
+          status: string
+          stripe_subscription_id: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          cached_at?: string
+          current_period_end?: string | null
+          failed_payment_count?: number
+          grace_period_end?: string | null
+          id?: string
+          last_webhook_at?: string | null
+          plan_name?: string
+          status?: string
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          cached_at?: string
+          current_period_end?: string | null
+          failed_payment_count?: number
+          grace_period_end?: string | null
+          id?: string
+          last_webhook_at?: string | null
+          plan_name?: string
+          status?: string
+          stripe_subscription_id?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_state_cache_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           ai_replies_reset_at: string
@@ -5069,6 +5291,50 @@ export type Database = {
           },
           {
             foreignKeyName: "subscriptions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      system_health_checks: {
+        Row: {
+          check_type: string
+          checked_at: string
+          error_message: string | null
+          id: string
+          metadata: Json | null
+          response_time_ms: number | null
+          status: string
+          target_name: string
+          workspace_id: string | null
+        }
+        Insert: {
+          check_type: string
+          checked_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          response_time_ms?: number | null
+          status?: string
+          target_name: string
+          workspace_id?: string | null
+        }
+        Update: {
+          check_type?: string
+          checked_at?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json | null
+          response_time_ms?: number | null
+          status?: string
+          target_name?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "system_health_checks_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -5422,16 +5688,59 @@ export type Database = {
           },
         ]
       }
+      workspace_storage_quotas: {
+        Row: {
+          id: string
+          last_computed_at: string
+          messages_count: number
+          messages_limit: number
+          storage_limit_bytes: number
+          storage_used_bytes: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          last_computed_at?: string
+          messages_count?: number
+          messages_limit?: number
+          storage_limit_bytes?: number
+          storage_used_bytes?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          last_computed_at?: string
+          messages_count?: number
+          messages_limit?: number
+          storage_limit_bytes?: number
+          storage_used_bytes?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_storage_quotas_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           billing_mode: string
           created_at: string
           id: string
+          max_sessions_per_user: number
           name: string
           owner_id: string
           payment_accounts: Json | null
           payment_mode: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id: string | null
+          require_2fa: boolean
           slug: string | null
           updated_at: string
           workspace_owner_partner_id: string | null
@@ -5440,11 +5749,13 @@ export type Database = {
           billing_mode?: string
           created_at?: string
           id?: string
+          max_sessions_per_user?: number
           name: string
           owner_id: string
           payment_accounts?: Json | null
           payment_mode?: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id?: string | null
+          require_2fa?: boolean
           slug?: string | null
           updated_at?: string
           workspace_owner_partner_id?: string | null
@@ -5453,11 +5764,13 @@ export type Database = {
           billing_mode?: string
           created_at?: string
           id?: string
+          max_sessions_per_user?: number
           name?: string
           owner_id?: string
           payment_accounts?: Json | null
           payment_mode?: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id?: string | null
+          require_2fa?: boolean
           slug?: string | null
           updated_at?: string
           workspace_owner_partner_id?: string | null
@@ -5495,9 +5808,24 @@ export type Database = {
       }
     }
     Functions: {
+      archive_old_messages: {
+        Args: { _days_old?: number; _workspace_id: string }
+        Returns: number
+      }
       assign_thread_round_robin: {
         Args: { _thread_id: string; _workspace_id: string }
         Returns: string
+      }
+      check_rate_limit: {
+        Args: {
+          _bucket_key: string
+          _endpoint?: string
+          _max_tokens?: number
+          _refill_rate?: number
+          _refill_sec?: number
+          _workspace_id: string
+        }
+        Returns: boolean
       }
       cleanup_expired_locks: { Args: never; Returns: undefined }
       compute_agent_performance: {
@@ -5532,6 +5860,10 @@ export type Database = {
       compute_thread_sla: {
         Args: { _thread_id: string; _workspace_id: string }
         Returns: undefined
+      }
+      detect_suspicious_login: {
+        Args: { _ip_address: string; _user_agent: string; _user_id: string }
+        Returns: boolean
       }
       has_role: {
         Args: {
