@@ -280,25 +280,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="businesses">
-            <Card>
-              <CardContent className="pt-4">
-                {businesses.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">No businesses</p>
-                ) : (
-                  <div className="space-y-2">
-                    {businesses.map((b) => (
-                      <div key={b.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{b.business_name}</p>
-                          <p className="text-xs text-muted-foreground">{b.industry || "—"}</p>
-                        </div>
-                        <Badge variant="secondary">{b.ai_tone || "professional"}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <AdminBusinessScanPanel businesses={businesses as any} />
           </TabsContent>
 
           <TabsContent value="leads">
