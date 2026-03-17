@@ -9,6 +9,7 @@ import { useUserSessions, useRevokeSession } from "@/hooks/useUserSessions";
 import { useTOTP } from "@/hooks/useTOTP";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
+import { SecurityPosturePanel } from "@/components/SecurityPosturePanel";
 import {
   Shield, Smartphone, Monitor, Loader2, LogOut, Clock, Globe,
   ShieldCheck, ShieldOff, KeyRound, QrCode, Copy, Check, ScrollText,
