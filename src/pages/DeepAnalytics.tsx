@@ -21,6 +21,8 @@ import { toast } from "@/components/ui/sonner";
 import { OperationalDashboard as OpsPanel } from "@/components/OperationalDashboard";
 import { HistoricalTrends } from "@/components/HistoricalTrends";
 
+const BusinessInsightsPage = lazy(() => import("./BusinessInsights"));
+
 const COLORS = [
   "hsl(var(--primary))",
   "hsl(var(--accent))",
