@@ -28,7 +28,9 @@ export interface CustomerIntelligenceProfileData {
   nextBestActions: string[];
 }
 
-const uniqueById = <T extends { id: string }>(rows: T[]) => {
+type SimpleRow = { id: string };
+
+const uniqueById = <T extends SimpleRow>(rows: T[]) => {
   const seen = new Set<string>();
   return rows.filter((row) => {
     if (seen.has(row.id)) return false;
@@ -42,122 +44,118 @@ const average = (values: number[]) => {
   return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length);
 };
 
-const pickLatest = (...values: Array<string | null | undefined>) =>
-  values.filter(Boolean).sort((a, b) => new Date(b!).getTime() - new Date(a!).getTime())[0] ?? null;
+const pickLatest = (values: Array<string | null | undefined>) =>
+  values.filter(Boolean).sort((a, b) => new Date(b as string).getTime() - new Date(a as string).getTime())[0] ?? null;
 
-const pickEarliest = (...values: Array<string | null | undefined>) =>
-  values.filter(Boolean).sort((a, b) => new Date(a!).getTime() - new Date(b!).getTime())[0] ?? null;
+const pickEarliest = (values: Array<string | null | undefined>) =>
+  values.filter(Boolean).sort((a, b) => new Date(a as string).getTime() - new Date(b as string).getTime())[0] ?? null;
 
 export const useCustomerIntelligence = (contactIdentifier?: string | null, contactName?: string | null) => {
   const { user } = useAuth();
 
   return useQuery({
     queryKey: ["customer-intelligence", user?.id, contactIdentifier, contactName],
-    queryFn: async () => {
+    queryFn: async (): Promise<CustomerIntelligenceProfileData | null> => {
       if (!user || !contactIdentifier) return null;
 
-      const [
-        inboxByIdentifier,
-        inboxByName,
-        leadsByIdentifier,
-        callsByPhone,
-        callsByEmail,
-        callsByName,
-        dealsByPhone,
-        dealsByEmail,
-        dealsByName,
-        tagsQuery,
-        memoryByIdentifier,
-        memoryByName,
-      ] = await Promise.all([
-        supabase
-          .from("inbox_messages")
-          .select("id, sender_name, sender_identifier, channel_type, source_name, message_timestamp, message_content")
-          .eq("user_id", user.id)
-          .eq("sender_identifier", contactIdentifier)
-          .order("message_timestamp", { ascending: false })
-          .limit(50),
-        contactName
-          ? supabase
-              .from("inbox_messages")
-              .select("id, sender_name, sender_identifier, channel_type, source_name, message_timestamp, message_content")
-              .eq("user_id", user.id)
-              .eq("sender_name", contactName)
-              .order("message_timestamp", { ascending: false })
-              .limit(20)
-          : Promise.resolve({ data: [], error: null } as any),
-        (supabase
-          .from("leads")
-          .select("id, source_name, source_type, message_content, detected_keyword, message_date, intent_score, status, author_username")
-          .eq("user_id", user.id)
-          .eq("author_username", contactIdentifier)
-          .order("message_date", { ascending: false })
-          .limit(50)) as any,
-        supabase
-          .from("call_records" as any)
-          .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
-          .eq("user_id", user.id)
-          .eq("contact_phone", contactIdentifier)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("call_records" as any)
-          .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
-          .eq("user_id", user.id)
-          .eq("contact_email", contactIdentifier)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        contactName
-          ? supabase
-              .from("call_records" as any)
-              .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
-              .eq("user_id", user.id)
-              .eq("contact_name", contactName)
-              .order("created_at", { ascending: false })
-              .limit(20)
-          : Promise.resolve({ data: [], error: null } as any),
-        supabase
-          .from("deals")
-          .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
-          .eq("user_id", user.id)
-          .eq("contact_phone", contactIdentifier)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        supabase
-          .from("deals")
-          .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
-          .eq("user_id", user.id)
-          .eq("contact_email", contactIdentifier)
-          .order("created_at", { ascending: false })
-          .limit(20),
-        contactName
-          ? supabase
-              .from("deals")
-              .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
-              .eq("user_id", user.id)
-              .eq("contact_name", contactName)
-              .order("created_at", { ascending: false })
-              .limit(20)
-          : Promise.resolve({ data: [], error: null } as any),
-        supabase
-          .from("contact_tags")
-          .select("id, contact_name, tag_value")
-          .eq("user_id", user.id)
-          .eq("contact_identifier", contactIdentifier)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("ai_conversation_memory")
-          .select("summary, sentiment_trend, interaction_count, key_facts, contact_name, updated_at")
-          .eq("contact_identifier", contactIdentifier)
-          .maybeSingle(),
-        contactName
-          ? supabase
-              .from("ai_conversation_memory")
-              .select("summary, sentiment_trend, interaction_count, key_facts, contact_name, updated_at")
-              .eq("contact_name", contactName)
-              .maybeSingle()
-          : Promise.resolve({ data: null, error: null } as any),
-      ]);
+      const inboxByIdentifier = await supabase
+        .from("inbox_messages")
+        .select("id, sender_name, sender_identifier, channel_type, source_name, message_timestamp, message_content")
+        .eq("user_id", user.id)
+        .eq("sender_identifier", contactIdentifier)
+        .order("message_timestamp", { ascending: false })
+        .limit(50);
+
+      const inboxByName = contactName
+        ? await supabase
+            .from("inbox_messages")
+            .select("id, sender_name, sender_identifier, channel_type, source_name, message_timestamp, message_content")
+            .eq("user_id", user.id)
+            .eq("sender_name", contactName)
+            .order("message_timestamp", { ascending: false })
+            .limit(20)
+        : { data: [] as any[] };
+
+      const leadsByIdentifier = await (supabase
+        .from("leads")
+        .select("id, source_name, source_type, message_content, detected_keyword, message_date, intent_score, status, author_username")
+        .eq("user_id", user.id)
+        .eq("author_username", contactIdentifier)
+        .order("message_date", { ascending: false })
+        .limit(50) as any);
+
+      const callsByPhone = await supabase
+        .from("call_records" as any)
+        .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
+        .eq("user_id", user.id)
+        .eq("contact_phone", contactIdentifier)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      const callsByEmail = await supabase
+        .from("call_records" as any)
+        .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
+        .eq("user_id", user.id)
+        .eq("contact_email", contactIdentifier)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      const callsByName = contactName
+        ? await supabase
+            .from("call_records" as any)
+            .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
+            .eq("user_id", user.id)
+            .eq("contact_name", contactName)
+            .order("created_at", { ascending: false })
+            .limit(20)
+        : { data: [] as any[] };
+
+      const dealsByPhone = await supabase
+        .from("deals")
+        .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
+        .eq("user_id", user.id)
+        .eq("contact_phone", contactIdentifier)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      const dealsByEmail = await supabase
+        .from("deals")
+        .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
+        .eq("user_id", user.id)
+        .eq("contact_email", contactIdentifier)
+        .order("created_at", { ascending: false })
+        .limit(20);
+
+      const dealsByName = contactName
+        ? await supabase
+            .from("deals")
+            .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
+            .eq("user_id", user.id)
+            .eq("contact_name", contactName)
+            .order("created_at", { ascending: false })
+            .limit(20)
+        : { data: [] as any[] };
+
+      const tagsQuery = await supabase
+        .from("contact_tags")
+        .select("id, contact_name, tag_value")
+        .eq("user_id", user.id)
+        .eq("contact_identifier", contactIdentifier)
+        .order("created_at", { ascending: false });
+
+      const memoryByIdentifier = await supabase
+        .from("ai_conversation_memory")
+        .select("summary, sentiment_trend, interaction_count, key_facts, contact_name, updated_at")
+        .eq("contact_identifier", contactIdentifier)
+        .maybeSingle();
+
+      const memoryByName = contactName
+        ? await supabase
+            .from("ai_conversation_memory")
+            .select("summary, sentiment_trend, interaction_count, key_facts, contact_name, updated_at")
+            .eq("contact_name", contactName)
+            .maybeSingle()
+        : { data: null as any };
 
       const messages = uniqueById([...(inboxByIdentifier.data ?? []), ...(inboxByName.data ?? [])] as any[]);
       const leads = uniqueById((leadsByIdentifier.data ?? []) as any[]);
@@ -174,20 +172,17 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
       const tags = (tagsQuery.data ?? []) as any[];
       const memory = memoryByIdentifier.data ?? memoryByName.data;
 
-      const leadIds = leads.map((lead) => lead.id).filter(Boolean);
+      const leadIds = leads.map((lead: any) => lead.id).filter(Boolean);
       const leadScoresQuery = leadIds.length
-        ? await supabase
-            .from("lead_scores")
-            .select("lead_id, score, churn_risk, predicted_value")
-            .in("lead_id", leadIds)
-        : { data: [] as any[], error: null };
+        ? await supabase.from("lead_scores").select("lead_id, score, churn_risk, predicted_value").in("lead_id", leadIds)
+        : { data: [] as any[] };
       const leadScores = (leadScoresQuery.data ?? []) as any[];
 
-      const dates = [
-        ...messages.map((row) => row.message_timestamp),
-        ...leads.map((row) => row.message_date),
-        ...calls.map((row) => row.created_at),
-        ...deals.map((row) => row.created_at),
+      const dateValues = [
+        ...messages.map((row: any) => row.message_timestamp),
+        ...leads.map((row: any) => row.message_date),
+        ...calls.map((row: any) => row.created_at),
+        ...deals.map((row: any) => row.created_at),
         memory?.updated_at,
       ].filter(Boolean) as string[];
 
@@ -212,8 +207,8 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
       const avgAiScore = average(leadScores.map((row: any) => Number(row.score || 0)).filter((value) => value > 0));
       const churnRisk = average(leadScores.map((row: any) => Number(row.churn_risk || 0)).filter((value) => value > 0));
       const openDeals = deals.filter((row: any) => !row.won_at && !row.lost_at).length;
-      const lastSeen = dates.length > 0 ? pickLatest(...dates) : null;
-      const firstSeen = dates.length > 0 ? pickEarliest(...dates) : null;
+      const lastSeen = dateValues.length > 0 ? pickLatest(dateValues) : null;
+      const firstSeen = dateValues.length > 0 ? pickEarliest(dateValues) : null;
       const daysSinceLastSeen = lastSeen ? Math.floor((Date.now() - new Date(lastSeen).getTime()) / 86400000) : null;
 
       let engagementStatus: CustomerIntelligenceProfileData["engagementStatus"] = "cold";
@@ -229,10 +224,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
         if (!row.detected_keyword) return;
         keywordCounts.set(row.detected_keyword, (keywordCounts.get(row.detected_keyword) ?? 0) + 1);
       });
-      const topKeywords = Array.from(keywordCounts.entries())
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 3)
-        .map(([value]) => value);
+      const topKeywords = Array.from(keywordCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([value]) => value);
 
       const nextBestActions = [
         openDeals > 0 ? `Follow up on ${openDeals} active deal${openDeals === 1 ? "" : "s"}.` : null,
@@ -279,7 +271,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
         topKeywords,
         tags: tags.map((row) => row.tag_value).filter(Boolean),
         nextBestActions,
-      } satisfies CustomerIntelligenceProfileData;
+      };
     },
     enabled: !!user && !!contactIdentifier,
   });
