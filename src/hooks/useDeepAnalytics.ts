@@ -85,6 +85,36 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     enabled: !!user,
   });
 
+  // AI conversations
+  const aiQuery = useQuery({
+    queryKey: ["deep-analytics-ai", user?.id, dateRange],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("ai_conversations")
+        .select("is_auto_reply, status, complexity, created_at")
+        .eq("user_id", user!.id)
+        .gte("created_at", rangeStart.toISOString());
+      return data ?? [];
+    },
+    enabled: !!user,
+  });
+
+  // Churn risk
+  const churnQuery = useQuery({
+    queryKey: ["deep-analytics-churn", user?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("churn_risk_scores")
+        .select("risk_level, risk_score, signals, days_inactive, usage_trend, computed_at")
+        .eq("user_id", user!.id)
+        .order("computed_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!user,
+  });
+
   const metrics = useMemo(() => {
     const leads = leadsQuery.data ?? [];
     const inbox = inboxQuery.data ?? [];
