@@ -340,3 +340,86 @@ export const useAgentWorkload = () => {
     refetchInterval: 30000,
   });
 };
+
+// ── Escalation Rules ──
+export interface EscalationRule {
+  id: string;
+  workspace_id: string;
+  name: string;
+  trigger_type: string;
+  trigger_minutes: number;
+  action_type: string;
+  escalate_to_user_id: string | null;
+  notify_channel: string;
+  is_active: boolean;
+  priority: number;
+}
+
+export const useEscalationRules = (workspaceId?: string) => {
+  return useQuery({
+    queryKey: ["escalation-rules", workspaceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("escalation_rules")
+        .select("*")
+        .eq("workspace_id", workspaceId!)
+        .order("priority", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as EscalationRule[];
+    },
+    enabled: !!workspaceId,
+  });
+};
+
+export const useUpsertEscalationRule = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (rule: Partial<EscalationRule> & { workspace_id: string }) => {
+      const { error } = await supabase
+        .from("escalation_rules")
+        .upsert(rule as any, { onConflict: "id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["escalation-rules"] });
+      toast.success("Escalation rule saved");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+};
+
+export const useDeleteEscalationRule = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ruleId: string) => {
+      const { error } = await supabase
+        .from("escalation_rules")
+        .delete()
+        .eq("id", ruleId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["escalation-rules"] });
+      toast.success("Escalation rule deleted");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+};
+
+// ── Escalation Log ──
+export const useEscalationLog = (workspaceId?: string) => {
+  return useQuery({
+    queryKey: ["escalation-log", workspaceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("escalation_log")
+        .select("*")
+        .eq("workspace_id", workspaceId!)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!workspaceId,
+  });
+};
