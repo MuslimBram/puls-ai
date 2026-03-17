@@ -18,35 +18,24 @@ import Keywords from "./pages/Keywords";
 import Channels from "./pages/Channels";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
-import Pricing from "./pages/Pricing";
 import Admin from "./pages/Admin";
 import Inbox from "./pages/Inbox";
-import ReplyWorkspace from "./pages/ReplyWorkspace";
 import ConnectedAccounts from "./pages/ConnectedAccounts";
-import DedicatedAI from "./pages/DedicatedAI";
-import ContentCalendar from "./pages/ContentCalendar";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import Campaigns from "./pages/Campaigns";
 import CompetitorIntelligence from "./pages/CompetitorIntelligence";
 import PartnerDashboard from "./pages/PartnerDashboard";
-import PartnerClients from "./pages/PartnerClients";
 import SessionSecurity from "./pages/SessionSecurity";
 import CRM from "./pages/CRM";
-import VisitorIntelligence from "./pages/VisitorIntelligence";
 import ExternalIntegrations from "./pages/ExternalIntegrations";
-import Sources from "./pages/Sources";
 import Helpdesk from "./pages/Helpdesk";
-import LeadQualification from "./pages/LeadQualification";
 import BroadcastMessaging from "./pages/BroadcastMessaging";
 import Automations from "./pages/Automations";
-import CallHistory from "./pages/CallHistory";
 import DeepAnalytics from "./pages/DeepAnalytics";
-import ContactHub from "./pages/ContactHub";
-import BusinessInsights from "./pages/BusinessInsights";
-import ReferralProgram from "./pages/ReferralProgram";
 import MediaStudio from "./pages/MediaStudio";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
+import Pricing from "./pages/Pricing";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -86,40 +75,45 @@ const App = () => (
               <Route path="/register" element={<Register />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/pricing" element={<Pricing />} />
+
+              {/* Core pages */}
               <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-              <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
-              <Route path="/leads" element={<ProtectedPage><Leads /></ProtectedPage>} />
-              <Route path="/keywords" element={<ProtectedPage><Keywords /></ProtectedPage>} />
-              <Route path="/channels" element={<ProtectedPage><Channels /></ProtectedPage>} />
-              <Route path="/analytics" element={<ProtectedPage><Analytics /></ProtectedPage>} />
-              <Route path="/subscription" element={<ProtectedPage><Subscription /></ProtectedPage>} />
-              <Route path="/pricing" element={<ProtectedPage><Pricing /></ProtectedPage>} />
               <Route path="/inbox" element={<ProtectedPage><Inbox /></ProtectedPage>} />
-              <Route path="/reply-workspace" element={<ProtectedPage><ReplyWorkspace /></ProtectedPage>} />
-              <Route path="/connected-accounts" element={<ProtectedPage><ConnectedAccounts /></ProtectedPage>} />
-              <Route path="/dedicated-ai" element={<ProtectedPage><DedicatedAI /></ProtectedPage>} />
-              <Route path="/content-calendar" element={<ProtectedPage><ContentCalendar /></ProtectedPage>} />
-              <Route path="/knowledge-base" element={<ProtectedPage><KnowledgeBase /></ProtectedPage>} />
-              <Route path="/campaigns" element={<ProtectedPage><Campaigns /></ProtectedPage>} />
-              <Route path="/competitor-intelligence" element={<ProtectedPage><CompetitorIntelligence /></ProtectedPage>} />
-              <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
-              <Route path="/partner-clients" element={<ProtectedPage><PartnerClients /></ProtectedPage>} />
-              <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
+              <Route path="/leads" element={<ProtectedPage><Leads /></ProtectedPage>} />
               <Route path="/crm" element={<ProtectedPage><CRM /></ProtectedPage>} />
-              <Route path="/visitor-intelligence" element={<ProtectedPage><VisitorIntelligence /></ProtectedPage>} />
-              <Route path="/external-integrations" element={<ProtectedPage><ExternalIntegrations /></ProtectedPage>} />
-              <Route path="/sources" element={<ProtectedPage><Sources /></ProtectedPage>} />
-              <Route path="/helpdesk" element={<ProtectedPage><Helpdesk /></ProtectedPage>} />
-              <Route path="/lead-qualification" element={<ProtectedPage><LeadQualification /></ProtectedPage>} />
-              <Route path="/broadcast" element={<ProtectedPage><BroadcastMessaging /></ProtectedPage>} />
+              <Route path="/campaigns" element={<ProtectedPage><Campaigns /></ProtectedPage>} />
+              <Route path="/analytics" element={<ProtectedPage><Analytics /></ProtectedPage>} />
+              <Route path="/keywords" element={<ProtectedPage><Keywords /></ProtectedPage>} />
               <Route path="/automations" element={<ProtectedPage><Automations /></ProtectedPage>} />
-              <Route path="/call-history" element={<ProtectedPage><CallHistory /></ProtectedPage>} />
-              <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
-              <Route path="/contact-hub" element={<ProtectedPage><ContactHub /></ProtectedPage>} />
-              <Route path="/business-insights" element={<ProtectedPage><BusinessInsights /></ProtectedPage>} />
-              <Route path="/referrals" element={<ProtectedPage><ReferralProgram /></ProtectedPage>} />
+              <Route path="/competitor-intelligence" element={<ProtectedPage><CompetitorIntelligence /></ProtectedPage>} />
+              <Route path="/knowledge-base" element={<ProtectedPage><KnowledgeBase /></ProtectedPage>} />
               <Route path="/media-studio" element={<ProtectedPage><MediaStudio /></ProtectedPage>} />
+              <Route path="/broadcast" element={<ProtectedPage><BroadcastMessaging /></ProtectedPage>} />
+              <Route path="/helpdesk" element={<ProtectedPage><Helpdesk /></ProtectedPage>} />
+              <Route path="/channels" element={<ProtectedPage><Channels /></ProtectedPage>} />
+              <Route path="/connected-accounts" element={<ProtectedPage><ConnectedAccounts /></ProtectedPage>} />
+              <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
+              <Route path="/subscription" element={<ProtectedPage><Subscription /></ProtectedPage>} />
+              <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
+              <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
+              <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
+              <Route path="/external-integrations" element={<ProtectedPage><ExternalIntegrations /></ProtectedPage>} />
+
+              {/* Consolidated redirects — orphaned pages → parent tabs */}
+              <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
+              <Route path="/call-history" element={<Navigate to="/crm?tab=calls" replace />} />
+              <Route path="/content-calendar" element={<Navigate to="/campaigns?tab=calendar" replace />} />
+              <Route path="/sources" element={<Navigate to="/channels?tab=sources" replace />} />
+              <Route path="/reply-workspace" element={<Navigate to="/inbox" replace />} />
+              <Route path="/dedicated-ai" element={<Navigate to="/knowledge-base" replace />} />
+              <Route path="/visitor-intelligence" element={<Navigate to="/helpdesk" replace />} />
+              <Route path="/lead-qualification" element={<Navigate to="/helpdesk" replace />} />
+              <Route path="/referrals" element={<Navigate to="/partner" replace />} />
+              <Route path="/partner-clients" element={<Navigate to="/partner" replace />} />
+              <Route path="/business-insights" element={<Navigate to="/deep-analytics?tab=insights" replace />} />
+
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
