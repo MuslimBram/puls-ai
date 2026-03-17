@@ -131,3 +131,6 @@ verify_jwt = false
 
 [functions.health-monitor]
 verify_jwt = false
+
+[functions.sla-breach-checker]
+verify_jwt = false
