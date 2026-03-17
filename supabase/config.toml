@@ -137,3 +137,9 @@ verify_jwt = false
 
 [functions.totp-manage]
 verify_jwt = false
+
+[functions.business-scan-extract]
+verify_jwt = false
+
+[functions.generate-business-content]
+verify_jwt = false

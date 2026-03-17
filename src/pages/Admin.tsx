@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { AdminBusinessScanPanel } from "@/components/AdminBusinessScanPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
@@ -279,25 +280,7 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="businesses">
-            <Card>
-              <CardContent className="pt-4">
-                {businesses.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">No businesses</p>
-                ) : (
-                  <div className="space-y-2">
-                    {businesses.map((b) => (
-                      <div key={b.id} className="flex items-center justify-between rounded-lg border border-border p-3">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{b.business_name}</p>
-                          <p className="text-xs text-muted-foreground">{b.industry || "—"}</p>
-                        </div>
-                        <Badge variant="secondary">{b.ai_tone || "professional"}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <AdminBusinessScanPanel businesses={businesses as any} />
           </TabsContent>
 
           <TabsContent value="leads">
