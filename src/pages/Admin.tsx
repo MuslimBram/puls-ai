@@ -561,6 +561,10 @@ const Admin = () => {
           <TabsContent value="churn">
             <AdminChurnRiskPanel />
           </TabsContent>
+
+          <TabsContent value="errors">
+            <AdminApiErrorLog />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
