@@ -10,7 +10,7 @@ import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
@@ -19,6 +19,7 @@ import { AdminRefundPanel } from "@/components/AdminRefundPanel";
 import { BusinessReviewQueue } from "@/components/BusinessReviewQueue";
 import { AdminFreelancerPanel } from "@/components/AdminFreelancerPanel";
 import { AdminPaymentOverview } from "@/components/AdminPaymentOverview";
+import { AdminChurnRiskPanel } from "@/components/AdminChurnRiskPanel";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -142,6 +143,10 @@ const Admin = () => {
             <TabsTrigger value="payments">
               <Wallet className="h-3 w-3 mr-1" />
               Payments
+            </TabsTrigger>
+            <TabsTrigger value="churn">
+              <AlertTriangle className="h-3 w-3 mr-1" />
+              Churn Risk
             </TabsTrigger>
           </TabsList>
 
@@ -546,6 +551,10 @@ const Admin = () => {
 
           <TabsContent value="payments">
             <AdminPaymentOverview />
+          </TabsContent>
+
+          <TabsContent value="churn">
+            <AdminChurnRiskPanel />
           </TabsContent>
         </Tabs>
       </div>

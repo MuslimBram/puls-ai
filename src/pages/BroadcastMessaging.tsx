@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { useBroadcasts, useContactSegments, type Broadcast } from "@/hooks/useBroadcasts";
+import { computeSpamScore, CHANNEL_LIMITS, useApproveBroadcast } from "@/hooks/useBroadcastCompliance";
 import {
   Send,
   Plus,
@@ -22,6 +23,10 @@ import {
   Mail,
   MessageSquare,
   Clock,
+  ShieldCheck,
+  ShieldAlert,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
@@ -33,6 +38,12 @@ const STATUS_COLORS: Record<string, string> = {
   completed: "bg-green-500/10 text-green-700",
   paused: "bg-orange-500/10 text-orange-700",
   failed: "bg-destructive/10 text-destructive",
+};
+
+const APPROVAL_COLORS: Record<string, string> = {
+  pending: "bg-yellow-500/10 text-yellow-700",
+  approved: "bg-green-500/10 text-green-700",
+  rejected: "bg-destructive/10 text-destructive",
 };
 
 const CHANNEL_OPTIONS = [
@@ -219,6 +230,12 @@ const CreateBroadcastDialog = ({
   const [scheduledAt, setScheduledAt] = useState("");
   const [throttle, setThrottle] = useState("60");
 
+  const spamScore = computeSpamScore(messageContent, subject);
+  const channelLimit = CHANNEL_LIMITS[channelType] || CHANNEL_LIMITS.email;
+  const effectiveThrottle = Math.min(Number(throttle) || 60, channelLimit.maxPerMinute);
+  const needsApproval = channelLimit.requiresApproval;
+  const hasUnsubscribeText = messageContent.toLowerCase().includes("unsubscribe") || messageContent.toLowerCase().includes("opt-out") || messageContent.toLowerCase().includes("opt out");
+
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
@@ -263,33 +280,67 @@ const CreateBroadcastDialog = ({
             <Label>Message</Label>
             <Textarea value={messageContent} onChange={(e) => setMessageContent(e.target.value)} placeholder="Your broadcast message..." rows={4} />
           </div>
+
+          {/* Compliance indicators */}
+          {messageContent.length > 0 && (
+            <div className="rounded-lg border border-border p-3 space-y-2">
+              <p className="text-xs font-medium text-muted-foreground">Compliance Check</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge className={spamScore <= 20 ? "bg-green-500/10 text-green-700" : spamScore <= 50 ? "bg-yellow-500/10 text-yellow-700" : "bg-destructive/10 text-destructive"}>
+                  {spamScore <= 20 ? <ShieldCheck className="h-3 w-3 mr-1" /> : <ShieldAlert className="h-3 w-3 mr-1" />}
+                  Spam Score: {spamScore}/100
+                </Badge>
+                <Badge className={hasUnsubscribeText ? "bg-green-500/10 text-green-700" : "bg-yellow-500/10 text-yellow-700"}>
+                  {hasUnsubscribeText ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
+                  {hasUnsubscribeText ? "Opt-out included" : "No opt-out text"}
+                </Badge>
+                {needsApproval && (
+                  <Badge className="bg-yellow-500/10 text-yellow-700">
+                    <ShieldAlert className="h-3 w-3 mr-1" /> Requires approval
+                  </Badge>
+                )}
+              </div>
+              {spamScore > 50 && (
+                <p className="text-xs text-destructive">⚠ High spam score. Consider removing promotional language and excessive caps.</p>
+              )}
+              {!hasUnsubscribeText && channelType === "email" && (
+                <p className="text-xs text-yellow-700">⚠ Include opt-out/unsubscribe text for email compliance.</p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Schedule (optional)</Label>
               <Input type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
             </div>
             <div>
-              <Label>Throttle (msgs/min)</Label>
-              <Input type="number" value={throttle} onChange={(e) => setThrottle(e.target.value)} />
+              <Label>Throttle (max {channelLimit.maxPerMinute}/min)</Label>
+              <Input type="number" value={throttle} onChange={(e) => setThrottle(e.target.value)} max={channelLimit.maxPerMinute} />
             </div>
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button
-            disabled={!name.trim() || !messageContent.trim()}
-            onClick={() => onCreate({
-              name,
-              channel_type: channelType,
-              subject: subject || null,
-              message_content: messageContent,
-              segment_id: segmentId && segmentId !== "all" ? segmentId : null,
-              scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
-              throttle_per_minute: Number(throttle) || 60,
-              status: scheduledAt ? "scheduled" : "draft",
-            })}
+            disabled={!name.trim() || !messageContent.trim() || spamScore > 80}
+            onClick={() => {
+              if (spamScore > 50 && !hasUnsubscribeText && channelType === "email") {
+                toast.warning("Consider adding opt-out text before sending.");
+              }
+              onCreate({
+                name,
+                channel_type: channelType,
+                subject: subject || null,
+                message_content: messageContent,
+                segment_id: segmentId && segmentId !== "all" ? segmentId : null,
+                scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+                throttle_per_minute: effectiveThrottle,
+                status: needsApproval ? "draft" : (scheduledAt ? "scheduled" : "draft"),
+              });
+            }}
           >
-            {scheduledAt ? "Schedule" : "Create Draft"}
+            {needsApproval ? "Submit for Approval" : scheduledAt ? "Schedule" : "Create Draft"}
           </Button>
         </DialogFooter>
       </DialogContent>

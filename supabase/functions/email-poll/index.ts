@@ -6,6 +6,70 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ─── IMAP Helpers ───
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+async function readFromConn(conn: Deno.TlsConn | Deno.TcpConn, timeoutMs = 10_000): Promise<string> {
+  const buf = new Uint8Array(16384);
+  const timer = setTimeout(() => { try { conn.close(); } catch { /* */ } }, timeoutMs);
+  try {
+    const n = await conn.read(buf);
+    clearTimeout(timer);
+    return n ? decoder.decode(buf.subarray(0, n)) : "";
+  } catch {
+    clearTimeout(timer);
+    return "";
+  }
+}
+
+async function imapCommand(conn: Deno.TlsConn | Deno.TcpConn, tag: string, cmd: string, timeoutMs = 15_000): Promise<string> {
+  await conn.write(encoder.encode(`${tag} ${cmd}\r\n`));
+  let response = "";
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const chunk = await readFromConn(conn, Math.max(deadline - Date.now(), 1000));
+    response += chunk;
+    if (response.includes(`${tag} OK`) || response.includes(`${tag} NO`) || response.includes(`${tag} BAD`)) break;
+    if (!chunk) break;
+  }
+  return response;
+}
+
+function parseEmailHeaders(raw: string) {
+  const fromMatch = raw.match(/From:\s*(.+)/i);
+  const subjectMatch = raw.match(/Subject:\s*(.+)/i);
+  const dateMatch = raw.match(/Date:\s*(.+)/i);
+  const messageIdMatch = raw.match(/Message-ID:\s*(<[^>]+>|[^\s]+)/i);
+  const inReplyToMatch = raw.match(/In-Reply-To:\s*(<[^>]+>|[^\s]+)/i);
+  const contentTypeMatch = raw.match(/Content-Type:\s*([^;\r\n]+)/i);
+
+  const fromRaw = fromMatch?.[1]?.trim() || "unknown@email.com";
+  const emailMatch = fromRaw.match(/<(.+?)>/);
+  const fromEmail = emailMatch ? emailMatch[1] : fromRaw;
+  const fromName = fromRaw.replace(/<.+>/, "").replace(/"/g, "").trim() || fromEmail;
+
+  return {
+    fromEmail,
+    fromName,
+    subject: subjectMatch?.[1]?.trim() || "(No Subject)",
+    dateStr: dateMatch?.[1]?.trim() || null,
+    messageId: messageIdMatch?.[1]?.trim() || null,
+    inReplyTo: inReplyToMatch?.[1]?.trim() || null,
+    hasAttachment: /multipart\/mixed/i.test(contentTypeMatch?.[1] || ""),
+    contentType: contentTypeMatch?.[1]?.trim() || "text/plain",
+  };
+}
+
+function extractTextBody(fetchResp: string): string {
+  const bodyStart = fetchResp.indexOf("\r\n\r\n", fetchResp.indexOf("BODY[TEXT]"));
+  let bodyText = bodyStart > -1 ? fetchResp.substring(bodyStart + 4) : "";
+  bodyText = bodyText.replace(/\)\r\n.*$/s, "").trim();
+  // Strip HTML tags for plain text
+  bodyText = bodyText.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+  return bodyText;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -16,7 +80,6 @@ serve(async (req) => {
   );
 
   try {
-    // Get all email channels with IMAP settings
     const { data: emailChannels, error: chErr } = await supabase
       .from("channels")
       .select("*")
@@ -42,13 +105,14 @@ serve(async (req) => {
         continue;
       }
 
-      // Retry mechanism - up to 3 attempts per channel
       let attempt = 0;
       const maxAttempts = 3;
       let success = false;
 
       while (attempt < maxAttempts && !success) {
         attempt++;
+        let conn: Deno.TlsConn | Deno.TcpConn | null = null;
+
         try {
           const host = settings.imap_host;
           const port = settings.imap_port || 993;
@@ -56,117 +120,102 @@ serve(async (req) => {
           const pass = settings.imap_password;
           const useTls = settings.imap_tls !== false;
 
-          const conn = useTls
-            ? await Deno.connectTls({ hostname: host, port })
+          // TLS-safe connection with hostname verification
+          conn = useTls
+            ? await Deno.connectTls({ hostname: host, port, alpnProtocols: [] })
             : await Deno.connect({ hostname: host, port });
 
-          const encoder = new TextEncoder();
-          const decoder = new TextDecoder();
+          // Read server greeting
+          const greeting = await readFromConn(conn);
+          if (!greeting.includes("OK")) {
+            throw new Error(`IMAP server did not send OK greeting: ${greeting.substring(0, 100)}`);
+          }
 
-          const readResponse = async (): Promise<string> => {
-            const buf = new Uint8Array(8192);
-            const n = await conn.read(buf);
-            return n ? decoder.decode(buf.subarray(0, n)) : "";
-          };
-
-          const sendCommand = async (tag: string, cmd: string): Promise<string> => {
-            await conn.write(encoder.encode(`${tag} ${cmd}\r\n`));
-            let response = "";
-            let attempts = 0;
-            while (attempts < 10) {
-              const chunk = await readResponse();
-              response += chunk;
-              if (response.includes(`${tag} OK`) || response.includes(`${tag} NO`) || response.includes(`${tag} BAD`)) break;
-              attempts++;
-            }
-            return response;
-          };
-
-          await readResponse();
-
-          const loginResp = await sendCommand("A001", `LOGIN "${user}" "${pass}"`);
+          // Login (escape special chars in password)
+          const escapedPass = pass.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+          const loginResp = await imapCommand(conn, "A001", `LOGIN "${user}" "${escapedPass}"`);
           if (!loginResp.includes("A001 OK")) {
             console.error(`[EMAIL-POLL] Login failed for channel ${channel.id} (attempt ${attempt})`);
-            conn.close();
             if (attempt === maxAttempts) {
               await supabase.from("channels").update({ connection_status: "error" }).eq("id", channel.id);
             }
+            conn.close();
+            conn = null;
+            await new Promise(r => setTimeout(r, 2000 * attempt));
             continue;
           }
 
-          await sendCommand("A002", "SELECT INBOX");
+          const selectResp = await imapCommand(conn, "A002", "SELECT INBOX");
+          if (!selectResp.includes("A002 OK")) {
+            throw new Error("Failed to SELECT INBOX");
+          }
 
-          const searchResp = await sendCommand("A003", "SEARCH UNSEEN");
+          const searchResp = await imapCommand(conn, "A003", "SEARCH UNSEEN");
           const searchMatch = searchResp.match(/\* SEARCH (.+)/);
           const messageIds = searchMatch ? searchMatch[1].trim().split(/\s+/).filter(Boolean) : [];
 
           if (messageIds.length === 0) {
-            await sendCommand("A099", "LOGOUT");
+            await imapCommand(conn, "A099", "LOGOUT");
             conn.close();
+            conn = null;
             success = true;
             continue;
           }
 
+          // Process latest 20 messages
           const idsToFetch = messageIds.slice(-20);
 
           for (const msgId of idsToFetch) {
             try {
-              const fetchResp = await sendCommand(`F${msgId}`, `FETCH ${msgId} (BODY[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID)] BODY[TEXT])`);
+              // Fetch headers + text body (skip attachments for safety)
+              const fetchResp = await imapCommand(
+                conn,
+                `F${msgId}`,
+                `FETCH ${msgId} (BODY[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID IN-REPLY-TO CONTENT-TYPE)] BODY[TEXT])`,
+                20_000
+              );
 
-              const fromMatch = fetchResp.match(/From:\s*(.+)/i);
-              const subjectMatch = fetchResp.match(/Subject:\s*(.+)/i);
-              const dateMatch = fetchResp.match(/Date:\s*(.+)/i);
-              const messageIdMatch = fetchResp.match(/Message-ID:\s*(.+)/i);
+              const headers = parseEmailHeaders(fetchResp);
 
-              const fromRaw = fromMatch?.[1]?.trim() || "unknown@email.com";
-              const subject = subjectMatch?.[1]?.trim() || "(No Subject)";
-              const dateStr = dateMatch?.[1]?.trim();
-              const externalMessageId = messageIdMatch?.[1]?.trim() || null;
-
-              const emailMatch = fromRaw.match(/<(.+?)>/);
-              const fromEmail = emailMatch ? emailMatch[1] : fromRaw;
-              const fromName = fromRaw.replace(/<.+>/, "").replace(/"/g, "").trim() || fromEmail;
-
-              // DEDUPLICATION: Check if message already exists
-              if (externalMessageId) {
+              // DEDUPLICATION by Message-ID
+              if (headers.messageId) {
                 const { data: existingMsg } = await supabase
                   .from("inbox_messages")
                   .select("id")
                   .eq("user_id", channel.user_id)
                   .eq("channel_id", channel.id)
-                  .contains("metadata", { external_message_id: externalMessageId })
+                  .contains("metadata", { external_message_id: headers.messageId })
                   .maybeSingle();
 
                 if (existingMsg) {
                   totalSkipped++;
-                  await sendCommand(`S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+                  await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
                   continue;
                 }
               }
 
-              // Also deduplicate by sender+subject+timestamp
-              const msgTimestamp = dateStr ? new Date(dateStr).toISOString() : new Date().toISOString();
+              // Dedup by sender+timestamp
+              const msgTimestamp = headers.dateStr ? new Date(headers.dateStr).toISOString() : new Date().toISOString();
               const { data: dupCheck } = await supabase
                 .from("inbox_messages")
                 .select("id")
                 .eq("user_id", channel.user_id)
-                .eq("sender_identifier", fromEmail)
+                .eq("sender_identifier", headers.fromEmail)
                 .eq("message_timestamp", msgTimestamp)
                 .maybeSingle();
 
               if (dupCheck) {
                 totalSkipped++;
-                await sendCommand(`S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+                await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
                 continue;
               }
 
-              // Extract body
-              const bodyStart = fetchResp.indexOf("\r\n\r\n", fetchResp.indexOf("BODY[TEXT]"));
-              let bodyText = bodyStart > -1 ? fetchResp.substring(bodyStart + 4) : "";
-              bodyText = bodyText.replace(/\)\r\n.*$/s, "").trim();
-              if (!bodyText) bodyText = subject;
-
-              const messageContent = subject !== "(No Subject)" ? `[${subject}] ${bodyText.substring(0, 2000)}` : bodyText.substring(0, 2000);
+              // Extract body (attachment-safe: we only read TEXT part)
+              let bodyText = extractTextBody(fetchResp);
+              if (!bodyText) bodyText = headers.subject;
+              const messageContent = headers.subject !== "(No Subject)"
+                ? `[${headers.subject}] ${bodyText.substring(0, 2000)}`
+                : bodyText.substring(0, 2000);
 
               // Keyword matching
               const { data: keywords } = await supabase
@@ -180,10 +229,9 @@ serve(async (req) => {
                 .filter((k: any) => textLower.includes(k.keyword.toLowerCase()))
                 .map((k: any) => k.keyword);
 
-              const intentScore = matched.length > 0 ? 0.5 : 0.1;
-
-              let aiScore = intentScore;
+              let aiScore = matched.length > 0 ? 0.5 : 0.1;
               let suggestedReply = "";
+
               if (matched.length > 0) {
                 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
                 if (LOVABLE_API_KEY) {
@@ -196,10 +244,7 @@ serve(async (req) => {
 
                     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
                       method: "POST",
-                      headers: {
-                        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-                        "Content-Type": "application/json",
-                      },
+                      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
                       body: JSON.stringify({
                         model: "google/gemini-2.5-flash-lite",
                         messages: [
@@ -244,41 +289,56 @@ serve(async (req) => {
                 }
               }
 
-              // Threading: find existing thread by sender
+              // Threading: use In-Reply-To header for reliable threading
               let threadId: string | null = null;
-              const { data: existingThread } = await supabase
-                .from("conversation_threads")
-                .select("id")
-                .eq("user_id", channel.user_id)
-                .eq("channel_type", "email")
-                .eq("contact_identifier", fromEmail)
-                .eq("status", "open")
-                .order("last_message_at", { ascending: false })
-                .limit(1)
-                .maybeSingle();
-
-              if (existingThread) {
-                threadId = existingThread.id;
-                // Update thread
-                await supabase
-                  .from("conversation_threads")
-                  .update({
-                    last_message_at: msgTimestamp,
-                    message_count: (existingThread as any).message_count ? (existingThread as any).message_count + 1 : 1,
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("id", threadId);
+              if (headers.inReplyTo) {
+                const { data: replyThread } = await supabase
+                  .from("inbox_messages")
+                  .select("thread_id")
+                  .eq("user_id", channel.user_id)
+                  .contains("metadata", { external_message_id: headers.inReplyTo })
+                  .not("thread_id", "is", null)
+                  .limit(1)
+                  .maybeSingle();
+                if (replyThread?.thread_id) threadId = replyThread.thread_id;
               }
 
-              // Insert inbox message with workspace_id and dedup metadata
+              // Fallback: thread by sender + open status
+              if (!threadId) {
+                const { data: existingThread } = await supabase
+                  .from("conversation_threads")
+                  .select("id")
+                  .eq("user_id", channel.user_id)
+                  .eq("channel_type", "email")
+                  .eq("contact_identifier", headers.fromEmail)
+                  .eq("status", "open")
+                  .order("last_message_at", { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
+                if (existingThread) threadId = existingThread.id;
+              }
+
+              if (threadId) {
+                await supabase.from("conversation_threads").update({
+                  last_message_at: msgTimestamp,
+                  updated_at: new Date().toISOString(),
+                }).eq("id", threadId);
+              }
+
+              // Insert inbox message
+              const metadata: Record<string, any> = {};
+              if (headers.messageId) metadata.external_message_id = headers.messageId;
+              if (headers.inReplyTo) metadata.in_reply_to = headers.inReplyTo;
+              if (headers.hasAttachment) metadata.has_attachment = true;
+
               await supabase.from("inbox_messages").insert({
                 user_id: channel.user_id,
                 workspace_id: channel.workspace_id,
                 channel_id: channel.id,
                 channel_type: "email",
-                source_name: fromEmail,
-                sender_name: fromName,
-                sender_identifier: fromEmail,
+                source_name: headers.fromEmail,
+                sender_name: headers.fromName,
+                sender_identifier: headers.fromEmail,
                 message_content: messageContent,
                 message_timestamp: msgTimestamp,
                 intent_score: aiScore,
@@ -287,7 +347,7 @@ serve(async (req) => {
                 priority: aiScore >= 0.7 ? "high" : matched.length > 0 ? "medium" : "normal",
                 status: "new",
                 thread_id: threadId,
-                metadata: externalMessageId ? { external_message_id: externalMessageId } : null,
+                metadata: Object.keys(metadata).length > 0 ? metadata : null,
               });
 
               if (matched.length > 0 && aiScore >= 0.3) {
@@ -295,7 +355,7 @@ serve(async (req) => {
                   user_id: channel.user_id,
                   workspace_id: channel.workspace_id,
                   message_content: messageContent,
-                  source_name: fromEmail,
+                  source_name: headers.fromEmail,
                   source_type: "email",
                   message_date: msgTimestamp,
                   detected_keyword: matched[0],
@@ -311,14 +371,13 @@ serve(async (req) => {
                   .maybeSingle();
 
                 if (sub) {
-                  await supabase
-                    .from("subscriptions")
+                  await supabase.from("subscriptions")
                     .update({ leads_used: (sub.leads_used || 0) + 1 })
                     .eq("user_id", channel.user_id);
                 }
               }
 
-              await sendCommand(`S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+              await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
               totalProcessed++;
             } catch (msgErr) {
               console.error(`[EMAIL-POLL] Error processing message ${msgId}:`, msgErr);
@@ -326,15 +385,16 @@ serve(async (req) => {
             }
           }
 
-          await sendCommand("A099", "LOGOUT");
+          await imapCommand(conn, "A099", "LOGOUT");
           conn.close();
+          conn = null;
           success = true;
         } catch (channelErr) {
           console.error(`[EMAIL-POLL] Error for channel ${channel.id} (attempt ${attempt}):`, channelErr);
+          if (conn) { try { conn.close(); } catch { /* */ } }
           if (attempt === maxAttempts) {
             await supabase.from("channels").update({ connection_status: "error" }).eq("id", channel.id);
           } else {
-            // Wait before retry
             await new Promise(r => setTimeout(r, 2000 * attempt));
           }
         }

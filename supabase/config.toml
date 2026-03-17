@@ -95,3 +95,12 @@ verify_jwt = false
 
 [functions.ai-conversation-memory]
 verify_jwt = false
+
+[functions.dead-letter-retry]
+verify_jwt = false
+
+[functions.churn-risk-detect]
+verify_jwt = false
+
+[functions.enrich-contacts]
+verify_jwt = false
