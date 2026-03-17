@@ -419,7 +419,6 @@ const ContentCalendar = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </div>
   );
 };
 
