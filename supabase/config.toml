@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.whatsapp-template-manager]
 verify_jwt = false
+
+[functions.assign-thread]
+verify_jwt = false

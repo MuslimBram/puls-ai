@@ -26,6 +26,11 @@ export interface ConversationThread {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  next_response_due: string | null;
+  resolution_due: string | null;
+  sla_breached: boolean;
+  state_changed_at: string | null;
+  previous_status: string | null;
 }
 
 export interface ConversationNote {
@@ -48,8 +53,8 @@ const PAGE_SIZE = 25;
 
 export const THREAD_STATUSES = [
   { value: "new", label: "New", color: "bg-blue-500/10 text-blue-700" },
-  { value: "in_progress", label: "In Progress", color: "bg-yellow-500/10 text-yellow-700" },
-  { value: "waiting", label: "Waiting", color: "bg-orange-500/10 text-orange-700" },
+  { value: "open", label: "Open", color: "bg-emerald-500/10 text-emerald-700" },
+  { value: "pending", label: "Pending", color: "bg-yellow-500/10 text-yellow-700" },
   { value: "resolved", label: "Resolved", color: "bg-green-500/10 text-green-700" },
   { value: "closed", label: "Closed", color: "bg-muted text-muted-foreground" },
 ];
