@@ -10,7 +10,7 @@ import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server } from "lucide-react";
+import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
@@ -21,6 +21,8 @@ import { AdminFreelancerPanel } from "@/components/AdminFreelancerPanel";
 import { AdminPaymentOverview } from "@/components/AdminPaymentOverview";
 import { AdminChurnRiskPanel } from "@/components/AdminChurnRiskPanel";
 import { AdminApiErrorLog } from "@/components/AdminApiErrorLog";
+import { AdminDeadLetterPanel } from "@/components/AdminDeadLetterPanel";
+import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -152,6 +154,14 @@ const Admin = () => {
             <TabsTrigger value="errors">
               <Server className="h-3 w-3 mr-1" />
               API Errors
+            </TabsTrigger>
+            <TabsTrigger value="dlq">
+              <Skull className="h-3 w-3 mr-1" />
+              Dead Letters
+            </TabsTrigger>
+            <TabsTrigger value="jobs">
+              <ListChecks className="h-3 w-3 mr-1" />
+              Job Queue
             </TabsTrigger>
           </TabsList>
 
@@ -564,6 +574,14 @@ const Admin = () => {
 
           <TabsContent value="errors">
             <AdminApiErrorLog />
+          </TabsContent>
+
+          <TabsContent value="dlq">
+            <AdminDeadLetterPanel />
+          </TabsContent>
+
+          <TabsContent value="jobs">
+            <AdminJobQueuePanel />
           </TabsContent>
         </Tabs>
       </div>
