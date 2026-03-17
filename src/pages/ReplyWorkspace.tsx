@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useLeads } from "@/hooks/useLeads";
 import { useReplyDrafts, useReplyTemplates, useGenerateReply } from "@/hooks/useReplyWorkspace";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
+import { AIContextPanel } from "@/components/AIContextPanel";
 import { Copy, RefreshCw, Star, Trash2, Plus, MessageSquare, Save } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
