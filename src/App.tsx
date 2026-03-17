@@ -100,6 +100,7 @@ const App = () => (
               <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
+              <Route path="/public-api" element={<ProtectedPage><PublicApi /></ProtectedPage>} />
               <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
               {/* Consolidated redirects — orphaned pages → parent tabs */}
