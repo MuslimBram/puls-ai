@@ -4944,6 +4944,7 @@ export type Database = {
           country_code: string | null
           created_at: string
           event_type: string
+          geo_city: string | null
           id: string
           ip_address: string | null
           metadata: Json | null
@@ -4955,6 +4956,7 @@ export type Database = {
           country_code?: string | null
           created_at?: string
           event_type: string
+          geo_city?: string | null
           id?: string
           ip_address?: string | null
           metadata?: Json | null
@@ -4966,6 +4968,7 @@ export type Database = {
           country_code?: string | null
           created_at?: string
           event_type?: string
+          geo_city?: string | null
           id?: string
           ip_address?: string | null
           metadata?: Json | null
@@ -5490,6 +5493,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      totp_secrets: {
+        Row: {
+          created_at: string
+          encrypted_secret: string
+          id: string
+          is_verified: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          encrypted_secret: string
+          id?: string
+          is_verified?: boolean
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          encrypted_secret?: string
+          id?: string
+          is_verified?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {
