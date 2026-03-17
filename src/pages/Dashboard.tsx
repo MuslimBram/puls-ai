@@ -49,9 +49,23 @@ const Dashboard = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {!isLoading && (
-          <SafeRender label="Onboarding Wizard">
-            <OnboardingWizard />
-          </SafeRender>
+          <>
+            <SafeRender label="Setup Checklist">
+              <SetupChecklist
+                hasProfile={!!profile}
+                hasKeywords={(keywords ?? []).length > 0}
+                hasTelegram={hasTelegram}
+                hasLeads={(leads ?? []).length > 0}
+                hasChannel={(channels ?? []).length > 0}
+                hasKnowledge={false}
+                hasAutomation={false}
+                hasInbox={(messages ?? []).length > 0}
+              />
+            </SafeRender>
+            <SafeRender label="Onboarding Wizard">
+              <OnboardingWizard />
+            </SafeRender>
+          </>
         )}
 
         <SafeRender label="Growth Assistant">
