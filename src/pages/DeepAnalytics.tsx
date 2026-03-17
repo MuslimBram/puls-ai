@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +21,8 @@ import { toast } from "@/components/ui/sonner";
 import { OperationalDashboard as OpsPanel } from "@/components/OperationalDashboard";
 import { HistoricalTrends } from "@/components/HistoricalTrends";
 
+const BusinessInsightsPage = lazy(() => import("./BusinessInsights"));
+
 const COLORS = [
   "hsl(var(--primary))",
   "hsl(var(--accent))",
@@ -29,6 +33,8 @@ const COLORS = [
 ];
 
 const DeepAnalytics = () => {
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") === "insights" ? "insights" : "analytics";
   const [dateRange, setDateRange] = useState<AnalyticsRange>("30d");
   const m = useDeepAnalytics(dateRange);
 
@@ -59,11 +65,12 @@ const DeepAnalytics = () => {
 
   return (
     <DashboardLayout>
-      <Tabs defaultValue="analytics" className="space-y-4">
+      <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="analytics">Deep Analytics</TabsTrigger>
           <TabsTrigger value="trends">Historical Trends</TabsTrigger>
           <TabsTrigger value="ops">Operational Intelligence</TabsTrigger>
+          <TabsTrigger value="insights">Business Insights</TabsTrigger>
         </TabsList>
         <TabsContent value="trends">
           <HistoricalTrends />
@@ -237,6 +244,11 @@ const DeepAnalytics = () => {
           </Card>
         </div>
       </div>
+        </TabsContent>
+        <TabsContent value="insights">
+          <Suspense fallback={<div className="flex justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+            <BusinessInsightsPage />
+          </Suspense>
         </TabsContent>
       </Tabs>
     </DashboardLayout>

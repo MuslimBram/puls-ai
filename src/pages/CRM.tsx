@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,11 +14,15 @@ import { usePipelineStages, useDeals, useDealNotes, useDealTasks, useDealActivit
 import { supabase } from "@/integrations/supabase/client";
 import { crmFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
-import { Plus, Trash2, Bot, GripVertical, StickyNote, CheckSquare, BarChart3, DollarSign, Target, TrendingUp, Calendar, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Bot, GripVertical, StickyNote, CheckSquare, BarChart3, DollarSign, Target, TrendingUp, Calendar, ChevronRight, Users, Phone, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
+import { ContactHubContent } from "@/components/ContactHubContent";
+import { CallHistoryContent } from "@/components/CallHistoryContent";
 
 const CRM = () => {
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") || "pipeline";
   const { stages, isLoading: stagesLoading, initStages } = usePipelineStages();
   const { deals, isLoading: dealsLoading, addDeal, updateDeal, deleteDeal } = useDeals();
   const stats = usePipelineStats();
@@ -98,11 +103,13 @@ const CRM = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="pipeline">
+        <Tabs defaultValue={defaultTab}>
           <TabsList>
             <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />Contacts</TabsTrigger>
+            <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" />Calls</TabsTrigger>
           </TabsList>
 
           {/* Pipeline View */}
@@ -234,6 +241,14 @@ const CRM = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="contacts">
+            <ContactHubContent />
+          </TabsContent>
+
+          <TabsContent value="calls">
+            <CallHistoryContent />
           </TabsContent>
         </Tabs>
 
