@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSessions, useRevokeSession } from "@/hooks/useUserSessions";
 import { useTOTP } from "@/hooks/useTOTP";
 import { useAuth } from "@/contexts/AuthContext";
+import { AuditLogViewer } from "@/components/AuditLogViewer";
 import {
   Shield, Smartphone, Monitor, Loader2, LogOut, Clock, Globe,
-  ShieldCheck, ShieldOff, KeyRound, QrCode, Copy, Check,
+  ShieldCheck, ShieldOff, KeyRound, QrCode, Copy, Check, ScrollText,
 } from "lucide-react";
 import { format } from "date-fns";
 
