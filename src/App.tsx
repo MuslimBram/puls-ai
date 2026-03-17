@@ -36,6 +36,7 @@ import MediaStudio from "./pages/MediaStudio";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Pricing from "./pages/Pricing";
+import PublicApi from "./pages/PublicApi";
 
 const queryClient = new QueryClient({
   defaultOptions: {
