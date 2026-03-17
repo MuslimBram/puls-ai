@@ -103,11 +103,13 @@ const CRM = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="pipeline">
+        <Tabs defaultValue={defaultTab}>
           <TabsList>
             <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
+            <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />Contacts</TabsTrigger>
+            <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" />Calls</TabsTrigger>
           </TabsList>
 
           {/* Pipeline View */}
