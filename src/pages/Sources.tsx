@@ -239,6 +239,6 @@ export default function Sources() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
