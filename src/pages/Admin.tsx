@@ -155,6 +155,14 @@ const Admin = () => {
               <Server className="h-3 w-3 mr-1" />
               API Errors
             </TabsTrigger>
+            <TabsTrigger value="dlq">
+              <Skull className="h-3 w-3 mr-1" />
+              Dead Letters
+            </TabsTrigger>
+            <TabsTrigger value="jobs">
+              <ListChecks className="h-3 w-3 mr-1" />
+              Job Queue
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
