@@ -85,14 +85,16 @@ export const useTriggerBusinessScan = () => {
 
   return useMutation({
     mutationFn: async ({ businessId, workspaceId, url }: { businessId: string; workspaceId: string; url: string }) => {
-      // Create scan history record
+      const normalizedUrl = url.trim();
+
+      // Create business scan history record
       const { data: scanRecord, error: insertErr } = await supabase
         .from("business_scan_history")
         .insert({
           business_id: businessId,
           workspace_id: workspaceId,
           triggered_by: user!.id,
-          scanned_url: url,
+          scanned_url: normalizedUrl,
           status: "scanning",
           scan_phase: "queued",
         } as any)
@@ -102,13 +104,72 @@ export const useTriggerBusinessScan = () => {
 
       const scan = scanRecord as unknown as BusinessScanHistory;
 
-      // Call the business scan edge function
+      // Reuse or create a scan source linked to this business
+      const { data: existingSource, error: sourceLookupError } = await supabase
+        .from("scan_sources")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .eq("business_id", businessId)
+        .eq("url_or_identifier", normalizedUrl)
+        .maybeSingle();
+      if (sourceLookupError) throw sourceLookupError;
+
+      let sourceId = existingSource?.id as string | undefined;
+
+      if (!sourceId) {
+        const { data: createdSource, error: createSourceError } = await supabase
+          .from("scan_sources")
+          .insert({
+            user_id: user!.id,
+            workspace_id: workspaceId,
+            business_id: businessId,
+            platform: "web",
+            source_type: "website",
+            url_or_identifier: normalizedUrl,
+            label: normalizedUrl,
+            is_active: true,
+            scan_status: "scanning",
+          } as any)
+          .select("id")
+          .single();
+
+        if (createSourceError) throw createSourceError;
+        sourceId = createdSource.id;
+      } else {
+        const { error: updateSourceError } = await supabase
+          .from("scan_sources")
+          .update({ scan_status: "scanning", business_id: businessId } as any)
+          .eq("id", sourceId);
+        if (updateSourceError) throw updateSourceError;
+      }
+
+      // Create source scan record linked to the same business
+      const { data: sourceScanRecord, error: sourceScanError } = await supabase
+        .from("source_scans")
+        .insert({
+          source_id: sourceId,
+          business_id: businessId,
+          user_id: user!.id,
+          workspace_id: workspaceId,
+          status: "running",
+          scan_phase: "queued",
+          items_found: 0,
+          insights_found: 0,
+          pages_scanned: 0,
+        } as any)
+        .select("id")
+        .single();
+      if (sourceScanError) throw sourceScanError;
+
+      // Call the business scan extraction workflow with unified linkage IDs
       const { data, error } = await supabase.functions.invoke("business-scan-extract", {
         body: {
           business_id: businessId,
           scan_history_id: scan.id,
+          source_id: sourceId,
+          source_scan_id: sourceScanRecord.id,
           workspace_id: workspaceId,
-          url,
+          url: normalizedUrl,
         },
       });
 
@@ -119,6 +180,8 @@ export const useTriggerBusinessScan = () => {
     onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: ["business-scan-history", variables.businessId] });
       qc.invalidateQueries({ queryKey: ["scan-insights"] });
+      qc.invalidateQueries({ queryKey: ["scan-history"] });
+      qc.invalidateQueries({ queryKey: ["scan-sources"] });
       toast({
         title: "Scan completed",
         description: `Found ${data?.insights_count || 0} insights in ${((data?.duration_ms || 0) / 1000).toFixed(1)}s`,

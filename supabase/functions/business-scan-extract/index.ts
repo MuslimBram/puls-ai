@@ -66,7 +66,7 @@ serve(async (req) => {
     const { data: userData, error: userError } = await sb.auth.getUser(jwt);
     if (userError || !userData.user) throw new Error("Not authenticated");
 
-    const { business_id, scan_history_id, workspace_id, url } = await req.json();
+    const { business_id, scan_history_id, source_id, source_scan_id, workspace_id, url } = await req.json();
     if (!business_id || !scan_history_id || !workspace_id || !url) {
       throw new Error("business_id, scan_history_id, workspace_id, url required");
     }
@@ -222,11 +222,12 @@ serve(async (req) => {
     // Build insight rows linked to business
     const insightRows: any[] = [];
     const addInsight = (type: string, title: string, desc: string, json: Record<string, unknown>, score: number) => {
+      if (!source_id || !source_scan_id) return;
       insightRows.push({
-        source_id: scan_history_id, // reuse for FK
+        source_id,
         business_id,
         workspace_id,
-        scan_id: scan_history_id,
+        scan_id: source_scan_id,
         user_id: userData.user.id,
         insight_type: type,
         title,
@@ -236,27 +237,19 @@ serve(async (req) => {
       });
     };
 
-    // Products
     products.forEach((p) => addInsight("product", p.title, p.description, { pricing_signal: p.pricing_signal }, 0.8));
-    // Services
     services.forEach((s) => addInsight("service", s.title, s.description, {}, 0.8));
-    // Contacts
     if (contacts.length) addInsight("contact", "Contact Methods", `Found ${contacts.length} contact method(s)`, { contacts }, 0.95);
-    // Social
     if (Object.keys(socialLinks).length) addInsight("social", "Social Media Links", `Found on ${Object.keys(socialLinks).join(", ")}`, socialLinks, 0.95);
-    // CTAs
     if (ctas.length) addInsight("cta", "Call-to-Action Phrases", `Found ${ctas.length} CTA(s)`, { ctas }, 0.85);
-    // Business info
     if (summaryJson.business_summary) addInsight("business_info", pageTitle || "Business Summary", summaryJson.business_summary as string, summaryJson, 0.85);
 
-    // Insert insights
     if (insightRows.length) {
       await sb.from("scan_insights").insert(insightRows);
     }
 
     const durationMs = Date.now() - startTime;
 
-    // Update scan history with structured results
     await sb.from("business_scan_history").update({
       status: "completed",
       scan_phase: "completed",
@@ -276,6 +269,27 @@ serve(async (req) => {
       competitor_hints: competitorHints,
     } as any).eq("id", scan_history_id);
 
+    if (source_scan_id) {
+      await sb.from("source_scans").update({
+        business_id,
+        status: "completed",
+        scan_phase: "completed",
+        completed_at: new Date().toISOString(),
+        items_found: insightRows.length,
+        insights_found: insightRows.length,
+        pages_scanned: pagesScanned,
+        duration_ms: durationMs,
+      } as any).eq("id", source_scan_id);
+    }
+
+    if (source_id) {
+      await sb.from("scan_sources").update({
+        business_id,
+        scan_status: "active",
+        last_scan_at: new Date().toISOString(),
+      } as any).eq("id", source_id);
+    }
+
     return new Response(
       JSON.stringify({ success: true, insights_count: insightRows.length, pages_scanned: pagesScanned, duration_ms: durationMs }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -283,16 +297,33 @@ serve(async (req) => {
   } catch (error) {
     console.error("business-scan-extract error:", error);
 
-    // Try to update scan status to failed
     try {
       const sb = supabaseAdmin();
       const body = await req.clone().json().catch(() => ({}));
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+
       if (body.scan_history_id) {
         await sb.from("business_scan_history").update({
           status: "failed",
           scan_phase: "failed",
-          error_message: error instanceof Error ? error.message : "Unknown error",
+          error_message: errorMessage,
         } as any).eq("id", body.scan_history_id);
+      }
+
+      if (body.source_scan_id) {
+        await sb.from("source_scans").update({
+          business_id: body.business_id,
+          status: "error",
+          scan_phase: "error",
+          error_message: errorMessage,
+        } as any).eq("id", body.source_scan_id);
+      }
+
+      if (body.source_id) {
+        await sb.from("scan_sources").update({
+          business_id: body.business_id,
+          scan_status: "error",
+        } as any).eq("id", body.source_id);
       }
     } catch (_) { /* ignore */ }
 
