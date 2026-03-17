@@ -222,11 +222,12 @@ serve(async (req) => {
     // Build insight rows linked to business
     const insightRows: any[] = [];
     const addInsight = (type: string, title: string, desc: string, json: Record<string, unknown>, score: number) => {
+      if (!source_id || !source_scan_id) return;
       insightRows.push({
-        source_id: scan_history_id, // reuse for FK
+        source_id,
         business_id,
         workspace_id,
-        scan_id: scan_history_id,
+        scan_id: source_scan_id,
         user_id: userData.user.id,
         insight_type: type,
         title,
@@ -236,20 +237,13 @@ serve(async (req) => {
       });
     };
 
-    // Products
     products.forEach((p) => addInsight("product", p.title, p.description, { pricing_signal: p.pricing_signal }, 0.8));
-    // Services
     services.forEach((s) => addInsight("service", s.title, s.description, {}, 0.8));
-    // Contacts
     if (contacts.length) addInsight("contact", "Contact Methods", `Found ${contacts.length} contact method(s)`, { contacts }, 0.95);
-    // Social
     if (Object.keys(socialLinks).length) addInsight("social", "Social Media Links", `Found on ${Object.keys(socialLinks).join(", ")}`, socialLinks, 0.95);
-    // CTAs
     if (ctas.length) addInsight("cta", "Call-to-Action Phrases", `Found ${ctas.length} CTA(s)`, { ctas }, 0.85);
-    // Business info
     if (summaryJson.business_summary) addInsight("business_info", pageTitle || "Business Summary", summaryJson.business_summary as string, summaryJson, 0.85);
 
-    // Insert insights
     if (insightRows.length) {
       await sb.from("scan_insights").insert(insightRows);
     }
