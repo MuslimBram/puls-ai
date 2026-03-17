@@ -4386,6 +4386,9 @@ export type Database = {
         | "staff"
         | "controller"
         | "worker"
+        | "super_admin"
+        | "business_owner"
+        | "partner"
       payment_mode: "declared_payment" | "undeclared_payment"
     }
     CompositeTypes: {
@@ -4522,6 +4525,9 @@ export const Constants = {
         "staff",
         "controller",
         "worker",
+        "super_admin",
+        "business_owner",
+        "partner",
       ],
       payment_mode: ["declared_payment", "undeclared_payment"],
     },
