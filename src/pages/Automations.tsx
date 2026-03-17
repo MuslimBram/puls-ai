@@ -204,6 +204,8 @@ const Automations = () => {
         {viewingLogs && (
           <WorkflowLogs workflow={viewingLogs} onClose={() => setViewingLogs(null)} />
         )}
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
