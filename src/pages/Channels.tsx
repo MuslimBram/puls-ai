@@ -93,19 +93,20 @@ const Channels = () => {
         </TabsList>
 
         <TabsContent value="channels">
-      <div className="space-y-4">
-        <Card>
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Radio className="h-5 w-5 text-primary" />
-                Connected Channels
-              </CardTitle>
-              <CardDescription>Manage your active communication channels.</CardDescription>
-            </div>
-            <Button size="sm" onClick={() => setShowAdd(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Add Channel
-            </Button>
-          </CardHeader>
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Radio className="h-5 w-5 text-primary" />
+                    Connected Channels
+                  </CardTitle>
+                  <CardDescription>Manage your active communication channels.</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => setShowAdd(true)}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Channel
+                </Button>
+              </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="flex justify-center py-6">
