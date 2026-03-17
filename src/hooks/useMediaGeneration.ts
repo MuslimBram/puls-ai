@@ -89,38 +89,30 @@ export const useCreateMediaGeneration = () => {
       prompt: string;
       durationSeconds?: number;
     }) => {
-      const { error } = await supabase.from("media_generations").insert({
-        workspace_id: workspace!.id,
-        user_id: user!.id,
-        media_type: mediaType,
-        prompt,
-        duration_seconds: durationSeconds || null,
-        status: "pending",
-      } as any);
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke("generate-media", {
+        body: {
+          mediaType,
+          prompt,
+          durationSeconds: durationSeconds || null,
+          workspaceId: workspace!.id,
+        },
+      });
 
-      // Increment usage counter
-      const field = mediaType === "image" ? "images_generated_this_month" : "videos_generated_this_month";
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select(field)
-        .eq("user_id", user!.id)
-        .maybeSingle();
+      if (error) throw new Error(error.message || "Generation failed");
 
-      if (sub) {
-        const current = Number((sub as any)[field]) || 0;
-        await supabase
-          .from("subscriptions")
-          .update({ [field]: current + 1 } as any)
-          .eq("user_id", user!.id);
+      // Handle limit/error responses from the function
+      if (data && data.allowed === false) {
+        throw new Error(data.error || "Generation not allowed");
       }
+
+      return data as { generationId: string; resultUrl: string; message: string };
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["media-generations"] });
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
-      toast({ title: "Generation queued", description: "Your media generation has been submitted." });
+      toast({ title: "Image generated!", description: data?.message || "Your media has been created." });
     },
-    onError: (e: Error) => toast({ title: "Failed", description: e.message, variant: "destructive" }),
+    onError: (e: Error) => toast({ title: "Generation failed", description: e.message, variant: "destructive" }),
   });
 };
 
