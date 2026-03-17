@@ -55,6 +55,13 @@ const Helpdesk = () => {
 
   return (
     <DashboardLayout>
+      <Tabs defaultValue="conversations" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="conversations">Conversations</TabsTrigger>
+          <TabsTrigger value="settings">⚙ Settings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="conversations">
       <div className="space-y-4">
         {/* Stats Row */}
         <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
