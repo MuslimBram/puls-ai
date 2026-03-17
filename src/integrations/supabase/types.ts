@@ -2802,6 +2802,117 @@ export type Database = {
           },
         ]
       }
+      escalation_log: {
+        Row: {
+          action_taken: string
+          created_at: string
+          escalated_to: string | null
+          id: string
+          previous_agent: string | null
+          reason: string
+          rule_id: string | null
+          thread_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          action_taken: string
+          created_at?: string
+          escalated_to?: string | null
+          id?: string
+          previous_agent?: string | null
+          reason: string
+          rule_id?: string | null
+          thread_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          action_taken?: string
+          created_at?: string
+          escalated_to?: string | null
+          id?: string
+          previous_agent?: string | null
+          reason?: string
+          rule_id?: string | null
+          thread_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_log_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "escalation_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_log_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "escalation_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      escalation_rules: {
+        Row: {
+          action_type: string
+          created_at: string
+          escalate_to_user_id: string | null
+          id: string
+          is_active: boolean
+          name: string
+          notify_channel: string | null
+          priority: number
+          trigger_minutes: number
+          trigger_type: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          action_type?: string
+          created_at?: string
+          escalate_to_user_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notify_channel?: string | null
+          priority?: number
+          trigger_minutes?: number
+          trigger_type?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string
+          escalate_to_user_id?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          notify_channel?: string | null
+          priority?: number
+          trigger_minutes?: number
+          trigger_type?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "escalation_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       external_integrations: {
         Row: {
           category: string
@@ -5888,6 +5999,7 @@ export type Database = {
         Args: { _user_id: string; _workspace_id: string }
         Returns: boolean
       }
+      process_escalations: { Args: { _workspace_id: string }; Returns: Json }
       reset_daily_ai_replies: { Args: never; Returns: undefined }
       reset_monthly_usage: { Args: never; Returns: undefined }
       upsert_conversation_thread: {
