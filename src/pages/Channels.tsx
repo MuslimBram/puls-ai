@@ -81,11 +81,19 @@ const Channels = () => {
     return acc;
   }, {});
 
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "channels";
+
   return (
     <DashboardLayout>
+      <Tabs defaultValue={initialTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="sources">Sources</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="channels">
       <div className="space-y-4">
-        {/* Connected Channels */}
-        <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2 text-lg">
