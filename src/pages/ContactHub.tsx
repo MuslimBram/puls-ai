@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useContactTags, useContactTimeline, TimelineEvent } from "@/hooks/useContactTimeline";
+import { CustomerIntelligenceProfile } from "@/components/CustomerIntelligenceProfile";
+import { useContactTags, useContactTimeline } from "@/hooks/useContactTimeline";
 import {
   Users, Plus, Tag, X, MessageSquare, Target, Briefcase, Phone, Send, FileText,
-  Search, Filter,
+  Search,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
