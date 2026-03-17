@@ -5801,8 +5801,14 @@ export type Database = {
       }
       workspace_storage_quotas: {
         Row: {
+          documents_count: number
           id: string
+          is_quota_exceeded: boolean
           last_computed_at: string
+          max_documents: number
+          max_media_mb: number
+          max_messages: number
+          media_size_mb: number
           messages_count: number
           messages_limit: number
           storage_limit_bytes: number
@@ -5811,8 +5817,14 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          documents_count?: number
           id?: string
+          is_quota_exceeded?: boolean
           last_computed_at?: string
+          max_documents?: number
+          max_media_mb?: number
+          max_messages?: number
+          media_size_mb?: number
           messages_count?: number
           messages_limit?: number
           storage_limit_bytes?: number
@@ -5821,8 +5833,14 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          documents_count?: number
           id?: string
+          is_quota_exceeded?: boolean
           last_computed_at?: string
+          max_documents?: number
+          max_media_mb?: number
+          max_messages?: number
+          media_size_mb?: number
           messages_count?: number
           messages_limit?: number
           storage_limit_bytes?: number
@@ -5936,6 +5954,10 @@ export type Database = {
           _refill_sec?: number
           _workspace_id: string
         }
+        Returns: boolean
+      }
+      check_storage_quota: {
+        Args: { _resource_type?: string; _workspace_id: string }
         Returns: boolean
       }
       cleanup_expired_locks: { Args: never; Returns: undefined }
