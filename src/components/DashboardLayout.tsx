@@ -72,7 +72,6 @@ const businessNavGroups: NavGroup[] = [
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-      { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
@@ -80,17 +79,13 @@ const businessNavGroups: NavGroup[] = [
     label: "Growth & AI",
     icon: Sparkles,
     items: [
-      { href: "/reply-workspace", label: "Reply Workspace", icon: MessageSquare },
       { href: "/automations", label: "Automations", icon: Workflow },
       { href: "/keywords", label: "Keywords", icon: Key },
       { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
       { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
       { href: "/media-studio", label: "Media Studio", icon: Megaphone },
-      { href: "/lead-qualification", label: "Qualification Bot", icon: Bot },
       { href: "/broadcast", label: "Broadcast", icon: Send },
-      { href: "/dedicated-ai", label: "Dedicated AI", icon: Bot },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
-      { href: "/visitor-intelligence", label: "Visitor Intel", icon: Brain },
     ],
   },
   {
@@ -98,11 +93,7 @@ const businessNavGroups: NavGroup[] = [
     icon: Plug,
     items: [
       { href: "/channels", label: "Channels", icon: Radio },
-      { href: "/sources", label: "Sources", icon: Radar },
-      { href: "/connected-accounts", label: "Connected Accounts", icon: Link2 },
-      { href: "/contact-hub", label: "Contact Hub", icon: Users },
-      { href: "/call-history", label: "Call History", icon: Phone },
-      { href: "/external-integrations", label: "External Integrations", icon: Plug },
+      { href: "/connected-accounts", label: "Connections", icon: Link2 },
     ],
   },
   {
@@ -110,12 +101,9 @@ const businessNavGroups: NavGroup[] = [
     icon: Receipt,
     items: [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
-      { href: "/subscription", label: "Subscription", icon: CreditCard },
-      { href: "/pricing", label: "Pricing", icon: Zap },
-      { href: "/referrals", label: "Referrals", icon: Users },
-      { href: "/partner", label: "Partner Program", icon: Handshake },
-      { href: "/partner-clients", label: "Partner Clients", icon: Building2 },
-      { href: "/security", label: "Security Settings", icon: Shield },
+      { href: "/subscription", label: "Billing", icon: CreditCard },
+      { href: "/partner", label: "Partners", icon: Handshake },
+      { href: "/security", label: "Security", icon: Shield },
     ],
   },
 ];
@@ -128,8 +116,7 @@ const adminNavGroups: NavGroup[] = [
     adminOnly: true,
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
-      { href: "/deep-analytics", label: "Deep Analytics", icon: PieChart },
-      { href: "/business-insights", label: "Business Insights", icon: Brain },
+      { href: "/deep-analytics", label: "Analytics", icon: PieChart },
     ],
   },
 ];
