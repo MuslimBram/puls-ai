@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBroadcasts, useContactSegments, type Broadcast } from "@/hooks/useBroadcasts";
 import { computeSpamScore, CHANNEL_LIMITS, useApproveBroadcast } from "@/hooks/useBroadcastCompliance";
+import { ComplianceDashboard } from "@/components/ComplianceDashboard";
 import {
   Send,
   Plus,
