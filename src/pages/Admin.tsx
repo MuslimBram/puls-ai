@@ -575,6 +575,14 @@ const Admin = () => {
           <TabsContent value="errors">
             <AdminApiErrorLog />
           </TabsContent>
+
+          <TabsContent value="dlq">
+            <AdminDeadLetterPanel />
+          </TabsContent>
+
+          <TabsContent value="jobs">
+            <AdminJobQueuePanel />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
