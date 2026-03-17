@@ -63,8 +63,13 @@ const Automations = () => {
         <Tabs defaultValue="workflows">
           <TabsList>
             <TabsTrigger value="workflows">My Workflows</TabsTrigger>
+            <TabsTrigger value="chatbots">Chatbot Flows</TabsTrigger>
             <TabsTrigger value="templates">Templates Library</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="chatbots" className="mt-4">
+            <ChatbotFlowBuilder />
+          </TabsContent>
 
           <TabsContent value="templates" className="mt-4">
             <AutomationTemplates />
