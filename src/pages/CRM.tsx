@@ -21,6 +21,8 @@ import { ContactHubContent } from "@/components/ContactHubContent";
 import { CallHistoryContent } from "@/components/CallHistoryContent";
 
 const CRM = () => {
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") || "pipeline";
   const { stages, isLoading: stagesLoading, initStages } = usePipelineStages();
   const { deals, isLoading: dealsLoading, addDeal, updateDeal, deleteDeal } = useDeals();
   const stats = usePipelineStats();
