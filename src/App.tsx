@@ -27,7 +27,7 @@ import CompetitorIntelligence from "./pages/CompetitorIntelligence";
 import PartnerDashboard from "./pages/PartnerDashboard";
 import SessionSecurity from "./pages/SessionSecurity";
 import CRM from "./pages/CRM";
-import ExternalIntegrations from "./pages/ExternalIntegrations";
+
 import Helpdesk from "./pages/Helpdesk";
 import BroadcastMessaging from "./pages/BroadcastMessaging";
 import Automations from "./pages/Automations";
