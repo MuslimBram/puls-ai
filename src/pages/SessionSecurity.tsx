@@ -247,6 +247,11 @@ const SessionSecurity = () => {
 
           {/* Security Settings Tab */}
           <TabsContent value="security" className="space-y-4">
+            <SecurityPosturePanel
+              twoFactorEnabled={!!totp.status?.verified}
+              activeSessionCount={sessions?.length ?? 0}
+            />
+
             <Card>
               <CardHeader><CardTitle className="text-base">Session Settings</CardTitle></CardHeader>
               <CardContent className="space-y-3">
