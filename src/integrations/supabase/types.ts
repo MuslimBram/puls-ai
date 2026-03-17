@@ -14,6 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_conversation_memory: {
+        Row: {
+          contact_identifier: string
+          contact_name: string | null
+          created_at: string
+          embedding_vector: string | null
+          id: string
+          interaction_count: number | null
+          key_facts: Json | null
+          last_interaction_at: string | null
+          memory_type: string
+          sentiment_trend: string | null
+          summary: string | null
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          contact_identifier: string
+          contact_name?: string | null
+          created_at?: string
+          embedding_vector?: string | null
+          id?: string
+          interaction_count?: number | null
+          key_facts?: Json | null
+          last_interaction_at?: string | null
+          memory_type?: string
+          sentiment_trend?: string | null
+          summary?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          contact_identifier?: string
+          contact_name?: string | null
+          created_at?: string
+          embedding_vector?: string | null
+          id?: string
+          interaction_count?: number | null
+          key_facts?: Json | null
+          last_interaction_at?: string | null
+          memory_type?: string
+          sentiment_trend?: string | null
+          summary?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_conversation_memory_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_conversations: {
         Row: {
           ai_reply: string | null
@@ -1842,6 +1898,54 @@ export type Database = {
           },
         ]
       }
+      dead_letter_queue: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          error_stack: string | null
+          failed_at: string
+          id: string
+          job_type: string
+          max_retries: number
+          original_queue: string | null
+          payload: Json
+          resolved_at: string | null
+          resolved_by: string | null
+          retry_count: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          error_stack?: string | null
+          failed_at?: string
+          id?: string
+          job_type: string
+          max_retries?: number
+          original_queue?: string | null
+          payload?: Json
+          resolved_at?: string | null
+          resolved_by?: string | null
+          retry_count?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          error_stack?: string | null
+          failed_at?: string
+          id?: string
+          job_type?: string
+          max_retries?: number
+          original_queue?: string | null
+          payload?: Json
+          resolved_at?: string | null
+          resolved_by?: string | null
+          retry_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
       deal_activities: {
         Row: {
           activity_type: string
@@ -2708,6 +2812,63 @@ export type Database = {
           },
           {
             foreignKeyName: "lead_matches_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_scores: {
+        Row: {
+          churn_factors: Json | null
+          churn_risk: number | null
+          created_at: string
+          id: string
+          last_scored_at: string
+          lead_id: string | null
+          predicted_value: number | null
+          score: number
+          score_factors: Json | null
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          churn_factors?: Json | null
+          churn_risk?: number | null
+          created_at?: string
+          id?: string
+          last_scored_at?: string
+          lead_id?: string | null
+          predicted_value?: number | null
+          score?: number
+          score_factors?: Json | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          churn_factors?: Json | null
+          churn_risk?: number | null
+          created_at?: string
+          id?: string
+          last_scored_at?: string
+          lead_id?: string | null
+          predicted_value?: number | null
+          score?: number
+          score_factors?: Json | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_scores_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lead_scores_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"

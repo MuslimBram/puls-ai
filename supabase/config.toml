@@ -86,3 +86,12 @@ verify_jwt = false
 
 [functions.send-sms]
 verify_jwt = false
+
+[functions.score-leads]
+verify_jwt = false
+
+[functions.partner-payouts]
+verify_jwt = false
+
+[functions.ai-conversation-memory]
+verify_jwt = false
