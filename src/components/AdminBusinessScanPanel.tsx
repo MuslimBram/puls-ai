@@ -192,12 +192,14 @@ function BusinessScanRow({
   business,
   onScan,
   onViewInsights,
+  onOpenInsightsPage,
   onGenerate,
   isGenerating,
 }: {
   business: Business;
   onScan: (business: Business, options?: { url?: string; mode?: "scan" | "rescan" }) => void;
   onViewInsights: (business: Business, initialScan?: BusinessScanHistory | null) => void;
+  onOpenInsightsPage: (businessId: string) => void;
   onGenerate: (business: Business, scanHistoryId?: string) => void;
   isGenerating: boolean;
 }) {
@@ -254,7 +256,10 @@ function BusinessScanRow({
             <Search className="mr-1 h-3 w-3" /> Scan Website
           </Button>
           <Button size="sm" variant="outline" onClick={() => onViewInsights(business, latestScan)}>
-            <Eye className="mr-1 h-3 w-3" /> View Scan Insights
+            <Eye className="mr-1 h-3 w-3" /> Quick View
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => onOpenInsightsPage(business.id)}>
+            <Globe className="mr-1 h-3 w-3" /> Open Insights Page
           </Button>
           <Button
             size="sm"
