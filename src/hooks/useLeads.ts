@@ -9,6 +9,7 @@ export interface LeadFilters {
   dateFrom?: string;
   dateTo?: string;
   status?: string;
+  intentType?: string;
 }
 
 const PAGE_SIZE = 25;
@@ -39,6 +40,7 @@ export const useLeads = (filters: LeadFilters = {}) => {
       if (filters.dateFrom) q = q.gte("message_date", filters.dateFrom);
       if (filters.dateTo) q = q.lte("message_date", filters.dateTo);
       if (filters.status) q = q.eq("status", filters.status);
+      if (filters.intentType) q = q.eq("intent_type", filters.intentType);
 
       const { data, error, count } = await q;
       if (error) throw error;
@@ -46,13 +48,52 @@ export const useLeads = (filters: LeadFilters = {}) => {
       const rows = data ?? [];
       const hasMore = rows.length > PAGE_SIZE;
       const pageData = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+      const leadIds = pageData.map((lead) => lead.id);
 
       if (hasMore && pageData.length > 0) {
         const lastItem = pageData[pageData.length - 1];
         cursorStack.current[page + 1] = (lastItem as any).message_date;
       }
 
-      return { data: pageData, total: count ?? 0, hasMore };
+      let scoreMap = new Map<string, {
+        score: number;
+        churn_risk: number | null;
+        score_factors: unknown;
+        last_scored_at: string;
+      }>();
+
+      if (leadIds.length > 0) {
+        const { data: scoreRows, error: scoreError } = await supabase
+          .from("lead_scores")
+          .select("lead_id, score, churn_risk, score_factors, last_scored_at")
+          .in("lead_id", leadIds);
+
+        if (scoreError) throw scoreError;
+
+        scoreMap = new Map(
+          (scoreRows ?? [])
+            .filter((row) => !!row.lead_id)
+            .map((row) => [row.lead_id as string, {
+              score: row.score,
+              churn_risk: row.churn_risk,
+              score_factors: row.score_factors,
+              last_scored_at: row.last_scored_at,
+            }]),
+        );
+      }
+
+      const enrichedData = pageData.map((lead) => {
+        const leadScore = scoreMap.get(lead.id);
+        return {
+          ...lead,
+          ai_score: leadScore?.score ?? null,
+          churn_risk: leadScore?.churn_risk ?? null,
+          score_factors: leadScore?.score_factors ?? null,
+          last_scored_at: leadScore?.last_scored_at ?? null,
+        };
+      });
+
+      return { data: enrichedData, total: count ?? 0, hasMore };
     },
     enabled: !!user,
   });
