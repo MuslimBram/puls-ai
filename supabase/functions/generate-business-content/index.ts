@@ -25,59 +25,85 @@ serve(async (req) => {
     const { data: userData, error: userError } = await sb.auth.getUser(jwt);
     if (userError || !userData.user) throw new Error("Not authenticated");
 
+    const actorId = userData.user.id;
     const { business_id, workspace_id, scan_history_id } = await req.json();
     if (!business_id || !workspace_id) throw new Error("business_id and workspace_id required");
 
-    // Get business profile
-    const { data: business } = await sb.from("business_profiles").select("*").eq("id", business_id).single();
-    if (!business) throw new Error("Business not found");
+    const { data: roleRows, error: roleError } = await sb
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", actorId)
+      .in("role", ["admin", "super_admin"])
+      .limit(1);
+    if (roleError) throw roleError;
+    if (!roleRows || roleRows.length === 0) throw new Error("Forbidden");
 
-    // Get latest scan data
+    const { data: business, error: businessError } = await sb
+      .from("business_profiles")
+      .select("id, user_id, workspace_id, business_name, industry, ai_tone, short_description, target_audience, main_services")
+      .eq("id", business_id)
+      .single();
+    if (businessError) throw businessError;
+    if (!business) throw new Error("Business not found");
+    if (business.workspace_id !== workspace_id) throw new Error("Workspace mismatch for business");
+
     let scanData: any = null;
     if (scan_history_id) {
-      const { data } = await sb.from("business_scan_history").select("*").eq("id", scan_history_id).single();
+      const { data, error } = await sb
+        .from("business_scan_history")
+        .select("*")
+        .eq("id", scan_history_id)
+        .eq("business_id", business_id)
+        .eq("workspace_id", workspace_id)
+        .single();
+      if (error) throw error;
       scanData = data;
     } else {
-      const { data } = await sb.from("business_scan_history")
+      const { data, error } = await sb
+        .from("business_scan_history")
         .select("*")
         .eq("business_id", business_id)
+        .eq("workspace_id", workspace_id)
         .eq("status", "completed")
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
+      if (error) throw error;
       scanData = data;
     }
 
-    // Create content record
-    const { data: contentRecord, error: insertErr } = await sb.from("business_ai_content").insert({
-      business_id,
-      workspace_id,
-      scan_history_id: scan_history_id || scanData?.id || null,
-      generated_by: userData.user.id,
-      content_type: "campaign_ideas",
-      status: "generating",
-    } as any).select().single();
+    if (!scanData) throw new Error("No completed scan found for this business");
+    if (scanData.status !== "completed") throw new Error("Only completed scans can generate AI content");
+
+    const { data: contentRecord, error: insertErr } = await sb
+      .from("business_ai_content")
+      .insert({
+        business_id,
+        workspace_id,
+        scan_history_id: scanData.id,
+        generated_by: actorId,
+        content_type: "campaign_ideas",
+        status: "generating",
+      } as any)
+      .select()
+      .single();
     if (insertErr) throw insertErr;
 
     const contentId = (contentRecord as any).id;
-
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    // Build context
     const biz = business as any;
-    let context = `Business: ${biz.business_name}\nIndustry: ${biz.industry || "Unknown"}\nTarget Audience: ${biz.target_audience || "General"}\nTone: ${biz.ai_tone || "professional"}\nServices: ${biz.main_services || "N/A"}\nDescription: ${biz.short_description || "N/A"}`;
+    const sd = scanData as any;
+    let context = `Business: ${biz.business_name}\nIndustry: ${biz.industry || "Unknown"}\nTarget Audience: ${biz.target_audience || "General"}\nTone: ${biz.ai_tone || sd.tone_of_voice || "professional"}\nServices: ${biz.main_services || "N/A"}\nDescription: ${biz.short_description || "N/A"}\nScanned URL: ${sd.scanned_url || "N/A"}`;
 
-    if (scanData) {
-      const sd = scanData as any;
-      context += `\n\nFrom website scan:`;
-      if (sd.products_found?.length) context += `\nProducts: ${JSON.stringify(sd.products_found.slice(0, 5))}`;
-      if (sd.services_found?.length) context += `\nServices: ${JSON.stringify(sd.services_found.slice(0, 5))}`;
-      if (sd.tone_of_voice) context += `\nDetected Tone: ${sd.tone_of_voice}`;
-      if (sd.suggested_keywords?.length) context += `\nKeywords: ${sd.suggested_keywords.join(", ")}`;
-      if (sd.cta_signals?.length) context += `\nCTAs: ${JSON.stringify(sd.cta_signals)}`;
-      if (sd.summary_json?.business_summary) context += `\nSummary: ${sd.summary_json.business_summary}`;
-    }
+    context += `\n\nFrom completed website scan:`;
+    if (sd.products_found?.length) context += `\nProducts: ${JSON.stringify(sd.products_found.slice(0, 5))}`;
+    if (sd.services_found?.length) context += `\nServices: ${JSON.stringify(sd.services_found.slice(0, 5))}`;
+    if (sd.tone_of_voice) context += `\nDetected Tone: ${sd.tone_of_voice}`;
+    if (sd.suggested_keywords?.length) context += `\nKeywords: ${sd.suggested_keywords.join(", ")}`;
+    if (sd.cta_signals?.length) context += `\nCTAs: ${JSON.stringify(sd.cta_signals)}`;
+    if (sd.summary_json?.business_summary) context += `\nSummary: ${sd.summary_json.business_summary}`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -87,7 +113,7 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: "You are a marketing strategist. Generate actionable content ideas based on business data. Return JSON via the tool.",
+            content: "You are a marketing strategist. Generate actionable content ideas based on verified business profile data and a completed website scan. Return JSON via the tool.",
           },
           { role: "user", content: context },
         ],
@@ -158,14 +184,16 @@ serve(async (req) => {
       }
     }
 
-    // Update content record
-    await sb.from("business_ai_content").update({
-      content_json: contentJson,
-      status: Object.keys(contentJson).length > 0 ? "completed" : "failed",
-    } as any).eq("id", contentId);
+    await sb
+      .from("business_ai_content")
+      .update({
+        content_json: contentJson,
+        status: Object.keys(contentJson).length > 0 ? "completed" : "failed",
+      } as any)
+      .eq("id", contentId);
 
     return new Response(
-      JSON.stringify({ success: true, content_id: contentId }),
+      JSON.stringify({ success: true, content_id: contentId, scan_history_id: scanData.id }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
