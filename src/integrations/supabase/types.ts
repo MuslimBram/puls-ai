@@ -503,6 +503,72 @@ export type Database = {
           },
         ]
       }
+      broadcast_send_queue: {
+        Row: {
+          attempt_count: number
+          broadcast_id: string
+          channel_type: string
+          contact_identifier: string
+          created_at: string
+          id: string
+          last_error: string | null
+          max_attempts: number
+          next_retry_at: string | null
+          recipient_id: string
+          sent_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attempt_count?: number
+          broadcast_id: string
+          channel_type: string
+          contact_identifier: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_retry_at?: string | null
+          recipient_id: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attempt_count?: number
+          broadcast_id?: string
+          channel_type?: string
+          contact_identifier?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          max_attempts?: number
+          next_retry_at?: string | null
+          recipient_id?: string
+          sent_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_send_queue_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broadcast_send_queue_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "broadcast_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broadcast_unsubscribe_tokens: {
         Row: {
           broadcast_id: string | null
@@ -575,6 +641,7 @@ export type Database = {
           response_count: number | null
           scheduled_at: string | null
           segment_id: string | null
+          sender_reputation: number | null
           sent_count: number | null
           spam_score: number | null
           started_at: string | null
@@ -608,6 +675,7 @@ export type Database = {
           response_count?: number | null
           scheduled_at?: string | null
           segment_id?: string | null
+          sender_reputation?: number | null
           sent_count?: number | null
           spam_score?: number | null
           started_at?: string | null
@@ -641,6 +709,7 @@ export type Database = {
           response_count?: number | null
           scheduled_at?: string | null
           segment_id?: string | null
+          sender_reputation?: number | null
           sent_count?: number | null
           spam_score?: number | null
           started_at?: string | null
@@ -2615,6 +2684,56 @@ export type Database = {
           },
         ]
       }
+      global_suppression_list: {
+        Row: {
+          channel_type: string
+          contact_identifier: string
+          created_at: string
+          id: string
+          reason: string | null
+          source: string | null
+          source_id: string | null
+          suppressed_at: string
+          suppression_type: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          channel_type?: string
+          contact_identifier: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          source?: string | null
+          source_id?: string | null
+          suppressed_at?: string
+          suppression_type?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          channel_type?: string
+          contact_identifier?: string
+          created_at?: string
+          id?: string
+          reason?: string | null
+          source?: string | null
+          source_id?: string | null
+          suppressed_at?: string
+          suppression_type?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "global_suppression_list_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_scores: {
         Row: {
           automation_usage_score: number | null
@@ -4274,6 +4393,62 @@ export type Database = {
           },
         ]
       }
+      sending_reputation: {
+        Row: {
+          channel_type: string
+          created_at: string
+          id: string
+          last_computed_at: string
+          reputation_score: number
+          total_bounced: number
+          total_complained: number
+          total_delivered: number
+          total_sent: number
+          total_unsubscribed: number
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          channel_type: string
+          created_at?: string
+          id?: string
+          last_computed_at?: string
+          reputation_score?: number
+          total_bounced?: number
+          total_complained?: number
+          total_delivered?: number
+          total_sent?: number
+          total_unsubscribed?: number
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          channel_type?: string
+          created_at?: string
+          id?: string
+          last_computed_at?: string
+          reputation_score?: number
+          total_bounced?: number
+          total_complained?: number
+          total_delivered?: number
+          total_sent?: number
+          total_unsubscribed?: number
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sending_reputation_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       source_scans: {
         Row: {
           completed_at: string | null
@@ -4845,9 +5020,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      compute_reputation_score: {
+        Args: {
+          _total_bounced: number
+          _total_complained: number
+          _total_sent: number
+          _total_unsubscribed: number
+        }
+        Returns: number
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_contact_suppressed: {
+        Args: {
+          _channel_type: string
+          _contact_identifier: string
           _user_id: string
         }
         Returns: boolean

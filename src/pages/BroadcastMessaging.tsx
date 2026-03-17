@@ -9,8 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBroadcasts, useContactSegments, type Broadcast } from "@/hooks/useBroadcasts";
 import { computeSpamScore, CHANNEL_LIMITS, useApproveBroadcast } from "@/hooks/useBroadcastCompliance";
+import { ComplianceDashboard } from "@/components/ComplianceDashboard";
 import {
   Send,
   Plus,
@@ -63,6 +65,27 @@ const BroadcastMessaging = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Broadcast Messaging</h1>
+            <p className="text-sm text-muted-foreground">Send campaigns to contact segments across channels</p>
+          </div>
+          <Button onClick={() => setShowCreate(true)}>
+            <Plus className="mr-2 h-4 w-4" /> New Broadcast
+          </Button>
+        </div>
+
+        <Tabs defaultValue="broadcasts">
+          <TabsList>
+            <TabsTrigger value="broadcasts">Broadcasts</TabsTrigger>
+            <TabsTrigger value="compliance">Compliance & Reputation</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="compliance">
+            <ComplianceDashboard />
+          </TabsContent>
+
+          <TabsContent value="broadcasts">
+        <div className="flex items-center justify-between hidden">
           <div>
             <h1 className="text-2xl font-bold text-foreground">Broadcast Messaging</h1>
             <p className="text-sm text-muted-foreground">Send campaigns to contact segments across channels</p>
@@ -208,6 +231,9 @@ const BroadcastMessaging = () => {
         {viewingBroadcast && (
           <BroadcastDetailDialog broadcast={viewingBroadcast} onClose={() => setViewingBroadcast(null)} />
         )}
+
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
