@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useUserSessions, useRevokeSession } from "@/hooks/useUserSessions";
 import { useTOTP } from "@/hooks/useTOTP";
 import { useAuth } from "@/contexts/AuthContext";
+import { AuditLogViewer } from "@/components/AuditLogViewer";
 import {
   Shield, Smartphone, Monitor, Loader2, LogOut, Clock, Globe,
-  ShieldCheck, ShieldOff, KeyRound, QrCode, Copy, Check,
+  ShieldCheck, ShieldOff, KeyRound, QrCode, Copy, Check, ScrollText,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -59,6 +60,9 @@ const SessionSecurity = () => {
           <TabsList>
             <TabsTrigger value="2fa">Two-Factor Auth</TabsTrigger>
             <TabsTrigger value="sessions">Sessions ({sessions?.length || 0})</TabsTrigger>
+            <TabsTrigger value="audit">
+              <ScrollText className="h-3.5 w-3.5 mr-1" /> Audit Log
+            </TabsTrigger>
             <TabsTrigger value="security">Settings</TabsTrigger>
           </TabsList>
 
@@ -233,6 +237,11 @@ const SessionSecurity = () => {
                 );
               })
             )}
+          </TabsContent>
+
+          {/* Audit Log Tab */}
+          <TabsContent value="audit" className="space-y-4">
+            <AuditLogViewer />
           </TabsContent>
 
           {/* Security Settings Tab */}
