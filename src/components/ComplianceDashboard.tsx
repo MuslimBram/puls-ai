@@ -105,8 +105,10 @@ export const ComplianceDashboard = () => {
       <Tabs defaultValue="reputation">
         <TabsList>
           <TabsTrigger value="reputation">Reputation</TabsTrigger>
+          <TabsTrigger value="approvals">Template Approvals</TabsTrigger>
           <TabsTrigger value="suppressions">Suppression List ({suppressions.length})</TabsTrigger>
           <TabsTrigger value="optouts">Opt-outs ({optouts.length})</TabsTrigger>
+          <TabsTrigger value="rules">Sending Rules</TabsTrigger>
         </TabsList>
 
         {/* Reputation Tab */}
