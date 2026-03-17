@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
+import { OperationalDashboard as OpsPanel } from "@/components/OperationalDashboard";
 
 const COLORS = [
   "hsl(var(--primary))",
