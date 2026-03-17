@@ -9,6 +9,7 @@ import { useUserSessions, useRevokeSession } from "@/hooks/useUserSessions";
 import { useTOTP } from "@/hooks/useTOTP";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
+import { SecurityPosturePanel } from "@/components/SecurityPosturePanel";
 import {
   Shield, Smartphone, Monitor, Loader2, LogOut, Clock, Globe,
   ShieldCheck, ShieldOff, KeyRound, QrCode, Copy, Check, ScrollText,
@@ -246,6 +247,11 @@ const SessionSecurity = () => {
 
           {/* Security Settings Tab */}
           <TabsContent value="security" className="space-y-4">
+            <SecurityPosturePanel
+              twoFactorEnabled={!!totp.status?.verified}
+              activeSessionCount={sessions?.length ?? 0}
+            />
+
             <Card>
               <CardHeader><CardTitle className="text-base">Session Settings</CardTitle></CardHeader>
               <CardContent className="space-y-3">
