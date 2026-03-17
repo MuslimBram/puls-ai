@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,7 +5,7 @@ import { useDeepAnalytics, AnalyticsRange } from "@/hooks/useDeepAnalytics";
 import { useScoreLeads } from "@/hooks/useAIConversationMemory";
 import {
   TrendingUp, TrendingDown, ArrowRight, Target, Zap, Brain,
-  DollarSign, Users, MessageSquare, RefreshCw, Download,
+  DollarSign, Users, MessageSquare, RefreshCw, Download, Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
@@ -22,13 +21,12 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
   const highlights: { icon: React.ElementType; label: string; value: string | number; trend?: number; color: string }[] = [
     { icon: Target, label: "New Leads", value: m.totalLeads, trend: m.leadGrowth, color: "text-primary" },
     { icon: DollarSign, label: "Pipeline Value", value: `$${m.currentPipelineValue.toLocaleString()}`, color: "text-primary" },
+    { icon: Sparkles, label: "Predicted Pipeline", value: `$${m.predictedPipelineValue.toLocaleString()}`, color: "text-primary" },
     { icon: TrendingUp, label: "Conversion", value: `${m.conversionRate}%`, color: "text-primary" },
     { icon: MessageSquare, label: "Avg Response", value: `${m.avgResponseMin}m`, color: "text-muted-foreground" },
-    { icon: Zap, label: "Automations", value: `${m.autoSuccess}/${m.autoTotal}`, color: "text-primary" },
-    { icon: Brain, label: "AI Auto-Reply", value: `${m.aiAutoReplyRate}%`, color: "text-primary" },
+    { icon: Brain, label: "Avg AI Score", value: m.avgPredictedLeadScore, color: "text-primary" },
   ];
 
-  // Conversion funnel data
   const funnelSteps = [
     { label: "Leads", value: m.totalLeads, pct: 100 },
     { label: "Engaged", value: Math.round(m.totalLeads * 0.65), pct: 65 },
@@ -46,6 +44,10 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
       ["Total Leads", String(m.totalLeads)],
       ["Lead Growth %", `${m.leadGrowth}%`],
       ["Pipeline Value", `$${m.currentPipelineValue.toLocaleString()}`],
+      ["Predicted Pipeline Value", `$${m.predictedPipelineValue.toLocaleString()}`],
+      ["Avg AI Lead Score", String(m.avgPredictedLeadScore)],
+      ["Hot Leads", String(m.hotLeads)],
+      ["Scored Lead Coverage", `${m.scoredLeadCoverage}%`],
       ["Conversion Rate", `${m.conversionRate}%`],
       ["Avg Response Time", `${m.avgResponseMin} min`],
       ["", ""],
@@ -60,16 +62,8 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
       ["Auto-Replied", String(m.aiAutoReplied)],
       ["Auto-Reply Rate", `${m.aiAutoReplyRate}%`],
       ["", ""],
-      ["CHURN RISK", ""],
-      ["Risk Level", m.churnRiskLevel],
-      ["Risk Score", String(m.churnScore)],
-      ["Days Inactive", String(m.churnDaysInactive)],
-      ["", ""],
-      ["LEAD SOURCES", ""],
-      ...m.leadsByChannel.map((c) => [c.name, String(c.value)]),
-      ["", ""],
-      ["CAMPAIGNS", ""],
-      ...m.campaignPerf.map((c) => [c.name, `${c.sent} sent, ${c.deliveryRate}% delivered, ${c.openRate}% opened`]),
+      ["TOP PREDICTED LEADS", ""],
+      ...m.topPredictedLeads.map((lead) => [lead.sourceName, `$${lead.predictedValue} | Score ${lead.score} | ${lead.status}`]),
     ];
     const csv = rows.map((r) => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -84,7 +78,6 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
 
   return (
     <div className="space-y-4">
-      {/* Quick Actions */}
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-foreground">Executive Summary</h3>
@@ -99,28 +92,27 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
             onClick={() => scoreLeads.mutate()}
             disabled={scoreLeads.isPending}
           >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1 ${scoreLeads.isPending ? "animate-spin" : ""}`} />
+            <RefreshCw className={`mr-1 h-3.5 w-3.5 ${scoreLeads.isPending ? "animate-spin" : ""}`} />
             Re-Score Leads
           </Button>
           <Button size="sm" variant="outline" onClick={exportFullReport}>
-            <Download className="h-3.5 w-3.5 mr-1" /> Full Report
+            <Download className="mr-1 h-3.5 w-3.5" /> Full Report
           </Button>
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {highlights.map((h) => (
           <Card key={h.label}>
-            <CardContent className="pt-4 pb-3 px-4">
-              <div className="flex items-center gap-2 mb-1">
+            <CardContent className="px-4 pb-3 pt-4">
+              <div className="mb-1 flex items-center gap-2">
                 <h.icon className={`h-4 w-4 ${h.color}`} />
                 <span className="text-xs text-muted-foreground">{h.label}</span>
               </div>
               <div className="flex items-end gap-1.5">
                 <span className="text-xl font-bold text-foreground">{h.value}</span>
                 {h.trend !== undefined && h.trend !== 0 && (
-                  <span className={`text-xs flex items-center mb-0.5 ${h.trend > 0 ? "text-emerald-600" : "text-destructive"}`}>
+                  <span className={`mb-0.5 flex items-center text-xs ${h.trend > 0 ? "text-primary" : "text-destructive"}`}>
                     {h.trend > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
                     {Math.abs(h.trend)}%
                   </span>
@@ -131,19 +123,18 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
         ))}
       </div>
 
-      {/* Conversion Funnel */}
       <Card>
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
             <Users className="h-4 w-4 text-primary" /> Conversion Funnel
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
             {funnelSteps.map((step, i) => (
-              <div key={step.label} className="flex items-center gap-2 flex-1">
+              <div key={step.label} className="flex flex-1 items-center gap-2">
                 <div
-                  className="flex-1 rounded-lg text-center py-3 transition-all"
+                  className="flex-1 rounded-lg py-3 text-center transition-all"
                   style={{
                     background: `hsl(var(--primary) / ${0.1 + (1 - i / funnelSteps.length) * 0.25})`,
                     minHeight: `${40 + (funnelSteps.length - i) * 12}px`,
@@ -152,13 +143,13 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
                   <p className="text-lg font-bold text-foreground">{step.value}</p>
                   <p className="text-xs text-muted-foreground">{step.label}</p>
                   {i > 0 && (
-                    <Badge variant="secondary" className="text-xs mt-1">
+                    <Badge variant="secondary" className="mt-1 text-xs">
                       {step.pct}%
                     </Badge>
                   )}
                 </div>
                 {i < funnelSteps.length - 1 && (
-                  <ArrowRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 )}
               </div>
             ))}
@@ -166,8 +157,45 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
         </CardContent>
       </Card>
 
-      {/* Top Lead Sources + Churn Alert Side by Side */}
       <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm">Predictive Sales AI</CardTitle>
+            <CardDescription>AI-estimated revenue potential from scored leads.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-xs text-muted-foreground">Predicted Pipeline</p>
+                <p className="text-lg font-bold text-foreground">${m.predictedPipelineValue.toLocaleString()}</p>
+              </div>
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-xs text-muted-foreground">Hot Leads</p>
+                <p className="text-lg font-bold text-foreground">{m.hotLeads}</p>
+              </div>
+              <div className="rounded-lg border border-border p-3">
+                <p className="text-xs text-muted-foreground">Coverage</p>
+                <p className="text-lg font-bold text-foreground">{m.scoredLeadCoverage}%</p>
+              </div>
+            </div>
+            {m.topPredictedLeads.length > 0 ? (
+              <div className="space-y-2">
+                {m.topPredictedLeads.map((lead) => (
+                  <div key={lead.id} className="flex items-center justify-between rounded-lg border border-border p-2.5">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{lead.sourceName}</p>
+                      <p className="text-xs text-muted-foreground">Score {lead.score} · {lead.status}</p>
+                    </div>
+                    <Badge variant="secondary">${lead.predictedValue.toLocaleString()}</Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="py-4 text-center text-sm text-muted-foreground">Run AI scoring to generate revenue predictions.</p>
+            )}
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Top Lead Sources</CardTitle>
@@ -178,68 +206,16 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
                 {m.leadsByChannel.slice(0, 5).map((ch, i) => (
                   <div key={ch.name} className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-primary" style={{ opacity: 1 - i * 0.15 }} />
+                      <span className="text-xs text-muted-foreground">#{i + 1}</span>
                       <span className="text-sm text-foreground">{ch.name}</span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 rounded-full bg-primary/20 w-20">
-                        <div
-                          className="h-2 rounded-full bg-primary"
-                          style={{ width: `${(ch.value / Math.max(...m.leadsByChannel.map((c) => c.value))) * 100}%` }}
-                        />
-                      </div>
-                      <span className="text-sm font-medium text-foreground w-8 text-right">{ch.value}</span>
-                    </div>
+                    <Badge variant="outline">{ch.value}</Badge>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No lead data yet</p>
+              <p className="py-4 text-center text-sm text-muted-foreground">No lead source data yet.</p>
             )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Health Indicators</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {[
-                {
-                  label: "Automation Health",
-                  value: m.autoTotal > 0 ? `${Math.round((m.autoSuccess / m.autoTotal) * 100)}%` : "N/A",
-                  status: m.autoFailed === 0 ? "good" : m.autoFailed < 5 ? "warn" : "bad",
-                },
-                {
-                  label: "AI Coverage",
-                  value: `${m.aiAutoReplyRate}%`,
-                  status: m.aiAutoReplyRate >= 60 ? "good" : m.aiAutoReplyRate >= 30 ? "warn" : "bad",
-                },
-                {
-                  label: "Churn Risk",
-                  value: m.churnRiskLevel,
-                  status: m.churnRiskLevel === "low" || m.churnRiskLevel === "unknown" ? "good" : m.churnRiskLevel === "medium" ? "warn" : "bad",
-                },
-                {
-                  label: "Response Speed",
-                  value: `${m.avgResponseMin}m`,
-                  status: m.avgResponseMin <= 15 ? "good" : m.avgResponseMin <= 60 ? "warn" : "bad",
-                },
-              ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between">
-                  <span className="text-sm text-foreground">{item.label}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{item.value}</span>
-                    <div className={`h-2.5 w-2.5 rounded-full ${
-                      item.status === "good" ? "bg-emerald-500" :
-                      item.status === "warn" ? "bg-yellow-500" :
-                      "bg-destructive"
-                    }`} />
-                  </div>
-                </div>
-              ))}
-            </div>
           </CardContent>
         </Card>
       </div>

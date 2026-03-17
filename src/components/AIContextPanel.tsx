@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
-import { Brain, RefreshCw, TrendingUp, TrendingDown, Minus, Lightbulb, Copy, MessageSquare, AlertTriangle } from "lucide-react";
+import { Brain, RefreshCw, TrendingUp, TrendingDown, Minus, Lightbulb, Copy, MessageSquare, AlertTriangle, DollarSign } from "lucide-react";
 import { useContactMemory, useRefreshMemory, useLeadScore } from "@/hooks/useAIConversationMemory";
 import { toast } from "@/components/ui/sonner";
 
@@ -16,7 +15,7 @@ interface AIContextPanelProps {
 }
 
 const SentimentIcon = ({ trend }: { trend: string | null }) => {
-  if (trend === "positive") return <TrendingUp className="h-4 w-4 text-emerald-500" />;
+  if (trend === "positive") return <TrendingUp className="h-4 w-4 text-primary" />;
   if (trend === "negative") return <TrendingDown className="h-4 w-4 text-destructive" />;
   return <Minus className="h-4 w-4 text-muted-foreground" />;
 };
@@ -68,7 +67,7 @@ export const AIContextPanel = ({
   return (
     <Card className="border-primary/20">
       <CardHeader className="pb-3">
-        <CardTitle className="text-sm flex items-center gap-2">
+        <CardTitle className="flex items-center gap-2 text-sm">
           <Brain className="h-4 w-4 text-primary" />
           AI Intelligence — {contactName || contactIdentifier}
           <Button
@@ -78,13 +77,12 @@ export const AIContextPanel = ({
             onClick={handleRefresh}
             disabled={refreshMemory.isPending}
           >
-            <RefreshCw className={`h-3 w-3 mr-1 ${refreshMemory.isPending ? "animate-spin" : ""}`} />
+            <RefreshCw className={`mr-1 h-3 w-3 ${refreshMemory.isPending ? "animate-spin" : ""}`} />
             {refreshMemory.isPending ? "Analyzing..." : "Refresh"}
           </Button>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Score + Sentiment Row */}
         <div className="flex flex-wrap gap-3">
           {leadScore && (
             <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
@@ -92,6 +90,15 @@ export const AIContextPanel = ({
               <div>
                 <p className="text-xs text-muted-foreground">Lead Score</p>
                 <p className="text-lg font-bold text-foreground">{leadScore.score}</p>
+              </div>
+            </div>
+          )}
+          {leadScore && typeof leadScore.predicted_value === "number" && leadScore.predicted_value > 0 && (
+            <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
+              <DollarSign className="h-4 w-4 text-primary" />
+              <div>
+                <p className="text-xs text-muted-foreground">Predicted Value</p>
+                <p className="text-lg font-bold text-foreground">${leadScore.predicted_value.toLocaleString()}</p>
               </div>
             </div>
           )}
@@ -124,18 +131,16 @@ export const AIContextPanel = ({
           )}
         </div>
 
-        {/* Memory Summary */}
         {memory?.summary && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">Relationship Summary</p>
-            <p className="text-sm text-foreground rounded-lg bg-muted/50 p-3">{memory.summary}</p>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">Relationship Summary</p>
+            <p className="rounded-lg bg-muted/50 p-3 text-sm text-foreground">{memory.summary}</p>
           </div>
         )}
 
-        {/* Key Facts */}
         {memory?.key_facts && Array.isArray(memory.key_facts) && memory.key_facts.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">Key Facts</p>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">Key Facts</p>
             <div className="flex flex-wrap gap-1.5">
               {(memory.key_facts as string[]).map((fact, i) => (
                 <Badge key={i} variant="outline" className="text-xs">
@@ -146,14 +151,13 @@ export const AIContextPanel = ({
           </div>
         )}
 
-        {/* Score Factors */}
         {leadScore?.score_factors && typeof leadScore.score_factors === "object" && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">Score Breakdown</p>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">Score Breakdown</p>
             <div className="grid grid-cols-2 gap-2">
               {Object.entries(leadScore.score_factors as Record<string, number>).map(([key, val]) => (
                 <div key={key} className="flex items-center justify-between rounded bg-muted px-2 py-1">
-                  <span className="text-xs text-muted-foreground capitalize">{key}</span>
+                  <span className="text-xs capitalize text-muted-foreground">{key}</span>
                   <span className="text-xs font-medium text-foreground">{val}</span>
                 </div>
               ))}
@@ -161,36 +165,33 @@ export const AIContextPanel = ({
           </div>
         )}
 
-        {/* AI Suggested Reply */}
         {suggestedReply && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1 flex items-center gap-1">
+            <p className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
               <Lightbulb className="h-3 w-3 text-primary" /> AI Suggested Reply
             </p>
-            <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
               <p className="text-sm text-foreground">{suggestedReply}</p>
               <Button size="sm" variant="ghost" className="mt-2 h-7 text-xs" onClick={() => copyText(suggestedReply)}>
-                <Copy className="h-3 w-3 mr-1" /> Copy
+                <Copy className="mr-1 h-3 w-3" /> Copy
               </Button>
             </div>
           </div>
         )}
 
-        {/* Deal Suggestion */}
         {dealSuggestion && (
           <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">💼 Deal Insight</p>
-            <p className="text-sm text-foreground rounded-lg bg-muted/50 p-2">{dealSuggestion}</p>
+            <p className="mb-1 text-xs font-medium text-muted-foreground">💼 Deal Insight</p>
+            <p className="rounded-lg bg-muted/50 p-2 text-sm text-foreground">{dealSuggestion}</p>
           </div>
         )}
 
-        {/* Empty state */}
         {!memory && !memoryLoading && (
-          <div className="text-center py-4">
-            <Brain className="h-8 w-8 mx-auto text-muted-foreground/30 mb-2" />
+          <div className="py-4 text-center">
+            <Brain className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
             <p className="text-xs text-muted-foreground">No AI memory for this contact yet.</p>
             <Button size="sm" variant="outline" className="mt-2" onClick={handleRefresh} disabled={refreshMemory.isPending}>
-              <RefreshCw className={`h-3 w-3 mr-1 ${refreshMemory.isPending ? "animate-spin" : ""}`} />
+              <RefreshCw className={`mr-1 h-3 w-3 ${refreshMemory.isPending ? "animate-spin" : ""}`} />
               Build Memory
             </Button>
           </div>
