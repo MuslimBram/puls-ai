@@ -146,10 +146,15 @@ const KnowledgeBase = () => {
         <Tabs defaultValue="sources" className="space-y-4">
           <TabsList>
             <TabsTrigger value="sources">Sources</TabsTrigger>
+            <TabsTrigger value="faqs">FAQ Training</TabsTrigger>
             <TabsTrigger value="add">Add Source</TabsTrigger>
             <TabsTrigger value="search">Search</TabsTrigger>
             <TabsTrigger value="topics">Topics</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="faqs" className="space-y-4">
+            <FAQManager />
+          </TabsContent>
 
           {/* SOURCES TAB */}
           <TabsContent value="sources" className="space-y-4">
