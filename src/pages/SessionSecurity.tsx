@@ -60,6 +60,9 @@ const SessionSecurity = () => {
           <TabsList>
             <TabsTrigger value="2fa">Two-Factor Auth</TabsTrigger>
             <TabsTrigger value="sessions">Sessions ({sessions?.length || 0})</TabsTrigger>
+            <TabsTrigger value="audit">
+              <ScrollText className="h-3.5 w-3.5 mr-1" /> Audit Log
+            </TabsTrigger>
             <TabsTrigger value="security">Settings</TabsTrigger>
           </TabsList>
 
