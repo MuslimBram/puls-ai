@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,6 +16,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
+import { OperationalDashboard as OpsPanel } from "@/components/OperationalDashboard";
 
 const COLORS = [
   "hsl(var(--primary))",
@@ -56,6 +58,15 @@ const DeepAnalytics = () => {
 
   return (
     <DashboardLayout>
+      <Tabs defaultValue="analytics" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="analytics">Deep Analytics</TabsTrigger>
+          <TabsTrigger value="ops">Operational Intelligence</TabsTrigger>
+        </TabsList>
+        <TabsContent value="ops">
+          <OpsPanel />
+        </TabsContent>
+        <TabsContent value="analytics">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground">Deep Analytics</h1>
@@ -221,6 +232,8 @@ const DeepAnalytics = () => {
           </Card>
         </div>
       </div>
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 };

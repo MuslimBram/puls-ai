@@ -122,3 +122,6 @@ verify_jwt = false
 
 [functions.assign-thread]
 verify_jwt = false
+
+[functions.daily-analytics-snapshot]
+verify_jwt = false
