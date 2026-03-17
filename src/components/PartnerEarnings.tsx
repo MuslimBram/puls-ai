@@ -51,10 +51,24 @@ export const PartnerEarnings = ({ partnerId }: PartnerEarningsProps) => {
     setPayoutAmount("");
   };
 
-  const pendingCommissions = commissions?.filter((c) => c.commission_status === "pending") || [];
+  const pendingCommissions = commissions?.filter((c) => c.commission_status === "pending" || c.commission_status === "pending_refund_window") || [];
   const approvedCommissions = commissions?.filter((c) => c.commission_status === "approved") || [];
+  const allActiveCommissions = [...pendingCommissions, ...approvedCommissions];
 
   const nextCycleEstimate = pendingCommissions.reduce((sum, c) => sum + Number(c.commission_amount), 0);
+
+  // 3-month projection: assume same commissions repeat
+  const monthlyAvg = commissions && commissions.length > 0
+    ? commissions.filter(c => !["cancelled"].includes(c.commission_status))
+        .reduce((sum, c) => sum + Number(c.commission_amount), 0) / Math.max(1, new Set(commissions.map(c => c.billing_period_start?.slice(0, 7))).size)
+    : 0;
+  const threeMonthProjection = monthlyAvg * 3;
+  const sixMonthProjection = monthlyAvg * 6;
+  const annualProjection = monthlyAvg * 12;
+
+  // Discount impact: sum of discounts given to referred businesses
+  const totalGrossRevenue = commissions?.filter(c => !["cancelled"].includes(c.commission_status))
+    .reduce((sum, c) => sum + Number(c.gross_amount), 0) || 0;
 
   return (
     <div className="space-y-6">
