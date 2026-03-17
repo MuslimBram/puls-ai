@@ -205,6 +205,47 @@ export type Database = {
           },
         ]
       }
+      assignment_rules: {
+        Row: {
+          created_at: string
+          fallback_user_id: string | null
+          id: string
+          last_assigned_index: number
+          max_open_per_agent: number
+          strategy: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          fallback_user_id?: string | null
+          id?: string
+          last_assigned_index?: number
+          max_open_per_agent?: number
+          strategy?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          fallback_user_id?: string | null
+          id?: string
+          last_assigned_index?: number
+          max_open_per_agent?: number
+          strategy?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assignment_rules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
@@ -2027,6 +2068,33 @@ export type Database = {
           },
         ]
       }
+      conversation_locks: {
+        Row: {
+          expires_at: string
+          id: string
+          lock_type: string
+          locked_at: string
+          locked_by: string
+          thread_id: string
+        }
+        Insert: {
+          expires_at?: string
+          id?: string
+          lock_type?: string
+          locked_at?: string
+          locked_by: string
+          thread_id: string
+        }
+        Update: {
+          expires_at?: string
+          id?: string
+          lock_type?: string
+          locked_at?: string
+          locked_by?: string
+          thread_id?: string
+        }
+        Relationships: []
+      }
       conversation_notes: {
         Row: {
           content: string
@@ -2078,9 +2146,14 @@ export type Database = {
           last_message_preview: string | null
           message_count: number | null
           metadata: Json | null
+          next_response_due: string | null
+          previous_status: string | null
           priority: string
+          resolution_due: string | null
           resolved_at: string | null
+          sla_breached: boolean
           sla_response_due: string | null
+          state_changed_at: string | null
           status: string
           subject: string | null
           tags: string[] | null
@@ -2104,9 +2177,14 @@ export type Database = {
           last_message_preview?: string | null
           message_count?: number | null
           metadata?: Json | null
+          next_response_due?: string | null
+          previous_status?: string | null
           priority?: string
+          resolution_due?: string | null
           resolved_at?: string | null
+          sla_breached?: boolean
           sla_response_due?: string | null
+          state_changed_at?: string | null
           status?: string
           subject?: string | null
           tags?: string[] | null
@@ -2130,9 +2208,14 @@ export type Database = {
           last_message_preview?: string | null
           message_count?: number | null
           metadata?: Json | null
+          next_response_due?: string | null
+          previous_status?: string | null
           priority?: string
+          resolution_due?: string | null
           resolved_at?: string | null
+          sla_breached?: boolean
           sla_response_due?: string | null
+          state_changed_at?: string | null
           status?: string
           subject?: string | null
           tags?: string[] | null
@@ -4618,6 +4701,53 @@ export type Database = {
           },
         ]
       }
+      sla_configs: {
+        Row: {
+          business_end_hour: number
+          business_hours_only: boolean
+          business_start_hour: number
+          created_at: string
+          first_response_minutes: number
+          id: string
+          next_response_minutes: number
+          resolution_minutes: number
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          business_end_hour?: number
+          business_hours_only?: boolean
+          business_start_hour?: number
+          created_at?: string
+          first_response_minutes?: number
+          id?: string
+          next_response_minutes?: number
+          resolution_minutes?: number
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          business_end_hour?: number
+          business_hours_only?: boolean
+          business_start_hour?: number
+          created_at?: string
+          first_response_minutes?: number
+          id?: string
+          next_response_minutes?: number
+          resolution_minutes?: number
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sla_configs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       source_scans: {
         Row: {
           completed_at: string | null
@@ -4889,6 +5019,44 @@ export type Database = {
           },
           {
             foreignKeyName: "subscriptions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_presence: {
+        Row: {
+          current_thread_id: string | null
+          id: string
+          last_active_at: string
+          status: string
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          current_thread_id?: string | null
+          id?: string
+          last_active_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          current_thread_id?: string | null
+          id?: string
+          last_active_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_presence_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -5263,9 +5431,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      agent_workload_metrics: {
+        Row: {
+          agent_id: string | null
+          avg_first_response_min: number | null
+          open_conversations: number | null
+          resolved_today: number | null
+          sla_breached_count: number | null
+          unassigned_queue: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      assign_thread_round_robin: {
+        Args: { _thread_id: string; _workspace_id: string }
+        Returns: string
+      }
+      cleanup_expired_locks: { Args: never; Returns: undefined }
       compute_reputation_score: {
         Args: {
           _total_bounced: number
@@ -5274,6 +5458,10 @@ export type Database = {
           _total_unsubscribed: number
         }
         Returns: number
+      }
+      compute_thread_sla: {
+        Args: { _thread_id: string; _workspace_id: string }
+        Returns: undefined
       }
       has_role: {
         Args: {
