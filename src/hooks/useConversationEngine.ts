@@ -34,6 +34,7 @@ export interface SLAConfig {
   business_hours_only: boolean;
   business_start_hour: number;
   business_end_hour: number;
+  is_active?: boolean;
 }
 
 export const useSLAConfig = (workspaceId: string | null) => {
@@ -202,14 +203,55 @@ export const useTeamPresence = (workspaceId: string | null) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["team-presence"] }),
   });
 
-  // Auto-heartbeat: keep online
+  // Auto-heartbeat with idle detection via Page Visibility API
+  const lastActivityRef = useRef(Date.now());
+
   useEffect(() => {
     if (!user || !workspaceId) return;
+
+    const IDLE_THRESHOLD_MS = 3 * 60 * 1000; // 3 minutes
+
+    const trackActivity = () => { lastActivityRef.current = Date.now(); };
+
+    const sendHeartbeat = () => {
+      const isHidden = document.visibilityState === "hidden";
+      const isIdle = Date.now() - lastActivityRef.current > IDLE_THRESHOLD_MS;
+
+      if (isHidden || isIdle) {
+        updatePresence.mutate("idle");
+      } else {
+        updatePresence.mutate("online");
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        lastActivityRef.current = Date.now();
+        updatePresence.mutate("online");
+      } else {
+        updatePresence.mutate("idle");
+      }
+    };
+
+    // Initial presence
     updatePresence.mutate("online");
-    const interval = setInterval(() => updatePresence.mutate("online"), 60000);
+
+    // Listeners
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("mousemove", trackActivity, { passive: true });
+    window.addEventListener("keydown", trackActivity, { passive: true });
+    window.addEventListener("click", trackActivity, { passive: true });
+    window.addEventListener("scroll", trackActivity, { passive: true });
+
+    const interval = setInterval(sendHeartbeat, 60000);
+
     return () => {
       clearInterval(interval);
-      // Fire-and-forget offline on unmount
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("mousemove", trackActivity);
+      window.removeEventListener("keydown", trackActivity);
+      window.removeEventListener("click", trackActivity);
+      window.removeEventListener("scroll", trackActivity);
       supabase
         .from("team_presence")
         .update({ status: "offline", updated_at: new Date().toISOString() } as any)
@@ -338,5 +380,88 @@ export const useAgentWorkload = () => {
     },
     enabled: !!user,
     refetchInterval: 30000,
+  });
+};
+
+// ── Escalation Rules ──
+export interface EscalationRule {
+  id: string;
+  workspace_id: string;
+  name: string;
+  trigger_type: string;
+  trigger_minutes: number;
+  action_type: string;
+  escalate_to_user_id: string | null;
+  notify_channel: string;
+  is_active: boolean;
+  priority: number;
+}
+
+export const useEscalationRules = (workspaceId?: string) => {
+  return useQuery({
+    queryKey: ["escalation-rules", workspaceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("escalation_rules")
+        .select("*")
+        .eq("workspace_id", workspaceId!)
+        .order("priority", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as EscalationRule[];
+    },
+    enabled: !!workspaceId,
+  });
+};
+
+export const useUpsertEscalationRule = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (rule: Partial<EscalationRule> & { workspace_id: string }) => {
+      const { error } = await supabase
+        .from("escalation_rules")
+        .upsert(rule as any, { onConflict: "id" });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["escalation-rules"] });
+      toast.success("Escalation rule saved");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+};
+
+export const useDeleteEscalationRule = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (ruleId: string) => {
+      const { error } = await supabase
+        .from("escalation_rules")
+        .delete()
+        .eq("id", ruleId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["escalation-rules"] });
+      toast.success("Escalation rule deleted");
+    },
+    onError: (e) => toast.error(e.message),
+  });
+};
+
+// ── Escalation Log ──
+export const useEscalationLog = (workspaceId?: string) => {
+  return useQuery({
+    queryKey: ["escalation-log", workspaceId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("escalation_log")
+        .select("*")
+        .eq("workspace_id", workspaceId!)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: !!workspaceId,
   });
 };

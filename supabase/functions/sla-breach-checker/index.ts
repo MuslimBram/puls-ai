@@ -95,7 +95,21 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 4. Auto-clear breaches for resolved threads (cleanup)
+    // 4. Process escalation rules for all active workspaces
+    const { data: activeWorkspaces } = await supabase
+      .from("escalation_rules")
+      .select("workspace_id")
+      .eq("is_active", true);
+
+    const uniqueWs = [...new Set((activeWorkspaces || []).map(r => r.workspace_id))];
+    for (const wsId of uniqueWs) {
+      const { data: escResult } = await supabase.rpc("process_escalations", { _workspace_id: wsId });
+      if (escResult) {
+        escalated += (escResult as any).escalated || 0;
+      }
+    }
+
+    // 5. Auto-clear breaches for resolved threads (cleanup)
     const { error: clearErr } = await supabase
       .from("conversation_threads")
       .update({ sla_breached: false })

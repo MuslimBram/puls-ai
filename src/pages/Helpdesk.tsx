@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { HelpdeskConfigPanel } from "@/components/HelpdeskConfigPanel";
 import {
   useConversationThreads,
   useConversationNotes,
@@ -54,6 +55,13 @@ const Helpdesk = () => {
 
   return (
     <DashboardLayout>
+      <Tabs defaultValue="conversations" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="conversations">Conversations</TabsTrigger>
+          <TabsTrigger value="settings">⚙ Settings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="conversations">
       <div className="space-y-4">
         {/* Stats Row */}
         <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
@@ -241,6 +249,12 @@ const Helpdesk = () => {
           }}
         />
       </div>
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <HelpdeskConfigPanel />
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 };
