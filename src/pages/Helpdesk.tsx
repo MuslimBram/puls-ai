@@ -249,6 +249,12 @@ const Helpdesk = () => {
           }}
         />
       </div>
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <HelpdeskConfigPanel />
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 };
