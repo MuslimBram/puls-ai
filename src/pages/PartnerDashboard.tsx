@@ -192,6 +192,10 @@ const PartnerDashboard = () => {
               <Building2 className="h-3 w-3 mr-1" />
               Businesses
             </TabsTrigger>
+            <TabsTrigger value="billing">
+              <DollarSign className="h-3 w-3 mr-1" />
+              Bulk Billing
+            </TabsTrigger>
             <TabsTrigger value="earnings">
               <Wallet className="h-3 w-3 mr-1" />
               Earnings & Payouts
