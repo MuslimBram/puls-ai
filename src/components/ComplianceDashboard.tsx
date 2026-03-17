@@ -252,6 +252,51 @@ export const ComplianceDashboard = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Template Approvals Tab */}
+        <TabsContent value="approvals">
+          <TemplateApprovalQueue />
+        </TabsContent>
+
+        {/* Sending Rules Tab */}
+        <TabsContent value="rules">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Channel Sending Rules</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Channel</TableHead>
+                    <TableHead>Max / Minute</TableHead>
+                    <TableHead>Max / Day</TableHead>
+                    <TableHead>Requires Approval</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {Object.entries(CHANNEL_LIMITS).map(([ch, limits]) => (
+                    <TableRow key={ch}>
+                      <TableCell className="font-medium capitalize">{ch}</TableCell>
+                      <TableCell>{limits.maxPerMinute}</TableCell>
+                      <TableCell>{limits.maxPerDay.toLocaleString()}</TableCell>
+                      <TableCell>
+                        {limits.requiresApproval ? (
+                          <Badge variant="destructive" className="text-xs">Required</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-xs">Optional</Badge>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              <p className="text-xs text-muted-foreground mt-3">
+                These limits are enforced automatically by the broadcast send engine. Messages exceeding limits are queued and processed in the next cycle.
+              </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* Add Suppression Dialog */}
