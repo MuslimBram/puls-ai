@@ -118,6 +118,18 @@ serve(async (req) => {
         opted_out_at: new Date().toISOString(),
       });
 
+      // Also add to global suppression list
+      await supabase.from("global_suppression_list").upsert({
+        user_id: tokenData.user_id,
+        workspace_id: tokenData.workspace_id,
+        contact_identifier: tokenData.contact_identifier,
+        channel_type: tokenData.channel_type,
+        suppression_type: "unsubscribe",
+        reason: reason || "unsubscribe_link",
+        source: "broadcast",
+        source_id: tokenData.broadcast_id || null,
+      }, { onConflict: "user_id,contact_identifier,channel_type,suppression_type" });
+
       // Update broadcast unsubscribe count
       if (tokenData.broadcast_id) {
         const { data: broadcast } = await supabase
