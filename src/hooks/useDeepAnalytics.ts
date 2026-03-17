@@ -14,13 +14,12 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
   const rangeStart = subDays(new Date(), days);
   const prevStart = subDays(rangeStart, days);
 
-  // Leads by channel
   const leadsQuery = useQuery({
     queryKey: ["deep-analytics-leads", user?.id, dateRange],
     queryFn: async () => {
       const { data } = await supabase
         .from("leads")
-        .select("source_name, message_date, intent_score, status, detected_keyword")
+        .select("id, source_name, message_date, intent_score, status, detected_keyword")
         .eq("user_id", user!.id)
         .gte("message_date", prevStart.toISOString())
         .order("message_date", { ascending: false });
@@ -29,7 +28,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     enabled: !!user,
   });
 
-  // Inbox for response time
   const inboxQuery = useQuery({
     queryKey: ["deep-analytics-inbox", user?.id, dateRange],
     queryFn: async () => {
@@ -43,7 +41,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     enabled: !!user,
   });
 
-  // Deals for pipeline value
   const dealsQuery = useQuery({
     queryKey: ["deep-analytics-deals", user?.id, dateRange],
     queryFn: async () => {
@@ -57,7 +54,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     enabled: !!user,
   });
 
-  // Broadcasts for campaign metrics
   const broadcastsQuery = useQuery({
     queryKey: ["deep-analytics-broadcasts", user?.id, dateRange],
     queryFn: async () => {
@@ -71,7 +67,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     enabled: !!user,
   });
 
-  // Automation logs
   const automationQuery = useQuery({
     queryKey: ["deep-analytics-automations", user?.id, dateRange],
     queryFn: async () => {
@@ -85,7 +80,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     enabled: !!user,
   });
 
-  // AI conversations
   const aiQuery = useQuery({
     queryKey: ["deep-analytics-ai", user?.id, dateRange],
     queryFn: async () => {
@@ -99,7 +93,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     enabled: !!user,
   });
 
-  // Churn risk
   const churnQuery = useQuery({
     queryKey: ["deep-analytics-churn", user?.id],
     queryFn: async () => {
@@ -115,6 +108,20 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     enabled: !!user,
   });
 
+  const leadScoresQuery = useQuery({
+    queryKey: ["deep-analytics-lead-scores", user?.id, dateRange],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("lead_scores")
+        .select("lead_id, score, churn_risk, predicted_value, last_scored_at, leads!inner(id, user_id, message_date, source_name, status)")
+        .eq("leads.user_id", user!.id)
+        .gte("leads.message_date", rangeStart.toISOString())
+        .order("last_scored_at", { ascending: false });
+      return data ?? [];
+    },
+    enabled: !!user,
+  });
+
   const metrics = useMemo(() => {
     const leads = leadsQuery.data ?? [];
     const inbox = inboxQuery.data ?? [];
@@ -123,17 +130,16 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     const automations = automationQuery.data ?? [];
     const aiConvos = aiQuery.data ?? [];
     const churn = churnQuery.data;
+    const leadScores = leadScoresQuery.data ?? [];
 
     const currentLeads = leads.filter((l: any) => isAfter(parseISO(l.message_date), rangeStart));
     const prevLeads = leads.filter((l: any) => !isAfter(parseISO(l.message_date), rangeStart));
 
-    // Leads by channel
     const leadsByChannel: Record<string, number> = {};
     currentLeads.forEach((l: any) => {
       leadsByChannel[l.source_name] = (leadsByChannel[l.source_name] || 0) + 1;
     });
 
-    // Leads by channel trend
     const channelTrend = Array.from({ length: days }, (_, i) => {
       const day = subDays(new Date(), days - 1 - i);
       const dayStr = format(day, "yyyy-MM-dd");
@@ -143,7 +149,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       return { date: format(day, days > 14 ? "MMM d" : "EEE"), total: dayLeads.length, ...bySource };
     });
 
-    // Response time avg
     const responseTimes = inbox
       .filter((m: any) => m.first_response_at)
       .map((m: any) => (new Date(m.first_response_at).getTime() - new Date(m.created_at).getTime()) / 60000);
@@ -151,7 +156,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       ? Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length)
       : 0;
 
-    // Pipeline value trend
     const pipelineTrend = Array.from({ length: days }, (_, i) => {
       const day = subDays(new Date(), days - 1 - i);
       const dayStr = format(day, "yyyy-MM-dd");
@@ -160,7 +164,6 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       return { date: format(day, days > 14 ? "MMM d" : "EEE"), value };
     });
 
-    // Campaign performance
     const campaignPerf = broadcasts.map((b: any) => ({
       name: b.name,
       sent: b.sent_count || 0,
@@ -172,14 +175,12 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       openRate: b.delivered_count ? Math.round(((b.opened_count || 0) / b.delivered_count) * 100) : 0,
     }));
 
-    // Automation performance
     const autoSuccess = automations.filter((a: any) => a.status === "success").length;
     const autoFailed = automations.filter((a: any) => a.status === "error").length;
     const autoAvgDuration = automations.length
       ? Math.round(automations.reduce((s: number, a: any) => s + (a.duration_ms || 0), 0) / automations.length)
       : 0;
 
-    // AI metrics
     const aiTotal = aiConvos.length;
     const aiAutoReplied = aiConvos.filter((a: any) => a.is_auto_reply).length;
     const aiAutoReplyRate = aiTotal > 0 ? Math.round((aiAutoReplied / aiTotal) * 100) : 0;
@@ -188,13 +189,11 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       aiByComplexity[a.complexity] = (aiByComplexity[a.complexity] || 0) + 1;
     });
 
-    // Churn metrics
     const churnRiskLevel = churn?.risk_level ?? "unknown";
     const churnScore = churn?.risk_score ?? 0;
     const churnSignals = churn?.signals ?? [];
     const churnDaysInactive = churn?.days_inactive ?? 0;
 
-    // Growth comparison
     const leadGrowth = prevLeads.length ? Math.round(((currentLeads.length - prevLeads.length) / prevLeads.length) * 100) : 0;
 
     const currentDeals = deals.filter((d: any) => isAfter(parseISO(d.created_at), rangeStart));
@@ -203,6 +202,24 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
     const lostCount = currentDeals.filter((d: any) => d.lost_at).length;
     const conversionRate = wonCount + lostCount > 0 ? Math.round((wonCount / (wonCount + lostCount)) * 100) : 0;
 
+    const predictedPipelineValue = leadScores.reduce((sum: number, row: any) => sum + (row.predicted_value || 0), 0);
+    const avgPredictedLeadScore = leadScores.length > 0
+      ? Math.round(leadScores.reduce((sum: number, row: any) => sum + (row.score || 0), 0) / leadScores.length)
+      : 0;
+    const hotLeads = leadScores.filter((row: any) => (row.score || 0) >= 75).length;
+    const scoredLeadCoverage = currentLeads.length > 0 ? Math.round((leadScores.length / currentLeads.length) * 100) : 0;
+    const topPredictedLeads = leadScores
+      .slice()
+      .sort((a: any, b: any) => (b.predicted_value || 0) - (a.predicted_value || 0))
+      .slice(0, 5)
+      .map((row: any) => ({
+        id: row.lead_id,
+        sourceName: row.leads?.source_name || "Lead",
+        status: row.leads?.status || "new",
+        predictedValue: row.predicted_value || 0,
+        score: row.score || 0,
+      }));
+
     return {
       leadsByChannel: Object.entries(leadsByChannel).map(([name, value]) => ({ name, value })),
       channelTrend,
@@ -210,6 +227,11 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       pipelineTrend,
       campaignPerf,
       currentPipelineValue,
+      predictedPipelineValue,
+      avgPredictedLeadScore,
+      hotLeads,
+      scoredLeadCoverage,
+      topPredictedLeads,
       conversionRate,
       leadGrowth,
       totalLeads: currentLeads.length,
@@ -219,21 +241,19 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
       autoAvgDuration,
       autoTotal: automations.length,
       channels: Object.keys(leadsByChannel),
-      // AI metrics
       aiTotal,
       aiAutoReplied,
       aiAutoReplyRate,
       aiByComplexity: Object.entries(aiByComplexity).map(([name, value]) => ({ name, value })),
-      // Churn metrics
       churnRiskLevel,
       churnScore,
       churnSignals,
       churnDaysInactive,
     };
-  }, [leadsQuery.data, inboxQuery.data, dealsQuery.data, broadcastsQuery.data, automationQuery.data, aiQuery.data, churnQuery.data, dateRange, rangeStart, days]);
+  }, [leadsQuery.data, inboxQuery.data, dealsQuery.data, broadcastsQuery.data, automationQuery.data, aiQuery.data, churnQuery.data, leadScoresQuery.data, rangeStart, days]);
 
   return {
     ...metrics,
-    isLoading: leadsQuery.isLoading || inboxQuery.isLoading || dealsQuery.isLoading,
+    isLoading: leadsQuery.isLoading || inboxQuery.isLoading || dealsQuery.isLoading || leadScoresQuery.isLoading,
   };
 };

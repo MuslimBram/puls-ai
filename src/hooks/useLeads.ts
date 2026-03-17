@@ -58,6 +58,7 @@ export const useLeads = (filters: LeadFilters = {}) => {
       let scoreMap = new Map<string, {
         score: number;
         churn_risk: number | null;
+        predicted_value: number | null;
         score_factors: unknown;
         last_scored_at: string;
       }>();
@@ -65,7 +66,7 @@ export const useLeads = (filters: LeadFilters = {}) => {
       if (leadIds.length > 0) {
         const { data: scoreRows, error: scoreError } = await supabase
           .from("lead_scores")
-          .select("lead_id, score, churn_risk, score_factors, last_scored_at")
+          .select("lead_id, score, churn_risk, predicted_value, score_factors, last_scored_at")
           .in("lead_id", leadIds);
 
         if (scoreError) throw scoreError;
@@ -76,6 +77,7 @@ export const useLeads = (filters: LeadFilters = {}) => {
             .map((row) => [row.lead_id as string, {
               score: row.score,
               churn_risk: row.churn_risk,
+              predicted_value: row.predicted_value,
               score_factors: row.score_factors,
               last_scored_at: row.last_scored_at,
             }]),
@@ -88,6 +90,7 @@ export const useLeads = (filters: LeadFilters = {}) => {
           ...lead,
           ai_score: leadScore?.score ?? null,
           churn_risk: leadScore?.churn_risk ?? null,
+          predicted_value: leadScore?.predicted_value ?? null,
           score_factors: leadScore?.score_factors ?? null,
           last_scored_at: leadScore?.last_scored_at ?? null,
         };

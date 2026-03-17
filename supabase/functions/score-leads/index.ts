@@ -61,14 +61,14 @@ serve(async (req) => {
 
     const { data: leads, error: leadsErr } = await supabase
       .from("leads")
-      .select("id, user_id, sender_name, message_content, message_date, channel_type, status, detected_keyword, intent_score, workspace_id")
+      .select("id, user_id, sender_name, message_content, message_date, source_type, status, detected_keyword, intent_score, workspace_id, intent_type, urgency_level")
       .eq("workspace_id", workspace_id)
       .order("message_date", { ascending: false })
       .limit(100);
 
     if (leadsErr) throw leadsErr;
     if (!leads || leads.length === 0) {
-      return jsonResponse({ scored: 0, total: 0 });
+      return jsonResponse({ scored: 0, total: 0, predicted_pipeline_value: 0 });
     }
 
     const { data: memories } = await supabase
@@ -82,10 +82,12 @@ serve(async (req) => {
     const leadSummaries = leads.slice(0, 50).map((lead) => ({
       id: lead.id,
       name: lead.sender_name,
-      message: (lead.message_content || "").slice(0, 200),
-      channel: lead.channel_type,
+      message: (lead.message_content || "").slice(0, 300),
+      channel: lead.source_type,
       keyword: lead.detected_keyword,
       intent: lead.intent_score,
+      intent_type: lead.intent_type,
+      urgency: lead.urgency_level,
       date: lead.message_date,
       interactions: memoryMap.get(lead.sender_name || "")?.interaction_count || 0,
     }));
@@ -97,36 +99,52 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-flash-preview",
         messages: [
           {
             role: "system",
-            content: `You are a lead scoring AI. Score each lead from 0-100 based on:
-- Message intent and urgency (high-intent words = higher score)
-- Channel type (direct message = higher than comment)
-- Keyword relevance
-- Interaction history count
-- Recency
+            content: `You are a predictive sales AI. For each lead, estimate:
+- score from 0-100 based on conversion likelihood
+- churn_risk from 0-100 for existing contacts
+- predicted_value as a conservative whole-number revenue estimate in USD
+- factors object with numeric contributions
+- churn_factors object with numeric contributions
 
-Also estimate churn_risk (0-100) for existing contacts based on:
-- Time since last interaction
-- Sentiment of messages
-- Engagement pattern
+Scoring signals:
+- buying intent and urgency
+- source/channel quality
+- keyword relevance
+- interaction history
+- recency
+- intent type
 
-Return JSON array: [{"id":"lead-uuid","score":85,"churn_risk":10,"factors":{"intent":30,"recency":25,"channel":15,"engagement":15}}]
-Only return valid JSON array, no markdown.`,
+Value estimation rules:
+- Use message specificity, urgency, and commercial intent to estimate likely deal value
+- If context is weak, stay conservative
+- predicted_value must be an integer >= 0
+
+Return JSON array only in this exact shape:
+[{"id":"lead-uuid","score":85,"churn_risk":10,"predicted_value":2400,"factors":{"intent":30,"recency":25,"channel":15,"engagement":15},"churn_factors":{"inactivity":10}}]`,
           },
           {
             role: "user",
             content: JSON.stringify(leadSummaries),
           },
         ],
-        temperature: 0.3,
+        temperature: 0.2,
         max_tokens: 4000,
       }),
     });
 
-    if (!aiResponse.ok) throw new Error(`AI gateway error: ${aiResponse.status}`);
+    if (!aiResponse.ok) {
+      if (aiResponse.status === 429) {
+        return jsonResponse({ error: "Rate limited, please try again later." }, 429);
+      }
+      if (aiResponse.status === 402) {
+        return jsonResponse({ error: "Credits required. Please add funds." }, 402);
+      }
+      throw new Error(`AI gateway error: ${aiResponse.status}`);
+    }
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "[]";
@@ -135,6 +153,7 @@ Only return valid JSON array, no markdown.`,
       id?: string;
       score?: number;
       churn_risk?: number;
+      predicted_value?: number;
       factors?: Record<string, number>;
       churn_factors?: Record<string, number>;
     }> = [];
@@ -147,8 +166,13 @@ Only return valid JSON array, no markdown.`,
     }
 
     let scored = 0;
+    let predictedPipelineValue = 0;
+
     for (const scoreEntry of scores) {
       if (!scoreEntry.id || typeof scoreEntry.score !== "number") continue;
+
+      const predictedValue = Math.max(0, Math.round(scoreEntry.predicted_value || 0));
+      predictedPipelineValue += predictedValue;
 
       const { error } = await supabase
         .from("lead_scores")
@@ -160,6 +184,7 @@ Only return valid JSON array, no markdown.`,
             score_factors: scoreEntry.factors || {},
             churn_risk: Math.min(100, Math.max(0, scoreEntry.churn_risk || 0)),
             churn_factors: scoreEntry.churn_factors || {},
+            predicted_value: predictedValue,
             last_scored_at: new Date().toISOString(),
           },
           { onConflict: "lead_id" },
@@ -168,7 +193,7 @@ Only return valid JSON array, no markdown.`,
       if (!error) scored++;
     }
 
-    return jsonResponse({ scored, total: leads.length });
+    return jsonResponse({ scored, total: leads.length, predicted_pipeline_value: predictedPipelineValue });
   } catch (error) {
     console.error("Score leads error:", error);
     return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
