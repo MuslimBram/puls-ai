@@ -236,7 +236,7 @@ function BusinessScanRow({
             ) : latestScan ? (
               <>
                 <Badge
-                  variant={latestScan.status === "completed" ? "default" : latestScan.status === "scanning" ? "secondary" : "destructive"}
+                  variant={latestScan.status === "completed" ? "default" : latestScan.status === "pending" || latestScan.status === "scanning" ? "secondary" : "destructive"}
                   className="text-[10px]"
                 >
                   {latestScan.status}

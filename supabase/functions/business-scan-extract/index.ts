@@ -59,7 +59,6 @@ serve(async (req) => {
   try {
     const sb = supabaseAdmin();
 
-    // Auth
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
     const jwt = authHeader.replace("Bearer ", "");
@@ -72,11 +71,42 @@ serve(async (req) => {
     }
 
     const startTime = Date.now();
+    const startedAt = new Date().toISOString();
+    const syncStatus = async (
+      status: "pending" | "scanning" | "completed" | "failed",
+      phase: string,
+      extraHistory: Record<string, unknown> = {},
+      extraSourceScan: Record<string, unknown> = {},
+      extraSource: Record<string, unknown> = {}
+    ) => {
+      await Promise.all([
+        sb
+          .from("business_scan_history")
+          .update({ status, scan_phase: phase, ...extraHistory } as any)
+          .eq("id", scan_history_id),
+        source_scan_id
+          ? sb
+              .from("source_scans")
+              .update({ business_id, status, scan_phase: phase, ...extraSourceScan } as any)
+              .eq("id", source_scan_id)
+          : Promise.resolve(),
+        source_id
+          ? sb
+              .from("scan_sources")
+              .update({ business_id, scan_status: status, ...extraSource } as any)
+              .eq("id", source_id)
+          : Promise.resolve(),
+      ]);
+    };
 
-    // Update phase
-    await sb.from("business_scan_history").update({ status: "scanning", scan_phase: "crawling" } as any).eq("id", scan_history_id);
+    await syncStatus(
+      "scanning",
+      "crawling",
+      { error_message: null },
+      { started_at: startedAt, error_message: null },
+      {}
+    );
 
-    // Scrape with Firecrawl
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     let markdown = "";
     let pageTitle = "";
@@ -99,22 +129,20 @@ serve(async (req) => {
         pagesScanned = 1;
       } else {
         console.error("Firecrawl error:", scrapeData);
-        if (!scrapeRes.ok && scrapeRes.status === 402) {
+        if (scrapeRes.status === 402) {
           throw new Error("Firecrawl credits insufficient. Please top up.");
         }
+        throw new Error(scrapeData?.error || "Website scrape failed");
       }
     } else {
       throw new Error("FIRECRAWL_API_KEY not configured");
     }
 
-    // Phase: extracting
-    await sb.from("business_scan_history").update({ scan_phase: "extracting", pages_scanned: pagesScanned } as any).eq("id", scan_history_id);
+    await syncStatus("scanning", "extracting", { pages_scanned: pagesScanned }, { pages_scanned: pagesScanned });
 
-    // Lightweight extraction
     const { contacts, socialLinks, ctas, pricingSignals } = lightweightExtract(markdown);
 
-    // Phase: AI analysis
-    await sb.from("business_scan_history").update({ scan_phase: "analyzing" } as any).eq("id", scan_history_id);
+    await syncStatus("scanning", "analyzing", {}, {});
 
     let products: any[] = [];
     let services: any[] = [];
@@ -219,7 +247,6 @@ serve(async (req) => {
       }
     }
 
-    // Build insight rows linked to business
     const insightRows: any[] = [];
     const addInsight = (type: string, title: string, desc: string, json: Record<string, unknown>, score: number) => {
       if (!source_id || !source_scan_id) return;
@@ -249,46 +276,40 @@ serve(async (req) => {
     }
 
     const durationMs = Date.now() - startTime;
+    const completedAt = new Date().toISOString();
 
-    await sb.from("business_scan_history").update({
-      status: "completed",
-      scan_phase: "completed",
-      pages_scanned: pagesScanned,
-      insights_count: insightRows.length,
-      duration_ms: durationMs,
-      completed_at: new Date().toISOString(),
-      summary_json: summaryJson,
-      products_found: products,
-      services_found: services,
-      contact_methods: contacts,
-      social_links: socialLinks,
-      pricing_signals: pricingSignals.map((s) => ({ signal: s })),
-      tone_of_voice: toneOfVoice,
-      suggested_keywords: suggestedKeywords,
-      cta_signals: ctas.map((c) => ({ cta: c })),
-      competitor_hints: competitorHints,
-    } as any).eq("id", scan_history_id);
-
-    if (source_scan_id) {
-      await sb.from("source_scans").update({
-        business_id,
-        status: "completed",
-        scan_phase: "completed",
-        completed_at: new Date().toISOString(),
+    await syncStatus(
+      "completed",
+      "completed",
+      {
+        pages_scanned: pagesScanned,
+        insights_count: insightRows.length,
+        duration_ms: durationMs,
+        completed_at: completedAt,
+        error_message: null,
+        summary_json: summaryJson,
+        products_found: products,
+        services_found: services,
+        contact_methods: contacts,
+        social_links: socialLinks,
+        pricing_signals: pricingSignals.map((s) => ({ signal: s })),
+        tone_of_voice: toneOfVoice,
+        suggested_keywords: suggestedKeywords,
+        cta_signals: ctas.map((c) => ({ cta: c })),
+        competitor_hints: competitorHints,
+      },
+      {
+        completed_at: completedAt,
         items_found: insightRows.length,
         insights_found: insightRows.length,
         pages_scanned: pagesScanned,
         duration_ms: durationMs,
-      } as any).eq("id", source_scan_id);
-    }
-
-    if (source_id) {
-      await sb.from("scan_sources").update({
-        business_id,
-        scan_status: "active",
-        last_scan_at: new Date().toISOString(),
-      } as any).eq("id", source_id);
-    }
+        error_message: null,
+      },
+      {
+        last_scan_at: completedAt,
+      }
+    );
 
     return new Response(
       JSON.stringify({ success: true, insights_count: insightRows.length, pages_scanned: pagesScanned, duration_ms: durationMs }),
@@ -302,29 +323,29 @@ serve(async (req) => {
       const body = await req.clone().json().catch(() => ({}));
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-      if (body.scan_history_id) {
-        await sb.from("business_scan_history").update({
-          status: "failed",
-          scan_phase: "failed",
-          error_message: errorMessage,
-        } as any).eq("id", body.scan_history_id);
-      }
-
-      if (body.source_scan_id) {
-        await sb.from("source_scans").update({
-          business_id: body.business_id,
-          status: "error",
-          scan_phase: "error",
-          error_message: errorMessage,
-        } as any).eq("id", body.source_scan_id);
-      }
-
-      if (body.source_id) {
-        await sb.from("scan_sources").update({
-          business_id: body.business_id,
-          scan_status: "error",
-        } as any).eq("id", body.source_id);
-      }
+      await Promise.all([
+        body.scan_history_id
+          ? sb.from("business_scan_history").update({
+              status: "failed",
+              scan_phase: "failed",
+              error_message: errorMessage,
+            } as any).eq("id", body.scan_history_id)
+          : Promise.resolve(),
+        body.source_scan_id
+          ? sb.from("source_scans").update({
+              business_id: body.business_id,
+              status: "failed",
+              scan_phase: "failed",
+              error_message: errorMessage,
+            } as any).eq("id", body.source_scan_id)
+          : Promise.resolve(),
+        body.source_id
+          ? sb.from("scan_sources").update({
+              business_id: body.business_id,
+              scan_status: "failed",
+            } as any).eq("id", body.source_id)
+          : Promise.resolve(),
+      ]);
     } catch (_) { /* ignore */ }
 
     return new Response(

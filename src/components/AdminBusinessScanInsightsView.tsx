@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import {
+  AlertTriangle,
   BookOpen,
   Briefcase,
   Clock,
@@ -9,6 +10,7 @@ import {
   MessageSquare,
   Package,
   Phone,
+  RotateCcw,
   Share2,
   Sparkles,
   Tag,
@@ -23,6 +25,7 @@ import {
   useBusinessScanHistory,
   useGenerateBusinessContent,
   useSaveBusinessScanToKnowledgeBase,
+  useTriggerBusinessScan,
   type BusinessAIContent,
   type BusinessScanHistory,
 } from "@/hooks/useBusinessScans";
@@ -36,6 +39,20 @@ export interface AdminBusinessScanInsightsBusiness {
   short_description: string | null;
 }
 
+const getStatusVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status) {
+    case "completed":
+      return "default";
+    case "pending":
+    case "scanning":
+      return "secondary";
+    case "failed":
+      return "destructive";
+    default:
+      return "outline";
+  }
+};
+
 export function AdminBusinessScanInsightsView({
   business,
 }: {
@@ -44,6 +61,7 @@ export function AdminBusinessScanInsightsView({
   const [viewingScan, setViewingScan] = useState<BusinessScanHistory | null>(null);
   const { data: scans = [], isLoading: scansLoading } = useBusinessScanHistory(business.id);
   const { data: aiContents = [], isLoading: contentsLoading } = useBusinessAIContent(business.id);
+  const triggerScan = useTriggerBusinessScan();
   const generateContent = useGenerateBusinessContent();
   const saveToKnowledgeBase = useSaveBusinessScanToKnowledgeBase();
 
@@ -61,6 +79,14 @@ export function AdminBusinessScanInsightsView({
     saveToKnowledgeBase.mutate({
       businessId: business.id,
       scanHistoryId,
+    });
+  };
+
+  const handleRetry = (url: string) => {
+    triggerScan.mutate({
+      businessId: business.id,
+      workspaceId: business.workspace_id || "",
+      url,
     });
   };
 
@@ -85,6 +111,7 @@ export function AdminBusinessScanInsightsView({
           scans.map((scan) => {
             const saveDisabled = saveToKnowledgeBase.isPending || scan.status !== "completed";
             const generateDisabled = generateContent.isPending || scan.status !== "completed";
+            const retryDisabled = triggerScan.isPending || !scan.scanned_url;
 
             return (
               <div
@@ -99,10 +126,7 @@ export function AdminBusinessScanInsightsView({
                     <div className="flex flex-wrap items-center gap-2">
                       <Globe className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium text-foreground">{scan.scanned_url}</span>
-                      <Badge
-                        variant={scan.status === "completed" ? "default" : scan.status === "scanning" ? "secondary" : "destructive"}
-                        className="text-xs"
-                      >
+                      <Badge variant={getStatusVariant(scan.status)} className="text-xs">
                         {scan.status}
                       </Badge>
                     </div>
@@ -115,9 +139,34 @@ export function AdminBusinessScanInsightsView({
                       {scan.pages_scanned > 0 && <span>{scan.pages_scanned} page(s)</span>}
                       {scan.duration_ms && <span>{(scan.duration_ms / 1000).toFixed(1)}s</span>}
                     </div>
+                    {scan.status === "failed" && scan.error_message && (
+                      <div className="mt-2 flex items-start gap-2 text-xs text-destructive">
+                        <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        <span>{scan.error_message}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-2">
+                    {scan.status === "failed" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleRetry(scan.scanned_url);
+                        }}
+                        disabled={retryDisabled}
+                      >
+                        {triggerScan.isPending ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <RotateCcw className="mr-1 h-3 w-3" />
+                        )}
+                        Retry Scan
+                      </Button>
+                    )}
+
                     <Button
                       size="sm"
                       variant="outline"
@@ -162,6 +211,12 @@ export function AdminBusinessScanInsightsView({
       <TabsContent value="details">
         {!activeScan ? (
           <Card className="p-6 text-center text-sm text-muted-foreground">Select a scan to view details.</Card>
+        ) : activeScan.status === "failed" ? (
+          <Card className="p-8 text-center">
+            <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-destructive" />
+            <p className="text-sm font-medium text-foreground">Scan failed</p>
+            <p className="mt-1 text-sm text-muted-foreground">{activeScan.error_message || "The scan ended with an unknown error."}</p>
+          </Card>
         ) : activeScan.status !== "completed" ? (
           <Card className="p-8 text-center">
             <Loader2 className="mx-auto mb-2 h-6 w-6 animate-spin text-muted-foreground" />
