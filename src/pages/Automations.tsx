@@ -19,6 +19,7 @@ import {
   type AutomationWorkflow,
   type AutomationAction,
 } from "@/hooks/useAutomations";
+import { AutoAutomationBuilder, type AutomationBlueprint } from "@/components/AutoAutomationBuilder";
 import { AutomationTemplates } from "@/components/AutomationTemplates";
 import {
   Workflow,
@@ -28,7 +29,6 @@ import {
   Loader2,
   Zap,
   Play,
-  Pause,
   Clock,
   CheckCircle2,
   XCircle,
@@ -43,9 +43,20 @@ const Automations = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<AutomationWorkflow | null>(null);
   const [viewingLogs, setViewingLogs] = useState<AutomationWorkflow | null>(null);
+  const [activeTab, setActiveTab] = useState("workflows");
 
   const activeCount = workflows.filter((w) => w.is_active).length;
   const totalExecutions = workflows.reduce((sum, w) => sum + (w.execution_count || 0), 0);
+
+  const handleAutoBuild = async (blueprint: AutomationBlueprint) => {
+    await createWorkflow.mutateAsync({
+      name: blueprint.name,
+      description: blueprint.description,
+      trigger_type: blueprint.triggerType,
+      actions: blueprint.actions as any,
+      is_active: false,
+    });
+  };
 
   return (
     <DashboardLayout>
@@ -60,7 +71,7 @@ const Automations = () => {
           </Button>
         </div>
 
-        <Tabs defaultValue="workflows">
+        <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="workflows">
           <TabsList>
             <TabsTrigger value="workflows">My Workflows</TabsTrigger>
             <TabsTrigger value="chatbots">Chatbot Flows</TabsTrigger>
@@ -75,7 +86,12 @@ const Automations = () => {
             <AutomationTemplates />
           </TabsContent>
 
-          <TabsContent value="workflows" className="mt-4">
+          <TabsContent value="workflows" className="mt-4 space-y-4">
+            <AutoAutomationBuilder
+              isBuilding={createWorkflow.isPending}
+              onBuild={handleAutoBuild}
+              onOpenTemplates={() => setActiveTab("templates")}
+            />
 
         {/* Stats */}
         <div className="grid gap-3 grid-cols-3">
