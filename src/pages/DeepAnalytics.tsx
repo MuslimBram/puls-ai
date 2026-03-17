@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { lazy, Suspense } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
