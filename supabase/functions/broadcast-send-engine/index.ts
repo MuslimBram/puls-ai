@@ -105,9 +105,11 @@ serve(async (req) => {
           continue;
         }
 
-        // 3. Simulate send (actual channel delivery would go here)
-        // In production, this would call send-sms, email API, whatsapp API, etc.
-        const sendResult = await simulateSend(item, channelType);
+        // 3. Inject legal footer + unsubscribe link
+        const unsubscribeUrl = await getUnsubscribeUrl(supabase, item, broadcastId);
+        
+        // 4. Send via actual channel
+        const sendResult = await dispatchToChannel(supabase, item, channelType, unsubscribeUrl);
 
         if (sendResult.success) {
           // Mark sent
