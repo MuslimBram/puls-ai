@@ -201,6 +201,14 @@ const Inbox = () => {
                     </Button>
                   )}
                 </div>
+                {/* AI Context Panel */}
+                <AIContextPanel
+                  contactIdentifier={selectedMsg.sender_name || selectedMsg.sender_identifier}
+                  contactName={selectedMsg.sender_name}
+                  leadId={selectedMsg.lead_id}
+                  channelType={selectedMsg.channel_type}
+                  latestMessage={selectedMsg.message_content}
+                />
               </div>
             )}
           </DialogContent>
