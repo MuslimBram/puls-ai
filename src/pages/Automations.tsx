@@ -18,6 +18,7 @@ import {
   type AutomationWorkflow,
   type AutomationAction,
 } from "@/hooks/useAutomations";
+import { AutomationTemplates } from "@/components/AutomationTemplates";
 import {
   Workflow,
   Plus,
@@ -57,6 +58,18 @@ const Automations = () => {
             <Plus className="mr-2 h-4 w-4" /> New Workflow
           </Button>
         </div>
+
+        <Tabs defaultValue="workflows">
+          <TabsList>
+            <TabsTrigger value="workflows">My Workflows</TabsTrigger>
+            <TabsTrigger value="templates">Templates Library</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="templates" className="mt-4">
+            <AutomationTemplates />
+          </TabsContent>
+
+          <TabsContent value="workflows" className="mt-4">
 
         {/* Stats */}
         <div className="grid gap-3 grid-cols-3">
@@ -191,6 +204,8 @@ const Automations = () => {
         {viewingLogs && (
           <WorkflowLogs workflow={viewingLogs} onClose={() => setViewingLogs(null)} />
         )}
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
