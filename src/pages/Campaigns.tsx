@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { AutoCampaignBuilder, type AutoCampaignBlueprint } from "@/components/AutoCampaignBuilder";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { campaignFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
@@ -109,8 +110,32 @@ const Campaigns = () => {
     });
     setShowCreate(false);
     resetForm();
-    // Auto-generate strategy
     if (campaign) {
+      generateMutation.mutate({
+        campaignId: campaign.id,
+        campaignData: campaign,
+      });
+    }
+  };
+
+  const handleAutoBuild = async (blueprint: AutoCampaignBlueprint) => {
+    const start = new Date();
+    const end = new Date(start);
+    end.setDate(start.getDate() + blueprint.durationDays);
+
+    const campaign = await createMutation.mutateAsync({
+      name: blueprint.name,
+      objective: blueprint.objective,
+      target_audience: blueprint.audience,
+      budget_min: blueprint.budgetMin,
+      budget_max: blueprint.budgetMax,
+      duration_start: start.toISOString(),
+      duration_end: end.toISOString(),
+      preferred_channels: blueprint.channels,
+    });
+
+    if (campaign) {
+      setSelectedCampaign(campaign);
       generateMutation.mutate({
         campaignId: campaign.id,
         campaignData: campaign,
@@ -142,19 +167,23 @@ const Campaigns = () => {
           </div>
 
           <TabsContent value="campaigns" className="space-y-4">
+            <AutoCampaignBuilder
+              isBuilding={createMutation.isPending || generateMutation.isPending}
+              onBuild={handleAutoBuild}
+              onOpenManual={() => setShowCreate(true)}
+            />
 
-        {/* Active Strategy Generation */}
-        {generateMutation.isPending && (
-          <Card className="border-primary/30 bg-primary/5">
-            <CardContent className="flex items-center gap-3 py-4">
-              <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              <div>
-                <p className="text-sm font-medium text-foreground">AI is generating campaign strategy...</p>
-                <p className="text-xs text-muted-foreground">This includes positioning, funnel stages, personas, and content suggestions</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+            {generateMutation.isPending && (
+              <Card className="border-primary/30 bg-primary/5">
+                <CardContent className="flex items-center gap-3 py-4">
+                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">AI is generating campaign strategy...</p>
+                    <p className="text-xs text-muted-foreground">This includes positioning, funnel stages, personas, and content suggestions</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
         {/* Campaign List */}
         {isLoading ? (
