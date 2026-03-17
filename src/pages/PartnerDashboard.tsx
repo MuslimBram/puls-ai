@@ -227,6 +227,10 @@ const PartnerDashboard = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="billing">
+            <PartnerBulkBilling partnerId={partner.id} />
+          </TabsContent>
+
           <TabsContent value="earnings">
             <PartnerEarnings partnerId={partner.id} />
           </TabsContent>

@@ -104,3 +104,9 @@ verify_jwt = false
 
 [functions.enrich-contacts]
 verify_jwt = false
+
+[functions.broadcast-unsubscribe]
+verify_jwt = false
+
+[functions.partner-bulk-billing]
+verify_jwt = false
