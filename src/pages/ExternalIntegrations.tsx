@@ -284,7 +284,6 @@ const ExternalIntegrations = () => {
             </DialogContent>
           </Dialog>
         )}
-      </div>
     </div>
   );
 };
