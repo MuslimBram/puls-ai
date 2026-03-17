@@ -2,10 +2,24 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDeepAnalytics, AnalyticsRange } from "@/hooks/useDeepAnalytics";
+import { useExecutiveSummary } from "@/hooks/useOperationalIntelligence";
 import { useScoreLeads } from "@/hooks/useAIConversationMemory";
 import {
-  TrendingUp, TrendingDown, ArrowRight, Target, Zap, Brain,
-  DollarSign, Users, MessageSquare, RefreshCw, Download, Sparkles,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+  Target,
+  Zap,
+  Brain,
+  DollarSign,
+  Users,
+  MessageSquare,
+  RefreshCw,
+  Download,
+  Sparkles,
+  AlertTriangle,
+  Shield,
+  Activity,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
@@ -16,6 +30,7 @@ interface ExecutiveSummaryProps {
 
 export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
   const m = useDeepAnalytics(dateRange);
+  const executive = useExecutiveSummary();
   const scoreLeads = useScoreLeads();
 
   const highlights: { icon: React.ElementType; label: string; value: string | number; trend?: number; color: string }[] = [
@@ -34,6 +49,53 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
     { label: "Won", value: Math.round(m.totalLeads * (m.conversionRate / 100)), pct: m.conversionRate },
   ];
 
+  const executiveCards = executive.data
+    ? [
+        { icon: Target, label: "Leads Today", value: executive.data.leads_today },
+        { icon: DollarSign, label: "30d Revenue Potential", value: `$${executive.data.revenue_potential_30d.toLocaleString()}` },
+        { icon: MessageSquare, label: "Open Conversations", value: executive.data.open_conversations },
+        { icon: Zap, label: "Active Campaigns", value: executive.data.active_campaigns },
+      ]
+    : [];
+
+  const priorityActions: { title: string; detail: string; variant: "default" | "secondary" | "destructive" | "outline" }[] = [
+    executive.data?.sla_breaches_active
+      ? {
+          title: `Resolve ${executive.data.sla_breaches_active} SLA breach${executive.data.sla_breaches_active === 1 ? "" : "es"}`,
+          detail: "Response commitments are at risk and should be handled first.",
+          variant: "destructive",
+        }
+      : null,
+    executive.data?.churn_risk_alerts
+      ? {
+          title: `Review ${executive.data.churn_risk_alerts} churn risk alert${executive.data.churn_risk_alerts === 1 ? "" : "s"}`,
+          detail: "Retention signals have weakened and need a re-engagement play.",
+          variant: "secondary",
+        }
+      : null,
+    m.hotLeads > 0
+      ? {
+          title: `Prioritize ${m.hotLeads} hot lead${m.hotLeads === 1 ? "" : "s"}`,
+          detail: `AI sees $${m.predictedPipelineValue.toLocaleString()} in near-term revenue potential.`,
+          variant: "default",
+        }
+      : null,
+    m.autoFailed > 0
+      ? {
+          title: `Fix ${m.autoFailed} failed automation run${m.autoFailed === 1 ? "" : "s"}`,
+          detail: "Cleaning up automation errors will protect response speed and consistency.",
+          variant: "destructive",
+        }
+      : null,
+    m.scoredLeadCoverage < 70
+      ? {
+          title: "Increase AI lead scoring coverage",
+          detail: `${m.scoredLeadCoverage}% of current leads are scored, so rerunning AI scoring will sharpen prioritization.`,
+          variant: "outline",
+        }
+      : null,
+  ].filter((item): item is { title: string; detail: string; variant: "default" | "secondary" | "destructive" | "outline" } => Boolean(item));
+
   const exportFullReport = () => {
     const rows = [
       ["LeadPulse Executive Report", ""],
@@ -50,6 +112,14 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
       ["Scored Lead Coverage", `${m.scoredLeadCoverage}%`],
       ["Conversion Rate", `${m.conversionRate}%`],
       ["Avg Response Time", `${m.avgResponseMin} min`],
+      ["", ""],
+      ["TODAY SNAPSHOT", ""],
+      ["Leads Today", String(executive.data?.leads_today ?? 0)],
+      ["Revenue Potential 30d", `$${(executive.data?.revenue_potential_30d ?? 0).toLocaleString()}`],
+      ["Open Conversations", String(executive.data?.open_conversations ?? 0)],
+      ["Active Campaigns", String(executive.data?.active_campaigns ?? 0)],
+      ["Churn Risk Alerts", String(executive.data?.churn_risk_alerts ?? 0)],
+      ["Active SLA Breaches", String(executive.data?.sla_breaches_active ?? 0)],
       ["", ""],
       ["AUTOMATIONS", ""],
       ["Total Runs", String(m.autoTotal)],
@@ -100,6 +170,88 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
           </Button>
         </div>
       </div>
+
+      <Card className="border-primary/10 bg-gradient-to-br from-primary/5 via-background to-secondary/40">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Activity className="h-4 w-4 text-primary" />
+            Daily Executive Brief
+          </CardTitle>
+          <CardDescription>
+            {executive.data
+              ? `Today you generated ${executive.data.leads_today} leads, have $${executive.data.revenue_potential_30d.toLocaleString()} in 30-day revenue potential, and ${executive.data.open_conversations} open conversations requiring attention.`
+              : "Loading today’s business pulse, revenue potential, and active operational risk signals."}
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {executiveCards.length > 0 ? (
+              executiveCards.map((item) => (
+                <div key={item.label} className="rounded-lg border border-border bg-card/80 p-4">
+                  <div className="mb-2 flex items-center gap-2 text-muted-foreground">
+                    <item.icon className="h-4 w-4 text-primary" />
+                    <span className="text-xs">{item.label}</span>
+                  </div>
+                  <p className="text-xl font-bold text-foreground">{item.value}</p>
+                </div>
+              ))
+            ) : (
+              <div className="col-span-full rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                Daily executive metrics are loading.
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-lg border border-border bg-card/70 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-primary" />
+                <p className="text-sm font-semibold text-foreground">Priority Actions</p>
+              </div>
+              {priorityActions.length > 0 ? (
+                <div className="space-y-2.5">
+                  {priorityActions.map((item) => (
+                    <div key={item.title} className="flex items-start justify-between gap-3 rounded-lg bg-muted/50 p-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{item.title}</p>
+                        <p className="text-xs text-muted-foreground">{item.detail}</p>
+                      </div>
+                      <Badge variant={item.variant}>{item.variant === "destructive" ? "Urgent" : item.variant === "default" ? "Priority" : item.variant === "secondary" ? "Watch" : "Optimize"}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No urgent actions detected right now — current signals look stable.</p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-border bg-card/70 p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-primary" />
+                <p className="text-sm font-semibold text-foreground">Risk Snapshot</p>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                  <span className="text-sm text-muted-foreground">Churn alerts</span>
+                  <Badge variant={executive.data?.churn_risk_alerts ? "secondary" : "outline"}>{executive.data?.churn_risk_alerts ?? 0}</Badge>
+                </div>
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                  <span className="text-sm text-muted-foreground">SLA breaches</span>
+                  <Badge variant={executive.data?.sla_breaches_active ? "destructive" : "outline"}>{executive.data?.sla_breaches_active ?? 0}</Badge>
+                </div>
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                  <span className="text-sm text-muted-foreground">Automation failures</span>
+                  <Badge variant={m.autoFailed > 0 ? "destructive" : "outline"}>{m.autoFailed}</Badge>
+                </div>
+                <div className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                  <span className="text-sm text-muted-foreground">Hot leads</span>
+                  <Badge variant={m.hotLeads > 0 ? "default" : "outline"}>{m.hotLeads}</Badge>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {highlights.map((h) => (
