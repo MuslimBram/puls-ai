@@ -82,8 +82,7 @@ const ExternalIntegrations = () => {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-4">
+    <div className="space-y-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
