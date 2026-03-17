@@ -26,6 +26,11 @@ export interface ConversationThread {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  next_response_due: string | null;
+  resolution_due: string | null;
+  sla_breached: boolean;
+  state_changed_at: string | null;
+  previous_status: string | null;
 }
 
 export interface ConversationNote {
