@@ -53,8 +53,8 @@ const FunnelBar = ({ label, value, total, color }: {
 
 export const OperationalDashboard = () => {
   const [range, setRange] = useState<OpsRange>("30d");
-  const { currentWorkspace } = useWorkspace();
-  const wsId = currentWorkspace?.id ?? null;
+  const { workspace } = useWorkspace();
+  const wsId = workspace?.id ?? null;
 
   const { data: agents } = useAgentPerformance(range);
   const { data: channels } = useChannelPerformance(range);
