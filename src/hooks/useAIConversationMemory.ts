@@ -21,28 +21,28 @@ export interface ConversationMemory {
 
 export const useContactMemory = (contactIdentifier?: string) => {
   const { user } = useAuth();
-  const { currentWorkspace } = useWorkspace();
+  const { workspace } = useWorkspace();
 
   return useQuery({
-    queryKey: ["ai-memory", currentWorkspace?.id, contactIdentifier],
+    queryKey: ["ai-memory", workspace?.id, contactIdentifier],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ai_conversation_memory")
         .select("*")
-        .eq("workspace_id", currentWorkspace!.id)
+        .eq("workspace_id", workspace!.id)
         .eq("contact_identifier", contactIdentifier!)
         .eq("memory_type", "conversation")
         .maybeSingle();
       if (error) throw error;
       return data as ConversationMemory | null;
     },
-    enabled: !!user && !!currentWorkspace?.id && !!contactIdentifier,
+    enabled: !!user && !!workspace?.id && !!contactIdentifier,
   });
 };
 
 export const useRefreshMemory = () => {
   const qc = useQueryClient();
-  const { currentWorkspace } = useWorkspace();
+  const { workspace } = useWorkspace();
 
   return useMutation({
     mutationFn: async ({
@@ -56,7 +56,7 @@ export const useRefreshMemory = () => {
     }) => {
       const { data, error } = await supabase.functions.invoke("ai-conversation-memory", {
         body: {
-          workspace_id: currentWorkspace!.id,
+          workspace_id: workspace!.id,
           contact_identifier: contactIdentifier,
           new_message: newMessage,
           channel_type: channelType,
@@ -71,7 +71,7 @@ export const useRefreshMemory = () => {
       };
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["ai-memory", currentWorkspace?.id, vars.contactIdentifier] });
+      qc.invalidateQueries({ queryKey: ["ai-memory", workspace?.id, vars.contactIdentifier] });
       toast.success("AI memory updated");
     },
     onError: (e) => toast.error(e.message),
@@ -97,13 +97,13 @@ export const useLeadScore = (leadId?: string) => {
 };
 
 export const useScoreLeads = () => {
-  const { currentWorkspace } = useWorkspace();
+  const { workspace } = useWorkspace();
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async () => {
       const { data, error } = await supabase.functions.invoke("score-leads", {
-        body: { workspace_id: currentWorkspace!.id },
+        body: { workspace_id: workspace!.id },
       });
       if (error) throw error;
       return data as { scored: number; total: number };
