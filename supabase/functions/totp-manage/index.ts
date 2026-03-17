@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "verify") {
-      if (!token || token.length !== 6) {
+      if (!totpToken || totpToken.length !== 6) {
         return new Response(JSON.stringify({ error: "Invalid token format" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const valid = await verifyTOTP(totpRow.encrypted_secret, token);
+      const valid = await verifyTOTP(totpRow.encrypted_secret, totpToken);
       if (!valid) {
         return new Response(JSON.stringify({ error: "Invalid code. Try again." }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "disable") {
-      if (!token || token.length !== 6) {
+      if (!totpToken || totpToken.length !== 6) {
         return new Response(JSON.stringify({ error: "Provide current TOTP code to disable" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const valid = await verifyTOTP(totpRow.encrypted_secret, token);
+      const valid = await verifyTOTP(totpRow.encrypted_secret, totpToken);
       if (!valid) {
         return new Response(JSON.stringify({ error: "Invalid code" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
