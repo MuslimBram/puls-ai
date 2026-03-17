@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useDeepAnalytics, AnalyticsRange } from "@/hooks/useDeepAnalytics";
+import { ExecutiveSummary } from "@/components/ExecutiveSummary";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   LineChart, Line, AreaChart, Area, PieChart, Pie, Cell,
@@ -67,11 +68,15 @@ const DeepAnalytics = () => {
     <DashboardLayout>
       <Tabs defaultValue={defaultTab} className="space-y-4">
         <TabsList>
+          <TabsTrigger value="executive">Executive Brief</TabsTrigger>
           <TabsTrigger value="analytics">Deep Analytics</TabsTrigger>
           <TabsTrigger value="trends">Historical Trends</TabsTrigger>
           <TabsTrigger value="ops">Operational Intelligence</TabsTrigger>
           <TabsTrigger value="insights">Business Insights</TabsTrigger>
         </TabsList>
+        <TabsContent value="executive">
+          <ExecutiveSummary dateRange={dateRange} />
+        </TabsContent>
         <TabsContent value="trends">
           <HistoricalTrends />
         </TabsContent>
