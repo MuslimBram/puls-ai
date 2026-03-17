@@ -59,6 +59,18 @@ const Automations = () => {
           </Button>
         </div>
 
+        <Tabs defaultValue="workflows">
+          <TabsList>
+            <TabsTrigger value="workflows">My Workflows</TabsTrigger>
+            <TabsTrigger value="templates">Templates Library</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="templates" className="mt-4">
+            <AutomationTemplates />
+          </TabsContent>
+
+          <TabsContent value="workflows" className="mt-4">
+
         {/* Stats */}
         <div className="grid gap-3 grid-cols-3">
           <Card>
