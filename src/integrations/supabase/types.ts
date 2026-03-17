@@ -5149,6 +5149,7 @@ export type Database = {
       }
       scan_sources: {
         Row: {
+          business_id: string | null
           created_at: string
           id: string
           is_active: boolean
@@ -5163,6 +5164,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          business_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -5177,6 +5179,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          business_id?: string | null
           created_at?: string
           id?: string
           is_active?: boolean
@@ -5191,6 +5194,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scan_sources_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scan_sources_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -5344,6 +5354,7 @@ export type Database = {
       }
       source_scans: {
         Row: {
+          business_id: string | null
           completed_at: string | null
           created_at: string
           duration_ms: number | null
@@ -5360,6 +5371,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          business_id?: string | null
           completed_at?: string | null
           created_at?: string
           duration_ms?: number | null
@@ -5376,6 +5388,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          business_id?: string | null
           completed_at?: string | null
           created_at?: string
           duration_ms?: number | null
@@ -5392,6 +5405,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "source_scans_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "source_scans_source_id_fkey"
             columns: ["source_id"]
