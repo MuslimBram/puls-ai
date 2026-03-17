@@ -144,9 +144,11 @@ export const useLogSecurityEvent = () => {
   return useMutation({
     mutationFn: async (event: { event_type: string; ip_address?: string; metadata?: Record<string, unknown> }) => {
       const { error } = await supabase.from("security_events").insert({
-        ...event,
+        event_type: event.event_type,
+        ip_address: event.ip_address ?? null,
+        metadata: event.metadata ?? {},
         user_id: user!.id,
-      });
+      } as any);
       if (error) throw error;
     },
   });
