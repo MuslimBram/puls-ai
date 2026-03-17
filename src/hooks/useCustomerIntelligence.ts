@@ -76,13 +76,12 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
             .limit(20)
         : { data: [] as any[] };
 
-      const leadsByIdentifier = await (supabase
-        .from("leads")
+      const leadsByIdentifier = await (supabase.from("leads" as any) as any)
         .select("id, source_name, source_type, message_content, detected_keyword, message_date, intent_score, status, author_username")
         .eq("user_id", user.id)
         .eq("author_username", contactIdentifier)
         .order("message_date", { ascending: false })
-        .limit(50) as any);
+        .limit(50);
 
       const callsByPhone = await supabase
         .from("call_records" as any)
