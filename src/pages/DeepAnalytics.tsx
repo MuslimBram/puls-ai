@@ -245,6 +245,11 @@ const DeepAnalytics = () => {
         </div>
       </div>
         </TabsContent>
+        <TabsContent value="insights">
+          <Suspense fallback={<div className="flex justify-center py-12"><div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" /></div>}>
+            <BusinessInsightsPage />
+          </Suspense>
+        </TabsContent>
       </Tabs>
     </DashboardLayout>
   );
