@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePartnerAccount, usePartnerBusinesses, usePartnerReferrals, useApplyForPartner } from "@/hooks/usePartner";
 import { PartnerEarnings } from "@/components/PartnerEarnings";
+import { PartnerBulkBilling } from "@/components/PartnerBulkBilling";
 import {
   Handshake,
   Loader2,
@@ -191,6 +192,10 @@ const PartnerDashboard = () => {
               <Building2 className="h-3 w-3 mr-1" />
               Businesses
             </TabsTrigger>
+            <TabsTrigger value="billing">
+              <DollarSign className="h-3 w-3 mr-1" />
+              Bulk Billing
+            </TabsTrigger>
             <TabsTrigger value="earnings">
               <Wallet className="h-3 w-3 mr-1" />
               Earnings & Payouts
@@ -220,6 +225,10 @@ const PartnerDashboard = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="billing">
+            <PartnerBulkBilling partnerId={partner.id} />
           </TabsContent>
 
           <TabsContent value="earnings">

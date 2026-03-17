@@ -503,6 +503,57 @@ export type Database = {
           },
         ]
       }
+      broadcast_unsubscribe_tokens: {
+        Row: {
+          broadcast_id: string | null
+          channel_type: string
+          contact_identifier: string
+          created_at: string
+          id: string
+          token: string
+          used_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          broadcast_id?: string | null
+          channel_type?: string
+          contact_identifier: string
+          created_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          broadcast_id?: string | null
+          channel_type?: string
+          contact_identifier?: string
+          created_at?: string
+          id?: string
+          token?: string
+          used_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_unsubscribe_tokens_broadcast_id_fkey"
+            columns: ["broadcast_id"]
+            isOneToOne: false
+            referencedRelation: "broadcasts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broadcast_unsubscribe_tokens_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broadcasts: {
         Row: {
           approval_status: string | null
@@ -4288,6 +4339,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      stripe_product_plans: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          monthly_price: number
+          plan_name: string
+          stripe_product_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          monthly_price?: number
+          plan_name: string
+          stripe_product_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          monthly_price?: number
+          plan_name?: string
+          stripe_product_id?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       subscription_refunds: {
         Row: {

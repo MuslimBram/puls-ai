@@ -59,18 +59,25 @@ export const EmailSetup = () => {
     const name = form.channelName.trim() || form.emailAddress;
     if (!name) return;
 
+    const settings: Record<string, any> = {
+      email_address: form.emailAddress,
+      connection_type: form.connectionType,
+      webhook_url: webhookUrl,
+      monitoring_active: true,
+    };
+
+    if (form.connectionType === "imap") {
+      settings.imap_server = form.imapServer;
+      settings.imap_port = form.imapPort;
+      settings.imap_username = form.username;
+      settings.imap_password = form.password; // stored encrypted via RLS
+      settings.use_ssl = form.useSsl;
+    }
+
     const channelData: ChannelData = {
       channel_type: "email",
       channel_name: name,
-      settings: {
-        email_address: form.emailAddress,
-        connection_type: form.connectionType,
-        imap_server: form.imapServer,
-        imap_port: form.imapPort,
-        use_ssl: form.useSsl,
-        webhook_url: webhookUrl,
-        monitoring_active: true,
-      },
+      settings,
     };
 
     addChannel.mutate(channelData, {
