@@ -110,3 +110,6 @@ verify_jwt = false
 
 [functions.partner-bulk-billing]
 verify_jwt = false
+
+[functions.broadcast-send-engine]
+verify_jwt = false

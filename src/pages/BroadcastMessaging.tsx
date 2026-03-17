@@ -231,6 +231,9 @@ const BroadcastMessaging = () => {
         {viewingBroadcast && (
           <BroadcastDetailDialog broadcast={viewingBroadcast} onClose={() => setViewingBroadcast(null)} />
         )}
+
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
