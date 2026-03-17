@@ -202,7 +202,10 @@ const Inbox = () => {
                     </Button>
                   )}
                 </div>
-                {/* AI Context Panel */}
+                <CustomerIntelligenceProfile
+                  contactIdentifier={selectedMsg.sender_identifier || selectedMsg.sender_name}
+                  contactName={selectedMsg.sender_name}
+                />
                 <AIContextPanel
                   contactIdentifier={selectedMsg.sender_name || selectedMsg.sender_identifier}
                   contactName={selectedMsg.sender_name}

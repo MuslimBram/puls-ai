@@ -191,7 +191,7 @@ const ContactHub = () => {
               </div>
             ) : (
               <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">Select a contact to view their unified timeline</CardContent></Card>
-            )
+            )}
           </div>
         </div>
       </div>
