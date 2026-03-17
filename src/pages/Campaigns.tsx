@@ -122,15 +122,26 @@ const Campaigns = () => {
     setFormChannels((prev) => prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]);
   };
 
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "campaigns";
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Campaign Builder</h1>
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus className="mr-2 h-4 w-4" /> New Campaign
-          </Button>
-        </div>
+        <Tabs defaultValue={initialTab} className="space-y-4">
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+              <TabsTrigger value="calendar">Content Calendar</TabsTrigger>
+            </TabsList>
+            {initialTab === "campaigns" && (
+              <Button onClick={() => setShowCreate(true)}>
+                <Plus className="mr-2 h-4 w-4" /> New Campaign
+              </Button>
+            )}
+          </div>
+
+          <TabsContent value="campaigns" className="space-y-4">
 
         {/* Active Strategy Generation */}
         {generateMutation.isPending && (
