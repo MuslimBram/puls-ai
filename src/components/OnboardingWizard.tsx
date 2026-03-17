@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,10 +9,7 @@ import {
   Circle,
   Rocket,
   X,
-  ChevronRight,
-  Sparkles,
   ArrowRight,
-  RotateCcw,
 } from "lucide-react";
 
 export const OnboardingWizard = () => {
