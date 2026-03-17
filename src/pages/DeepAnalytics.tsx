@@ -14,7 +14,7 @@ import {
 } from "recharts";
 import {
   Download, TrendingUp, Clock, Zap, Target, ArrowUpRight, ArrowDownRight,
-  BarChart3, Send, Activity,
+  BarChart3, Send, Activity, Brain, AlertTriangle, Shield,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
@@ -240,6 +240,70 @@ const DeepAnalytics = () => {
               <div className="mt-3 text-center">
                 <p className="text-sm text-muted-foreground">Avg Duration: <span className="font-medium text-foreground">{m.autoAvgDuration}ms</span></p>
               </div>
+            </CardContent>
+          </Card>
+
+          {/* AI Usage */}
+          <Card>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Brain className="h-4 w-4" /> AI Usage</CardTitle></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{m.aiTotal}</p>
+                  <p className="text-xs text-muted-foreground">AI Conversations</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-primary">{m.aiAutoReplied}</p>
+                  <p className="text-xs text-muted-foreground">Auto-Replied</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{m.aiAutoReplyRate}%</p>
+                  <p className="text-xs text-muted-foreground">Auto-Reply Rate</p>
+                </div>
+              </div>
+              {m.aiByComplexity.length > 0 && (
+                <div className="mt-3 flex gap-2 justify-center flex-wrap">
+                  {m.aiByComplexity.map((c) => (
+                    <Badge key={c.name} variant="secondary" className="text-xs">{c.name}: {c.value}</Badge>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Churn Risk */}
+          <Card>
+            <CardHeader><CardTitle className="text-lg flex items-center gap-2"><Shield className="h-4 w-4" /> Churn Risk</CardTitle></CardHeader>
+            <CardContent>
+              <div className="flex items-center gap-4 mb-3">
+                <div className="text-center">
+                  <p className="text-3xl font-bold text-foreground">{m.churnScore}</p>
+                  <p className="text-xs text-muted-foreground">Risk Score</p>
+                </div>
+                <Badge className={`text-sm ${
+                  m.churnRiskLevel === "critical" ? "bg-destructive/10 text-destructive" :
+                  m.churnRiskLevel === "high" ? "bg-orange-500/10 text-orange-600" :
+                  m.churnRiskLevel === "medium" ? "bg-yellow-500/10 text-yellow-600" :
+                  "bg-green-500/10 text-green-600"
+                }`}>
+                  {m.churnRiskLevel === "unknown" ? "No data" : m.churnRiskLevel}
+                </Badge>
+                {m.churnDaysInactive > 0 && (
+                  <span className="text-xs text-muted-foreground">{m.churnDaysInactive}d inactive</span>
+                )}
+              </div>
+              {Array.isArray(m.churnSignals) && m.churnSignals.length > 0 && (
+                <div className="space-y-1">
+                  {(m.churnSignals as string[]).slice(0, 4).map((s, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <AlertTriangle className="h-3 w-3 text-destructive" /> {s}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {m.churnRiskLevel === "unknown" && (
+                <p className="text-xs text-muted-foreground text-center py-2">Churn detection runs daily. Data will appear after first analysis.</p>
+              )}
             </CardContent>
           </Card>
         </div>
