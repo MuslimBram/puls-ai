@@ -57,6 +57,15 @@ const DeepAnalytics = () => {
 
   return (
     <DashboardLayout>
+      <Tabs defaultValue="analytics" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="analytics">Deep Analytics</TabsTrigger>
+          <TabsTrigger value="ops">Operational Intelligence</TabsTrigger>
+        </TabsList>
+        <TabsContent value="ops">
+          <OpsPanel />
+        </TabsContent>
+        <TabsContent value="analytics">
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground">Deep Analytics</h1>
