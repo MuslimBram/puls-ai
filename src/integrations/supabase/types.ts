@@ -882,6 +882,64 @@ export type Database = {
           },
         ]
       }
+      business_ai_content: {
+        Row: {
+          business_id: string
+          content_json: Json
+          content_type: string
+          created_at: string
+          generated_by: string
+          id: string
+          scan_history_id: string | null
+          status: string
+          workspace_id: string
+        }
+        Insert: {
+          business_id: string
+          content_json?: Json
+          content_type?: string
+          created_at?: string
+          generated_by: string
+          id?: string
+          scan_history_id?: string | null
+          status?: string
+          workspace_id: string
+        }
+        Update: {
+          business_id?: string
+          content_json?: Json
+          content_type?: string
+          created_at?: string
+          generated_by?: string
+          id?: string
+          scan_history_id?: string | null
+          status?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_ai_content_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_ai_content_scan_history_id_fkey"
+            columns: ["scan_history_id"]
+            isOneToOne: false
+            referencedRelation: "business_scan_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_ai_content_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_notifications: {
         Row: {
           action_url: string | null
@@ -1124,6 +1182,99 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "business_registrations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_scan_history: {
+        Row: {
+          business_id: string
+          competitor_hints: Json | null
+          completed_at: string | null
+          contact_methods: Json | null
+          created_at: string
+          cta_signals: Json | null
+          duration_ms: number | null
+          error_message: string | null
+          id: string
+          insights_count: number | null
+          pages_scanned: number | null
+          pricing_signals: Json | null
+          products_found: Json | null
+          scan_phase: string | null
+          scanned_url: string
+          services_found: Json | null
+          social_links: Json | null
+          status: string
+          suggested_keywords: Json | null
+          summary_json: Json | null
+          tone_of_voice: string | null
+          triggered_by: string
+          workspace_id: string
+        }
+        Insert: {
+          business_id: string
+          competitor_hints?: Json | null
+          completed_at?: string | null
+          contact_methods?: Json | null
+          created_at?: string
+          cta_signals?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          insights_count?: number | null
+          pages_scanned?: number | null
+          pricing_signals?: Json | null
+          products_found?: Json | null
+          scan_phase?: string | null
+          scanned_url: string
+          services_found?: Json | null
+          social_links?: Json | null
+          status?: string
+          suggested_keywords?: Json | null
+          summary_json?: Json | null
+          tone_of_voice?: string | null
+          triggered_by: string
+          workspace_id: string
+        }
+        Update: {
+          business_id?: string
+          competitor_hints?: Json | null
+          completed_at?: string | null
+          contact_methods?: Json | null
+          created_at?: string
+          cta_signals?: Json | null
+          duration_ms?: number | null
+          error_message?: string | null
+          id?: string
+          insights_count?: number | null
+          pages_scanned?: number | null
+          pricing_signals?: Json | null
+          products_found?: Json | null
+          scan_phase?: string | null
+          scanned_url?: string
+          services_found?: Json | null
+          social_links?: Json | null
+          status?: string
+          suggested_keywords?: Json | null
+          summary_json?: Json | null
+          tone_of_voice?: string | null
+          triggered_by?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_scan_history_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "business_scan_history_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -4821,6 +4972,7 @@ export type Database = {
       }
       scan_insights: {
         Row: {
+          business_id: string | null
           confidence_score: number
           created_at: string
           description: string | null
@@ -4835,6 +4987,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          business_id?: string | null
           confidence_score?: number
           created_at?: string
           description?: string | null
@@ -4849,6 +5002,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          business_id?: string | null
           confidence_score?: number
           created_at?: string
           description?: string | null
@@ -4863,6 +5017,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "scan_insights_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "scan_insights_scan_id_fkey"
             columns: ["scan_id"]
