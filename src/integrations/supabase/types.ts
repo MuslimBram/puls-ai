@@ -4141,11 +4141,16 @@ export type Database = {
           package_type: string | null
           plan: string
           qualifying_package_type: string | null
+          referral_discount_expires_at: string | null
+          referral_discount_months_remaining: number | null
+          referral_discount_percent: number | null
           referral_eligible: boolean | null
           referral_eligible_at: string | null
+          referred_by_partner_id: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           subscription_status: string
+          total_discount_savings: number | null
           trial_end: string | null
           trial_start: string | null
           updated_at: string
@@ -4173,11 +4178,16 @@ export type Database = {
           package_type?: string | null
           plan?: string
           qualifying_package_type?: string | null
+          referral_discount_expires_at?: string | null
+          referral_discount_months_remaining?: number | null
+          referral_discount_percent?: number | null
           referral_eligible?: boolean | null
           referral_eligible_at?: string | null
+          referred_by_partner_id?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
+          total_discount_savings?: number | null
           trial_end?: string | null
           trial_start?: string | null
           updated_at?: string
@@ -4205,11 +4215,16 @@ export type Database = {
           package_type?: string | null
           plan?: string
           qualifying_package_type?: string | null
+          referral_discount_expires_at?: string | null
+          referral_discount_months_remaining?: number | null
+          referral_discount_percent?: number | null
           referral_eligible?: boolean | null
           referral_eligible_at?: string | null
+          referred_by_partner_id?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           subscription_status?: string
+          total_discount_savings?: number | null
           trial_end?: string | null
           trial_start?: string | null
           updated_at?: string
@@ -4218,6 +4233,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "subscriptions_referred_by_partner_id_fkey"
+            columns: ["referred_by_partner_id"]
+            isOneToOne: false
+            referencedRelation: "partner_accounts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "subscriptions_workspace_id_fkey"
             columns: ["workspace_id"]

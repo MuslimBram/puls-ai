@@ -56,6 +56,129 @@ serve(async (req) => {
       return users?.users?.find((u) => u.email === email) || null;
     };
 
+    // Get partner info for a workspace
+    const getPartnerDiscount = async (workspaceId: string) => {
+      const { data: ws } = await supabase
+        .from("workspaces")
+        .select("referred_by_partner_id")
+        .eq("id", workspaceId)
+        .maybeSingle();
+
+      if (!ws?.referred_by_partner_id) return null;
+
+      const { data: partner } = await supabase
+        .from("partner_accounts")
+        .select("id, referral_discount_percent, discount_duration_months, status")
+        .eq("id", ws.referred_by_partner_id)
+        .eq("status", "active")
+        .maybeSingle();
+
+      return partner;
+    };
+
+    // Apply or renew referral discount on a Stripe subscription
+    const applyReferralDiscount = async (
+      stripeSubscriptionId: string,
+      userId: string,
+      workspaceId: string,
+      invoiceAmount: number
+    ) => {
+      // Get current sub discount tracking
+      const { data: sub } = await supabase
+        .from("subscriptions")
+        .select("referral_discount_percent, referral_discount_months_remaining, referral_discount_expires_at, referred_by_partner_id, total_discount_savings")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (!sub) return;
+
+      // Check if discount is still active
+      const now = new Date();
+      const hasActiveDiscount = sub.referral_discount_months_remaining > 0 &&
+        sub.referral_discount_expires_at &&
+        new Date(sub.referral_discount_expires_at) > now;
+
+      if (hasActiveDiscount && sub.referral_discount_percent > 0) {
+        // Decrement months remaining
+        const newMonthsRemaining = sub.referral_discount_months_remaining - 1;
+        const discountSaved = (invoiceAmount * sub.referral_discount_percent) / 100;
+
+        const updateData: Record<string, any> = {
+          referral_discount_months_remaining: newMonthsRemaining,
+          total_discount_savings: Number(sub.total_discount_savings || 0) + discountSaved,
+          updated_at: now.toISOString(),
+        };
+
+        // If months exhausted, clear the discount
+        if (newMonthsRemaining <= 0) {
+          updateData.referral_discount_percent = 0;
+          updateData.referral_discount_expires_at = null;
+
+          // Remove Stripe coupon from subscription
+          try {
+            await stripe.subscriptions.update(stripeSubscriptionId, {
+              coupon: "",
+            });
+            console.log(`[STRIPE-WEBHOOK] Removed expired referral discount from sub ${stripeSubscriptionId}`);
+          } catch (e) {
+            console.error("[STRIPE-WEBHOOK] Failed to remove coupon:", e);
+          }
+        }
+
+        await supabase.from("subscriptions").update(updateData).eq("user_id", userId);
+        console.log(`[STRIPE-WEBHOOK] Discount tracked: saved $${discountSaved.toFixed(2)}, ${newMonthsRemaining} months remaining`);
+      }
+    };
+
+    // Initialize referral discount for new subscription
+    const initializeReferralDiscount = async (userId: string, workspaceId: string) => {
+      const partner = await getPartnerDiscount(workspaceId);
+      if (!partner || partner.referral_discount_percent <= 0) return;
+
+      const durationMonths = partner.discount_duration_months || 3;
+      const expiresAt = new Date();
+      expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
+
+      // Anti-abuse: check self-referral
+      const { data: partnerAccount } = await supabase
+        .from("partner_accounts")
+        .select("user_id")
+        .eq("id", partner.id)
+        .maybeSingle();
+
+      if (partnerAccount?.user_id === userId) {
+        console.log(`[STRIPE-WEBHOOK] Self-referral blocked for user ${userId}`);
+        return;
+      }
+
+      // Anti-abuse: check duplicate email domain
+      const { data: userData } = await supabase.auth.admin.getUserById(userId);
+      const userEmail = userData?.user?.email;
+      if (userEmail && partnerAccount?.user_id) {
+        const { data: partnerUser } = await supabase.auth.admin.getUserById(partnerAccount.user_id);
+        if (partnerUser?.user?.email) {
+          const userDomain = userEmail.split("@")[1];
+          const partnerDomain = partnerUser.user.email.split("@")[1];
+          // Block same domain (except public email providers)
+          const publicDomains = ["gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "protonmail.com"];
+          if (userDomain === partnerDomain && !publicDomains.includes(userDomain)) {
+            console.log(`[STRIPE-WEBHOOK] Same-domain referral blocked: ${userDomain}`);
+            return;
+          }
+        }
+      }
+
+      await supabase.from("subscriptions").update({
+        referral_discount_percent: partner.referral_discount_percent,
+        referral_discount_months_remaining: durationMonths,
+        referral_discount_expires_at: expiresAt.toISOString(),
+        referred_by_partner_id: partner.id,
+        updated_at: new Date().toISOString(),
+      }).eq("user_id", userId);
+
+      console.log(`[STRIPE-WEBHOOK] Initialized referral discount: ${partner.referral_discount_percent}% for ${durationMonths} months`);
+    };
+
     const handleSubscription = async (subscription: Stripe.Subscription) => {
       const customerId = subscription.customer as string;
       const customer = await stripe.customers.retrieve(customerId);
@@ -103,7 +226,6 @@ serve(async (req) => {
       else console.log(`[STRIPE-WEBHOOK] Updated user ${user.id} to plan=${updateData.plan}, status=${status}`);
     };
 
-    // Create commission with refund window lock
     const createCommission = async (
       partnerId: string, workspaceId: string, subId: string,
       planName: string, commRate: number
@@ -116,7 +238,6 @@ serve(async (req) => {
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
       const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-      // Avoid duplicate
       const { data: existing } = await supabase
         .from("partner_commissions")
         .select("id")
@@ -127,7 +248,6 @@ serve(async (req) => {
 
       if (existing) return;
 
-      // Get partner's refund window config
       const { data: partnerConfig } = await supabase
         .from("partner_accounts")
         .select("refund_window_days")
@@ -136,7 +256,6 @@ serve(async (req) => {
 
       const refundWindowDays = partnerConfig?.refund_window_days ?? REFUND_WINDOW_DAYS;
 
-      // Commission starts as pending_refund_window
       await supabase.from("partner_commissions").insert({
         partner_id: partnerId,
         workspace_id: workspaceId,
@@ -150,7 +269,6 @@ serve(async (req) => {
         commission_status: "pending_refund_window",
       });
 
-      // Update wallet pending
       const { data: wallet } = await supabase
         .from("partner_wallets")
         .select("pending_amount")
@@ -167,20 +285,13 @@ serve(async (req) => {
           .eq("partner_id", partnerId);
       }
 
-      console.log(`[STRIPE-WEBHOOK] Commission created (pending_refund_window): $${commAmount} for partner ${partnerId}`);
+      console.log(`[STRIPE-WEBHOOK] Commission created: $${commAmount} for partner ${partnerId}`);
     };
 
-    // Anti-abuse: detect rapid refunds from same partner
     const checkPartnerAbuse = async (partnerId: string) => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { count } = await supabase
-        .from("subscription_refunds")
-        .select("id", { count: "exact", head: true })
-        .gte("created_at", thirtyDaysAgo.toISOString());
-
-      // Check workspaces referred by this partner that have refunds
       const { data: refWs } = await supabase
         .from("workspaces")
         .select("id")
@@ -195,7 +306,6 @@ serve(async (req) => {
           .gte("created_at", thirtyDaysAgo.toISOString());
 
         if ((refundCount || 0) >= 3) {
-          // Flag partner
           await supabase.from("partner_risk_flags").insert({
             partner_id: partnerId,
             flag_type: "rapid_refunds",
@@ -207,14 +317,39 @@ serve(async (req) => {
     };
 
     switch (event.type) {
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
+      case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscription(subscription);
 
-        // On deletion, cancel pending commissions
-        if (event.type === "customer.subscription.deleted") {
+        // Initialize referral discount for new subscriptions
+        const customerId = subscription.customer as string;
+        const customer = await stripe.customers.retrieve(customerId);
+        if (!(customer as any).deleted) {
+          const email = (customer as Stripe.Customer).email;
+          if (email) {
+            const user = await findUserByEmail(email);
+            if (user) {
+              const { data: sub } = await supabase
+                .from("subscriptions")
+                .select("workspace_id")
+                .eq("user_id", user.id)
+                .maybeSingle();
+              if (sub?.workspace_id) {
+                await initializeReferralDiscount(user.id, sub.workspace_id);
+              }
+            }
+          }
+        }
+        break;
+      }
+
+      case "customer.subscription.updated": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await handleSubscription(subscription);
+
+        // On plan change (upgrade/downgrade), preserve the referral discount
+        const prevAttrs = (event.data as any).previous_attributes;
+        if (prevAttrs?.items) {
           const customerId = subscription.customer as string;
           const customer = await stripe.customers.retrieve(customerId);
           if (!(customer as any).deleted) {
@@ -224,19 +359,65 @@ serve(async (req) => {
               if (user) {
                 const { data: sub } = await supabase
                   .from("subscriptions")
-                  .select("workspace_id")
+                  .select("referral_discount_percent, referral_discount_months_remaining, workspace_id")
                   .eq("user_id", user.id)
                   .maybeSingle();
 
-                if (sub?.workspace_id) {
-                  // Cancel pending commissions for this workspace
-                  await supabase
-                    .from("partner_commissions")
-                    .update({ commission_status: "cancelled" })
-                    .eq("workspace_id", sub.workspace_id)
-                    .in("commission_status", ["pending", "pending_refund_window"]);
+                // If they have an active discount, re-apply coupon to new plan
+                if (sub && sub.referral_discount_percent > 0 && sub.referral_discount_months_remaining > 0) {
+                  try {
+                    const coupon = await stripe.coupons.create({
+                      percent_off: Number(sub.referral_discount_percent),
+                      duration: sub.referral_discount_months_remaining > 1 ? "repeating" : "once",
+                      duration_in_months: sub.referral_discount_months_remaining > 1 ? sub.referral_discount_months_remaining : undefined,
+                      name: `Referral Discount (${sub.referral_discount_percent}%)`,
+                    });
+                    await stripe.subscriptions.update(subscription.id, {
+                      coupon: coupon.id,
+                    });
+                    console.log(`[STRIPE-WEBHOOK] Re-applied referral discount on plan change`);
+                  } catch (e) {
+                    console.error("[STRIPE-WEBHOOK] Failed to re-apply coupon on plan change:", e);
+                  }
                 }
               }
+            }
+          }
+        }
+        break;
+      }
+
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await handleSubscription(subscription);
+
+        const customerId = subscription.customer as string;
+        const customer = await stripe.customers.retrieve(customerId);
+        if (!(customer as any).deleted) {
+          const email = (customer as Stripe.Customer).email;
+          if (email) {
+            const user = await findUserByEmail(email);
+            if (user) {
+              const { data: sub } = await supabase
+                .from("subscriptions")
+                .select("workspace_id")
+                .eq("user_id", user.id)
+                .maybeSingle();
+
+              if (sub?.workspace_id) {
+                await supabase
+                  .from("partner_commissions")
+                  .update({ commission_status: "cancelled" })
+                  .eq("workspace_id", sub.workspace_id)
+                  .in("commission_status", ["pending", "pending_refund_window"]);
+              }
+
+              // Clear active discount on cancellation
+              await supabase.from("subscriptions").update({
+                referral_discount_percent: 0,
+                referral_discount_months_remaining: 0,
+                referral_discount_expires_at: null,
+              }).eq("user_id", user.id);
             }
           }
         }
@@ -251,7 +432,6 @@ serve(async (req) => {
           await handleSubscription(subscription);
         }
 
-        // Create payment failure notification
         const failCustomerId = invoice.customer as string;
         const failCustomer = await stripe.customers.retrieve(failCustomerId);
         if (!(failCustomer as any).deleted) {
@@ -263,12 +443,11 @@ serve(async (req) => {
                 user_id: failUser.id,
                 notification_type: "payment_failed",
                 title: "Payment Failed",
-                message: `Your payment of $${((invoice.amount_due || 0) / 100).toFixed(2)} failed. Please update your payment method to avoid service interruption.`,
+                message: `Your payment of $${((invoice.amount_due || 0) / 100).toFixed(2)} failed. Please update your payment method.`,
                 severity: "critical",
                 metadata: { invoice_id: invoice.id, amount: invoice.amount_due },
               });
 
-              // Also add to business_notifications for in-app visibility
               await supabase.from("business_notifications").insert({
                 user_id: failUser.id,
                 notification_type: "warning",
@@ -290,7 +469,6 @@ serve(async (req) => {
           const subscription = await stripe.subscriptions.retrieve(subId);
           await handleSubscription(subscription);
 
-          // Record billing history
           const succCustomerId = invoice.customer as string;
           const succCustomer = await stripe.customers.retrieve(succCustomerId);
           if (!(succCustomer as any).deleted) {
@@ -324,8 +502,12 @@ serve(async (req) => {
                   period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
                 });
 
-                // Commission tracking for referred workspaces
+                // Track referral discount usage on each renewal
                 if (userSub?.workspace_id) {
+                  const invoiceAmountUsd = (invoice.amount_paid || 0) / 100;
+                  await applyReferralDiscount(subId, succUser.id, userSub.workspace_id, invoiceAmountUsd);
+
+                  // Commission tracking for referred workspaces
                   const { data: ws } = await supabase
                     .from("workspaces")
                     .select("referred_by_partner_id")
@@ -355,7 +537,6 @@ serve(async (req) => {
       }
 
       case "checkout.session.completed": {
-        // Handle addon purchases
         const session = event.data.object as any;
         if (session.metadata?.addon_type && session.metadata?.user_id) {
           const addonType = session.metadata.addon_type;
@@ -364,7 +545,6 @@ serve(async (req) => {
 
           const mediaType = addonType.startsWith("image") ? "image" : "video";
 
-          // Get user's workspace
           const { data: userSub } = await supabase
             .from("subscriptions")
             .select("workspace_id")
@@ -379,26 +559,22 @@ serve(async (req) => {
               quantity,
               remaining: quantity,
             });
-            console.log(`[STRIPE-WEBHOOK] Media addon added: ${quantity} ${mediaType}s for workspace ${userSub.workspace_id}`);
           }
         }
         break;
       }
 
       case "charge.refunded": {
-        // Handle refund → cancel related commission
         const charge = event.data.object as Stripe.Charge;
         const paymentIntentId = charge.payment_intent as string;
 
         if (paymentIntentId) {
-          // Find the refund request and update it
           await supabase
             .from("subscription_refunds")
             .update({ refund_status: "processed", updated_at: new Date().toISOString() })
             .eq("payment_intent_id", paymentIntentId)
             .eq("refund_status", "approved");
 
-          // Get workspace from the refund
           const { data: refund } = await supabase
             .from("subscription_refunds")
             .select("workspace_id")
@@ -406,14 +582,12 @@ serve(async (req) => {
             .maybeSingle();
 
           if (refund?.workspace_id) {
-            // Cancel pending commissions
             await supabase
               .from("partner_commissions")
               .update({ commission_status: "cancelled" })
               .eq("workspace_id", refund.workspace_id)
               .in("commission_status", ["pending", "pending_refund_window"]);
 
-            // Check for partner abuse
             const { data: ws } = await supabase
               .from("workspaces")
               .select("referred_by_partner_id")

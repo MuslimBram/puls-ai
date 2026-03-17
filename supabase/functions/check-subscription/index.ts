@@ -84,10 +84,10 @@ serve(async (req) => {
 
     const isActive = ["active", "trialing"].includes(status);
 
-    // Get current usage for frontend
+    // Get current usage and discount info for frontend
     const { data: subData } = await supabaseClient
       .from("subscriptions")
-      .select("leads_used, ai_replies_today, grace_period_end, trial_start, trial_end")
+      .select("leads_used, ai_replies_today, grace_period_end, trial_start, trial_end, referral_discount_percent, referral_discount_months_remaining, referral_discount_expires_at, total_discount_savings")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -102,6 +102,12 @@ serve(async (req) => {
       grace_period_end: subData?.grace_period_end || null,
       leads_used: subData?.leads_used || 0,
       ai_replies_today: subData?.ai_replies_today || 0,
+      referral_discount: subData?.referral_discount_percent > 0 ? {
+        percent: subData.referral_discount_percent,
+        months_remaining: subData.referral_discount_months_remaining,
+        expires_at: subData.referral_discount_expires_at,
+        total_savings: subData.total_discount_savings || 0,
+      } : null,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

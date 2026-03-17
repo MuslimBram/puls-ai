@@ -15,10 +15,10 @@ import { useKeywords } from "@/hooks/useKeywords";
 import { PLANS, PLAN_ORDER, PlanKey } from "@/config/plans";
 import { STRIPE_TIERS } from "@/config/stripe";
 import { supabase } from "@/integrations/supabase/client";
-import { CreditCard, Zap, Crown, ArrowRight, ExternalLink, Loader2, Clock, AlertTriangle } from "lucide-react";
+import { CreditCard, Zap, Crown, ArrowRight, ExternalLink, Loader2, Clock, AlertTriangle, Gift, Percent } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const Subscription = () => {
@@ -139,7 +139,32 @@ const Subscription = () => {
           </Card>
         )}
 
-        {/* AI Usage */}
+        {/* Referral Discount Banner */}
+        {stripeData?.referral_discount && stripeData.referral_discount.percent > 0 && (
+          <Card className="border-green-500/30 bg-green-500/5">
+            <CardContent className="flex items-center gap-3 pt-6">
+              <Gift className="h-5 w-5 text-green-600" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                  Referral Discount Active
+                  <Badge className="bg-green-500/10 text-green-700 text-xs">
+                    <Percent className="h-3 w-3 mr-0.5" />
+                    {stripeData.referral_discount.percent}% off
+                  </Badge>
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {stripeData.referral_discount.months_remaining} month{stripeData.referral_discount.months_remaining !== 1 ? "s" : ""} remaining
+                  {stripeData.referral_discount.expires_at && (
+                    <> · Expires {format(new Date(stripeData.referral_discount.expires_at), "MMM d, yyyy")}</>
+                  )}
+                  {stripeData.referral_discount.total_savings > 0 && (
+                    <> · Total saved: <span className="font-medium text-green-700">${stripeData.referral_discount.total_savings.toFixed(2)}</span></>
+                  )}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
         <AIUsageDashboard />
 
         {/* Current Plan */}

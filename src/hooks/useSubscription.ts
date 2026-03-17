@@ -25,6 +25,13 @@ const useIsAdminRole = () => {
   return query.data ?? false;
 };
 
+export interface ReferralDiscountInfo {
+  percent: number;
+  months_remaining: number;
+  expires_at: string;
+  total_savings: number;
+}
+
 export interface StripeSubscriptionData {
   subscribed: boolean;
   plan: PlanKey;
@@ -36,6 +43,7 @@ export interface StripeSubscriptionData {
   grace_period_end?: string | null;
   leads_used?: number;
   ai_replies_today?: number;
+  referral_discount?: ReferralDiscountInfo | null;
 }
 
 export const useSubscription = () => {
