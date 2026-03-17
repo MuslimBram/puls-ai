@@ -21,6 +21,8 @@ import { AdminFreelancerPanel } from "@/components/AdminFreelancerPanel";
 import { AdminPaymentOverview } from "@/components/AdminPaymentOverview";
 import { AdminChurnRiskPanel } from "@/components/AdminChurnRiskPanel";
 import { AdminApiErrorLog } from "@/components/AdminApiErrorLog";
+import { AdminDeadLetterPanel } from "@/components/AdminDeadLetterPanel";
+import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
