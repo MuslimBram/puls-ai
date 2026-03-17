@@ -242,6 +242,14 @@ const CRM = () => {
               </CardContent>
             </Card>
           </TabsContent>
+
+          <TabsContent value="contacts">
+            <ContactHubContent />
+          </TabsContent>
+
+          <TabsContent value="calls">
+            <CallHistoryContent />
+          </TabsContent>
         </Tabs>
 
         {/* New Deal Dialog */}
