@@ -27,7 +27,7 @@ import CompetitorIntelligence from "./pages/CompetitorIntelligence";
 import PartnerDashboard from "./pages/PartnerDashboard";
 import SessionSecurity from "./pages/SessionSecurity";
 import CRM from "./pages/CRM";
-import ExternalIntegrations from "./pages/ExternalIntegrations";
+
 import Helpdesk from "./pages/Helpdesk";
 import BroadcastMessaging from "./pages/BroadcastMessaging";
 import Automations from "./pages/Automations";
@@ -99,7 +99,7 @@ const App = () => (
               <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
               <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
               <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
-              <Route path="/external-integrations" element={<ProtectedPage><ExternalIntegrations /></ProtectedPage>} />
+              <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
               {/* Consolidated redirects — orphaned pages → parent tabs */}
               <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />

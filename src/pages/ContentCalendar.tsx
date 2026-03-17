@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DashboardLayout } from "@/components/DashboardLayout";
+// Content Calendar - renders as standalone content (embedded in Campaigns page)
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -119,11 +119,10 @@ const ContentCalendar = () => {
   const scheduledPosts = (posts || []).filter((p) => p.scheduled_at);
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Content Calendar</h1>
-        </div>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold text-foreground">Content Calendar</h1>
+      </div>
 
         <Tabs defaultValue="generate" className="space-y-4">
           <TabsList>
@@ -420,7 +419,6 @@ const ContentCalendar = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </DashboardLayout>
   );
 };
 

@@ -1,5 +1,7 @@
 import { useState, lazy, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
+
+const ContentCalendarContent = lazy(() => import("@/pages/ContentCalendar"));
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -120,15 +122,26 @@ const Campaigns = () => {
     setFormChannels((prev) => prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]);
   };
 
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "campaigns";
+
   return (
     <DashboardLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-foreground">Campaign Builder</h1>
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus className="mr-2 h-4 w-4" /> New Campaign
-          </Button>
-        </div>
+        <Tabs defaultValue={initialTab} className="space-y-4">
+          <div className="flex items-center justify-between">
+            <TabsList>
+              <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
+              <TabsTrigger value="calendar">Content Calendar</TabsTrigger>
+            </TabsList>
+            {initialTab === "campaigns" && (
+              <Button onClick={() => setShowCreate(true)}>
+                <Plus className="mr-2 h-4 w-4" /> New Campaign
+              </Button>
+            )}
+          </div>
+
+          <TabsContent value="campaigns" className="space-y-4">
 
         {/* Active Strategy Generation */}
         {generateMutation.isPending && (
@@ -275,15 +288,23 @@ const Campaigns = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Campaign Detail Dialog */}
-        {selectedCampaign && (
-          <CampaignDetail
-            campaign={selectedCampaign}
-            onClose={() => setSelectedCampaign(null)}
-            expandedFunnel={expandedFunnel}
-            setExpandedFunnel={setExpandedFunnel}
-          />
-        )}
+          {/* Campaign Detail Dialog */}
+          {selectedCampaign && (
+            <CampaignDetail
+              campaign={selectedCampaign}
+              onClose={() => setSelectedCampaign(null)}
+              expandedFunnel={expandedFunnel}
+              setExpandedFunnel={setExpandedFunnel}
+            />
+          )}
+          </TabsContent>
+
+          <TabsContent value="calendar">
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+              <ContentCalendarContent />
+            </Suspense>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );

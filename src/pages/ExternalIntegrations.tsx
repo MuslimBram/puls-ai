@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DashboardLayout } from "@/components/DashboardLayout";
+// External Integrations - renders as standalone content (embedded in Connected Accounts page)
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -82,8 +82,7 @@ const ExternalIntegrations = () => {
   };
 
   return (
-    <DashboardLayout>
-      <div className="space-y-4">
+    <div className="space-y-4">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
@@ -285,8 +284,7 @@ const ExternalIntegrations = () => {
             </DialogContent>
           </Dialog>
         )}
-      </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,8 +22,10 @@ import { SafeRender } from "@/components/SafeRender";
 import { PLAN_ORDER, PlanKey, PLANS } from "@/config/plans";
 import { channelFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
-import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown } from "lucide-react";
+import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+
+const SourcesContent = lazy(() => import("@/pages/Sources"));
 
 const CATEGORY_ICONS: Record<string, any> = {
   messaging: MessageSquare,
@@ -78,23 +81,32 @@ const Channels = () => {
     return acc;
   }, {});
 
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "channels";
+
   return (
     <DashboardLayout>
-      <div className="space-y-4">
-        {/* Connected Channels */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Radio className="h-5 w-5 text-primary" />
-                Connected Channels
-              </CardTitle>
-              <CardDescription>Manage your active communication channels.</CardDescription>
-            </div>
-            <Button size="sm" onClick={() => setShowAdd(true)}>
-              <Plus className="h-4 w-4 mr-1" /> Add Channel
-            </Button>
-          </CardHeader>
+      <Tabs defaultValue={initialTab} className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="sources">Sources</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="channels">
+          <div className="space-y-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Radio className="h-5 w-5 text-primary" />
+                    Connected Channels
+                  </CardTitle>
+                  <CardDescription>Manage your active communication channels.</CardDescription>
+                </div>
+                <Button size="sm" onClick={() => setShowAdd(true)}>
+                  <Plus className="h-4 w-4 mr-1" /> Add Channel
+                </Button>
+              </CardHeader>
           <CardContent>
             {isLoading ? (
               <div className="flex justify-center py-6">
@@ -287,6 +299,14 @@ const Channels = () => {
           />
         )}
       </div>
+        </TabsContent>
+
+        <TabsContent value="sources">
+          <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+            <SourcesContent />
+          </Suspense>
+        </TabsContent>
+      </Tabs>
     </DashboardLayout>
   );
 };

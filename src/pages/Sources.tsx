@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DashboardLayout } from "@/components/DashboardLayout";
+// Sources - renders as standalone content (embedded in Channels page)
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,17 +72,16 @@ export default function Sources() {
   const viewingSource = sources.find((s) => s.id === viewSourceId);
 
   return (
-    <DashboardLayout>
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Source Management</h1>
-            <p className="text-sm text-muted-foreground">Manage scan sources across platforms</p>
-          </div>
-          <Button onClick={() => { resetForm(); setEditId(null); setShowAdd(true); }}>
-            <Plus className="mr-2 h-4 w-4" /> Add Source
-          </Button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Source Management</h1>
+          <p className="text-sm text-muted-foreground">Manage scan sources across platforms</p>
         </div>
+        <Button onClick={() => { resetForm(); setEditId(null); setShowAdd(true); }}>
+          <Plus className="mr-2 h-4 w-4" /> Add Source
+        </Button>
+      </div>
 
         <Card>
           <CardHeader>
@@ -156,8 +155,6 @@ export default function Sources() {
             )}
           </CardContent>
         </Card>
-      </div>
-
       {/* Scan Result Viewer Sheet */}
       <Sheet open={!!viewSourceId} onOpenChange={(o) => { if (!o) setViewSourceId(null); }}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
@@ -240,6 +237,6 @@ export default function Sources() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </DashboardLayout>
+    </div>
   );
 }
