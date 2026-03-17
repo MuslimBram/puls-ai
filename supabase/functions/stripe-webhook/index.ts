@@ -68,6 +68,9 @@ serve(async (req) => {
 
     console.log(`[STRIPE-WEBHOOK] Event: ${event.type}, ID: ${event.id}`);
 
+    // Load dynamic product mapping
+    await loadProductMap(supabase);
+
     const findUserByEmail = async (email: string) => {
       const { data: users } = await supabase.auth.admin.listUsers();
       return users?.users?.find((u) => u.email === email) || null;
