@@ -179,12 +179,10 @@ export const useWorkspaceExport = () => {
 
   return useMutation({
     mutationFn: async () => {
-      // Fetch all workspace data
-      const [leads, messages, threads, contacts] = await Promise.all([
-        supabase.from("leads").select("*").eq("user_id", user!.id).eq("is_deleted", false),
-        supabase.from("inbox_messages").select("*").eq("user_id", user!.id).eq("is_archived", false).limit(1000),
-        supabase.from("conversation_threads").select("*").eq("user_id", user!.id).eq("is_archived", false),
-        supabase.from("contacts").select("*").eq("user_id", user!.id),
+      const [leads, messages, threads] = await Promise.all([
+        supabase.from("leads").select("*").eq("user_id", user!.id),
+        supabase.from("inbox_messages").select("*").eq("user_id", user!.id).limit(1000),
+        supabase.from("conversation_threads").select("*").eq("user_id", user!.id),
       ]);
 
       return {
@@ -193,7 +191,6 @@ export const useWorkspaceExport = () => {
         leads: leads.data ?? [],
         messages: messages.data ?? [],
         threads: threads.data ?? [],
-        contacts: contacts.data ?? [],
       };
     },
     onSuccess: (data) => {
