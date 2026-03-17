@@ -155,8 +155,6 @@ export default function Sources() {
             )}
           </CardContent>
         </Card>
-      </div>
-
       {/* Scan Result Viewer Sheet */}
       <Sheet open={!!viewSourceId} onOpenChange={(o) => { if (!o) setViewSourceId(null); }}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
