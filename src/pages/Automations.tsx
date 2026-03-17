@@ -18,6 +18,7 @@ import {
   type AutomationWorkflow,
   type AutomationAction,
 } from "@/hooks/useAutomations";
+import { AutomationTemplates } from "@/components/AutomationTemplates";
 import {
   Workflow,
   Plus,
