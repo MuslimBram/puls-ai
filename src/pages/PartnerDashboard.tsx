@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePartnerAccount, usePartnerBusinesses, usePartnerReferrals, useApplyForPartner } from "@/hooks/usePartner";
 import { PartnerEarnings } from "@/components/PartnerEarnings";
+import { PartnerBulkBilling } from "@/components/PartnerBulkBilling";
 import {
   Handshake,
   Loader2,
