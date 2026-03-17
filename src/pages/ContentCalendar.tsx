@@ -419,7 +419,7 @@ const ContentCalendar = () => {
           </DialogContent>
         </Dialog>
       </div>
-    </DashboardLayout>
+    </div>
   );
 };
 

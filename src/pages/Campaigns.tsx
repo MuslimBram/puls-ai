@@ -288,15 +288,23 @@ const Campaigns = () => {
           </DialogContent>
         </Dialog>
 
-        {/* Campaign Detail Dialog */}
-        {selectedCampaign && (
-          <CampaignDetail
-            campaign={selectedCampaign}
-            onClose={() => setSelectedCampaign(null)}
-            expandedFunnel={expandedFunnel}
-            setExpandedFunnel={setExpandedFunnel}
-          />
-        )}
+          {/* Campaign Detail Dialog */}
+          {selectedCampaign && (
+            <CampaignDetail
+              campaign={selectedCampaign}
+              onClose={() => setSelectedCampaign(null)}
+              expandedFunnel={expandedFunnel}
+              setExpandedFunnel={setExpandedFunnel}
+            />
+          )}
+          </TabsContent>
+
+          <TabsContent value="calendar">
+            <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
+              <ContentCalendarContent />
+            </Suspense>
+          </TabsContent>
+        </Tabs>
       </div>
     </DashboardLayout>
   );
