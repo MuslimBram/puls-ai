@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 export interface LeadFilters {
   keyword?: string;
@@ -17,19 +17,23 @@ export const useLeads = (filters: LeadFilters = {}) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
+  const cursorStack = useRef<(string | null)[]>([null]);
 
   const query = useQuery({
     queryKey: ["leads", user?.id, filters, page],
     queryFn: async () => {
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      const cursor = cursorStack.current[page] ?? null;
 
       let q = supabase
         .from("leads")
         .select("*", { count: "exact" })
         .eq("user_id", user!.id)
         .order("message_date", { ascending: false })
-        .range(from, to);
+        .limit(PAGE_SIZE + 1);
+
+      if (cursor) {
+        q = q.lt("message_date", cursor);
+      }
 
       if (filters.keyword) q = q.eq("detected_keyword", filters.keyword);
       if (filters.dateFrom) q = q.gte("message_date", filters.dateFrom);
@@ -38,7 +42,17 @@ export const useLeads = (filters: LeadFilters = {}) => {
 
       const { data, error, count } = await q;
       if (error) throw error;
-      return { data: data ?? [], total: count ?? 0 };
+
+      const rows = data ?? [];
+      const hasMore = rows.length > PAGE_SIZE;
+      const pageData = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+
+      if (hasMore && pageData.length > 0) {
+        const lastItem = pageData[pageData.length - 1];
+        cursorStack.current[page + 1] = (lastItem as any).message_date;
+      }
+
+      return { data: pageData, total: count ?? 0, hasMore };
     },
     enabled: !!user,
   });
@@ -55,23 +69,22 @@ export const useLeads = (filters: LeadFilters = {}) => {
   });
 
   const nextPage = useCallback(() => {
-    const total = query.data?.total ?? 0;
-    if ((page + 1) * PAGE_SIZE < total) setPage((p) => p + 1);
-  }, [page, query.data?.total]);
+    if (query.data?.hasMore) setPage((p) => p + 1);
+  }, [query.data?.hasMore]);
 
   const prevPage = useCallback(() => {
     if (page > 0) setPage((p) => p - 1);
   }, [page]);
 
-  // Reset page on filter change
-  const setFiltersAndReset = useCallback((fn: (f: LeadFilters) => LeadFilters) => {
+  const resetPagination = useCallback(() => {
     setPage(0);
-    return fn;
+    cursorStack.current = [null];
   }, []);
 
   return {
     leads: query.data?.data ?? [],
     total: query.data?.total ?? 0,
+    hasMore: query.data?.hasMore ?? false,
     isLoading: query.isLoading,
     updateStatus,
     page,
@@ -79,5 +92,6 @@ export const useLeads = (filters: LeadFilters = {}) => {
     nextPage,
     prevPage,
     setPage,
+    resetPagination,
   };
 };

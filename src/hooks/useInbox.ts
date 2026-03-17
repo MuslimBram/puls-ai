@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 export interface InboxFilters {
   channelType?: string;
@@ -18,19 +18,25 @@ export const useInbox = (filters: InboxFilters = {}) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
+  // Cursor stack for cursor-based pagination
+  const cursorStack = useRef<(string | null)[]>([null]);
 
   const query = useQuery({
     queryKey: ["inbox", user?.id, filters, page],
     queryFn: async () => {
-      const from = page * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
+      const cursor = cursorStack.current[page] ?? null;
 
       let q = supabase
         .from("inbox_messages")
         .select("*", { count: "exact" })
         .eq("user_id", user!.id)
         .order("message_timestamp", { ascending: false })
-        .range(from, to);
+        .limit(PAGE_SIZE + 1); // fetch one extra to detect hasMore
+
+      // Cursor: fetch items older than the last seen timestamp
+      if (cursor) {
+        q = q.lt("message_timestamp", cursor);
+      }
 
       if (filters.channelType) q = q.eq("channel_type", filters.channelType);
       if (filters.status) q = q.eq("status", filters.status);
@@ -41,7 +47,18 @@ export const useInbox = (filters: InboxFilters = {}) => {
 
       const { data, error, count } = await q;
       if (error) throw error;
-      return { data: data ?? [], total: count ?? 0 };
+
+      const rows = data ?? [];
+      const hasMore = rows.length > PAGE_SIZE;
+      const pageData = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+
+      // Store next cursor
+      if (hasMore && pageData.length > 0) {
+        const lastItem = pageData[pageData.length - 1];
+        cursorStack.current[page + 1] = (lastItem as any).message_timestamp;
+      }
+
+      return { data: pageData, total: count ?? 0, hasMore };
     },
     enabled: !!user,
   });
@@ -91,17 +108,22 @@ export const useInbox = (filters: InboxFilters = {}) => {
   };
 
   const nextPage = useCallback(() => {
-    const total = query.data?.total ?? 0;
-    if ((page + 1) * PAGE_SIZE < total) setPage((p) => p + 1);
-  }, [page, query.data?.total]);
+    if (query.data?.hasMore) setPage((p) => p + 1);
+  }, [query.data?.hasMore]);
 
   const prevPage = useCallback(() => {
     if (page > 0) setPage((p) => p - 1);
   }, [page]);
 
+  const resetPagination = useCallback(() => {
+    setPage(0);
+    cursorStack.current = [null];
+  }, []);
+
   return {
     messages: query.data?.data ?? [],
     total: query.data?.total ?? 0,
+    hasMore: query.data?.hasMore ?? false,
     isLoading: query.isLoading,
     markRead,
     updateStatus,
@@ -112,5 +134,6 @@ export const useInbox = (filters: InboxFilters = {}) => {
     nextPage,
     prevPage,
     setPage,
+    resetPagination,
   };
 };
