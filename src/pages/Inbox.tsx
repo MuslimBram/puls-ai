@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useInbox, InboxFilters } from "@/hooks/useInbox";
 import { useLeads } from "@/hooks/useLeads";
 import { AIContextPanel } from "@/components/AIContextPanel";
+import { CustomerIntelligenceProfile } from "@/components/CustomerIntelligenceProfile";
 import { Inbox as InboxIcon, Search, Star, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
 import { IntentBadge, INTENT_TYPE_OPTIONS } from "@/components/IntentBadge";
 import { toast } from "@/components/ui/sonner";
@@ -201,7 +202,10 @@ const Inbox = () => {
                     </Button>
                   )}
                 </div>
-                {/* AI Context Panel */}
+                <CustomerIntelligenceProfile
+                  contactIdentifier={selectedMsg.sender_identifier || selectedMsg.sender_name}
+                  contactName={selectedMsg.sender_name}
+                />
                 <AIContextPanel
                   contactIdentifier={selectedMsg.sender_name || selectedMsg.sender_identifier}
                   contactName={selectedMsg.sender_name}

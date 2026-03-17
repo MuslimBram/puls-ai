@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useContactTags, useContactTimeline, TimelineEvent } from "@/hooks/useContactTimeline";
+import { CustomerIntelligenceProfile } from "@/components/CustomerIntelligenceProfile";
+import { useContactTags, useContactTimeline } from "@/hooks/useContactTimeline";
 import {
   Users, Plus, Tag, X, MessageSquare, Target, Briefcase, Phone, Send, FileText,
-  Search, Filter,
+  Search,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 
@@ -137,51 +138,57 @@ const ContactHub = () => {
           {/* Timeline */}
           <div className="lg:col-span-2">
             {selectedContact ? (
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Timeline — {selectedContact}</CardTitle>
-                    <Select value={filterType} onValueChange={setFilterType}>
-                      <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="message">Messages</SelectItem>
-                        <SelectItem value="lead">Leads</SelectItem>
-                        <SelectItem value="deal">Deals</SelectItem>
-                        <SelectItem value="call">Calls</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {timeline.isLoading ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">Loading timeline...</p>
-                  ) : filteredTimeline.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">No timeline events found</p>
-                  ) : (
-                    <div className="relative space-y-0">
-                      <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
-                      {filteredTimeline.map((event) => {
-                        const Icon = typeIcons[event.type] || FileText;
-                        return (
-                          <div key={event.id} className="relative flex gap-3 py-3 pl-2">
-                            <div className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${typeColors[event.type] || "bg-muted"}`}>
-                              <Icon className="h-3.5 w-3.5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between">
-                                <p className="text-sm font-medium text-foreground">{event.title}</p>
-                                <span className="text-xs text-muted-foreground">{format(parseISO(event.created_at), "MMM d, HH:mm")}</span>
-                              </div>
-                              <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
+              <div className="space-y-4">
+                <CustomerIntelligenceProfile
+                  contactIdentifier={selectedContact}
+                  contactName={contacts.find((contact) => contact.contact_identifier === selectedContact)?.contact_name || null}
+                />
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg">Timeline — {selectedContact}</CardTitle>
+                      <Select value={filterType} onValueChange={setFilterType}>
+                        <SelectTrigger className="w-28 h-8 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All</SelectItem>
+                          <SelectItem value="message">Messages</SelectItem>
+                          <SelectItem value="lead">Leads</SelectItem>
+                          <SelectItem value="deal">Deals</SelectItem>
+                          <SelectItem value="call">Calls</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardHeader>
+                  <CardContent>
+                    {timeline.isLoading ? (
+                      <p className="py-8 text-center text-sm text-muted-foreground">Loading timeline...</p>
+                    ) : filteredTimeline.length === 0 ? (
+                      <p className="py-8 text-center text-sm text-muted-foreground">No timeline events found</p>
+                    ) : (
+                      <div className="relative space-y-0">
+                        <div className="absolute left-4 top-0 bottom-0 w-px bg-border" />
+                        {filteredTimeline.map((event) => {
+                          const Icon = typeIcons[event.type] || FileText;
+                          return (
+                            <div key={event.id} className="relative flex gap-3 py-3 pl-2">
+                              <div className={`z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${typeColors[event.type] || "bg-muted"}`}>
+                                <Icon className="h-3.5 w-3.5" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between">
+                                  <p className="text-sm font-medium text-foreground">{event.title}</p>
+                                  <span className="text-xs text-muted-foreground">{format(parseISO(event.created_at), "MMM d, HH:mm")}</span>
+                                </div>
+                                <p className="text-xs text-muted-foreground mt-0.5">{event.description}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
             ) : (
               <Card><CardContent className="py-12 text-center text-sm text-muted-foreground">Select a contact to view their unified timeline</CardContent></Card>
             )}
