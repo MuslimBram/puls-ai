@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
       { global: { headers: { Authorization: authHeader } } }
     );
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    const jwt = authHeader.replace("Bearer ", "");
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(jwt);
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -83,7 +83,7 @@ Deno.serve(async (req) => {
 
     const user = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
 
-    const { action, token } = await req.json();
+    const { action, token: totpToken } = await req.json();
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
@@ -109,7 +109,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "verify") {
-      if (!token || token.length !== 6) {
+      if (!totpToken || totpToken.length !== 6) {
         return new Response(JSON.stringify({ error: "Invalid token format" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -127,7 +127,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const valid = await verifyTOTP(totpRow.encrypted_secret, token);
+      const valid = await verifyTOTP(totpRow.encrypted_secret, totpToken);
       if (!valid) {
         return new Response(JSON.stringify({ error: "Invalid code. Try again." }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -162,7 +162,7 @@ Deno.serve(async (req) => {
     }
 
     if (action === "disable") {
-      if (!token || token.length !== 6) {
+      if (!totpToken || totpToken.length !== 6) {
         return new Response(JSON.stringify({ error: "Provide current TOTP code to disable" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -180,7 +180,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const valid = await verifyTOTP(totpRow.encrypted_secret, token);
+      const valid = await verifyTOTP(totpRow.encrypted_secret, totpToken);
       if (!valid) {
         return new Response(JSON.stringify({ error: "Invalid code" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
