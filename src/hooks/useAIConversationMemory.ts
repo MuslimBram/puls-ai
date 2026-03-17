@@ -110,6 +110,7 @@ export const useScoreLeads = () => {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["lead-score"] });
+      qc.invalidateQueries({ queryKey: ["leads"] });
       toast.success(`Scored ${data.scored} of ${data.total} leads`);
     },
     onError: (e) => toast.error(e.message),
