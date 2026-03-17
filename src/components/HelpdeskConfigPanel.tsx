@@ -47,7 +47,7 @@ const SLAConfigSection = ({ workspaceId }: { workspaceId: string | null }) => {
       setFr(config.first_response_minutes);
       setNr(config.next_response_minutes);
       setRes(config.resolution_minutes);
-      setActive(config.is_active);
+      setActive((config as any).is_active ?? true);
     }
   }, [config]);
 
