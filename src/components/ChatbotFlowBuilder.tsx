@@ -16,7 +16,7 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import {
   Bot, Plus, Trash2, GripVertical, MessageSquare, Eye, Settings2,
   Loader2, CheckCircle2, XCircle, ArrowDown, ArrowRight, Play,
-  BarChart3, Users, Sparkles, Type, ListChecked, Hash, Mail, Phone,
+  BarChart3, Users, Sparkles, Type, ListCheck, Hash, Mail, Phone,
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
