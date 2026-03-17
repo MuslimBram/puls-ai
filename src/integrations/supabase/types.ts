@@ -205,6 +205,56 @@ export type Database = {
           },
         ]
       }
+      analytics_daily_snapshots: {
+        Row: {
+          agent_metrics: Json
+          ai_metrics: Json
+          channel_metrics: Json
+          created_at: string
+          executive_summary: Json
+          funnel_metrics: Json
+          id: string
+          snapshot_date: string
+          user_id: string
+          workforce_metrics: Json
+          workspace_id: string | null
+        }
+        Insert: {
+          agent_metrics?: Json
+          ai_metrics?: Json
+          channel_metrics?: Json
+          created_at?: string
+          executive_summary?: Json
+          funnel_metrics?: Json
+          id?: string
+          snapshot_date?: string
+          user_id: string
+          workforce_metrics?: Json
+          workspace_id?: string | null
+        }
+        Update: {
+          agent_metrics?: Json
+          ai_metrics?: Json
+          channel_metrics?: Json
+          created_at?: string
+          executive_summary?: Json
+          funnel_metrics?: Json
+          id?: string
+          snapshot_date?: string
+          user_id?: string
+          workforce_metrics?: Json
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analytics_daily_snapshots_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignment_rules: {
         Row: {
           created_at: string
@@ -5450,6 +5500,26 @@ export type Database = {
         Returns: string
       }
       cleanup_expired_locks: { Args: never; Returns: undefined }
+      compute_agent_performance: {
+        Args: { _end_date: string; _start_date: string; _user_id: string }
+        Returns: Json
+      }
+      compute_ai_metrics: {
+        Args: { _end_date: string; _start_date: string; _user_id: string }
+        Returns: Json
+      }
+      compute_channel_performance: {
+        Args: { _end_date: string; _start_date: string; _user_id: string }
+        Returns: Json
+      }
+      compute_executive_summary: {
+        Args: { _date?: string; _user_id: string }
+        Returns: Json
+      }
+      compute_funnel_analytics: {
+        Args: { _end_date: string; _start_date: string; _user_id: string }
+        Returns: Json
+      }
       compute_reputation_score: {
         Args: {
           _total_bounced: number
