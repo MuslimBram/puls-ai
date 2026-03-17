@@ -150,6 +150,17 @@ const ReplyWorkspace = () => {
           </Card>
         )}
 
+        {/* AI Context Panel */}
+        {lead && (
+          <AIContextPanel
+            contactIdentifier={lead.source_name}
+            contactName={lead.source_name}
+            leadId={lead.id}
+            channelType={lead.source_type}
+            latestMessage={lead.message_content}
+          />
+        )}
+
         {/* Reply Generator */}
         <Card>
           <CardHeader>
