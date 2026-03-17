@@ -235,23 +235,127 @@ serve(async (req) => {
   }
 });
 
-async function simulateSend(
+async function getUnsubscribeUrl(
+  supabase: any,
   item: any,
-  channelType: string
+  broadcastId: string
+): Promise<string> {
+  const baseUrl = Deno.env.get("SUPABASE_URL");
+
+  // Check for existing token
+  const { data: existing } = await supabase
+    .from("broadcast_unsubscribe_tokens")
+    .select("token")
+    .eq("user_id", item.user_id)
+    .eq("contact_identifier", item.contact_identifier)
+    .eq("channel_type", item.channel_type)
+    .is("used_at", null)
+    .maybeSingle();
+
+  if (existing) {
+    return `${baseUrl}/functions/v1/broadcast-unsubscribe?token=${existing.token}`;
+  }
+
+  // Create new token
+  const token = crypto.randomUUID();
+  await supabase.from("broadcast_unsubscribe_tokens").insert({
+    user_id: item.user_id,
+    contact_identifier: item.contact_identifier,
+    channel_type: item.channel_type,
+    broadcast_id: broadcastId,
+    token,
+  });
+
+  return `${baseUrl}/functions/v1/broadcast-unsubscribe?token=${token}`;
+}
+
+const LEGAL_FOOTER: Record<string, (url: string) => string> = {
+  email: (url) => `\n\n---\nYou received this message because you subscribed. To unsubscribe: ${url}\nThis message was sent in compliance with CAN-SPAM and GDPR regulations.`,
+  sms: (url) => `\nReply STOP to unsubscribe or visit: ${url}`,
+  whatsapp: (url) => `\n\nTo opt out of future messages, visit: ${url}`,
+  telegram: (url) => `\n\nUnsubscribe: ${url}`,
+};
+
+async function dispatchToChannel(
+  supabase: any,
+  item: any,
+  channelType: string,
+  unsubscribeUrl: string
 ): Promise<{ success: boolean; bounce?: boolean; error?: string }> {
-  // In production, this dispatches to the actual channel sender
-  // For now, returns success. Replace with actual API calls:
-  // - email: call email provider API
-  // - sms: call send-sms function
-  // - whatsapp: call whatsapp API
-  // - telegram: call telegram API
+  const baseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   
-  // Simulate occasional failures for testing (remove in production)
-  // const rand = Math.random();
-  // if (rand < 0.02) return { success: false, bounce: true, error: "invalid_recipient" };
-  // if (rand < 0.05) return { success: false, bounce: false, error: "temporary_failure" };
-  
-  return { success: true };
+  // Inject legal footer
+  const footer = (LEGAL_FOOTER[channelType] || LEGAL_FOOTER.email)(unsubscribeUrl);
+  const messageWithFooter = (item.contact_identifier ? "" : "") + footer; // footer appended by channel sender
+
+  try {
+    let functionName = "";
+    let body: Record<string, unknown> = {};
+
+    switch (channelType) {
+      case "email":
+        functionName = "send-email";
+        body = {
+          to: item.contact_identifier,
+          subject: "Broadcast Message",
+          body: messageWithFooter,
+          user_id: item.user_id,
+        };
+        break;
+      case "sms":
+        functionName = "send-sms";
+        body = {
+          to: item.contact_identifier,
+          message: messageWithFooter,
+          user_id: item.user_id,
+        };
+        break;
+      case "whatsapp":
+        functionName = "send-whatsapp";
+        body = {
+          to: item.contact_identifier,
+          message: messageWithFooter,
+          user_id: item.user_id,
+        };
+        break;
+      case "telegram":
+        functionName = "send-telegram";
+        body = {
+          chat_id: item.contact_identifier,
+          message: messageWithFooter,
+          user_id: item.user_id,
+        };
+        break;
+      default:
+        return { success: false, error: `Unsupported channel: ${channelType}` };
+    }
+
+    const resp = await fetch(`${baseUrl}/functions/v1/${functionName}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (resp.ok) {
+      return { success: true };
+    }
+
+    const errData = await resp.json().catch(() => ({}));
+    const errMsg = errData?.error || `HTTP ${resp.status}`;
+
+    // Hard bounce detection (invalid recipient indicators)
+    if (resp.status === 400 && (errMsg.includes("invalid") || errMsg.includes("not found") || errMsg.includes("unregistered"))) {
+      return { success: false, bounce: true, error: errMsg };
+    }
+
+    return { success: false, bounce: false, error: errMsg };
+  } catch (e) {
+    return { success: false, bounce: false, error: e instanceof Error ? e.message : "dispatch_error" };
+  }
 }
 
 async function updateReputation(
