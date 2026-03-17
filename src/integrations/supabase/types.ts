@@ -409,6 +409,47 @@ export type Database = {
           },
         ]
       }
+      broadcast_optouts: {
+        Row: {
+          channel_type: string
+          contact_identifier: string
+          created_at: string
+          id: string
+          opted_out_at: string
+          reason: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          channel_type?: string
+          contact_identifier: string
+          created_at?: string
+          id?: string
+          opted_out_at?: string
+          reason?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          channel_type?: string
+          contact_identifier?: string
+          created_at?: string
+          id?: string
+          opted_out_at?: string
+          reason?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_optouts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broadcast_recipients: {
         Row: {
           broadcast_id: string
@@ -464,10 +505,15 @@ export type Database = {
       }
       broadcasts: {
         Row: {
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          bounce_count: number | null
           campaign_id: string | null
           channel_type: string
           clicked_count: number | null
           completed_at: string | null
+          compliance_notes: string | null
           created_at: string
           delivered_count: number | null
           failed_count: number | null
@@ -479,21 +525,28 @@ export type Database = {
           scheduled_at: string | null
           segment_id: string | null
           sent_count: number | null
+          spam_score: number | null
           started_at: string | null
           status: string
           subject: string | null
           template_data: Json | null
           throttle_per_minute: number | null
           total_recipients: number | null
+          unsubscribe_count: number | null
           updated_at: string
           user_id: string
           workspace_id: string | null
         }
         Insert: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bounce_count?: number | null
           campaign_id?: string | null
           channel_type?: string
           clicked_count?: number | null
           completed_at?: string | null
+          compliance_notes?: string | null
           created_at?: string
           delivered_count?: number | null
           failed_count?: number | null
@@ -505,21 +558,28 @@ export type Database = {
           scheduled_at?: string | null
           segment_id?: string | null
           sent_count?: number | null
+          spam_score?: number | null
           started_at?: string | null
           status?: string
           subject?: string | null
           template_data?: Json | null
           throttle_per_minute?: number | null
           total_recipients?: number | null
+          unsubscribe_count?: number | null
           updated_at?: string
           user_id: string
           workspace_id?: string | null
         }
         Update: {
+          approval_status?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          bounce_count?: number | null
           campaign_id?: string | null
           channel_type?: string
           clicked_count?: number | null
           completed_at?: string | null
+          compliance_notes?: string | null
           created_at?: string
           delivered_count?: number | null
           failed_count?: number | null
@@ -531,12 +591,14 @@ export type Database = {
           scheduled_at?: string | null
           segment_id?: string | null
           sent_count?: number | null
+          spam_score?: number | null
           started_at?: string | null
           status?: string
           subject?: string | null
           template_data?: Json | null
           throttle_per_minute?: number | null
           total_recipients?: number | null
+          unsubscribe_count?: number | null
           updated_at?: string
           user_id?: string
           workspace_id?: string | null
@@ -1304,6 +1366,68 @@ export type Database = {
           },
         ]
       }
+      churn_risk_scores: {
+        Row: {
+          computed_at: string
+          created_at: string
+          days_inactive: number | null
+          id: string
+          inbox_trend: number | null
+          last_active_at: string | null
+          leads_trend: number | null
+          login_count_30d: number | null
+          risk_level: string
+          risk_score: number | null
+          signals: Json | null
+          updated_at: string
+          usage_trend: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          computed_at?: string
+          created_at?: string
+          days_inactive?: number | null
+          id?: string
+          inbox_trend?: number | null
+          last_active_at?: string | null
+          leads_trend?: number | null
+          login_count_30d?: number | null
+          risk_level?: string
+          risk_score?: number | null
+          signals?: Json | null
+          updated_at?: string
+          usage_trend?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          computed_at?: string
+          created_at?: string
+          days_inactive?: number | null
+          id?: string
+          inbox_trend?: number | null
+          last_active_at?: string | null
+          leads_trend?: number | null
+          login_count_30d?: number | null
+          risk_level?: string
+          risk_score?: number | null
+          signals?: Json | null
+          updated_at?: string
+          usage_trend?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "churn_risk_scores_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitor_alerts: {
         Row: {
           alert_type: string
@@ -1903,10 +2027,14 @@ export type Database = {
           created_at: string
           error_message: string | null
           error_stack: string | null
+          escalated: boolean | null
+          escalated_at: string | null
           failed_at: string
           id: string
           job_type: string
+          last_retry_at: string | null
           max_retries: number
+          next_retry_at: string | null
           original_queue: string | null
           payload: Json
           resolved_at: string | null
@@ -1918,10 +2046,14 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           error_stack?: string | null
+          escalated?: boolean | null
+          escalated_at?: string | null
           failed_at?: string
           id?: string
           job_type: string
+          last_retry_at?: string | null
           max_retries?: number
+          next_retry_at?: string | null
           original_queue?: string | null
           payload?: Json
           resolved_at?: string | null
@@ -1933,10 +2065,14 @@ export type Database = {
           created_at?: string
           error_message?: string | null
           error_stack?: string | null
+          escalated?: boolean | null
+          escalated_at?: string | null
           failed_at?: string
           id?: string
           job_type?: string
+          last_retry_at?: string | null
           max_retries?: number
+          next_retry_at?: string | null
           original_queue?: string | null
           payload?: Json
           resolved_at?: string | null
@@ -2261,6 +2397,92 @@ export type Database = {
           },
           {
             foreignKeyName: "discovered_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enriched_contacts: {
+        Row: {
+          ai_profile_summary: string | null
+          avg_intent_score: number | null
+          broadcast_interactions: number | null
+          campaign_interactions: number | null
+          channel_types: string[] | null
+          contact_identifier: string
+          contact_name: string | null
+          created_at: string
+          enriched_at: string
+          first_seen_at: string | null
+          id: string
+          is_opted_out: boolean | null
+          last_channel: string | null
+          last_seen_at: string | null
+          sentiment_summary: string | null
+          tags: string[] | null
+          total_deal_value: number | null
+          total_deals: number | null
+          total_leads: number | null
+          total_messages: number | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          ai_profile_summary?: string | null
+          avg_intent_score?: number | null
+          broadcast_interactions?: number | null
+          campaign_interactions?: number | null
+          channel_types?: string[] | null
+          contact_identifier: string
+          contact_name?: string | null
+          created_at?: string
+          enriched_at?: string
+          first_seen_at?: string | null
+          id?: string
+          is_opted_out?: boolean | null
+          last_channel?: string | null
+          last_seen_at?: string | null
+          sentiment_summary?: string | null
+          tags?: string[] | null
+          total_deal_value?: number | null
+          total_deals?: number | null
+          total_leads?: number | null
+          total_messages?: number | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          ai_profile_summary?: string | null
+          avg_intent_score?: number | null
+          broadcast_interactions?: number | null
+          campaign_interactions?: number | null
+          channel_types?: string[] | null
+          contact_identifier?: string
+          contact_name?: string | null
+          created_at?: string
+          enriched_at?: string
+          first_seen_at?: string | null
+          id?: string
+          is_opted_out?: boolean | null
+          last_channel?: string | null
+          last_seen_at?: string | null
+          sentiment_summary?: string | null
+          tags?: string[] | null
+          total_deal_value?: number | null
+          total_deals?: number | null
+          total_leads?: number | null
+          total_messages?: number | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enriched_contacts_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
