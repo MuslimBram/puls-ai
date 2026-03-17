@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -13,10 +14,14 @@ import {
   useAddSuppression,
   useRemoveSuppression,
   useSendingReputation,
+  useSendQueueStats,
   reputationColor,
   reputationLabel,
 } from "@/hooks/useSendingCompliance";
-import { useOptouts } from "@/hooks/useBroadcastCompliance";
+import { useOptouts, useApproveBroadcast, computeSpamScore, CHANNEL_LIMITS } from "@/hooks/useBroadcastCompliance";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -26,6 +31,9 @@ import {
   BarChart3,
   Loader2,
   AlertTriangle,
+  CheckCircle2,
+  XCircle,
+  FileCheck,
 } from "lucide-react";
 import { format } from "date-fns";
 
