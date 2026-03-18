@@ -11,6 +11,41 @@ export interface PricingSetting {
   donation_label: string | null;
   updated_at: string;
   updated_by: string | null;
+  daily_image_limit: number | null;
+  daily_video_limit: number | null;
+  max_video_seconds: number | null;
+  social_profiles_limit: number | null;
+  channels_limit: number | null;
+  keywords_limit: number | null;
+  keywords_per_group_limit: number | null;
+  ai_replies_per_day_limit: number | null;
+  team_members_limit: number | null;
+  conversation_history_days: number | null;
+  leads_per_month_limit: number | null;
+  automation_rules_limit: number | null;
+  feature_entitlements: Record<string, boolean> | null;
+}
+
+interface UpdatePricingParams {
+  id: string;
+  plan_key: string;
+  is_donation: boolean;
+  monthly_price: number;
+  annual_price: number;
+  donation_label?: string;
+  daily_image_limit?: number | null;
+  daily_video_limit?: number | null;
+  max_video_seconds?: number | null;
+  social_profiles_limit?: number | null;
+  channels_limit?: number | null;
+  keywords_limit?: number | null;
+  keywords_per_group_limit?: number | null;
+  ai_replies_per_day_limit?: number | null;
+  team_members_limit?: number | null;
+  conversation_history_days?: number | null;
+  leads_per_month_limit?: number | null;
+  automation_rules_limit?: number | null;
+  feature_entitlements?: Record<string, boolean>;
 }
 
 export const usePricingSettings = () => {
@@ -29,21 +64,61 @@ export const usePricingSettings = () => {
   });
 
   const updatePrice = useMutation({
-    mutationFn: async (params: { id: string; monthly_price: number; annual_price: number; donation_label?: string }) => {
-      const { error } = await supabase
+    mutationFn: async (params: UpdatePricingParams) => {
+      const now = new Date().toISOString();
+      const pricingUpdate = {
+        monthly_price: params.monthly_price,
+        annual_price: params.annual_price,
+        donation_label: params.donation_label,
+        daily_image_limit: params.daily_image_limit,
+        daily_video_limit: params.daily_video_limit,
+        max_video_seconds: params.max_video_seconds,
+        social_profiles_limit: params.social_profiles_limit,
+        channels_limit: params.channels_limit,
+        keywords_limit: params.keywords_limit,
+        keywords_per_group_limit: params.keywords_per_group_limit,
+        ai_replies_per_day_limit: params.ai_replies_per_day_limit,
+        team_members_limit: params.team_members_limit,
+        conversation_history_days: params.conversation_history_days,
+        leads_per_month_limit: params.leads_per_month_limit,
+        automation_rules_limit: params.automation_rules_limit,
+        feature_entitlements: params.feature_entitlements,
+        updated_at: now,
+      } as any;
+
+      const { error: pricingError } = await supabase
         .from("pricing_settings" as any)
-        .update({
-          monthly_price: params.monthly_price,
-          annual_price: params.annual_price,
-          donation_label: params.donation_label,
-          updated_at: new Date().toISOString(),
-        } as any)
+        .update(pricingUpdate)
         .eq("id", params.id);
-      if (error) throw error;
+      if (pricingError) throw pricingError;
+
+      if (!params.is_donation) {
+        const [stripePlanResult, mediaPolicyResult] = await Promise.all([
+          supabase
+            .from("stripe_product_plans" as any)
+            .update({ monthly_price: params.monthly_price, updated_at: now } as any)
+            .eq("plan_name", params.plan_key),
+          supabase
+            .from("media_usage_policy" as any)
+            .update({
+              daily_image_limit: params.daily_image_limit,
+              daily_video_limit: params.daily_video_limit,
+              max_video_seconds: params.max_video_seconds,
+              updated_at: now,
+            } as any)
+            .eq("plan_key", params.plan_key),
+        ]);
+
+        if (stripePlanResult.error) throw stripePlanResult.error;
+        if (mediaPolicyResult.error) throw mediaPolicyResult.error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pricing-settings"] });
-      toast.success("Price updated");
+      queryClient.invalidateQueries({ queryKey: ["plan-catalog"] });
+      queryClient.invalidateQueries({ queryKey: ["subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["media-usage"] });
+      toast.success("Pricing and plan limits updated");
     },
     onError: (e) => toast.error(`Failed: ${e.message}`),
   });
