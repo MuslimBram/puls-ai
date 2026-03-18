@@ -136,6 +136,8 @@ serve(async (req) => {
     // Create knowledge source
     const { data: source, error: srcErr } = await supabase.from("knowledge_sources").insert({
       user_id: userId,
+      workspace_id: business.workspace_id,
+      business_id,
       source_type: "document",
       source_name: sourceName,
       status: "scanning",
