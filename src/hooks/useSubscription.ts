@@ -1,9 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { PlanKey, PLANS } from "@/config/plans";
+import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
+import type { PlanKey } from "@/config/plans";
 
-export { PLANS, type PlanKey } from "@/config/plans";
+const ORDERED_PLAN_KEYS: PlanKey[] = ["standard", "professional", "advanced", "enterprise"];
+
+export type { PlanKey } from "@/config/plans";
 
 const useIsAdminRole = () => {
   const { user } = useAuth();
@@ -46,11 +49,19 @@ export interface StripeSubscriptionData {
   referral_discount?: ReferralDiscountInfo | null;
 }
 
+const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = "standard"): PlanKey => {
+  if (!value) return fallback;
+  if (ORDERED_PLAN_KEYS.includes(value as PlanKey)) return value as PlanKey;
+  if (value === "free") return "standard";
+  if (value === "pro") return "professional";
+  return fallback;
+};
+
 export const useSubscription = () => {
   const { user } = useAuth();
   const isAdminRole = useIsAdminRole();
+  const { plansByKey, planOrder } = useMonetizationCatalog();
 
-  // Local DB subscription
   const dbQuery = useQuery({
     queryKey: ["subscription", user?.id],
     queryFn: async () => {
@@ -65,7 +76,6 @@ export const useSubscription = () => {
     enabled: !!user,
   });
 
-  // Stripe subscription check
   const stripeQuery = useQuery({
     queryKey: ["stripe-subscription", user?.id],
     queryFn: async (): Promise<StripeSubscriptionData> => {
@@ -81,52 +91,36 @@ export const useSubscription = () => {
     staleTime: 30000,
   });
 
-  // Use Stripe data if available, otherwise fall back to DB
   const stripeData = stripeQuery.data;
-  const rawPlan = stripeData?.plan ?? dbQuery.data?.plan ?? "free";
-  
-  const planMap: Record<string, PlanKey> = {
-    free: "standard",
-    pro: "professional",
-    enterprise: "enterprise",
-    standard: "standard",
-    professional: "professional",
-    advanced: "advanced",
-  };
+  const rawPlan = normalizePlanKey(stripeData?.plan ?? dbQuery.data?.plan ?? "standard");
+  const fallbackPlanKey = (planOrder[0] as PlanKey | undefined) ?? "standard";
 
-  // Admin bypass: always enterprise
   if (isAdminRole) {
+    const adminPlanKey = (planOrder[planOrder.length - 1] as PlanKey | undefined) ?? "enterprise";
     return {
       subscription: dbQuery.data,
       isLoading: dbQuery.isLoading || stripeQuery.isLoading,
-      currentPlan: "enterprise" as PlanKey,
-      planDetails: PLANS["enterprise"],
+      currentPlan: adminPlanKey,
+      planDetails: plansByKey[adminPlanKey] ?? null,
       stripeData: stripeData ?? null,
       refetchStripe: stripeQuery.refetch,
     };
   }
 
-  // Determine effective plan considering grace period and trial
-  let currentPlan: PlanKey = planMap[rawPlan] ?? "standard";
-  
+  let currentPlan = normalizePlanKey(rawPlan, fallbackPlanKey);
+
   if (stripeData) {
     const now = new Date();
-    const status = stripeData.status;
-    
-    if (status === "trialing" && stripeData.trial_end && new Date(stripeData.trial_end) < now) {
-      currentPlan = "standard";
+    if (stripeData.status === "trialing" && stripeData.trial_end && new Date(stripeData.trial_end) < now) {
+      currentPlan = fallbackPlanKey;
     }
-    
-    if (status === "past_due") {
-      if (stripeData.grace_period_end && new Date(stripeData.grace_period_end) > now) {
-        // Keep current plan during grace
-      } else {
-        currentPlan = "standard";
-      }
+
+    if (stripeData.status === "past_due" && (!stripeData.grace_period_end || new Date(stripeData.grace_period_end) <= now)) {
+      currentPlan = fallbackPlanKey;
     }
-    
-    if (["canceled", "unpaid"].includes(status)) {
-      currentPlan = "standard";
+
+    if (["canceled", "unpaid"].includes(stripeData.status)) {
+      currentPlan = fallbackPlanKey;
     }
   }
 
@@ -134,7 +128,7 @@ export const useSubscription = () => {
     subscription: dbQuery.data,
     isLoading: dbQuery.isLoading || stripeQuery.isLoading,
     currentPlan,
-    planDetails: PLANS[currentPlan],
+    planDetails: plansByKey[currentPlan] ?? plansByKey[fallbackPlanKey] ?? null,
     stripeData: stripeData ?? null,
     refetchStripe: stripeQuery.refetch,
   };

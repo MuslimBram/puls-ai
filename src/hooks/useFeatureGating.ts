@@ -1,8 +1,8 @@
 import { useMemo } from "react";
 import { useSubscription } from "./useSubscription";
 import { useRolePermissions } from "./useRolePermissions";
-import { PLANS, PLAN_ORDER, PlanKey, PlanFeatures } from "@/config/plans";
-import { usePlanCatalog } from "@/hooks/usePlanCatalog";
+import type { PlanFeatures, PlanKey } from "@/config/plans";
+import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 
 export interface FeatureGate {
   allowed: boolean;
@@ -22,14 +22,17 @@ export interface UsageStatus {
 export const useFeatureGating = () => {
   const { currentPlan, subscription, stripeData, refetchStripe } = useSubscription();
   const { permissions } = useRolePermissions();
-  const { plansByKey } = usePlanCatalog();
+  const { plansByKey, planOrder } = useMonetizationCatalog();
 
+  const fallbackPlanKey = (planOrder[0] as PlanKey | undefined) ?? "standard";
   const plan = useMemo(() => {
-    const key = (currentPlan as PlanKey) in plansByKey ? (currentPlan as PlanKey) : "standard";
-    return plansByKey[key] ?? PLANS[key];
-  }, [currentPlan, plansByKey]);
+    const key = (currentPlan as PlanKey) in plansByKey ? (currentPlan as PlanKey) : fallbackPlanKey;
+    return plansByKey[key] ?? plansByKey[fallbackPlanKey] ?? null;
+  }, [currentPlan, plansByKey, fallbackPlanKey]);
 
   const checkFeature = (feature: keyof PlanFeatures): FeatureGate => {
+    if (!plan) return { allowed: false, requiredPlan: fallbackPlanKey, currentPlan: fallbackPlanKey };
+
     if (permissions.bypassFeatureGating) {
       return { allowed: true, requiredPlan: plan.key, currentPlan: plan.key };
     }
@@ -38,14 +41,18 @@ export const useFeatureGating = () => {
       return { allowed: true, requiredPlan: plan.key, currentPlan: plan.key };
     }
 
-    const requiredPlan = PLAN_ORDER.find((planKey) => (plansByKey[planKey] ?? PLANS[planKey]).features[feature]) || "enterprise";
+    const requiredPlan = ((planOrder as PlanKey[]).find((planKey) => plansByKey[planKey]?.features[feature]) ?? "enterprise") as PlanKey;
     return { allowed: false, requiredPlan, currentPlan: plan.key };
   };
 
   const checkLimit = (
     limitKey: "channels" | "keywords" | "aiRepliesPerDay" | "teamMembers" | "leadsPerMonth" | "socialProfiles" | "automationRules",
-    currentUsage: number
+    currentUsage: number,
   ): UsageStatus => {
+    if (!plan) {
+      return { current: currentUsage, limit: 0, percentage: 0, isAtLimit: true, isNearLimit: true, label: "Unavailable" };
+    }
+
     if (permissions.bypassUsageLimits) {
       return {
         current: currentUsage,
@@ -72,15 +79,15 @@ export const useFeatureGating = () => {
   };
 
   const getUpgradePlan = (): PlanKey | null => {
-    if (permissions.bypassSubscription) return null;
-    const idx = PLAN_ORDER.indexOf(plan.key);
-    return idx < PLAN_ORDER.length - 1 ? PLAN_ORDER[idx + 1] : null;
+    if (!plan || permissions.bypassSubscription) return null;
+    const idx = planOrder.indexOf(plan.key);
+    return idx >= 0 && idx < planOrder.length - 1 ? (planOrder[idx + 1] as PlanKey) : null;
   };
 
   return {
     plan,
     plansByKey,
-    currentPlanKey: plan.key,
+    currentPlanKey: (plan?.key ?? fallbackPlanKey) as PlanKey,
     checkFeature,
     checkLimit,
     getUpgradePlan,
