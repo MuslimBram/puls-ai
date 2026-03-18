@@ -69,6 +69,11 @@ const Subscription = () => {
     try {
       const { data, error } = await supabase.functions.invoke("customer-portal");
       if (error) throw error;
+      if (data?.error === "no_customer") {
+        toast.info("No active subscription found. Please subscribe to a plan first.");
+        navigate("/pricing");
+        return;
+      }
       if (data?.url) {
         window.open(data.url, "_blank", "noopener,noreferrer");
         return;
