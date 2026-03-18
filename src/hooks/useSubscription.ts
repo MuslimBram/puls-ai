@@ -2,30 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 import type { PlanKey } from "@/types/monetization";
 import { DEFAULT_PLAN_KEY, isPlanKey } from "@/types/monetization";
 
 export type { PlanKey } from "@/types/monetization";
-
-const useIsAdminRole = () => {
-  const { user } = useAuth();
-  const query = useQuery({
-    queryKey: ["user-role-admin-check", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user!.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      if (error) throw error;
-      return !!data;
-    },
-    enabled: !!user,
-    staleTime: 300000,
-  });
-  return query.data ?? false;
-};
 
 export interface ReferralDiscountInfo {
   percent: number;
@@ -58,7 +39,7 @@ const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = 
 
 export const useSubscription = () => {
   const { user } = useAuth();
-  const isAdminRole = useIsAdminRole();
+  const { isSuperAdmin } = useRolePermissions();
   const { plansByKey, planOrder, defaultPlanKey } = useMonetizationCatalog();
 
   const dbQuery = useQuery({
@@ -94,7 +75,7 @@ export const useSubscription = () => {
   const fallbackPlanKey = defaultPlanKey;
   const rawPlan = normalizePlanKey(stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
 
-  if (isAdminRole) {
+  if (isSuperAdmin) {
     const adminPlanKey = (planOrder[planOrder.length - 1] as PlanKey | undefined) ?? fallbackPlanKey;
     return {
       subscription: dbQuery.data,

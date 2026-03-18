@@ -10,41 +10,64 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useExternalIntegrations, useIntegrationEventLogs } from "@/hooks/useExternalIntegrations";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
-import { useIsAdmin } from "@/hooks/useAdmin";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { EXTERNAL_INTEGRATIONS, CATEGORY_LABELS } from "@/integrations/external/registry";
 import { IntegrationDefinition } from "@/integrations/external/types";
 import type { PlanKey } from "@/types/monetization";
 import {
-  BarChart3, Search, MessageSquare, Phone, Calendar, Layers,
-  Share2, Bot, Eye, Settings2, Lock, Crown, CheckCircle2,
-  AlertCircle, Clock, Plug, Activity, FileText,
+  Activity,
+  AlertCircle,
+  BarChart3,
+  Bot,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Crown,
+  Eye,
+  FileText,
+  Layers,
+  Lock,
+  MessageSquare,
+  Phone,
+  Plug,
+  Search,
+  Settings2,
+  Share2,
+  type LucideIcon,
 } from "lucide-react";
 
-const ICON_MAP: Record<string, any> = {
-  BarChart3, Search, MessageSquare, Phone, Calendar, Layers,
-  Share2, Bot, Eye,
+const ICON_MAP: Record<string, LucideIcon> = {
+  BarChart3,
+  Search,
+  MessageSquare,
+  Phone,
+  Calendar,
+  Layers,
+  Share2,
+  Bot,
+  Eye,
 };
 
-const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
-  planned: { label: "Planned", variant: "outline" },
+const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   connected: { label: "Connected", variant: "default" },
-  error: { label: "Error", variant: "destructive" },
   disabled: { label: "Disabled", variant: "secondary" },
+  error: { label: "Error", variant: "destructive" },
+  planned: { label: "Planned", variant: "outline" },
 };
 
 const ExternalIntegrations = () => {
   const { integrations, isLoading, upsertIntegration, toggleIntegration, deleteIntegration } = useExternalIntegrations();
   const { currentPlanKey } = useFeatureGating();
   const { plansByKey, planOrder } = useMonetizationCatalog();
-  const { isAdmin } = useIsAdmin();
+  const { isSuperAdmin } = useRolePermissions();
   const [setupDef, setSetupDef] = useState<IntegrationDefinition | null>(null);
   const [creds, setCreds] = useState<Record<string, string>>({});
   const [logsId, setLogsId] = useState<string | null>(null);
   const { data: eventLogs } = useIntegrationEventLogs(logsId);
 
   const canAccess = (minPlan: string) => {
-    if (isAdmin) return true;
+    if (isSuperAdmin) return true;
     const cur = planOrder.indexOf(currentPlanKey);
     const req = planOrder.indexOf(minPlan as PlanKey);
     return req === -1 || (cur !== -1 && cur >= req);
