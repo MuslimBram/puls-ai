@@ -49,6 +49,15 @@ serve(async (req) => {
     if (!business_id) throw new Error("business_id is required");
     if (!content_text && !file_path) throw new Error("Either content_text or file_path is required");
 
+    const { data: business, error: businessError } = await supabase
+      .from("business_profiles")
+      .select("id, user_id, workspace_id")
+      .eq("id", business_id)
+      .single();
+
+    if (businessError || !business) throw new Error("Business not found");
+    if (business.user_id !== userId) throw new Error("Forbidden");
+
     let textContent = content_text || "";
     let sourceName = file_name || "Uploaded Document";
 
