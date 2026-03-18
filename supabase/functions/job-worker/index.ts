@@ -10,6 +10,10 @@ const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
 const WORKER_ID = crypto.randomUUID().slice(0, 8);
 const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const DEFAULT_IMAGE_MODEL = "google/gemini-3.1-flash-image-preview";
+const REPLICATE_API_URL = "https://api.replicate.com/v1";
+const REPLICATE_DEFAULT_MODEL = "minimax/video-01";
+const textEncoder = new TextEncoder();
+const textDecoder = new TextDecoder();
 
 type JobOutcome =
   | { status: "completed" }
@@ -317,7 +321,7 @@ async function processMediaGenerationJob(supabase: any, job: any, payload: Recor
       return await processMockVideoGeneration(supabase, generation, provider);
     }
 
-    throw new Error(`No registered runtime handler for video provider ${provider.provider_key}`);
+    return await processConfiguredVideoGeneration(supabase, generation, provider);
   }
 
   if (generation.media_type === "image") {
@@ -332,16 +336,31 @@ async function processMediaGenerationJob(supabase: any, job: any, payload: Recor
   throw new Error(`Unsupported media type ${generation.media_type}`);
 }
 
+async function processConfiguredVideoGeneration(supabase: any, generation: any, provider: any): Promise<JobOutcome> {
+  const providerConfig = toRecord(provider.config);
+  const adapter = String(providerConfig.adapter ?? provider.provider_key);
+
+  switch (adapter) {
+    case "replicate":
+    case "replicate-video":
+      return await processReplicateVideoGeneration(supabase, generation, provider, providerConfig);
+    default:
+      throw new Error(`No registered runtime handler for video provider ${provider.provider_key}`);
+  }
+}
+
 async function processMockVideoGeneration(supabase: any, generation: any, provider: any): Promise<JobOutcome> {
   const metadata = toRecord(generation.metadata);
   const providerConfig = toRecord(provider.config);
   const minDelayMs = Number(providerConfig.minDelayMs ?? 8000);
   const maxDelayMs = Number(providerConfig.maxDelayMs ?? 18000);
+  const failureRate = clamp(Number(providerConfig.failureRate ?? 0), 0, 1);
   const delayMs = randomInt(minDelayMs, maxDelayMs);
 
   if (!generation.provider_job_id || !metadata.ready_at) {
     const readyAt = new Date(Date.now() + delayMs).toISOString();
     const providerJobId = generation.provider_job_id ?? `mock_${crypto.randomUUID()}`;
+    const shouldFail = typeof metadata.should_fail === "boolean" ? metadata.should_fail : Math.random() < failureRate;
 
     await supabase
       .from("media_generations")
@@ -355,6 +374,7 @@ async function processMockVideoGeneration(supabase: any, generation: any, provid
           delay_ms: delayMs,
           mock: true,
           output_kind: "mock_video_poster",
+          should_fail: shouldFail,
         },
       })
       .eq("id", generation.id);
@@ -366,6 +386,10 @@ async function processMockVideoGeneration(supabase: any, generation: any, provid
     return { status: "deferred", nextRetryAt: String(metadata.ready_at), message: "Mock video still rendering" };
   }
 
+  if (metadata.should_fail === true) {
+    throw new Error("Mock video provider simulated a rendering failure");
+  }
+
   const posterSvg = createMockVideoPoster({
     prompt: generation.prompt ?? "Mock video",
     durationSeconds: generation.duration_seconds ?? 10,
@@ -373,7 +397,7 @@ async function processMockVideoGeneration(supabase: any, generation: any, provid
   });
 
   const filePath = `${generation.user_id}/${generation.id}-mock-video.svg`;
-  const bytes = new TextEncoder().encode(posterSvg);
+  const bytes = textEncoder.encode(posterSvg);
 
   const { error: uploadError } = await supabase.storage
     .from("generated-media")
@@ -392,6 +416,153 @@ async function processMockVideoGeneration(supabase: any, generation: any, provid
       mock: true,
       output_kind: "mock_video_poster",
       completed_by: WORKER_ID,
+    },
+  });
+
+  return { status: "completed" };
+}
+
+async function processReplicateVideoGeneration(
+  supabase: any,
+  generation: any,
+  provider: any,
+  providerConfig: Record<string, unknown>,
+): Promise<JobOutcome> {
+  const token = await resolveProviderSecret(supabase, provider);
+  if (!token) {
+    throw new Error(`No credential available for video provider ${provider.provider_key}`);
+  }
+
+  const model = String(providerConfig.model ?? REPLICATE_DEFAULT_MODEL);
+  const promptField = String(providerConfig.prompt_field ?? "prompt");
+  const durationField = typeof providerConfig.duration_field === "string" ? providerConfig.duration_field : null;
+  const inputDefaults = toRecord(providerConfig.input_defaults);
+  const predictionOptions = toRecord(providerConfig.prediction_options);
+  const metadata = toRecord(generation.metadata);
+
+  if (!generation.provider_job_id) {
+    const input: Record<string, unknown> = {
+      ...inputDefaults,
+      [promptField]: generation.prompt,
+    };
+
+    if (durationField && generation.duration_seconds) {
+      input[durationField] = generation.duration_seconds;
+    }
+
+    const createResponse = await fetch(`${REPLICATE_API_URL}/models/${model}/predictions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        ...predictionOptions,
+        input,
+      }),
+      signal: AbortSignal.timeout(30000),
+    });
+
+    const createBodyText = await createResponse.text();
+    if (!createResponse.ok) {
+      throw new Error(`Replicate create failed [${createResponse.status}]: ${createBodyText}`);
+    }
+
+    const created = safeJsonParse(createBodyText);
+    const providerJobId = String(created?.id ?? "");
+    if (!providerJobId) {
+      throw new Error("Replicate did not return a prediction id");
+    }
+
+    const nextRetryAt = new Date(Date.now() + 8000).toISOString();
+    await supabase
+      .from("media_generations")
+      .update({
+        provider_job_id: providerJobId,
+        status: "generating",
+        updated_at: new Date().toISOString(),
+        metadata: {
+          ...metadata,
+          adapter: "replicate",
+          model,
+          poll_url: created?.urls?.get ?? null,
+          prediction_status: created?.status ?? "starting",
+          input_payload: input,
+        },
+      })
+      .eq("id", generation.id);
+
+    return { status: "deferred", nextRetryAt, message: "Replicate video prediction started" };
+  }
+
+  const pollResponse = await fetch(`${REPLICATE_API_URL}/predictions/${generation.provider_job_id}`, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: "application/json",
+    },
+    signal: AbortSignal.timeout(30000),
+  });
+
+  const pollBodyText = await pollResponse.text();
+  if (!pollResponse.ok) {
+    throw new Error(`Replicate polling failed [${pollResponse.status}]: ${pollBodyText}`);
+  }
+
+  const prediction = safeJsonParse(pollBodyText);
+  const status = String(prediction?.status ?? "processing");
+
+  await supabase
+    .from("media_generations")
+    .update({
+      status: ["succeeded"].includes(status) ? "completed" : ["failed", "canceled"].includes(status) ? "failed" : "generating",
+      updated_at: new Date().toISOString(),
+      metadata: {
+        ...metadata,
+        adapter: "replicate",
+        model,
+        prediction_status: status,
+        replicate_metrics: prediction?.metrics ?? null,
+      },
+    })
+    .eq("id", generation.id);
+
+  if (["starting", "processing"].includes(status)) {
+    return {
+      status: "deferred",
+      nextRetryAt: new Date(Date.now() + 8000).toISOString(),
+      message: `Replicate status: ${status}`,
+    };
+  }
+
+  if (["failed", "canceled"].includes(status)) {
+    throw new Error(String(prediction?.error ?? `Replicate prediction ${status}`));
+  }
+
+  if (status !== "succeeded") {
+    return {
+      status: "deferred",
+      nextRetryAt: new Date(Date.now() + 8000).toISOString(),
+      message: `Replicate status: ${status}`,
+    };
+  }
+
+  const resultUrl = extractReplicateOutputUrl(prediction?.output);
+  if (!resultUrl) {
+    throw new Error("Replicate did not return a usable result URL");
+  }
+
+  await finalizeMediaGenerationSuccess(supabase, generation, {
+    providerKey: provider.provider_key,
+    resultUrl,
+    providerJobId: generation.provider_job_id,
+    metadata: {
+      ...metadata,
+      adapter: "replicate",
+      model,
+      prediction_status: status,
+      completed_by: WORKER_ID,
+      output_kind: inferVideoOutputKind(resultUrl),
     },
   });
 
@@ -577,6 +748,73 @@ async function getDailyUsage(supabase: any, userId: string) {
   return data;
 }
 
+async function resolveProviderSecret(supabase: any, provider: any) {
+  const envSecretName = provider.api_secret_name ? String(provider.api_secret_name) : null;
+  const envSecretValue = envSecretName ? Deno.env.get(envSecretName) : null;
+  if (envSecretValue) return envSecretValue;
+
+  const { data: credential, error } = await supabase
+    .from("media_provider_credentials")
+    .select("encrypted_secret")
+    .eq("provider_key", provider.provider_key)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!credential?.encrypted_secret) return null;
+
+  return await decryptSecret(String(credential.encrypted_secret));
+}
+
+async function decryptSecret(payload: string) {
+  const [ivBase64, encryptedBase64] = payload.split(".");
+  if (!ivBase64 || !encryptedBase64) throw new Error("Invalid encrypted provider secret");
+
+  const rootSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!rootSecret) throw new Error("Service role key is not configured");
+
+  const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(rootSecret));
+  const key = await crypto.subtle.importKey("raw", digest, "AES-GCM", false, ["decrypt"]);
+  const decrypted = await crypto.subtle.decrypt(
+    { name: "AES-GCM", iv: fromBase64(ivBase64) },
+    key,
+    fromBase64(encryptedBase64),
+  );
+
+  return textDecoder.decode(decrypted);
+}
+
+function fromBase64(value: string) {
+  const binary = atob(value);
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0));
+}
+
+function extractReplicateOutputUrl(output: unknown) {
+  if (typeof output === "string") return output;
+  if (Array.isArray(output)) {
+    const firstString = output.find((item) => typeof item === "string");
+    if (typeof firstString === "string") return firstString;
+
+    const firstUrl = output.find((item) => item && typeof item === "object" && typeof (item as Record<string, unknown>).url === "string") as Record<string, unknown> | undefined;
+    if (firstUrl?.url && typeof firstUrl.url === "string") return firstUrl.url;
+  }
+  if (output && typeof output === "object" && typeof (output as Record<string, unknown>).url === "string") {
+    return String((output as Record<string, unknown>).url);
+  }
+  return null;
+}
+
+function inferVideoOutputKind(url: string) {
+  return /\.(mp4|webm|mov)(\?|$)/i.test(url) ? "video" : "video_preview";
+}
+
+function safeJsonParse(value: string) {
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+}
+
 function extractImageData(response: any) {
   let base64: string | null = null;
   let mimeType = "image/png";
@@ -648,4 +886,8 @@ function randomInt(min: number, max: number) {
   const lower = Math.min(min, max);
   const upper = Math.max(min, max);
   return Math.floor(Math.random() * (upper - lower + 1)) + lower;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }

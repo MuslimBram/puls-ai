@@ -7,15 +7,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import {
+  useDeleteMediaProviderCredential,
   useMediaAdminAnalytics,
+  useMediaProviderCredentials,
   useMediaProviderSettings,
   useMediaUsagePolicies,
+  useUpsertMediaProviderCredential,
   useUpsertMediaProviderSetting,
   useUpdateMediaUsagePolicy,
 } from "@/hooks/useMediaAdmin";
-import { Activity, KeyRound, Save, Server, Video, Wand2 } from "lucide-react";
+import { Activity, KeyRound, Save, Server, ShieldCheck, Video, Wand2 } from "lucide-react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { toast } from "@/components/ui/sonner";
+import {
+  MediaProviderCredentialDialog,
+  type MediaProviderCredentialSummary,
+} from "@/components/media-admin/MediaProviderCredentialDialog";
 
 type ProviderDraft = {
   provider_key: string;
@@ -28,6 +35,14 @@ type ProviderDraft = {
   config: string;
 };
 
+type PolicyDraft = {
+  daily_image_limit: string;
+  daily_video_limit: string;
+  max_video_seconds: string;
+  allow_image_generation: boolean;
+  allow_video_generation: boolean;
+};
+
 const emptyProviderDraft: ProviderDraft = {
   provider_key: "",
   provider_name: "",
@@ -36,42 +51,65 @@ const emptyProviderDraft: ProviderDraft = {
   priority: "100",
   is_enabled: false,
   is_mock: false,
-  config: "{}",
+  config: JSON.stringify(
+    {
+      adapter: "replicate",
+      model: "minimax/video-01",
+      prompt_field: "prompt",
+      input_defaults: {},
+      prediction_options: {},
+    },
+    null,
+    2,
+  ),
 };
 
 export const AdminMediaStudioPanel = () => {
   const { data: providers = [] } = useMediaProviderSettings();
+  const { data: providerCredentials = [] } = useMediaProviderCredentials();
   const { data: policies = [] } = useMediaUsagePolicies();
   const analytics = useMediaAdminAnalytics();
   const upsertProvider = useUpsertMediaProviderSetting();
+  const upsertCredential = useUpsertMediaProviderCredential();
+  const deleteCredential = useDeleteMediaProviderCredential();
   const updatePolicy = useUpdateMediaUsagePolicy();
 
   const [newProvider, setNewProvider] = useState<ProviderDraft>(emptyProviderDraft);
   const [providerDrafts, setProviderDrafts] = useState<Record<string, ProviderDraft>>({});
-  const [policyDrafts, setPolicyDrafts] = useState<Record<string, {
-    daily_image_limit: string;
-    daily_video_limit: string;
-    max_video_seconds: string;
-    allow_image_generation: boolean;
-    allow_video_generation: boolean;
-  }>>({});
+  const [policyDrafts, setPolicyDrafts] = useState<Record<string, PolicyDraft>>({});
+  const [credentialProviderKey, setCredentialProviderKey] = useState<string | null>(null);
+
+  const credentialMap = useMemo(
+    () =>
+      providerCredentials.reduce<Record<string, MediaProviderCredentialSummary>>((acc, credential) => {
+        acc[credential.providerKey] = credential;
+        return acc;
+      }, {}),
+    [providerCredentials],
+  );
 
   const providerRows = useMemo(
-    () => providers.map((provider) => ({
-      provider,
-      draft: providerDrafts[provider.id] ?? {
-        provider_key: provider.provider_key,
-        provider_name: provider.provider_name,
-        media_types: provider.media_types.join(", "),
-        api_secret_name: provider.api_secret_name ?? "",
-        priority: String(provider.priority),
-        is_enabled: provider.is_enabled,
-        is_mock: provider.is_mock,
-        config: JSON.stringify(provider.config ?? {}, null, 2),
-      },
-    })),
-    [providerDrafts, providers],
+    () =>
+      providers.map((provider) => ({
+        provider,
+        credential: credentialMap[provider.provider_key] ?? null,
+        draft: providerDrafts[provider.id] ?? {
+          provider_key: provider.provider_key,
+          provider_name: provider.provider_name,
+          media_types: provider.media_types.join(", "),
+          api_secret_name: provider.api_secret_name ?? "",
+          priority: String(provider.priority),
+          is_enabled: provider.is_enabled,
+          is_mock: provider.is_mock,
+          config: JSON.stringify(provider.config ?? {}, null, 2),
+        },
+      })),
+    [credentialMap, providerDrafts, providers],
   );
+
+  const activeCredentialProvider = credentialProviderKey
+    ? providers.find((provider) => provider.provider_key === credentialProviderKey) ?? null
+    : null;
 
   const handleSaveProvider = async (draft: ProviderDraft) => {
     let parsedConfig: Record<string, unknown> = {};
@@ -86,7 +124,10 @@ export const AdminMediaStudioPanel = () => {
     upsertProvider.mutate({
       provider_key: draft.provider_key.trim(),
       provider_name: draft.provider_name.trim(),
-      media_types: draft.media_types.split(",").map((item) => item.trim()).filter(Boolean),
+      media_types: draft.media_types
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean),
       api_secret_name: draft.api_secret_name.trim() || null,
       priority: Number(draft.priority) || 100,
       is_enabled: draft.is_enabled,
@@ -143,26 +184,42 @@ export const AdminMediaStudioPanel = () => {
             Provider registry
           </CardTitle>
           <CardDescription>
-            Add future providers now. Save the runtime secret name here so the backend abstraction can switch providers later without rebuilding this module.
+            Define future providers, adapters, and runtime secret handling once — then swap providers later without rebuilding the module.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 rounded-lg border border-border p-4 lg:grid-cols-4">
             <div className="space-y-2">
               <Label>Provider key</Label>
-              <Input value={newProvider.provider_key} onChange={(e) => setNewProvider((prev) => ({ ...prev, provider_key: e.target.value }))} placeholder="replicate-video" />
+              <Input
+                value={newProvider.provider_key}
+                onChange={(e) => setNewProvider((prev) => ({ ...prev, provider_key: e.target.value }))}
+                placeholder="replicate-video"
+              />
             </div>
             <div className="space-y-2">
               <Label>Provider name</Label>
-              <Input value={newProvider.provider_name} onChange={(e) => setNewProvider((prev) => ({ ...prev, provider_name: e.target.value }))} placeholder="Replicate Video" />
+              <Input
+                value={newProvider.provider_name}
+                onChange={(e) => setNewProvider((prev) => ({ ...prev, provider_name: e.target.value }))}
+                placeholder="Replicate Video"
+              />
             </div>
             <div className="space-y-2">
               <Label>Media types</Label>
-              <Input value={newProvider.media_types} onChange={(e) => setNewProvider((prev) => ({ ...prev, media_types: e.target.value }))} placeholder="video, image" />
+              <Input
+                value={newProvider.media_types}
+                onChange={(e) => setNewProvider((prev) => ({ ...prev, media_types: e.target.value }))}
+                placeholder="video, image"
+              />
             </div>
             <div className="space-y-2">
-              <Label>Secret name</Label>
-              <Input value={newProvider.api_secret_name} onChange={(e) => setNewProvider((prev) => ({ ...prev, api_secret_name: e.target.value }))} placeholder="REPLICATE_API_KEY" />
+              <Label>Env secret name (optional)</Label>
+              <Input
+                value={newProvider.api_secret_name}
+                onChange={(e) => setNewProvider((prev) => ({ ...prev, api_secret_name: e.target.value }))}
+                placeholder="REPLICATE_API_KEY"
+              />
             </div>
             <div className="space-y-2">
               <Label>Priority</Label>
@@ -170,7 +227,7 @@ export const AdminMediaStudioPanel = () => {
             </div>
             <div className="space-y-2 lg:col-span-2">
               <Label>Provider config (JSON)</Label>
-              <Textarea value={newProvider.config} onChange={(e) => setNewProvider((prev) => ({ ...prev, config: e.target.value }))} rows={4} />
+              <Textarea value={newProvider.config} onChange={(e) => setNewProvider((prev) => ({ ...prev, config: e.target.value }))} rows={6} />
             </div>
             <div className="flex flex-col justify-end gap-3">
               <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
@@ -194,13 +251,19 @@ export const AdminMediaStudioPanel = () => {
           </div>
 
           <div className="space-y-3">
-            {providerRows.map(({ provider, draft }) => (
+            {providerRows.map(({ provider, credential, draft }) => (
               <div key={provider.id} className="rounded-lg border border-border p-4">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <h4 className="text-sm font-medium text-foreground">{provider.provider_name}</h4>
                   <Badge variant="outline">{provider.provider_key}</Badge>
                   {provider.is_mock ? <Badge variant="secondary">Mock</Badge> : null}
                   {provider.is_enabled ? <Badge>Enabled</Badge> : <Badge variant="outline">Disabled</Badge>}
+                  {credential ? (
+                    <Badge variant={credential.isValid ? "default" : "secondary"}>
+                      <ShieldCheck className="mr-1 h-3 w-3" />
+                      {credential.isValid ? "Secret validated" : "Secret stored"}
+                    </Badge>
+                  ) : null}
                 </div>
                 <div className="grid gap-3 lg:grid-cols-4">
                   <div className="space-y-2">
@@ -212,7 +275,7 @@ export const AdminMediaStudioPanel = () => {
                     <Input value={draft.media_types} onChange={(e) => setProviderDrafts((prev) => ({ ...prev, [provider.id]: { ...draft, media_types: e.target.value } }))} />
                   </div>
                   <div className="space-y-2">
-                    <Label>Secret name</Label>
+                    <Label>Env secret name</Label>
                     <Input value={draft.api_secret_name} onChange={(e) => setProviderDrafts((prev) => ({ ...prev, [provider.id]: { ...draft, api_secret_name: e.target.value } }))} />
                   </div>
                   <div className="space-y-2">
@@ -221,7 +284,7 @@ export const AdminMediaStudioPanel = () => {
                   </div>
                   <div className="space-y-2 lg:col-span-2">
                     <Label>Config JSON</Label>
-                    <Textarea value={draft.config} onChange={(e) => setProviderDrafts((prev) => ({ ...prev, [provider.id]: { ...draft, config: e.target.value } }))} rows={4} />
+                    <Textarea value={draft.config} onChange={(e) => setProviderDrafts((prev) => ({ ...prev, [provider.id]: { ...draft, config: e.target.value } }))} rows={6} />
                   </div>
                   <div className="flex flex-col justify-end gap-3">
                     <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
@@ -233,12 +296,26 @@ export const AdminMediaStudioPanel = () => {
                       <Switch checked={draft.is_mock} onCheckedChange={(checked) => setProviderDrafts((prev) => ({ ...prev, [provider.id]: { ...draft, is_mock: checked } }))} />
                     </div>
                   </div>
-                  <div className="flex items-end">
+                  <div className="flex flex-col gap-2">
                     <Button onClick={() => handleSaveProvider(draft)} disabled={upsertProvider.isPending} className="w-full">
                       <Save className="mr-2 h-4 w-4" /> Save provider
                     </Button>
+                    {!provider.is_mock ? (
+                      <Button variant="outline" onClick={() => setCredentialProviderKey(provider.provider_key)} className="w-full">
+                        <KeyRound className="mr-2 h-4 w-4" /> Manage secret
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
+                {credential ? (
+                  <div className="mt-3 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Stored secret:</span> {credential.secretHint || "Stored securely"}
+                    {credential.lastValidatedAt ? (
+                      <span> · validated {formatDistanceToNowStrict(new Date(credential.lastValidatedAt), { addSuffix: true })}</span>
+                    ) : null}
+                    {credential.lastValidationError ? <div className="mt-1">{credential.lastValidationError}</div> : null}
+                  </div>
+                ) : null}
               </div>
             ))}
           </div>
@@ -291,14 +368,16 @@ export const AdminMediaStudioPanel = () => {
                 <div className="flex items-end">
                   <Button
                     className="w-full"
-                    onClick={() => updatePolicy.mutate({
-                      id: policy.id,
-                      daily_image_limit: Number(draft.daily_image_limit),
-                      daily_video_limit: Number(draft.daily_video_limit),
-                      max_video_seconds: Number(draft.max_video_seconds),
-                      allow_image_generation: draft.allow_image_generation,
-                      allow_video_generation: draft.allow_video_generation,
-                    })}
+                    onClick={() =>
+                      updatePolicy.mutate({
+                        id: policy.id,
+                        daily_image_limit: Number(draft.daily_image_limit),
+                        daily_video_limit: Number(draft.daily_video_limit),
+                        max_video_seconds: Number(draft.max_video_seconds),
+                        allow_image_generation: draft.allow_image_generation,
+                        allow_video_generation: draft.allow_video_generation,
+                      })
+                    }
                     disabled={updatePolicy.isPending}
                   >
                     <Save className="mr-2 h-4 w-4" /> Save limits
@@ -325,7 +404,9 @@ export const AdminMediaStudioPanel = () => {
                   <div key={user.userId} className="flex items-center justify-between rounded-lg border border-border p-3">
                     <div>
                       <p className="text-sm font-medium text-foreground">{user.userId.slice(0, 8)}…</p>
-                      <p className="text-xs text-muted-foreground">{user.images} images · {user.videos} videos · {user.failed} failed</p>
+                      <p className="text-xs text-muted-foreground">
+                        {user.images} images · {user.videos} videos · {user.failed} failed
+                      </p>
                     </div>
                     <Badge variant="outline">{user.total} events</Badge>
                   </div>
@@ -362,6 +443,25 @@ export const AdminMediaStudioPanel = () => {
           </CardContent>
         </Card>
       </div>
+
+      {activeCredentialProvider ? (
+        <MediaProviderCredentialDialog
+          open={!!activeCredentialProvider}
+          onOpenChange={(open) => {
+            if (!open) setCredentialProviderKey(null);
+          }}
+          provider={activeCredentialProvider}
+          credential={credentialMap[activeCredentialProvider.provider_key] ?? null}
+          onSave={async ({ providerKey, secret, credentialLabel }) => {
+            await upsertCredential.mutateAsync({ providerKey, secret, credentialLabel });
+          }}
+          onDelete={async (providerKey) => {
+            await deleteCredential.mutateAsync(providerKey);
+          }}
+          isSaving={upsertCredential.isPending}
+          isDeleting={deleteCredential.isPending}
+        />
+      ) : null}
     </div>
   );
 };
