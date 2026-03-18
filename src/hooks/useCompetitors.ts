@@ -4,6 +4,29 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 
+export interface CompetitorTheme {
+  theme: string;
+  description: string;
+}
+
+export interface CompetitorOpportunity {
+  opportunity: string;
+  rationale: string;
+}
+
+export interface PricingSnapshot {
+  has_pricing?: boolean;
+  pricing_summary?: string;
+  price_points?: string[];
+}
+
+export interface PreviousScanData {
+  summary?: string;
+  pricing?: PricingSnapshot;
+  themes?: string[];
+  scanned_at?: string;
+}
+
 export interface Competitor {
   id: string;
   user_id: string;
@@ -17,9 +40,11 @@ export interface Competitor {
   scan_frequency: string;
   ai_summary: string | null;
   ai_positioning: string | null;
-  ai_content_themes: any[];
+  ai_content_themes: CompetitorTheme[];
   ai_engagement_style: string | null;
-  ai_opportunities: any[];
+  ai_opportunities: CompetitorOpportunity[];
+  pricing_snapshot: PricingSnapshot | null;
+  previous_scan_data: PreviousScanData | null;
   created_at: string;
   updated_at: string;
 }
@@ -56,6 +81,13 @@ export interface MarketTrend {
   first_seen_at: string;
   last_seen_at: string;
 }
+
+const invalidateCompetitorQueries = (queryClient: ReturnType<typeof useQueryClient>) => {
+  queryClient.invalidateQueries({ queryKey: ["competitors"] });
+  queryClient.invalidateQueries({ queryKey: ["competitor-alerts"] });
+  queryClient.invalidateQueries({ queryKey: ["competitor-scans"] });
+  queryClient.invalidateQueries({ queryKey: ["market-trends"] });
+};
 
 export const useCompetitors = () => {
   const { user } = useAuth();
@@ -172,6 +204,26 @@ export const useAddCompetitor = () => {
   });
 };
 
+export const useUpdateCompetitorFrequency = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async ({ competitorId, frequency }: { competitorId: string; frequency: string }) => {
+      const { error } = await supabase
+        .from("competitors")
+        .update({ scan_frequency: frequency } as any)
+        .eq("id", competitorId);
+      if (error) throw error;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["competitors"] });
+      toast({ title: "Frequency updated", description: `Scan frequency set to ${variables.frequency}` });
+    },
+    onError: (e: Error) => toast({ title: "Update failed", description: e.message, variant: "destructive" }),
+  });
+};
+
 export const useAutoAnalyzeCompetitor = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -186,7 +238,7 @@ export const useAutoAnalyzeCompetitor = () => {
       return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["competitors"] });
+      invalidateCompetitorQueries(queryClient);
       toast({ title: "AI analysis complete", description: "Preliminary insights generated" });
     },
     onError: (e: Error) => toast({ title: "Analysis failed", description: e.message, variant: "destructive" }),
@@ -207,12 +259,34 @@ export const useScanCompetitor = () => {
       return data;
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["competitors"] });
-      queryClient.invalidateQueries({ queryKey: ["competitor-scans"] });
-      queryClient.invalidateQueries({ queryKey: ["market-trends"] });
+      invalidateCompetitorQueries(queryClient);
       toast({ title: "Scan complete", description: `${data.pages_scanned} pages analyzed` });
     },
     onError: (e: Error) => toast({ title: "Scan failed", description: e.message, variant: "destructive" }),
+  });
+};
+
+export const useScheduledCompetitorScan = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  return useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke("analyze-competitor", {
+        body: { action: "scheduled_scan" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data as { scanned?: number; alerts_created?: number; total_active?: number; message?: string };
+    },
+    onSuccess: (data) => {
+      invalidateCompetitorQueries(queryClient);
+      toast({
+        title: "Scheduled scan finished",
+        description: data.message ?? `${data.scanned ?? 0} competitors scanned, ${data.alerts_created ?? 0} alerts created`,
+      });
+    },
+    onError: (e: Error) => toast({ title: "Scheduled scan failed", description: e.message, variant: "destructive" }),
   });
 };
 
@@ -225,7 +299,7 @@ export const useDeleteCompetitor = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["competitors"] });
+      invalidateCompetitorQueries(queryClient);
       toast({ title: "Competitor removed" });
     },
   });
