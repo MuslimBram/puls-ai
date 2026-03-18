@@ -8,6 +8,7 @@ import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useToast } from "@/hooks/use-toast";
 
 export type MediaGeneration = Database["public"]["Tables"]["media_generations"]["Row"];
+export type MediaGenerationRecord = MediaGeneration & { business_id?: string | null };
 type MediaUsageDaily = Database["public"]["Tables"]["media_usage_daily"]["Row"];
 type MediaUsagePolicy = Database["public"]["Tables"]["media_usage_policy"]["Row"];
 type MediaUsageEvent = Database["public"]["Tables"]["media_usage_events"]["Row"];
