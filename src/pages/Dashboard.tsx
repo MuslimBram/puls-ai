@@ -125,7 +125,7 @@ const Dashboard = () => {
           <CardHeader>
             <CardTitle className="text-lg flex items-center gap-2">
               <Zap className="h-5 w-5 text-primary" />
-              Plan Usage — {plan.name}
+              Plan Usage — {plan?.name ?? "Loading..."}
             </CardTitle>
             <CardDescription>
               Your current usage against plan limits.
