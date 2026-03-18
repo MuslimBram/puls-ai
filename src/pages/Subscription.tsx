@@ -1,42 +1,43 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { format } from "date-fns";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { UsageIndicator } from "@/components/UsageIndicator";
 import { AIUsageDashboard } from "@/components/AIUsageDashboard";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
+import { PricingPlanCard } from "@/components/pricing/PricingPlanCard";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useLeads } from "@/hooks/useLeads";
 import { useChannels } from "@/hooks/useChannels";
 import { useKeywords } from "@/hooks/useKeywords";
-import { PLANS, PLAN_ORDER, PlanKey } from "@/config/plans";
-import { STRIPE_TIERS } from "@/config/stripe";
-import { usePlanCatalog } from "@/hooks/usePlanCatalog";
+import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { supabase } from "@/integrations/supabase/client";
-import { CreditCard, Zap, Crown, ArrowRight, ExternalLink, Loader2, Clock, AlertTriangle, Gift, Percent } from "lucide-react";
+import { AlertTriangle, Clock, ExternalLink, Gift, Loader2, Percent } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { useNavigate, useSearchParams } from "react-router-dom";
-import { format, differenceInDays } from "date-fns";
-import { cn } from "@/lib/utils";
+import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
+import type { PlanKey } from "@/config/plans";
 
 const Subscription = () => {
-  const { plan, currentPlanKey, checkLimit } = useFeatureGating();
-  const { plansByKey } = usePlanCatalog();
-  const { subscription, stripeData, refetchStripe } = useSubscription();
-  const { leads } = useLeads();
-  const { channels } = useChannels();
-  const { keywords } = useKeywords();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [portalLoading, setPortalLoading] = useState(false);
-  const [upgradeLoading, setUpgradeLoading] = useState<PlanKey | null>(null);
+  const [planLoading, setPlanLoading] = useState<PlanKey | null>(null);
+
+  const { plan, currentPlanKey, checkLimit } = useFeatureGating();
+  const { subscription, stripeData, refetchStripe } = useSubscription();
+  const { plans, planOrder } = useMonetizationCatalog();
+  const { leads } = useLeads();
+  const { channels } = useChannels();
+  const { keywords } = useKeywords();
 
   useEffect(() => {
     if (searchParams.get("checkout") === "success") {
-      toast.success("Subscription activated! Welcome to your new plan.");
+      toast.success("Subscription sync refreshed.");
       refetchStripe();
     }
   }, [searchParams, refetchStripe]);
@@ -45,148 +46,114 @@ const Subscription = () => {
   const channelsUsage = checkLimit("channels", (channels ?? []).length);
   const keywordsUsage = checkLimit("keywords", (keywords ?? []).length);
 
-  const handleManageBilling = async () => {
+  const statusTone = useMemo(() => {
+    if (stripeData?.status === "past_due") return "destructive" as const;
+    if (stripeData?.status === "trialing") return "secondary" as const;
+    return "default" as const;
+  }, [stripeData?.status]);
+
+  const openBillingPortal = async () => {
     setPortalLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("customer-portal");
       if (error) throw error;
-      if (data?.url) window.open(data.url, "_blank");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to open billing portal");
+      if (data?.url) {
+        window.open(data.url, "_blank", "noopener,noreferrer");
+        return;
+      }
+      throw new Error("Billing portal unavailable");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to open billing portal");
     } finally {
       setPortalLoading(false);
     }
   };
 
-  const handleUpgrade = async (target: PlanKey) => {
-    if (target === "enterprise") {
-      navigate("/pricing");
+  const handlePlanAction = async (planKey: PlanKey) => {
+    const intent = getPlanChangeIntent(currentPlanKey, planKey, planOrder);
+    if (intent === "current") return;
+    if (planKey === "enterprise" || intent === "downgrade") {
+      await openBillingPortal();
       return;
     }
 
-    const tier = STRIPE_TIERS[target];
-    if (!tier) return;
-
-    setUpgradeLoading(target);
+    setPlanLoading(planKey);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId: tier.price_id },
+        body: { planKey },
       });
       if (error) throw error;
-      if (data?.url) window.open(data.url, "_blank");
-    } catch (e: any) {
-      toast.error(e.message || "Failed to start checkout");
+      if (data?.url) {
+        window.open(data.url, "_blank", "noopener,noreferrer");
+        return;
+      }
+      throw new Error("Checkout URL missing");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to start checkout");
     } finally {
-      setUpgradeLoading(null);
+      setPlanLoading(null);
     }
   };
 
-  const isTrial = stripeData?.status === "trialing";
-  const isPastDue = stripeData?.status === "past_due";
-  const isCanceling = stripeData?.cancel_at_period_end;
-
   return (
     <DashboardLayout>
-      <div className="space-y-6">
-        {/* Status Alerts */}
-        {isTrial && stripeData?.trial_end && (
-          <Card className="border-primary/50 bg-primary/5">
-            <CardContent className="flex items-center gap-3 pt-6">
-              <Clock className="h-5 w-5 text-primary" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Free trial active</p>
-                <p className="text-xs text-muted-foreground">
-                  Trial ends {format(new Date(stripeData.trial_end), "MMM d, yyyy")}. You'll be charged automatically after.
-                </p>
-              </div>
-              <Button size="sm" variant="outline" className="ml-auto" onClick={handleManageBilling} disabled={portalLoading}>
-                Manage Trial
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {isPastDue && (
-          <Card className="border-destructive/50 bg-destructive/5">
-            <CardContent className="flex items-center gap-3 pt-6">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Payment failed</p>
-                <p className="text-xs text-muted-foreground">
-                  Please update your payment method to keep your plan features.
-                </p>
-              </div>
-              <Button size="sm" variant="destructive" className="ml-auto" onClick={handleManageBilling} disabled={portalLoading}>
-                Update Payment
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {isCanceling && (
-          <Card className="border-destructive/30 bg-destructive/5">
-            <CardContent className="flex items-center gap-3 pt-6">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-              <div>
-                <p className="text-sm font-medium text-foreground">Subscription canceling</p>
-                <p className="text-xs text-muted-foreground">
-                  Your plan will downgrade at the end of the billing period
-                  {stripeData?.subscription_end && ` (${format(new Date(stripeData.subscription_end), "MMM d, yyyy")})`}.
-                </p>
-              </div>
-              <Button size="sm" variant="outline" className="ml-auto" onClick={handleManageBilling} disabled={portalLoading}>
-                Reactivate
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Referral Discount Banner */}
-        {stripeData?.referral_discount && stripeData.referral_discount.percent > 0 && (
-          <Card className="border-green-500/30 bg-green-500/5">
-            <CardContent className="flex items-center gap-3 pt-6">
-              <Gift className="h-5 w-5 text-green-600" />
+      <div className="space-y-6 pb-6">
+        {stripeData?.status === "trialing" && stripeData.trial_end ? (
+          <Card className="border-primary/40 bg-primary/5">
+            <CardContent className="flex items-start gap-3 pt-6">
+              <Clock className="mt-0.5 h-5 w-5 text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-foreground flex items-center gap-2">
-                  Referral Discount Active
-                  <Badge className="bg-green-500/10 text-green-700 text-xs">
-                    <Percent className="h-3 w-3 mr-0.5" />
-                    {stripeData.referral_discount.percent}% off
-                  </Badge>
+                <p className="text-sm font-medium text-foreground">Trial active</p>
+                <p className="text-xs text-muted-foreground">Ends {format(new Date(stripeData.trial_end), "MMM d, yyyy")}. Billing begins automatically if not canceled.</p>
+              </div>
+              <Button size="sm" variant="outline" onClick={openBillingPortal} disabled={portalLoading}>Manage trial</Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {stripeData?.status === "past_due" ? (
+          <Card className="border-destructive/40 bg-destructive/5">
+            <CardContent className="flex items-start gap-3 pt-6">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Payment issue detected</p>
+                <p className="text-xs text-muted-foreground">Update your billing details to avoid automatic downgrade after the grace period.</p>
+              </div>
+              <Button size="sm" variant="destructive" onClick={openBillingPortal} disabled={portalLoading}>Fix billing</Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {stripeData?.referral_discount ? (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="flex items-start gap-3 pt-6">
+              <Gift className="mt-0.5 h-5 w-5 text-primary" />
+              <div className="flex-1">
+                <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  Referral discount active
+                  <Badge variant="secondary"><Percent className="mr-1 h-3 w-3" />{stripeData.referral_discount.percent}% off</Badge>
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {stripeData.referral_discount.months_remaining} month{stripeData.referral_discount.months_remaining !== 1 ? "s" : ""} remaining
-                  {stripeData.referral_discount.expires_at && (
-                    <> · Expires {format(new Date(stripeData.referral_discount.expires_at), "MMM d, yyyy")}</>
-                  )}
-                  {stripeData.referral_discount.total_savings > 0 && (
-                    <> · Total saved: <span className="font-medium text-green-700">${stripeData.referral_discount.total_savings.toFixed(2)}</span></>
-                  )}
+                  {stripeData.referral_discount.months_remaining} month(s) remaining · total savings ${stripeData.referral_discount.total_savings.toFixed(2)}
                 </p>
               </div>
             </CardContent>
           </Card>
-        )}
+        ) : null}
+
         <AIUsageDashboard />
 
-        {/* Current Plan */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CreditCard className="h-5 w-5 text-primary" />
-              Current Plan — {plan.name}
-            </CardTitle>
-            <CardDescription>{plan.description}</CardDescription>
+            <CardTitle className="text-xl">Current subscription</CardTitle>
+            <CardDescription>Plan sync, limits, and billing state all read from the live monetization catalog.</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Badge className="text-sm">{plan.name}</Badge>
+          <CardContent className="space-y-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge>{plan.name}</Badge>
+              <Badge variant={statusTone}>{stripeData?.status ?? "none"}</Badge>
               <span className="text-sm text-muted-foreground">${plan.monthlyPrice}/month</span>
-              {stripeData?.status && (
-                <Badge variant={stripeData.status === "active" ? "default" : "secondary"} className="text-xs">
-                  {stripeData.status}
-                </Badge>
-              )}
+              {stripeData?.cancel_at_period_end ? <Badge variant="outline">Downgrade scheduled</Badge> : null}
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
@@ -195,113 +162,52 @@ const Subscription = () => {
               <UsageIndicator label="Keywords" current={keywordsUsage.current} limit={keywordsUsage.limit} />
             </div>
 
-            <div className="grid grid-cols-2 gap-4 text-sm pt-2">
+            <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <span className="text-muted-foreground">AI replies/day</span>
-                <p className="font-medium text-foreground">
-                  {plan.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan.limits.aiRepliesPerDay}
-                </p>
+                <p className="text-muted-foreground">AI replies / day</p>
+                <p className="font-medium text-foreground">{plan.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan.limits.aiRepliesPerDay}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">Team members</span>
-                <p className="font-medium text-foreground">
-                  {plan.limits.teamMembers === -1 ? "Unlimited" : plan.limits.teamMembers}
-                </p>
+                <p className="text-muted-foreground">Team members</p>
+                <p className="font-medium text-foreground">{plan.limits.teamMembers === -1 ? "Unlimited" : plan.limits.teamMembers}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">Conversation history</span>
-                <p className="font-medium text-foreground">
-                  {plan.limits.conversationHistoryDays === -1 ? "Unlimited" : `${plan.limits.conversationHistoryDays} days`}
-                </p>
+                <p className="text-muted-foreground">Conversation history</p>
+                <p className="font-medium text-foreground">{plan.limits.conversationHistoryDays === -1 ? "Unlimited" : `${plan.limits.conversationHistoryDays} days`}</p>
               </div>
               <div>
-                <span className="text-muted-foreground">Support</span>
+                <p className="text-muted-foreground">Support</p>
                 <p className="font-medium text-foreground">{plan.support}</p>
               </div>
             </div>
 
-            <div className="flex gap-2 pt-2">
-              <Button variant="outline" onClick={() => navigate("/pricing")}>
-                View All Plans <ArrowRight className="h-4 w-4 ml-1" />
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={() => navigate("/pricing")}>Compare all plans</Button>
+              <Button variant="outline" onClick={openBillingPortal} disabled={portalLoading}>
+                {portalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}Manage billing
               </Button>
-              {stripeData?.subscribed && (
-                <Button variant="outline" onClick={handleManageBilling} disabled={portalLoading}>
-                  {portalLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ExternalLink className="h-4 w-4 mr-1" />}
-                  Manage Billing
-                </Button>
-              )}
             </div>
           </CardContent>
         </Card>
 
-        {/* Plan Cards - matching Pricing page design */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {PLAN_ORDER.map((key) => {
-            const p = plansByKey[key] ?? PLANS[key];
-            const isCurrent = currentPlanKey === key;
-            const isLoading = upgradeLoading === key;
-            return (
-              <Card
-                key={key}
-                className={cn(
-                  "relative flex flex-col",
-                  p.highlighted && "border-primary shadow-lg ring-1 ring-primary/20",
-                  isCurrent && "border-primary/50"
-                )}
-              >
-                {p.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-primary text-primary-foreground shadow-sm">
-                      <Crown className="h-3 w-3 mr-1" /> Recommended
-                    </Badge>
-                  </div>
-                )}
-                {!p.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge variant="secondary" className="shadow-sm text-xs font-semibold">
-                      Pay back guaranteed
-                    </Badge>
-                  </div>
-                )}
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{p.name}</CardTitle>
-                  <CardDescription>
-                    {key === "enterprise" ? (
-                      <span className="text-xl font-bold text-foreground">Custom</span>
-                    ) : (
-                      <>
-                        <span className="text-xl font-bold text-foreground">${p.monthlyPrice}</span>
-                        <span className="text-muted-foreground">/mo</span>
-                      </>
-                    )}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {isCurrent ? (
-                    <Button disabled className="w-full" size="sm">Current Plan</Button>
-                  ) : (
-                    <Button
-                      className="w-full"
-                      size="sm"
-                      variant={p.highlighted ? "default" : "outline"}
-                      onClick={() => handleUpgrade(key)}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
-                      {p.cta}
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {plans.map((catalogPlan) => (
+            <PricingPlanCard
+              key={catalogPlan.key}
+              annual={false}
+              currentPlanKey={currentPlanKey}
+              loading={planLoading === catalogPlan.key}
+              onSelect={handlePlanAction}
+              plan={catalogPlan}
+              planOrder={planOrder}
+            />
+          ))}
         </div>
 
-        {/* Billing & Invoices Tabs */}
         <Tabs defaultValue="billing">
           <TabsList>
-            <TabsTrigger value="billing">Billing History</TabsTrigger>
-            <TabsTrigger value="usage">Usage Details</TabsTrigger>
+            <TabsTrigger value="billing">Billing history</TabsTrigger>
+            <TabsTrigger value="usage">Usage details</TabsTrigger>
           </TabsList>
           <TabsContent value="billing">
             <BillingHistoryPanel />
@@ -309,7 +215,7 @@ const Subscription = () => {
           <TabsContent value="usage">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Current Usage</CardTitle>
+                <CardTitle>Usage snapshot</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 sm:grid-cols-3">
