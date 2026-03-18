@@ -20,6 +20,7 @@ import { EmailSetup } from "@/components/EmailSetup";
 import { WebsiteChatSetup } from "@/components/WebsiteChatSetup";
 import { WebhookSetup } from "@/components/WebhookSetup";
 import { SafeRender } from "@/components/SafeRender";
+import { FieldLabelWithGuide } from "@/components/FieldGuide";
 import type { PlanKey } from "@/types/monetization";
 import { channelFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import {
