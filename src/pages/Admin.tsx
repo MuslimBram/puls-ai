@@ -23,6 +23,7 @@ import { AdminChurnRiskPanel } from "@/components/AdminChurnRiskPanel";
 import { AdminApiErrorLog } from "@/components/AdminApiErrorLog";
 import { AdminDeadLetterPanel } from "@/components/AdminDeadLetterPanel";
 import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
+import { AdminRoleManager } from "@/components/AdminRoleManager";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
