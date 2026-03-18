@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   BookOpen,
   Briefcase,
+  CheckCircle2,
   Clock,
   Globe,
   Loader2,
@@ -15,6 +16,8 @@ import {
   Sparkles,
   Tag,
   TrendingUp,
+  Workflow,
+  XCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +31,7 @@ import {
   useTriggerBusinessScan,
   type BusinessAIContent,
   type BusinessScanHistory,
+  type ScanAutomationSummary,
 } from "@/hooks/useBusinessScans";
 
 export interface AdminBusinessScanInsightsBusiness {
@@ -50,6 +54,41 @@ const getStatusVariant = (status: string): "default" | "secondary" | "destructiv
       return "destructive";
     default:
       return "outline";
+  }
+};
+
+const getAutomation = (scan?: BusinessScanHistory | null): ScanAutomationSummary | null => {
+  const automation = scan?.summary_json?.automation;
+  return automation && typeof automation === "object" ? (automation as ScanAutomationSummary) : null;
+};
+
+const getAutomationVariant = (status?: string): "default" | "secondary" | "destructive" | "outline" => {
+  switch (status) {
+    case "completed":
+      return "default";
+    case "queued":
+    case "processing":
+    case "retrying":
+      return "secondary";
+    case "failed":
+      return "destructive";
+    default:
+      return "outline";
+  }
+};
+
+const getAutomationIcon = (status?: string) => {
+  switch (status) {
+    case "completed":
+      return CheckCircle2;
+    case "failed":
+      return XCircle;
+    case "queued":
+    case "processing":
+    case "retrying":
+      return Loader2;
+    default:
+      return Workflow;
   }
 };
 
@@ -109,6 +148,8 @@ export function AdminBusinessScanInsightsView({
           </Card>
         ) : (
           scans.map((scan) => {
+            const automation = getAutomation(scan);
+            const AutomationIcon = getAutomationIcon(automation?.status);
             const saveDisabled = saveToKnowledgeBase.isPending || scan.status !== "completed";
             const generateDisabled = generateContent.isPending || scan.status !== "completed";
             const retryDisabled = triggerScan.isPending || !scan.scanned_url;
@@ -129,6 +170,12 @@ export function AdminBusinessScanInsightsView({
                       <Badge variant={getStatusVariant(scan.status)} className="text-xs">
                         {scan.status}
                       </Badge>
+                      {automation?.status && (
+                        <Badge variant={getAutomationVariant(automation.status)} className="text-xs">
+                          <AutomationIcon className={`mr-1 h-3 w-3 ${automation.status === "completed" || automation.status === "failed" ? "" : "animate-spin"}`} />
+                          Automation {automation.status}
+                        </Badge>
+                      )}
                     </div>
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                       <span>
@@ -138,7 +185,18 @@ export function AdminBusinessScanInsightsView({
                       {scan.insights_count > 0 && <span>{scan.insights_count} insights</span>}
                       {scan.pages_scanned > 0 && <span>{scan.pages_scanned} page(s)</span>}
                       {scan.duration_ms && <span>{(scan.duration_ms / 1000).toFixed(1)}s</span>}
+                      {automation?.knowledge_chunks_created ? <span>{automation.knowledge_chunks_created} KB chunks</span> : null}
                     </div>
+                    {automation && (
+                      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                        <Badge variant={getAutomationVariant(automation.profile_sync)} className="text-[10px]">
+                          Profile {automation.profile_sync || "pending"}
+                        </Badge>
+                        <Badge variant={getAutomationVariant(automation.knowledge_sync)} className="text-[10px]">
+                          Knowledge Base {automation.knowledge_sync || "pending"}
+                        </Badge>
+                      </div>
+                    )}
                     {scan.status === "failed" && scan.error_message && (
                       <div className="mt-2 flex items-start gap-2 text-xs text-destructive">
                         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -208,7 +266,7 @@ export function AdminBusinessScanInsightsView({
         )}
       </TabsContent>
 
-      <TabsContent value="details">
+      <TabsContent value="details" className="space-y-4">
         {!activeScan ? (
           <Card className="p-6 text-center text-sm text-muted-foreground">Select a scan to view details.</Card>
         ) : activeScan.status === "failed" ? (
@@ -223,7 +281,10 @@ export function AdminBusinessScanInsightsView({
             <p className="text-sm text-muted-foreground">Scan in progress: {activeScan.scan_phase}</p>
           </Card>
         ) : (
-          <ScanDetailsGrid scan={activeScan} />
+          <>
+            <AutomationStatusCard scan={activeScan} />
+            <ScanDetailsGrid scan={activeScan} />
+          </>
         )}
       </TabsContent>
 
@@ -239,6 +300,65 @@ export function AdminBusinessScanInsightsView({
         )}
       </TabsContent>
     </Tabs>
+  );
+}
+
+function AutomationStatusCard({ scan }: { scan: BusinessScanHistory }) {
+  const automation = getAutomation(scan);
+  const Icon = getAutomationIcon(automation?.status);
+
+  if (!automation) {
+    return (
+      <Card className="p-4 text-sm text-muted-foreground">
+        No automation status has been recorded for this scan yet.
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-4 space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={getAutomationVariant(automation.status)}>
+          <Icon className={`mr-1 h-3.5 w-3.5 ${automation.status === "completed" || automation.status === "failed" ? "" : "animate-spin"}`} />
+          Automation {automation.status || "pending"}
+        </Badge>
+        <Badge variant={getAutomationVariant(automation.profile_sync)}>Business Profile {automation.profile_sync || "pending"}</Badge>
+        <Badge variant={getAutomationVariant(automation.knowledge_sync)}>Knowledge Base {automation.knowledge_sync || "pending"}</Badge>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 text-sm text-muted-foreground">
+        <div>
+          <p className="text-xs font-medium text-foreground">Business Profile sync</p>
+          {automation.updated_fields?.length ? (
+            <p className="mt-1">Updated fields: {automation.updated_fields.join(", ")}</p>
+          ) : (
+            <p className="mt-1">No profile fields needed updating or sync is still pending.</p>
+          )}
+        </div>
+        <div>
+          <p className="text-xs font-medium text-foreground">Knowledge Base sync</p>
+          <p className="mt-1">
+            {automation.knowledge_source_name || "Knowledge source pending"}
+            {automation.knowledge_chunks_created ? ` · ${automation.knowledge_chunks_created} chunks` : ""}
+          </p>
+        </div>
+      </div>
+
+      {(automation.queued_at || automation.started_at || automation.completed_at) && (
+        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+          {automation.queued_at ? <span>Queued {format(new Date(automation.queued_at), "MMM d, HH:mm")}</span> : null}
+          {automation.started_at ? <span>Started {format(new Date(automation.started_at), "MMM d, HH:mm")}</span> : null}
+          {automation.completed_at ? <span>Completed {format(new Date(automation.completed_at), "MMM d, HH:mm")}</span> : null}
+        </div>
+      )}
+
+      {automation.error ? (
+        <div className="flex items-start gap-2 text-sm text-destructive">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+          <span>{automation.error}</span>
+        </div>
+      ) : null}
+    </Card>
   );
 }
 

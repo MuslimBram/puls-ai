@@ -17,15 +17,12 @@ function lightweightExtract(markdown: string) {
   const contacts: Array<{ type: string; value: string }> = [];
   const socialLinks: Record<string, string[]> = {};
 
-  // Emails
   const emails = [...new Set(markdown.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) || [])];
   emails.forEach((e) => contacts.push({ type: "email", value: e }));
 
-  // Phones
   const phones = [...new Set(markdown.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{3,4}/g) || [])].filter((p) => p.replace(/\D/g, "").length >= 7);
   phones.forEach((p) => contacts.push({ type: "phone", value: p }));
 
-  // Social
   const patterns: Record<string, RegExp> = {
     instagram: /https?:\/\/(?:www\.)?instagram\.com\/[^\s)"\]]+/gi,
     facebook: /https?:\/\/(?:www\.)?facebook\.com\/[^\s)"\]]+/gi,
@@ -36,21 +33,49 @@ function lightweightExtract(markdown: string) {
     whatsapp: /https?:\/\/(?:wa\.me|api\.whatsapp\.com)\/[^\s)"\]]+/gi,
     tiktok: /https?:\/\/(?:www\.)?tiktok\.com\/[^\s)"\]]+/gi,
   };
+
   for (const [platform, regex] of Object.entries(patterns)) {
     const matches = [...new Set(markdown.match(regex) || [])];
     if (matches.length) socialLinks[platform] = matches;
   }
 
-  // CTAs
   const ctas = [...new Set((markdown.match(/(?:Get Started|Contact Us|Request a Demo|Free Trial|Sign Up|Learn More|Book Now|Schedule|Get a Quote|Try Free|Buy Now|Order Now|Shop Now|Subscribe)/gi) || []))];
 
-  // Pricing signals
   const pricingSignals: string[] = [];
   const pricingKws = ["price", "pricing", "cost", "$", "€", "per month", "/mo", "free plan", "premium", "enterprise"];
   const lower = markdown.toLowerCase();
-  pricingKws.forEach((kw) => { if (lower.includes(kw)) pricingSignals.push(kw); });
+  pricingKws.forEach((kw) => {
+    if (lower.includes(kw)) pricingSignals.push(kw);
+  });
 
   return { contacts, socialLinks, ctas, pricingSignals };
+}
+
+function withAutomationSummary(summaryJson: Record<string, unknown>, automation: Record<string, unknown>) {
+  return {
+    ...summaryJson,
+    automation,
+  };
+}
+
+async function triggerJobWorker() {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY");
+
+  if (!supabaseUrl || !serviceRoleKey) return;
+
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/job-worker`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${serviceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ trigger: "business-scan-extract" }),
+    });
+  } catch (error) {
+    console.error("Failed to trigger job-worker after scan completion:", error);
+  }
 }
 
 serve(async (req) => {
@@ -89,13 +114,13 @@ serve(async (req) => {
               .from("source_scans")
               .update({ business_id, status, scan_phase: phase, ...extraSourceScan } as any)
               .eq("id", source_scan_id)
-          : Promise.resolve(),
+          : Promise.resolve(null),
         source_id
           ? sb
               .from("scan_sources")
               .update({ business_id, scan_status: status, ...extraSource } as any)
               .eq("id", source_id)
-          : Promise.resolve(),
+          : Promise.resolve(null),
       ]);
     };
 
@@ -163,7 +188,7 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are a business intelligence analyst. Analyze the website content and extract structured data. Return JSON via the tool call.`,
+                content: "You are a business intelligence analyst. Analyze the website content and extract structured data. Return JSON via the tool call.",
               },
               {
                 role: "user",
@@ -277,6 +302,14 @@ serve(async (req) => {
 
     const durationMs = Date.now() - startTime;
     const completedAt = new Date().toISOString();
+    const automationSummary = {
+      status: "queued",
+      profile_sync: "pending",
+      knowledge_sync: "pending",
+      queued_at: completedAt,
+      job_type: "scan_post_process",
+    };
+    const finalSummaryJson = withAutomationSummary(summaryJson, automationSummary);
 
     await syncStatus(
       "completed",
@@ -287,7 +320,7 @@ serve(async (req) => {
         duration_ms: durationMs,
         completed_at: completedAt,
         error_message: null,
-        summary_json: summaryJson,
+        summary_json: finalSummaryJson,
         products_found: products,
         services_found: services,
         contact_methods: contacts,
@@ -311,8 +344,53 @@ serve(async (req) => {
       }
     );
 
+    try {
+      await sb.from("job_queue").insert({
+        user_id: userData.user.id,
+        workspace_id,
+        job_type: "scan_post_process",
+        job_payload: {
+          business_id,
+          scan_history_id,
+          source_id,
+          source_scan_id,
+          workspace_id,
+          user_id: userData.user.id,
+        },
+        status: "pending",
+        attempts: 0,
+        max_attempts: 3,
+        priority: 70,
+        scheduled_for: completedAt,
+      } as any);
+
+      await triggerJobWorker();
+    } catch (queueError) {
+      const queueErrorMessage = queueError instanceof Error ? queueError.message : "Failed to queue scan post-processing";
+      console.error("scan post-process queue error:", queueError);
+      await sb
+        .from("business_scan_history")
+        .update({
+          summary_json: withAutomationSummary(summaryJson, {
+            ...automationSummary,
+            status: "failed",
+            profile_sync: "failed",
+            knowledge_sync: "failed",
+            failed_at: new Date().toISOString(),
+            error: queueErrorMessage,
+          }),
+        } as any)
+        .eq("id", scan_history_id);
+    }
+
     return new Response(
-      JSON.stringify({ success: true, insights_count: insightRows.length, pages_scanned: pagesScanned, duration_ms: durationMs }),
+      JSON.stringify({
+        success: true,
+        insights_count: insightRows.length,
+        pages_scanned: pagesScanned,
+        duration_ms: durationMs,
+        automation_status: automationSummary.status,
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
@@ -330,7 +408,7 @@ serve(async (req) => {
               scan_phase: "failed",
               error_message: errorMessage,
             } as any).eq("id", body.scan_history_id)
-          : Promise.resolve(),
+          : Promise.resolve(null),
         body.source_scan_id
           ? sb.from("source_scans").update({
               business_id: body.business_id,
@@ -338,15 +416,17 @@ serve(async (req) => {
               scan_phase: "failed",
               error_message: errorMessage,
             } as any).eq("id", body.source_scan_id)
-          : Promise.resolve(),
+          : Promise.resolve(null),
         body.source_id
           ? sb.from("scan_sources").update({
               business_id: body.business_id,
               scan_status: "failed",
             } as any).eq("id", body.source_id)
-          : Promise.resolve(),
+          : Promise.resolve(null),
       ]);
-    } catch (_) { /* ignore */ }
+    } catch (_) {
+      /* ignore */
+    }
 
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),

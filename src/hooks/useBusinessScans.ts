@@ -3,6 +3,32 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 
+export interface ScanAutomationSummary {
+  status?: "queued" | "processing" | "completed" | "retrying" | "failed";
+  profile_sync?: "pending" | "processing" | "completed" | "failed";
+  knowledge_sync?: "pending" | "processing" | "completed" | "failed";
+  queued_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  failed_at?: string;
+  last_error_at?: string;
+  error?: string | null;
+  job_type?: string;
+  knowledge_source_id?: string;
+  knowledge_source_name?: string;
+  knowledge_chunks_created?: number;
+  updated_fields?: string[];
+}
+
+export interface BusinessScanSummary {
+  business_summary?: string;
+  industry?: string;
+  target_audience?: string;
+  unique_selling_points?: string[];
+  automation?: ScanAutomationSummary;
+  [key: string]: unknown;
+}
+
 export interface BusinessScanHistory {
   id: string;
   business_id: string;
@@ -15,7 +41,7 @@ export interface BusinessScanHistory {
   insights_count: number;
   duration_ms: number | null;
   error_message: string | null;
-  summary_json: Record<string, unknown>;
+  summary_json: BusinessScanSummary | null;
   products_found: Array<{ title: string; description: string; pricing_signal?: string }>;
   services_found: Array<{ title: string; description: string }>;
   contact_methods: Array<{ type: string; value: string }>;
@@ -47,6 +73,7 @@ export const useBusinessScanHistory = (businessId?: string) => {
   return useQuery({
     queryKey: ["business-scan-history", businessId],
     enabled: !!user && !!businessId,
+    refetchInterval: 5000,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("business_scan_history")
@@ -198,6 +225,9 @@ export const useTriggerBusinessScan = () => {
     },
     onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: ["business-scan-history", variables.businessId] });
+      qc.invalidateQueries({ queryKey: ["business-profile"] });
+      qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
+      qc.invalidateQueries({ queryKey: ["knowledge-chunks"] });
       qc.invalidateQueries({ queryKey: ["scan-insights"] });
       qc.invalidateQueries({ queryKey: ["scan-history"] });
       qc.invalidateQueries({ queryKey: ["scan-sources"] });
@@ -257,7 +287,9 @@ export const useSaveBusinessScanToKnowledgeBase = () => {
       if (data?.error) throw new Error(data.error);
       return data as { source_id: string; chunks_created: number; source_name: string };
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      qc.invalidateQueries({ queryKey: ["business-scan-history", variables.businessId] });
+      qc.invalidateQueries({ queryKey: ["business-profile"] });
       qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
       qc.invalidateQueries({ queryKey: ["knowledge-chunks"] });
       toast({

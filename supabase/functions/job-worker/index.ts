@@ -167,6 +167,9 @@ async function processJob(supabase: any, job: any): Promise<JobOutcome> {
     case "media_generation":
       return await processMediaGenerationJob(supabase, job, payload);
 
+    case "scan_post_process":
+      return await processScanPostProcessJob(supabase, job, payload);
+
     case "archive_messages": {
       await supabase.rpc("archive_old_messages", {
         _workspace_id: payload.workspace_id,
@@ -271,6 +274,376 @@ async function processJob(supabase: any, job: any): Promise<JobOutcome> {
     default:
       throw new Error(`Unknown job type: ${job.job_type}`);
   }
+}
+
+async function processScanPostProcessJob(supabase: any, job: any, payload: Record<string, unknown>): Promise<JobOutcome> {
+  const scanHistoryId = String(payload.scan_history_id ?? "");
+  const businessId = String(payload.business_id ?? "");
+
+  if (!scanHistoryId || !businessId) {
+    throw new Error("Missing scan_history_id or business_id in scan post-process job payload");
+  }
+
+  const { data: business, error: businessError } = await supabase
+    .from("business_profiles")
+    .select("id, user_id, workspace_id, business_name, industry, ai_tone, short_description, target_audience, main_services")
+    .eq("id", businessId)
+    .maybeSingle();
+
+  if (businessError) throw businessError;
+  if (!business) throw new Error(`Business ${businessId} not found`);
+
+  const { data: scan, error: scanError } = await supabase
+    .from("business_scan_history")
+    .select("id, scanned_url, status, pages_scanned, summary_json, products_found, services_found, contact_methods, social_links, pricing_signals, tone_of_voice, suggested_keywords, cta_signals, competitor_hints, completed_at, created_at")
+    .eq("id", scanHistoryId)
+    .eq("business_id", businessId)
+    .maybeSingle();
+
+  if (scanError) throw scanError;
+  if (!scan) throw new Error(`Scan ${scanHistoryId} not found`);
+
+  if (scan.status !== "completed") {
+    return {
+      status: "deferred",
+      nextRetryAt: new Date(Date.now() + 15000).toISOString(),
+      message: `Scan status is ${scan.status}`,
+    };
+  }
+
+  try {
+    await updateScanAutomationState(supabase, scan.id, {
+      status: "processing",
+      profile_sync: "processing",
+      knowledge_sync: "processing",
+      started_at: new Date().toISOString(),
+      error: null,
+    }, scan.summary_json);
+
+    const profilePatch = buildBusinessProfilePatch(business, scan);
+    if (Object.keys(profilePatch).length > 0) {
+      await supabase.from("business_profiles").update(profilePatch).eq("id", business.id);
+    }
+
+    const knowledgeResult = await upsertKnowledgeFromScan(supabase, business, scan, job);
+
+    await updateScanAutomationState(supabase, scan.id, {
+      status: "completed",
+      profile_sync: "completed",
+      knowledge_sync: "completed",
+      completed_at: new Date().toISOString(),
+      error: null,
+      updated_fields: Object.keys(profilePatch).filter((field) => field !== "updated_at"),
+      knowledge_source_id: knowledgeResult.sourceId,
+      knowledge_source_name: knowledgeResult.sourceName,
+      knowledge_chunks_created: knowledgeResult.chunksCreated,
+    });
+
+    await supabase.from("business_notifications").insert({
+      user_id: business.user_id,
+      workspace_id: business.workspace_id,
+      title: "Scan automation completed",
+      message: `${business.business_name} scan insights were synced to the business profile and Knowledge Base.",
+      notification_type: "system",
+      category: "automation",
+      metadata: {
+        business_id: business.id,
+        scan_history_id: scan.id,
+        knowledge_source_id: knowledgeResult.sourceId,
+        updated_fields: Object.keys(profilePatch).filter((field) => field !== "updated_at"),
+      },
+    });
+
+    return { status: "completed" };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown scan post-processing error";
+    const nextAttempt = Number(job.attempts ?? 0) + 1;
+    const isTerminal = nextAttempt >= Number(job.max_attempts ?? 5);
+
+    await updateScanAutomationState(supabase, scan.id, {
+      status: isTerminal ? "failed" : "retrying",
+      profile_sync: isTerminal ? "failed" : "processing",
+      knowledge_sync: isTerminal ? "failed" : "processing",
+      error: message,
+      failed_at: isTerminal ? new Date().toISOString() : undefined,
+      last_error_at: new Date().toISOString(),
+    }, scan.summary_json);
+
+    if (isTerminal) {
+      await supabase.from("business_notifications").insert({
+        user_id: business.user_id,
+        workspace_id: business.workspace_id,
+        title: "Scan automation failed",
+        message: `${business.business_name} scan automation could not finish. ${message}`,
+        notification_type: "warning",
+        category: "automation",
+        metadata: {
+          business_id: business.id,
+          scan_history_id: scan.id,
+          error: message,
+        },
+      });
+    }
+
+    throw error;
+  }
+}
+
+async function updateScanAutomationState(
+  supabase: any,
+  scanHistoryId: string,
+  patch: Record<string, unknown>,
+  existingSummary?: Record<string, unknown> | null,
+) {
+  let summary = existingSummary && typeof existingSummary === "object"
+    ? { ...existingSummary }
+    : null;
+
+  if (!summary) {
+    const { data: current } = await supabase
+      .from("business_scan_history")
+      .select("summary_json")
+      .eq("id", scanHistoryId)
+      .maybeSingle();
+
+    summary = current?.summary_json && typeof current.summary_json === "object"
+      ? { ...(current.summary_json as Record<string, unknown>) }
+      : {};
+  }
+
+  const automation = summary.automation && typeof summary.automation === "object"
+    ? { ...(summary.automation as Record<string, unknown>) }
+    : {};
+
+  const nextSummary = {
+    ...summary,
+    automation: {
+      ...automation,
+      ...Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined)),
+    },
+  };
+
+  await supabase
+    .from("business_scan_history")
+    .update({ summary_json: nextSummary })
+    .eq("id", scanHistoryId);
+
+  return nextSummary;
+}
+
+function buildBusinessProfilePatch(business: any, scan: any) {
+  const summary = toRecord(scan.summary_json);
+  const serviceTitles = uniqueStrings((scan.services_found ?? []).map((service: Record<string, unknown>) => String(service.title ?? "")));
+  const patch: Record<string, unknown> = {};
+
+  if (!business.industry && typeof summary.industry === "string" && summary.industry.trim()) {
+    patch.industry = summary.industry.trim();
+  }
+
+  if (!business.ai_tone && typeof scan.tone_of_voice === "string" && scan.tone_of_voice.trim()) {
+    patch.ai_tone = scan.tone_of_voice.trim();
+  }
+
+  if (!business.short_description && typeof summary.business_summary === "string" && summary.business_summary.trim()) {
+    patch.short_description = summary.business_summary.trim();
+  }
+
+  if (!business.target_audience && typeof summary.target_audience === "string" && summary.target_audience.trim()) {
+    patch.target_audience = summary.target_audience.trim();
+  }
+
+  if (!business.main_services && serviceTitles.length) {
+    patch.main_services = serviceTitles.join(", ");
+  }
+
+  if (Object.keys(patch).length > 0) {
+    patch.updated_at = new Date().toISOString();
+  }
+
+  return patch;
+}
+
+function uniqueStrings(values: string[]) {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+function stringifyScanSummary(summary: Record<string, unknown> | null | undefined) {
+  if (!summary || typeof summary !== "object") return "";
+  return Object.entries(summary)
+    .filter(([key, value]) => key !== "automation" && value !== null && value !== undefined && value !== "")
+    .map(([key, value]) => `${key.replace(/_/g, " ")}: ${typeof value === "string" ? value : JSON.stringify(value)}`)
+    .join("\n");
+}
+
+function buildScanKnowledgeChunks(business: any, scan: any) {
+  const chunks: Array<{ title: string; content: string; topicTags: string[] }> = [];
+  const summaryText = stringifyScanSummary(toRecord(scan.summary_json));
+  const baseTags = uniqueStrings([
+    "business-scan",
+    String(business.business_name ?? ""),
+    String(business.industry ?? ""),
+    String(scan.tone_of_voice ?? ""),
+    ...((scan.suggested_keywords ?? []) as string[]),
+  ]);
+
+  const addChunk = (title: string, lines: Array<string | null | undefined>, extraTags: string[] = []) => {
+    const content = lines.filter(Boolean).join("\n").trim();
+    if (!content) return;
+    chunks.push({
+      title,
+      content,
+      topicTags: uniqueStrings([...baseTags, ...extraTags]),
+    });
+  };
+
+  addChunk(
+    "Business scan overview",
+    [
+      `Business: ${business.business_name}`,
+      business.industry ? `Industry: ${business.industry}` : null,
+      business.target_audience ? `Target audience: ${business.target_audience}` : null,
+      business.main_services ? `Main services: ${business.main_services}` : null,
+      business.short_description ? `Description: ${business.short_description}` : null,
+      `Scanned URL: ${scan.scanned_url}`,
+      scan.tone_of_voice ? `Detected tone of voice: ${scan.tone_of_voice}` : null,
+      summaryText ? `Summary:\n${summaryText}` : null,
+    ],
+    ["overview", "summary"],
+  );
+
+  addChunk(
+    "Products and services",
+    [
+      ...((scan.products_found ?? []) as Record<string, unknown>[]).map((product, index) =>
+        `Product ${index + 1}: ${String(product.title ?? "Untitled")}${product.description ? ` — ${String(product.description)}` : ""}${product.pricing_signal ? ` (pricing: ${String(product.pricing_signal)})` : ""}`,
+      ),
+      ...((scan.services_found ?? []) as Record<string, unknown>[]).map((service, index) =>
+        `Service ${index + 1}: ${String(service.title ?? "Untitled")}${service.description ? ` — ${String(service.description)}` : ""}`,
+      ),
+    ],
+    ["products", "services"],
+  );
+
+  addChunk(
+    "Contact and conversion signals",
+    [
+      ...((scan.contact_methods ?? []) as Record<string, unknown>[]).map((contact, index) =>
+        `Contact ${index + 1}: ${String(contact.type ?? "method")} — ${String(contact.value ?? "")}`,
+      ),
+      ...((scan.pricing_signals ?? []) as Array<Record<string, unknown> | string>).map((signal, index) =>
+        `Pricing signal ${index + 1}: ${typeof signal === "string" ? signal : String(signal.signal ?? "")}`,
+      ),
+      ...((scan.cta_signals ?? []) as Array<Record<string, unknown> | string>).map((cta, index) =>
+        `CTA ${index + 1}: ${typeof cta === "string" ? cta : String(cta.cta ?? "")}`,
+      ),
+    ],
+    ["contact", "pricing", "cta"],
+  );
+
+  addChunk(
+    "Audience and market intelligence",
+    [
+      (scan.suggested_keywords ?? []).length ? `Suggested keywords: ${(scan.suggested_keywords as string[]).join(", ")}` : null,
+      ...((scan.competitor_hints ?? []) as Record<string, unknown>[]).map((competitor, index) =>
+        `Competitor ${index + 1}: ${String(competitor.name ?? "Unknown")}${competitor.url ? ` — ${String(competitor.url)}` : ""}`,
+      ),
+      ...Object.entries(toRecord(scan.social_links)).map(([platform, urls]) => `${platform}: ${Array.isArray(urls) ? urls.join(", ") : String(urls)}`),
+    ],
+    ["keywords", "competitors", "social"],
+  );
+
+  return chunks;
+}
+
+async function upsertKnowledgeFromScan(supabase: any, business: any, scan: any, job: any) {
+  const chunks = buildScanKnowledgeChunks(business, scan);
+  if (!chunks.length) {
+    throw new Error("No structured scan content was available to sync into Knowledge Base");
+  }
+
+  const sourceName = `${business.business_name} — Website Scan Insights`;
+  const metadata = {
+    origin: "business_scan",
+    business_id: business.id,
+    scan_history_id: scan.id,
+    scanned_url: scan.scanned_url,
+    synced_by_job_id: job.id,
+    synced_at: new Date().toISOString(),
+    pages_crawled: scan.pages_scanned || 0,
+    total_chunks: chunks.length,
+    topics: uniqueStrings(chunks.flatMap((chunk) => chunk.topicTags)).slice(0, 20),
+  };
+
+  const { data: existingSource, error: existingSourceError } = await supabase
+    .from("knowledge_sources")
+    .select("id")
+    .eq("user_id", business.user_id)
+    .eq("source_name", sourceName)
+    .eq("source_url", scan.scanned_url)
+    .maybeSingle();
+
+  if (existingSourceError) throw existingSourceError;
+
+  let sourceId = existingSource?.id as string | undefined;
+
+  if (sourceId) {
+    const { error: updateSourceError } = await supabase
+      .from("knowledge_sources")
+      .update({
+        workspace_id: business.workspace_id,
+        source_type: "website",
+        status: "active",
+        is_enabled: true,
+        last_scanned_at: new Date().toISOString(),
+        metadata,
+      })
+      .eq("id", sourceId);
+    if (updateSourceError) throw updateSourceError;
+
+    const { error: deleteChunksError } = await supabase
+      .from("knowledge_chunks")
+      .delete()
+      .eq("source_id", sourceId);
+    if (deleteChunksError) throw deleteChunksError;
+  } else {
+    const { data: createdSource, error: createSourceError } = await supabase
+      .from("knowledge_sources")
+      .insert({
+        user_id: business.user_id,
+        workspace_id: business.workspace_id,
+        source_type: "website",
+        source_name: sourceName,
+        source_url: scan.scanned_url,
+        status: "active",
+        is_enabled: true,
+        last_scanned_at: new Date().toISOString(),
+        metadata,
+      })
+      .select("id")
+      .single();
+
+    if (createSourceError) throw createSourceError;
+    sourceId = createdSource.id;
+  }
+
+  const chunkRows = chunks.map((chunk, index) => ({
+    user_id: business.user_id,
+    workspace_id: business.workspace_id,
+    source_id: sourceId!,
+    content: chunk.content,
+    summary: chunk.content.slice(0, 200),
+    topic_tags: chunk.topicTags,
+    content_type: "business_scan",
+    page_url: scan.scanned_url,
+    page_title: chunk.title,
+    chunk_index: index,
+    word_count: chunk.content.split(/\s+/).filter(Boolean).length,
+  }));
+
+  const { error: chunksInsertError } = await supabase.from("knowledge_chunks").insert(chunkRows);
+  if (chunksInsertError) throw chunksInsertError;
+
+  return { sourceId, sourceName, chunksCreated: chunkRows.length };
 }
 
 async function processMediaGenerationJob(supabase: any, job: any, payload: Record<string, unknown>): Promise<JobOutcome> {
