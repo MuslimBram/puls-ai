@@ -12,13 +12,16 @@ import { indexPlanPrices, indexPricingCatalogByProductId, loadPricingCatalogRows
 
 let PRODUCT_MAP: Record<string, string> = {};
 let PLAN_PRICES: Record<string, number> = {};
+let _catalogLoadedAt = 0;
+const CATALOG_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 async function loadProductMap(supabase: any) {
-  if (Object.keys(PRODUCT_MAP).length > 0) return;
+  if (Object.keys(PRODUCT_MAP).length > 0 && Date.now() - _catalogLoadedAt < CATALOG_TTL_MS) return;
 
   const rows = await loadPricingCatalogRows(supabase);
   PRODUCT_MAP = indexPricingCatalogByProductId(rows);
   PLAN_PRICES = indexPlanPrices(rows);
+  _catalogLoadedAt = Date.now();
 }
 
 const GRACE_PERIOD_DAYS = 7;

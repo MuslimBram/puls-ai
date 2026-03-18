@@ -41,14 +41,23 @@ const Pricing = () => {
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
+    if (!checkout) return;
+
     if (checkout === "success") {
       toast.success("Checkout completed successfully.");
       refetchStripe();
-    }
-    if (checkout === "canceled") {
+    } else if (checkout === "canceled") {
       toast.info("Checkout was canceled.");
     }
-  }, [searchParams, refetchStripe]);
+
+    // Clear checkout params so toast doesn't re-trigger on refresh
+    const params = new URLSearchParams(searchParams);
+    params.delete("checkout");
+    params.delete("plan");
+    params.delete("type");
+    const cleaned = params.toString();
+    navigate(cleaned ? `?${cleaned}` : "/pricing", { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const heroStats = useMemo(
     () => [

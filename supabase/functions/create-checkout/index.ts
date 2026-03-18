@@ -192,6 +192,16 @@ serve(async (req) => {
       }
     }
 
+    // Only grant trial to users without an existing Stripe subscription
+    let trialDays: number | undefined = undefined;
+    if (customerId) {
+      const existingSubs = await stripe.subscriptions.list({ customer: customerId, limit: 5 });
+      const hasHadSub = existingSubs.data.length > 0;
+      if (!hasHadSub) trialDays = 7;
+    } else {
+      trialDays = 7;
+    }
+
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -203,7 +213,7 @@ serve(async (req) => {
         plan_key: resolvedPlanKey ?? "standard",
       },
       subscription_data: {
-        trial_period_days: 7,
+        ...(trialDays ? { trial_period_days: trialDays } : {}),
         metadata: {
           user_id: user.id,
           plan_key: resolvedPlanKey ?? "standard",

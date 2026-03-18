@@ -36,11 +36,23 @@ const Subscription = () => {
   const { keywords } = useKeywords();
 
   useEffect(() => {
-    if (searchParams.get("checkout") === "success") {
-      toast.success("Subscription sync refreshed.");
+    const checkout = searchParams.get("checkout");
+    if (!checkout) return;
+
+    if (checkout === "success") {
+      toast.success("Subscription activated successfully.");
       refetchStripe();
+    } else if (checkout === "canceled") {
+      toast.info("Checkout was canceled. No changes applied.");
     }
-  }, [searchParams, refetchStripe]);
+
+    // Clear checkout params to prevent re-trigger on refresh
+    const params = new URLSearchParams(searchParams);
+    params.delete("checkout");
+    params.delete("plan");
+    const cleaned = params.toString();
+    navigate(cleaned ? `?${cleaned}` : "/subscription", { replace: true });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const leadsUsage = checkLimit("leadsPerMonth", subscription?.leads_used ?? (leads ?? []).length);
   const channelsUsage = checkLimit("channels", (channels ?? []).length);
