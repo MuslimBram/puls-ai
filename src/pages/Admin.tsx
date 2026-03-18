@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch, FileText, Handshake, CheckCircle, XCircle, Ban, RotateCcw } from "lucide-react";
+import { Users, Building2, Target, Radio, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch, FileText, Handshake, CheckCircle, XCircle, Ban, RotateCcw, ShieldPlus } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
@@ -23,6 +23,7 @@ import { AdminChurnRiskPanel } from "@/components/AdminChurnRiskPanel";
 import { AdminApiErrorLog } from "@/components/AdminApiErrorLog";
 import { AdminDeadLetterPanel } from "@/components/AdminDeadLetterPanel";
 import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
+import { AdminRoleManager } from "@/components/AdminRoleManager";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -100,6 +101,10 @@ const Admin = () => {
         <Tabs defaultValue="users">
           <TabsList>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="roles">
+              <ShieldPlus className="h-3 w-3 mr-1" />
+              Roles
+            </TabsTrigger>
             <TabsTrigger value="partners">
               Partners
               {partners.filter(p => p.status === "pending").length > 0 && (
@@ -212,6 +217,10 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="roles">
+            <AdminRoleManager profiles={profiles as any} />
           </TabsContent>
 
           {/* Partners Tab */}
