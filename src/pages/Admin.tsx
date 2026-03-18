@@ -386,108 +386,12 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
-          {/* Pricing Management Tab */}
-          <TabsContent value="pricing">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base flex items-center gap-2">
-                  <DollarSign className="h-4 w-4" />
-                  Pricing Management
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {pricingSettings.map((setting) => {
-                    const edit = editPrices[setting.id] || {
-                      monthly: String(setting.monthly_price),
-                      annual: String(setting.annual_price),
-                      label: setting.donation_label || "",
-                    };
-                    const hasChanges =
-                      edit.monthly !== String(setting.monthly_price) ||
-                      edit.annual !== String(setting.annual_price) ||
-                      edit.label !== (setting.donation_label || "");
+          <TabsContent value="enterprise">
+            <AdminEnterpriseLeadPanel />
+          </TabsContent>
 
-                    return (
-                      <div key={setting.id} className="flex items-center gap-3 rounded-lg border border-border p-3">
-                        <div className="min-w-[140px]">
-                          <div className="flex items-center gap-2">
-                            <p className="text-sm font-medium text-foreground capitalize">
-                              {setting.plan_key.replace("_", " ")}
-                            </p>
-                            {setting.is_donation && (
-                              <Badge variant="secondary" className="text-xs">Donation</Badge>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 flex-1">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xs text-muted-foreground">Monthly $</span>
-                            <Input
-                              type="number"
-                              className="w-20 h-8 text-xs"
-                              value={edit.monthly}
-                              onChange={(e) =>
-                                setEditPrices((prev) => ({
-                                  ...prev,
-                                  [setting.id]: { ...edit, monthly: e.target.value },
-                                }))
-                              }
-                            />
-                          </div>
-                          {!setting.is_donation && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-muted-foreground">Annual $</span>
-                              <Input
-                                type="number"
-                                className="w-24 h-8 text-xs"
-                                value={edit.annual}
-                                onChange={(e) =>
-                                  setEditPrices((prev) => ({
-                                    ...prev,
-                                    [setting.id]: { ...edit, annual: e.target.value },
-                                  }))
-                                }
-                              />
-                            </div>
-                          )}
-                          {setting.is_donation && (
-                            <div className="flex items-center gap-1">
-                              <span className="text-xs text-muted-foreground">Label</span>
-                              <Input
-                                className="w-40 h-8 text-xs"
-                                value={edit.label}
-                                onChange={(e) =>
-                                  setEditPrices((prev) => ({
-                                    ...prev,
-                                    [setting.id]: { ...edit, label: e.target.value },
-                                  }))
-                                }
-                              />
-                            </div>
-                          )}
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!hasChanges || updatePrice.isPending}
-                          onClick={() =>
-                            updatePrice.mutate({
-                              id: setting.id,
-                              monthly_price: Number(edit.monthly),
-                              annual_price: Number(edit.annual),
-                              donation_label: edit.label || undefined,
-                            })
-                          }
-                        >
-                          <Save className="h-3 w-3 mr-1" /> Save
-                        </Button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="pricing">
+            <AdminPricingManager />
           </TabsContent>
 
           <TabsContent value="audit">
