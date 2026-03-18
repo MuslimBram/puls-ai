@@ -15,7 +15,47 @@ import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { EXTERNAL_INTEGRATIONS, CATEGORY_LABELS } from "@/integrations/external/registry";
 import { IntegrationDefinition } from "@/integrations/external/types";
 import type { PlanKey } from "@/types/monetization";
-...
+import {
+  Activity,
+  AlertCircle,
+  BarChart3,
+  Bot,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Crown,
+  Eye,
+  FileText,
+  Layers,
+  Lock,
+  MessageSquare,
+  Phone,
+  Plug,
+  Search,
+  Settings2,
+  Share2,
+  type LucideIcon,
+} from "lucide-react";
+
+const ICON_MAP: Record<string, LucideIcon> = {
+  BarChart3,
+  Search,
+  MessageSquare,
+  Phone,
+  Calendar,
+  Layers,
+  Share2,
+  Bot,
+  Eye,
+};
+
+const STATUS_BADGE: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
+  connected: { label: "Connected", variant: "default" },
+  disabled: { label: "Disabled", variant: "secondary" },
+  error: { label: "Error", variant: "destructive" },
+  planned: { label: "Planned", variant: "outline" },
+};
+
 const ExternalIntegrations = () => {
   const { integrations, isLoading, upsertIntegration, toggleIntegration, deleteIntegration } = useExternalIntegrations();
   const { currentPlanKey } = useFeatureGating();

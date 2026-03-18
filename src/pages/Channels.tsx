@@ -22,7 +22,46 @@ import { WebhookSetup } from "@/components/WebhookSetup";
 import { SafeRender } from "@/components/SafeRender";
 import type { PlanKey } from "@/types/monetization";
 import { channelFieldGuides, getFieldGuide } from "@/config/fieldGuides";
-...
+import {
+  CheckCircle2,
+  Crown,
+  Globe,
+  Loader2,
+  Lock,
+  Mail,
+  MessageSquare,
+  Plus,
+  Radio,
+  Settings2,
+  Trash2,
+  Webhook,
+  type LucideIcon,
+} from "lucide-react";
+
+const SourcesContent = lazy(() => import("./Sources"));
+
+const CATEGORY_LABELS: Record<string, string> = {
+  messaging: "Messaging",
+  email: "Email",
+  web: "Web",
+  automation: "Automation",
+};
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  messaging: MessageSquare,
+  email: Mail,
+  web: Globe,
+  automation: Webhook,
+};
+
+const STATUS_CONFIG: Record<string, { variant: "default" | "secondary" | "destructive" | "outline"; icon: LucideIcon }> = {
+  live: { variant: "default", icon: CheckCircle2 },
+  setup_ready: { variant: "secondary", icon: Settings2 },
+  beta: { variant: "outline", icon: Settings2 },
+};
+
+const Channels = () => {
+  const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState<ChannelData>({ channel_type: "telegram", channel_name: "" });
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
   const { channels, isLoading, addChannel, toggleChannel, deleteChannel } = useChannels();
