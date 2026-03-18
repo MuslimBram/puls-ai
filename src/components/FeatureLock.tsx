@@ -1,6 +1,6 @@
 import { ReactNode, useState } from "react";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
-import type { PlanFeatures } from "@/config/plans";
+import type { PlanFeatures } from "@/types/monetization";
 import { Lock } from "lucide-react";
 import { UpgradeModal } from "./UpgradeModal";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";

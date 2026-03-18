@@ -1,4 +1,4 @@
-import type { Plan, PlanKey } from "@/config/plans";
+import type { Plan, PlanKey } from "@/types/monetization";
 
 export type MonetizationPlan = Plan & {
   badgeLabel?: string | null;

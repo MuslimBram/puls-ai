@@ -2,11 +2,10 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
-import type { PlanKey } from "@/config/plans";
+import type { PlanKey } from "@/types/monetization";
+import { DEFAULT_PLAN_KEY, isPlanKey } from "@/types/monetization";
 
-const ORDERED_PLAN_KEYS: PlanKey[] = ["standard", "professional", "advanced", "enterprise"];
-
-export type { PlanKey } from "@/config/plans";
+export type { PlanKey } from "@/types/monetization";
 
 const useIsAdminRole = () => {
   const { user } = useAuth();
@@ -49,10 +48,10 @@ export interface StripeSubscriptionData {
   referral_discount?: ReferralDiscountInfo | null;
 }
 
-const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = "standard"): PlanKey => {
+const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = DEFAULT_PLAN_KEY): PlanKey => {
   if (!value) return fallback;
-  if (ORDERED_PLAN_KEYS.includes(value as PlanKey)) return value as PlanKey;
-  if (value === "free") return "standard";
+  if (isPlanKey(value)) return value;
+  if (value === "free") return DEFAULT_PLAN_KEY;
   if (value === "pro") return "professional";
   return fallback;
 };
@@ -60,7 +59,7 @@ const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = 
 export const useSubscription = () => {
   const { user } = useAuth();
   const isAdminRole = useIsAdminRole();
-  const { plansByKey, planOrder } = useMonetizationCatalog();
+  const { plansByKey, planOrder, defaultPlanKey } = useMonetizationCatalog();
 
   const dbQuery = useQuery({
     queryKey: ["subscription", user?.id],
@@ -82,7 +81,7 @@ export const useSubscription = () => {
       const { data, error } = await supabase.functions.invoke("check-subscription");
       if (error) {
         console.error("check-subscription error:", error);
-        return { subscribed: false, plan: "standard", status: "none" };
+        return { subscribed: false, plan: DEFAULT_PLAN_KEY, status: "none" };
       }
       return data as StripeSubscriptionData;
     },
@@ -92,11 +91,11 @@ export const useSubscription = () => {
   });
 
   const stripeData = stripeQuery.data;
-  const rawPlan = normalizePlanKey(stripeData?.plan ?? dbQuery.data?.plan ?? "standard");
-  const fallbackPlanKey = (planOrder[0] as PlanKey | undefined) ?? "standard";
+  const fallbackPlanKey = defaultPlanKey;
+  const rawPlan = normalizePlanKey(stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
 
   if (isAdminRole) {
-    const adminPlanKey = (planOrder[planOrder.length - 1] as PlanKey | undefined) ?? "enterprise";
+    const adminPlanKey = (planOrder[planOrder.length - 1] as PlanKey | undefined) ?? fallbackPlanKey;
     return {
       subscription: dbQuery.data,
       isLoading: dbQuery.isLoading || stripeQuery.isLoading,

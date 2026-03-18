@@ -20,7 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, Clock, ExternalLink, Gift, Loader2, Percent } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
-import type { PlanKey } from "@/config/plans";
+import type { PlanKey } from "@/types/monetization";
 
 const Subscription = () => {
   const navigate = useNavigate();

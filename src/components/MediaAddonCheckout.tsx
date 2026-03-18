@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { MEDIA_ADDON_PACKS } from "@/config/plans";
+import { MEDIA_ADDON_PACKS } from "@/config/mediaAddons";
 import { useMediaUsage } from "@/hooks/useMediaGeneration";
 import { supabase } from "@/integrations/supabase/client";
 import { Image, Video, ShoppingCart, Loader2, Zap } from "lucide-react";
@@ -48,6 +47,10 @@ export const MediaAddonCheckout = () => {
           <p className="text-sm text-muted-foreground mb-4">
             Running low? Purchase additional image or video generation credits.
           </p>
+
+          <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+            Current usage: {usage.imagesUsedToday}/{usage.imagesLimit === -1 ? "∞" : usage.imagesLimit} images · {usage.videosUsedToday}/{usage.videosLimit === -1 ? "∞" : usage.videosLimit} videos
+          </div>
 
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Image Packs</p>
