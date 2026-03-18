@@ -146,7 +146,7 @@ serve(async (req) => {
     }
 
     await supabase.from("knowledge_sources")
-      .update({ status: "scanning", last_scanned_at: new Date().toISOString() })
+      .update({ status: "scanning", last_scanned_at: new Date().toISOString(), business_id, workspace_id: business.workspace_id })
       .eq("id", sourceId);
 
     // Crawl website with Firecrawl
