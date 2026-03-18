@@ -61,7 +61,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
       const { error } = await supabase
         .from("user_roles")
-        .insert({ user_id: userId, role });
+        .insert({ user_id: userId, role: role as any });
       if (error) throw error;
     },
     onSuccess: async (_, { userId, role }) => {
