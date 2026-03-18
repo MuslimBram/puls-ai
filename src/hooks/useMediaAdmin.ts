@@ -11,6 +11,17 @@ type MediaUsagePolicy = Database["public"]["Tables"]["media_usage_policy"]["Row"
 type MediaGenerationError = Database["public"]["Tables"]["media_generation_errors"]["Row"];
 type MediaUsageEvent = Database["public"]["Tables"]["media_usage_events"]["Row"];
 
+export interface MediaProviderCredentialSummary {
+  providerKey: string;
+  credentialType: string;
+  credentialLabel: string | null;
+  secretHint: string | null;
+  isValid: boolean;
+  lastValidatedAt: string | null;
+  lastValidationError: string | null;
+  updatedAt: string;
+}
+
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 export const useMediaProviderSettings = () => {
@@ -27,6 +38,23 @@ export const useMediaProviderSettings = () => {
 
       if (error) throw error;
       return (data ?? []) as MediaProviderSetting[];
+    },
+    enabled: isAdmin,
+  });
+};
+
+export const useMediaProviderCredentials = () => {
+  const { isAdmin } = useIsAdmin();
+
+  return useQuery({
+    queryKey: ["admin-media-provider-credentials"],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("manage-media-provider-credentials", {
+        body: { action: "list" },
+      });
+
+      if (error) throw new Error(error.message || "Failed to load provider credentials");
+      return (data?.credentials ?? []) as MediaProviderCredentialSummary[];
     },
     enabled: isAdmin,
   });
@@ -78,6 +106,59 @@ export const useUpsertMediaProviderSetting = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-media-provider-settings"] });
       toast.success("Media provider saved");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+};
+
+export const useUpsertMediaProviderCredential = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: {
+      providerKey: string;
+      secret: string;
+      credentialLabel?: string;
+      credentialType?: string;
+    }) => {
+      const { data, error } = await supabase.functions.invoke("manage-media-provider-credentials", {
+        body: {
+          action: "upsert",
+          providerKey: payload.providerKey,
+          secret: payload.secret,
+          credentialLabel: payload.credentialLabel ?? null,
+          credentialType: payload.credentialType ?? "api_key",
+        },
+      });
+
+      if (error) throw new Error(error.message || "Failed to save provider credential");
+      return data as { validationMessage?: string; credential?: MediaProviderCredentialSummary };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-media-provider-credentials"] });
+      toast.success(data?.validationMessage || "Provider secret stored securely");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+};
+
+export const useDeleteMediaProviderCredential = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (providerKey: string) => {
+      const { error } = await supabase.functions.invoke("manage-media-provider-credentials", {
+        body: {
+          action: "delete",
+          providerKey,
+        },
+      });
+
+      if (error) throw new Error(error.message || "Failed to delete provider credential");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-media-provider-credentials"] });
+      toast.success("Stored provider secret removed");
     },
     onError: (error: Error) => toast.error(error.message),
   });

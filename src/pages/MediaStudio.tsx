@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { format } from "date-fns";
+import { useMemo, useState } from "react";
+import { format, formatDistanceToNowStrict } from "date-fns";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -29,16 +29,17 @@ import {
   LayoutTemplate,
   Palette,
   PlayCircle,
+  TimerReset,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
-const statusConfig: Record<string, { icon: React.ReactNode; label: string }> = {
-  queued: { icon: <Clock className="h-3 w-3" />, label: "Queued" },
-  pending: { icon: <Clock className="h-3 w-3" />, label: "Queued" },
-  generating: { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: "Generating" },
-  processing: { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: "Generating" },
-  completed: { icon: <CheckCircle2 className="h-3 w-3" />, label: "Completed" },
-  failed: { icon: <XCircle className="h-3 w-3" />, label: "Failed" },
+const statusConfig: Record<string, { icon: React.ReactNode; label: string; description: string }> = {
+  queued: { icon: <Clock className="h-3 w-3" />, label: "Queued", description: "Waiting in the job queue" },
+  pending: { icon: <Clock className="h-3 w-3" />, label: "Queued", description: "Waiting in the job queue" },
+  generating: { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: "Generating", description: "Provider is processing the job" },
+  processing: { icon: <Loader2 className="h-3 w-3 animate-spin" />, label: "Generating", description: "Provider is processing the job" },
+  completed: { icon: <CheckCircle2 className="h-3 w-3" />, label: "Completed", description: "Output generated successfully" },
+  failed: { icon: <XCircle className="h-3 w-3" />, label: "Failed", description: "Generation failed and credits were refunded" },
 };
 
 const PROMPT_TEMPLATES = [
@@ -121,6 +122,10 @@ const MediaStudio = () => {
   });
 
   const templateCategories = [...new Set(PROMPT_TEMPLATES.map((template) => template.category))];
+  const activeCount = useMemo(
+    () => (generations ?? []).filter((generation) => ["queued", "pending", "generating", "processing"].includes(generation.status)).length,
+    [generations],
+  );
 
   return (
     <DashboardLayout>
@@ -128,11 +133,47 @@ const MediaStudio = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">AI Media Studio</h1>
-            <p className="text-sm text-muted-foreground">Queue image and video generation jobs with live status, daily credits, and provider-backed processing.</p>
+            <p className="text-sm text-muted-foreground">Queue image and video generation jobs with validation, provider abstraction, live status, and persistent daily usage history.</p>
           </div>
         </div>
 
         <MediaUsageDashboard onUpgrade={() => setUpgradeOpen(true)} />
+
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardContent className="flex items-center gap-3 pt-6">
+              <Image className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-2xl font-semibold text-foreground">
+                  {usage.imagesRemaining === Number.POSITIVE_INFINITY ? "∞" : usage.imagesRemaining}
+                </p>
+                <p className="text-xs text-muted-foreground">Image credits left today</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-3 pt-6">
+              <Video className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-2xl font-semibold text-foreground">
+                  {usage.videosRemaining === Number.POSITIVE_INFINITY ? "∞" : usage.videosRemaining}
+                </p>
+                <p className="text-xs text-muted-foreground">Video credits left today</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="flex items-center gap-3 pt-6">
+              <TimerReset className="h-5 w-5 text-primary" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  {usage.resetsAt ? formatDistanceToNowStrict(new Date(usage.resetsAt), { addSuffix: true }) : "Within 24h"}
+                </p>
+                <p className="text-xs text-muted-foreground">Quota reset window</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
         <Tabs defaultValue="generate">
           <TabsList>
@@ -154,7 +195,7 @@ const MediaStudio = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Create new media job</CardTitle>
-                <CardDescription>Requests are validated, queued, processed by a provider layer, and tracked through completion or failure.</CardDescription>
+                <CardDescription>Each request is validated, quota-checked, inserted into the job queue, processed by the provider runtime, and completed or refunded on failure.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-3">
@@ -222,10 +263,15 @@ const MediaStudio = () => {
                   )}
                 </div>
 
-                <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground">
-                  {mediaType === "image"
-                    ? `${usage.imagesRemaining === Number.POSITIVE_INFINITY ? "Unlimited" : usage.imagesRemaining} image credits left today`
-                    : `${usage.videosRemaining === Number.POSITIVE_INFINITY ? "Unlimited" : usage.videosRemaining} video credits left today · max ${usage.videoMaxSeconds === -1 ? "unlimited" : `${usage.videoMaxSeconds}s`}`}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground">
+                    {mediaType === "image"
+                      ? `${usage.imagesRemaining === Number.POSITIVE_INFINITY ? "Unlimited" : usage.imagesRemaining} image credits left today`
+                      : `${usage.videosRemaining === Number.POSITIVE_INFINITY ? "Unlimited" : usage.videosRemaining} video credits left today · max ${usage.videoMaxSeconds === -1 ? "unlimited" : `${usage.videoMaxSeconds}s`}`}
+                  </div>
+                  <div className="rounded-lg border border-border p-3 text-xs text-muted-foreground">
+                    {activeCount} active jobs · reset {usage.resetsAt ? formatDistanceToNowStrict(new Date(usage.resetsAt), { addSuffix: true }) : "within 24 hours"}
+                  </div>
                 </div>
 
                 {!canGenerate ? (
@@ -355,12 +401,21 @@ const MediaStudio = () => {
                               <span className="text-[10px] text-muted-foreground">{format(new Date(generation.created_at), "MMM d, HH:mm")}</span>
                             </div>
                             <p className="line-clamp-2 text-xs text-muted-foreground">{generation.prompt}</p>
+                            <p className="text-[10px] text-muted-foreground">{state.description}</p>
                             <div className="flex flex-wrap gap-2">
                               <Badge variant="outline" className="text-[10px]">{generation.media_type}</Badge>
                               {generation.duration_seconds ? <Badge variant="outline" className="text-[10px]">{generation.duration_seconds}s</Badge> : null}
                               {generation.provider_key ? <Badge variant="outline" className="text-[10px]">{generation.provider_key}</Badge> : null}
                               {metadata.mock === true ? <Badge variant="secondary" className="text-[10px]">mock</Badge> : null}
+                              {typeof metadata.prediction_status === "string" ? (
+                                <Badge variant="outline" className="text-[10px]">{String(metadata.prediction_status)}</Badge>
+                              ) : null}
                             </div>
+                            {generation.error_message ? (
+                              <p className="rounded-md border border-border bg-muted/40 px-2 py-1 text-[10px] text-muted-foreground">
+                                {generation.error_message}
+                              </p>
+                            ) : null}
                             <Button size="sm" variant="ghost" className="h-7 w-full text-xs" onClick={() => setPrompt(generation.prompt || "")}>
                               <Copy className="mr-1 h-3 w-3" /> Reuse prompt
                             </Button>
