@@ -12,6 +12,7 @@ import { PLANS, PLAN_ORDER, FEATURE_COMPARISON, PlanKey } from "@/config/plans";
 import { STRIPE_TIERS } from "@/config/stripe";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { usePricingSettings } from "@/hooks/usePricingSettings";
+import { usePlanCatalog } from "@/hooks/usePlanCatalog";
 import { supabase } from "@/integrations/supabase/client";
 import { Check, X, Zap, HelpCircle, Crown, Mail, Loader2, Heart, Coffee } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
@@ -24,6 +25,7 @@ const Pricing = () => {
   const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const { currentPlanKey } = useFeatureGating();
+  const { plansByKey } = usePlanCatalog();
   const { getPlanPrice, donations } = usePricingSettings();
   const [searchParams] = useSearchParams();
 
