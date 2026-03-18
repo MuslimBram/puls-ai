@@ -1,376 +1,325 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PricingPlanCard } from "@/components/pricing/PricingPlanCard";
+import { PricingComparison } from "@/components/pricing/PricingComparison";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { PLANS, PLAN_ORDER, FEATURE_COMPARISON, PlanKey } from "@/config/plans";
-import { STRIPE_TIERS } from "@/config/stripe";
+import { Textarea } from "@/components/ui/textarea";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
-import { usePricingSettings } from "@/hooks/usePricingSettings";
-import { usePlanCatalog } from "@/hooks/usePlanCatalog";
+import { useMonetizationCatalog, useEnterpriseLeadSubmission } from "@/hooks/useMonetizationCatalog";
+import { useSubscription } from "@/hooks/useSubscription";
 import { supabase } from "@/integrations/supabase/client";
-import { Check, X, Zap, HelpCircle, Crown, Mail, Loader2, Heart, Coffee } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { cn } from "@/lib/utils";
-import { useSearchParams } from "react-router-dom";
+import { Building2, Heart, Loader2, Mail, ShieldCheck } from "lucide-react";
+import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
+import type { PlanKey } from "@/config/plans";
 
 const Pricing = () => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [annual, setAnnual] = useState(false);
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
-  const [contactForm, setContactForm] = useState({ name: "", email: "", message: "" });
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [contactForm, setContactForm] = useState({
+    name: "",
+    email: "",
+    companyName: "",
+    phone: "",
+    teamSize: "",
+    message: "",
+  });
+
   const { currentPlanKey } = useFeatureGating();
-  const { plansByKey } = usePlanCatalog();
-  const { getPlanPrice, donations } = usePricingSettings();
-  const [searchParams] = useSearchParams();
+  const { stripeData, refetchStripe } = useSubscription();
+  const { plans, plansByKey, planOrder, comparisonSections, donations, isLoading } = useMonetizationCatalog();
+  const enterpriseLead = useEnterpriseLeadSubmission();
 
   useEffect(() => {
-    if (searchParams.get("checkout") === "canceled") {
+    const checkout = searchParams.get("checkout");
+    if (checkout === "success") {
+      toast.success("Checkout completed successfully.");
+      refetchStripe();
+    }
+    if (checkout === "canceled") {
       toast.info("Checkout was canceled.");
     }
-  }, [searchParams]);
+  }, [searchParams, refetchStripe]);
 
-  const handleUpgrade = async (plan: PlanKey) => {
-    if (plan === "enterprise") {
+  const heroStats = useMemo(
+    () => [
+      `${plans.length} active plans`,
+      `${comparisonSections.length} comparison sections`,
+      "7-day trial on paid self-serve plans",
+    ],
+    [plans.length, comparisonSections.length],
+  );
+
+  const openBillingPortal = async () => {
+    const { data, error } = await supabase.functions.invoke("customer-portal");
+    if (error) throw error;
+    if (data?.url) {
+      window.open(data.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    throw new Error("Billing portal unavailable");
+  };
+
+  const handlePlanAction = async (planKey: PlanKey) => {
+    const intent = getPlanChangeIntent(currentPlanKey, planKey, planOrder);
+
+    if (intent === "current") return;
+    if (planKey === "enterprise") {
       setEnterpriseOpen(true);
       return;
     }
 
-    const tier = STRIPE_TIERS[plan];
-    if (!tier) return;
-
-    setLoadingPlan(plan);
+    setLoadingPlan(planKey);
     try {
+      if (intent === "downgrade" && stripeData?.subscribed) {
+        await openBillingPortal();
+        toast.success("Open billing to manage your downgrade.");
+        return;
+      }
+
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId: tier.price_id },
+        body: { planKey },
       });
       if (error) throw error;
       if (data?.url) {
-        window.open(data.url, "_blank");
+        window.open(data.url, "_blank", "noopener,noreferrer");
+        return;
       }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to start checkout");
+      throw new Error("Checkout URL missing");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to continue to checkout");
     } finally {
       setLoadingPlan(null);
     }
   };
 
   const handleDonation = async (donationType: "donation_once" | "donation_monthly") => {
+    const donation = donations.find((item) => item.plan_key === donationType);
     setLoadingPlan(donationType);
     try {
-      const donation = donations.find((d) => d.plan_key === donationType);
-      const amount = donation ? Number(donation.monthly_price) : 5;
-      const isRecurring = donationType === "donation_monthly";
-
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
-          donationAmount: amount,
-          donationRecurring: isRecurring,
+          donationAmount: Number(donation?.monthly_price ?? 5),
+          donationRecurring: donationType === "donation_monthly",
         },
       });
       if (error) throw error;
       if (data?.url) {
-        window.open(data.url, "_blank");
+        window.open(data.url, "_blank", "noopener,noreferrer");
+        return;
       }
-    } catch (e: any) {
-      toast.error(e.message || "Failed to start donation checkout");
+      throw new Error("Checkout URL missing");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to start donation checkout");
     } finally {
       setLoadingPlan(null);
     }
   };
 
-  const handleEnterpriseSubmit = () => {
+  const handleEnterpriseSubmit = async () => {
     if (!contactForm.email.trim()) {
-      toast.error("Please enter your email.");
+      toast.error("Email is required.");
       return;
     }
-    toast.success("Thank you! Our team will contact you within 24 hours.");
-    setEnterpriseOpen(false);
-    setContactForm({ name: "", email: "", message: "" });
-  };
 
-  const renderCellValue = (val: string | boolean) => {
-    if (val === true) return <Check className="h-4 w-4 text-primary mx-auto" />;
-    if (val === false) return <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />;
-    return <span className="text-sm text-foreground">{val}</span>;
+    try {
+      await enterpriseLead.mutateAsync(contactForm);
+      setEnterpriseOpen(false);
+      setContactForm({ name: "", email: "", companyName: "", phone: "", teamSize: "", message: "" });
+    } catch {
+      return;
+    }
   };
-
-  const getPrice = (key: PlanKey) => {
-    const dbPrice = getPlanPrice(key);
-    if (dbPrice) return dbPrice;
-    return { monthly: PLANS[key].monthlyPrice, annual: PLANS[key].annualPrice };
-  };
-
-  const donationOnce = donations.find((d) => d.plan_key === "donation_once");
-  const donationMonthly = donations.find((d) => d.plan_key === "donation_monthly");
 
   return (
     <DashboardLayout>
-      <div className="space-y-8">
-        <div className="text-center space-y-3">
-          <h1 className="text-3xl font-bold text-foreground">Choose Your Plan</h1>
-          <p className="text-muted-foreground max-w-xl mx-auto">
-            Scale your social engagement with the right tools. All plans include a 7-day free trial.
-          </p>
-          <div className="flex items-center justify-center gap-3">
-            <span className={cn("text-sm", !annual ? "text-foreground font-medium" : "text-muted-foreground")}>Monthly</span>
-            <Switch checked={annual} onCheckedChange={setAnnual} />
-            <span className={cn("text-sm", annual ? "text-foreground font-medium" : "text-muted-foreground")}>
-              Annual
-              <Badge variant="secondary" className="ml-1.5 text-xs">Save 17%</Badge>
-            </span>
-          </div>
-        </div>
-
-        {/* Plan Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {PLAN_ORDER.map((key) => {
-            const plan = plansByKey[key] ?? PLANS[key];
-            const isCurrent = currentPlanKey === key;
-            const prices = getPrice(key);
-            const price = annual ? Math.round(prices.annual / 12) : prices.monthly;
-            const isLoading = loadingPlan === key;
-
-            return (
-              <Card
-                key={key}
-                className={cn(
-                  "relative flex flex-col",
-                  plan.highlighted && "border-primary shadow-lg ring-1 ring-primary/20",
-                  isCurrent && "border-primary/50"
-                )}
-              >
-                {plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-primary text-primary-foreground shadow-sm">
-                      <Crown className="h-3 w-3 mr-1" /> Recommended
-                    </Badge>
-                  </div>
-                )}
-                {!plan.highlighted && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge variant="secondary" className="shadow-sm text-xs font-semibold">
-                      💰 Pay back 🔙 guaranteed
-                    </Badge>
-                  </div>
-                )}
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-lg">{plan.name}</CardTitle>
-                  <CardDescription className="text-xs min-h-[2.5rem]">{plan.description}</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  <div className="mb-4">
-                    {key === "enterprise" ? (
-                      <span className="text-2xl font-bold text-foreground">Custom</span>
-                    ) : (
-                      <>
-                        <span className="text-3xl font-bold text-foreground">${price}</span>
-                        <span className="text-sm text-muted-foreground">/mo</span>
-                        {annual && (
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            ${prices.annual}/year billed annually
-                          </p>
-                        )}
-                      </>
-                    )}
-                  </div>
-
-                  <div className="space-y-2 text-sm mb-4 flex-1">
-                    <div className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span className="text-foreground">
-                        {plan.limits.socialProfiles === -1 ? "Unlimited" : plan.limits.socialProfiles} social profiles
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span className="text-foreground">
-                        {plan.limits.keywords === -1 ? "Unlimited" : plan.limits.keywords} keywords
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span className="text-foreground">
-                        {plan.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan.limits.aiRepliesPerDay} AI replies/day
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span className="text-foreground">{plan.support} support</span>
-                    </div>
-                    {key !== "standard" && (
-                      <div className="flex items-center gap-2">
-                        <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-                        <span className="text-foreground">7-day free trial</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {isCurrent ? (
-                    <Button disabled className="w-full">Current Plan</Button>
-                  ) : (
-                    <Button
-                      className="w-full"
-                      variant={plan.highlighted ? "default" : "outline"}
-                      onClick={() => handleUpgrade(key)}
-                      disabled={isLoading}
-                    >
-                      {isLoading ? (
-                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                      ) : (
-                        <Zap className="h-4 w-4 mr-1" />
-                      )}
-                      {plan.cta}
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Donation / Support Section */}
-        <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-          <CardContent className="py-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="text-center md:text-left">
-                <h3 className="text-lg font-bold text-foreground flex items-center gap-2 justify-center md:justify-start">
-                  <Heart className="h-5 w-5 text-destructive" /> Support LeadPulse
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Love the platform? Support our development with a one-time or monthly contribution via Stripe. Available worldwide including Albania.
+      <div className="space-y-8 pb-6">
+        <section className="overflow-hidden rounded-[2rem] border border-border/60 bg-gradient-to-br from-background via-muted/20 to-primary/10">
+          <div className="grid gap-8 px-6 py-10 md:px-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end lg:gap-12 lg:py-14">
+            <div className="space-y-6">
+              <Badge variant="secondary" className="w-fit">Monetization Phase 3</Badge>
+              <div className="space-y-4">
+                <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
+                  Pricing now runs from one live backend catalog.
+                </h1>
+                <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
+                  Plans, entitlements, limits, checkout routing, comparison rows, and enterprise lead capture now stay aligned in one interactive flow.
                 </p>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <Button
-                  variant="outline"
-                  onClick={() => handleDonation("donation_once")}
-                  disabled={loadingPlan === "donation_once"}
-                >
-                  {loadingPlan === "donation_once" ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <Coffee className="h-4 w-4 mr-1" />
-                  )}
-                  {donationOnce?.donation_label || "One-time"} (${donationOnce ? Number(donationOnce.monthly_price) : 5})
-                </Button>
-                <Button
-                  onClick={() => handleDonation("donation_monthly")}
-                  disabled={loadingPlan === "donation_monthly"}
-                >
-                  {loadingPlan === "donation_monthly" ? (
-                    <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                  ) : (
-                    <Heart className="h-4 w-4 mr-1" />
-                  )}
-                  {donationMonthly?.donation_label || "Monthly"} (${donationMonthly ? Number(donationMonthly.monthly_price) : 5}/mo)
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Feature Comparison Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Feature Comparison</CardTitle>
-            <CardDescription>Detailed breakdown of what's included in each plan.</CardDescription>
-          </CardHeader>
-          <CardContent className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-2 font-medium text-foreground sticky left-0 bg-card min-w-[200px]">Feature</th>
-                  {PLAN_ORDER.map((key) => (
-                    <th key={key} className={cn(
-                      "text-center py-3 px-3 font-medium min-w-[120px]",
-                      currentPlanKey === key ? "text-primary" : "text-foreground"
-                    )}>
-                      {PLANS[key].name}
-                      {currentPlanKey === key && (
-                        <Badge variant="secondary" className="ml-1 text-xs">Current</Badge>
-                      )}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {FEATURE_COMPARISON.map((section) => (
-                  <>
-                    <tr key={section.title}>
-                      <td colSpan={5} className="pt-4 pb-2 px-2 font-semibold text-foreground text-xs uppercase tracking-wider">
-                        {section.title}
-                      </td>
-                    </tr>
-                    {section.features.map((feature) => (
-                      <tr key={feature.name} className="border-b border-border/50 hover:bg-muted/30 transition-colors">
-                        <td className="py-2.5 px-2 sticky left-0 bg-card">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-foreground">{feature.name}</span>
-                            {feature.tooltip && (
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground/60" />
-                                </TooltipTrigger>
-                                <TooltipContent side="right" className="max-w-[200px]">
-                                  {feature.tooltip}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </td>
-                        {PLAN_ORDER.map((planKey) => (
-                          <td key={planKey} className={cn(
-                            "text-center py-2.5 px-3",
-                            currentPlanKey === planKey && "bg-primary/5"
-                          )}>
-                            {renderCellValue(feature[planKey])}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </>
+              <div className="flex flex-wrap gap-2">
+                {heroStats.map((stat) => (
+                  <Badge key={stat} variant="outline" className="rounded-full px-3 py-1 text-xs">
+                    {stat}
+                  </Badge>
                 ))}
-              </tbody>
-            </table>
-          </CardContent>
-        </Card>
-
-        {/* Enterprise Contact Modal */}
-        <Dialog open={enterpriseOpen} onOpenChange={setEnterpriseOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-primary" />
-                Contact Sales — Enterprise Plan
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-foreground">Name</label>
-                <Input value={contactForm.name} onChange={(e) => setContactForm((f) => ({ ...f, name: e.target.value }))} placeholder="Your name" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Email</label>
-                <Input type="email" value={contactForm.email} onChange={(e) => setContactForm((f) => ({ ...f, email: e.target.value }))} placeholder="you@company.com" />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-foreground">Message</label>
-                <Textarea value={contactForm.message} onChange={(e) => setContactForm((f) => ({ ...f, message: e.target.value }))} placeholder="Tell us about your needs..." rows={3} />
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEnterpriseOpen(false)}>Cancel</Button>
-              <Button onClick={handleEnterpriseSubmit}>Send Request</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+
+            <Card className="border-border/60 bg-card/85 shadow-xl backdrop-blur-sm">
+              <CardContent className="space-y-5 p-6">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Billing view</p>
+                    <p className="text-xs text-muted-foreground">Switch pricing display instantly.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-sm ${!annual ? "font-medium text-foreground" : "text-muted-foreground"}`}>Monthly</span>
+                    <Switch checked={annual} onCheckedChange={setAnnual} />
+                    <span className={`text-sm ${annual ? "font-medium text-foreground" : "text-muted-foreground"}`}>Annual</span>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Current tier</p>
+                    <p className="mt-2 text-lg font-semibold text-foreground">{plansByKey[currentPlanKey]?.name ?? currentPlanKey}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+                    <p className="mt-2 text-lg font-semibold capitalize text-foreground">{stripeData?.status ?? "none"}</p>
+                  </div>
+                  <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Lead route</p>
+                    <p className="mt-2 text-lg font-semibold text-foreground">Enterprise ready</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+          {plans.map((plan) => (
+            <PricingPlanCard
+              key={plan.key}
+              annual={annual}
+              currentPlanKey={currentPlanKey}
+              loading={loadingPlan === plan.key}
+              onSelect={handlePlanAction}
+              plan={plan}
+              planOrder={planOrder}
+            />
+          ))}
+        </section>
+
+        <section>
+          <PricingComparison
+            comparisonSections={comparisonSections}
+            currentPlanKey={currentPlanKey}
+            planOrder={planOrder}
+            plansByKey={plansByKey}
+          />
+        </section>
+
+        <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <Card className="border-border/60 bg-card/85">
+            <CardContent className="flex h-full flex-col gap-5 p-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-foreground">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Enterprise pipeline</h2>
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Enterprise requests persist to the backend, notify admins, and surface inside the admin dashboard for follow-up.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-border/50 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Persistence</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">Stored in enterprise leads</p>
+                </div>
+                <div className="rounded-2xl border border-border/50 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Visibility</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">Admin panel + notifications</p>
+                </div>
+                <div className="rounded-2xl border border-border/50 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Follow-up</p>
+                  <p className="mt-2 text-sm font-medium text-foreground">Audit log created automatically</p>
+                </div>
+              </div>
+
+              <Button className="w-full sm:w-fit" onClick={() => setEnterpriseOpen(true)}>
+                <Mail className="mr-2 h-4 w-4" /> Contact enterprise sales
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-primary/20 bg-gradient-to-br from-primary/5 via-card to-card">
+            <CardContent className="flex h-full flex-col gap-5 p-6">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-foreground">
+                  <Heart className="h-5 w-5 text-primary" />
+                  <h2 className="text-xl font-semibold">Support the product</h2>
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Optional one-time or recurring support checkout stays available without affecting plan entitlements.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {donations.map((donation) => (
+                  <Button
+                    key={donation.id}
+                    variant={donation.plan_key === "donation_monthly" ? "default" : "outline"}
+                    disabled={loadingPlan === donation.plan_key}
+                    onClick={() => handleDonation(donation.plan_key as "donation_once" | "donation_monthly")}
+                  >
+                    {loadingPlan === donation.plan_key ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Heart className="mr-2 h-4 w-4" />}
+                    {donation.donation_label || donation.plan_label} (${Number(donation.monthly_price)})
+                  </Button>
+                ))}
+              </div>
+
+              <div className="rounded-2xl border border-border/50 bg-background/70 p-4 text-sm text-muted-foreground">
+                Donation flows use their own checkout path and do not modify the active plan badge or subscription logic.
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          Pricing QA covers success/cancel routing, subscription sync refresh, downgrade handling via billing portal, and trial/past-due UI states.
+        </div>
       </div>
+
+      <Dialog open={enterpriseOpen} onOpenChange={setEnterpriseOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enterprise sales request</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-3">
+            <Input placeholder="Your name" value={contactForm.name} onChange={(e) => setContactForm((prev) => ({ ...prev, name: e.target.value }))} />
+            <Input placeholder="Work email" type="email" value={contactForm.email} onChange={(e) => setContactForm((prev) => ({ ...prev, email: e.target.value }))} />
+            <Input placeholder="Company" value={contactForm.companyName} onChange={(e) => setContactForm((prev) => ({ ...prev, companyName: e.target.value }))} />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input placeholder="Phone" value={contactForm.phone} onChange={(e) => setContactForm((prev) => ({ ...prev, phone: e.target.value }))} />
+              <Input placeholder="Team size" value={contactForm.teamSize} onChange={(e) => setContactForm((prev) => ({ ...prev, teamSize: e.target.value }))} />
+            </div>
+            <Textarea placeholder="Tell us about rollout, seats, compliance, or support needs" rows={5} value={contactForm.message} onChange={(e) => setContactForm((prev) => ({ ...prev, message: e.target.value }))} />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEnterpriseOpen(false)}>Cancel</Button>
+            <Button onClick={handleEnterpriseSubmit} disabled={enterpriseLead.isPending || isLoading}>
+              {enterpriseLead.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Send request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };
