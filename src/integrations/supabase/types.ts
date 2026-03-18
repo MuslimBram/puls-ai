@@ -4181,6 +4181,8 @@ export type Database = {
           user_id: string
           video_count: number
           video_limit: number
+          window_ends_at: string
+          window_started_at: string
           workspace_id: string | null
         }
         Insert: {
@@ -4194,6 +4196,8 @@ export type Database = {
           user_id: string
           video_count?: number
           video_limit?: number
+          window_ends_at?: string
+          window_started_at?: string
           workspace_id?: string | null
         }
         Update: {
@@ -4207,6 +4211,8 @@ export type Database = {
           user_id?: string
           video_count?: number
           video_limit?: number
+          window_ends_at?: string
+          window_started_at?: string
           workspace_id?: string | null
         }
         Relationships: []
@@ -6620,6 +6626,8 @@ export type Database = {
           user_id: string
           video_count: number
           video_limit: number
+          window_ends_at: string
+          window_started_at: string
           workspace_id: string | null
         }
         SetofOptions: {
@@ -6651,6 +6659,8 @@ export type Database = {
           user_id: string
           video_count: number
           video_limit: number
+          window_ends_at: string
+          window_started_at: string
           workspace_id: string | null
         }
         SetofOptions: {
@@ -6696,6 +6706,7 @@ export type Database = {
       }
       process_escalations: { Args: { _workspace_id: string }; Returns: Json }
       reset_daily_ai_replies: { Args: never; Returns: undefined }
+      reset_expired_media_daily_usage: { Args: never; Returns: number }
       reset_monthly_usage: { Args: never; Returns: undefined }
       upsert_conversation_thread: {
         Args: {
