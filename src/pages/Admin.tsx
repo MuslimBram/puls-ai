@@ -101,6 +101,10 @@ const Admin = () => {
         <Tabs defaultValue="users">
           <TabsList>
             <TabsTrigger value="users">Users</TabsTrigger>
+            <TabsTrigger value="roles">
+              <ShieldPlus className="h-3 w-3 mr-1" />
+              Roles
+            </TabsTrigger>
             <TabsTrigger value="partners">
               Partners
               {partners.filter(p => p.status === "pending").length > 0 && (
