@@ -45,7 +45,7 @@ serve(async (req) => {
     if (userError || !userData.user) throw new Error("Not authenticated");
     const userId = userData.user.id;
 
-    const { url, source_id, crawl_depth = 5, force_rescan = false } = await req.json();
+    const { url, source_id, crawl_depth = 5, force_rescan = false, business_id } = await req.json();
     if (!url) throw new Error("URL is required");
 
     let formattedUrl = url.trim();
