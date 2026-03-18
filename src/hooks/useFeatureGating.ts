@@ -1,7 +1,8 @@
 import { useMemo } from "react";
 import { useSubscription } from "./useSubscription";
 import { useRolePermissions } from "./useRolePermissions";
-import { PLANS, PlanKey, PlanFeatures } from "@/config/plans";
+import { PLANS, PLAN_ORDER, PlanKey, PlanFeatures } from "@/config/plans";
+import { usePlanCatalog } from "@/hooks/usePlanCatalog";
 
 export interface FeatureGate {
   allowed: boolean;
@@ -21,27 +22,30 @@ export interface UsageStatus {
 export const useFeatureGating = () => {
   const { currentPlan, subscription, stripeData, refetchStripe } = useSubscription();
   const { permissions } = useRolePermissions();
+  const { plansByKey } = usePlanCatalog();
 
   const plan = useMemo(() => {
-    const key = (currentPlan as PlanKey) in PLANS ? (currentPlan as PlanKey) : "standard";
-    return PLANS[key];
-  }, [currentPlan]);
+    const key = (currentPlan as PlanKey) in plansByKey ? (currentPlan as PlanKey) : "standard";
+    return plansByKey[key] ?? PLANS[key];
+  }, [currentPlan, plansByKey]);
 
   const checkFeature = (feature: keyof PlanFeatures): FeatureGate => {
-    // Admin/super_admin bypass all feature gating
     if (permissions.bypassFeatureGating) {
       return { allowed: true, requiredPlan: plan.key, currentPlan: plan.key };
     }
+
     if (plan.features[feature]) {
       return { allowed: true, requiredPlan: plan.key, currentPlan: plan.key };
     }
-    const planOrder: PlanKey[] = ["standard", "professional", "advanced", "enterprise"];
-    const requiredPlan = planOrder.find((p) => PLANS[p].features[feature]) || "enterprise";
+
+    const requiredPlan = PLAN_ORDER.find((planKey) => (plansByKey[planKey] ?? PLANS[planKey]).features[feature]) || "enterprise";
     return { allowed: false, requiredPlan, currentPlan: plan.key };
   };
 
-  const checkLimit = (limitKey: "channels" | "keywords" | "aiRepliesPerDay" | "teamMembers" | "leadsPerMonth" | "socialProfiles" | "automationRules", currentUsage: number): UsageStatus => {
-    // Admin/super_admin bypass all usage limits
+  const checkLimit = (
+    limitKey: "channels" | "keywords" | "aiRepliesPerDay" | "teamMembers" | "leadsPerMonth" | "socialProfiles" | "automationRules",
+    currentUsage: number
+  ): UsageStatus => {
     if (permissions.bypassUsageLimits) {
       return {
         current: currentUsage,
@@ -52,9 +56,11 @@ export const useFeatureGating = () => {
         label: "Unlimited",
       };
     }
+
     const limit = plan.limits[limitKey];
     const isUnlimited = limit === -1;
     const percentage = isUnlimited ? 0 : Math.min(Math.round((currentUsage / limit) * 100), 100);
+
     return {
       current: currentUsage,
       limit,
@@ -67,13 +73,13 @@ export const useFeatureGating = () => {
 
   const getUpgradePlan = (): PlanKey | null => {
     if (permissions.bypassSubscription) return null;
-    const order: PlanKey[] = ["standard", "professional", "advanced", "enterprise"];
-    const idx = order.indexOf(plan.key);
-    return idx < order.length - 1 ? order[idx + 1] : null;
+    const idx = PLAN_ORDER.indexOf(plan.key);
+    return idx < PLAN_ORDER.length - 1 ? PLAN_ORDER[idx + 1] : null;
   };
 
   return {
     plan,
+    plansByKey,
     currentPlanKey: plan.key,
     checkFeature,
     checkLimit,

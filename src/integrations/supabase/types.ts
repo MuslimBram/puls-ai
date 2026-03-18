@@ -5073,41 +5073,71 @@ export type Database = {
       }
       pricing_settings: {
         Row: {
+          ai_replies_per_day_limit: number | null
           annual_price: number
+          automation_rules_limit: number | null
+          channels_limit: number | null
+          conversation_history_days: number | null
           daily_image_limit: number
           daily_video_limit: number
           donation_label: string | null
+          feature_entitlements: Json
           id: string
           is_donation: boolean
+          keywords_limit: number | null
+          keywords_per_group_limit: number | null
+          leads_per_month_limit: number | null
           max_video_seconds: number
           monthly_price: number
           plan_key: string
+          social_profiles_limit: number | null
+          team_members_limit: number | null
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          ai_replies_per_day_limit?: number | null
           annual_price?: number
+          automation_rules_limit?: number | null
+          channels_limit?: number | null
+          conversation_history_days?: number | null
           daily_image_limit?: number
           daily_video_limit?: number
           donation_label?: string | null
+          feature_entitlements?: Json
           id?: string
           is_donation?: boolean
+          keywords_limit?: number | null
+          keywords_per_group_limit?: number | null
+          leads_per_month_limit?: number | null
           max_video_seconds?: number
           monthly_price?: number
           plan_key: string
+          social_profiles_limit?: number | null
+          team_members_limit?: number | null
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          ai_replies_per_day_limit?: number | null
           annual_price?: number
+          automation_rules_limit?: number | null
+          channels_limit?: number | null
+          conversation_history_days?: number | null
           daily_image_limit?: number
           daily_video_limit?: number
           donation_label?: string | null
+          feature_entitlements?: Json
           id?: string
           is_donation?: boolean
+          keywords_limit?: number | null
+          keywords_per_group_limit?: number | null
+          leads_per_month_limit?: number | null
           max_video_seconds?: number
           monthly_price?: number
           plan_key?: string
+          social_profiles_limit?: number | null
+          team_members_limit?: number | null
           updated_at?: string
           updated_by?: string | null
         }

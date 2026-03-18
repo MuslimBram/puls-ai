@@ -14,6 +14,7 @@ import { useChannels } from "@/hooks/useChannels";
 import { useKeywords } from "@/hooks/useKeywords";
 import { PLANS, PLAN_ORDER, PlanKey } from "@/config/plans";
 import { STRIPE_TIERS } from "@/config/stripe";
+import { usePlanCatalog } from "@/hooks/usePlanCatalog";
 import { supabase } from "@/integrations/supabase/client";
 import { CreditCard, Zap, Crown, ArrowRight, ExternalLink, Loader2, Clock, AlertTriangle, Gift, Percent } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 
 const Subscription = () => {
   const { plan, currentPlanKey, checkLimit } = useFeatureGating();
+  const { plansByKey } = usePlanCatalog();
   const { subscription, stripeData, refetchStripe } = useSubscription();
   const { leads } = useLeads();
   const { channels } = useChannels();
@@ -235,7 +237,7 @@ const Subscription = () => {
         {/* Plan Cards - matching Pricing page design */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {PLAN_ORDER.map((key) => {
-            const p = PLANS[key];
+            const p = plansByKey[key] ?? PLANS[key];
             const isCurrent = currentPlanKey === key;
             const isLoading = upgradeLoading === key;
             return (
