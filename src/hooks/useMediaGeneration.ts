@@ -12,6 +12,7 @@ export type MediaGenerationRecord = MediaGeneration & { business_id?: string | n
 type MediaUsageDaily = Database["public"]["Tables"]["media_usage_daily"]["Row"];
 type MediaUsagePolicy = Database["public"]["Tables"]["media_usage_policy"]["Row"];
 type MediaUsageEvent = Database["public"]["Tables"]["media_usage_events"]["Row"];
+type ActiveBusiness = Pick<Database["public"]["Tables"]["business_profiles"]["Row"], "id" | "business_name" | "workspace_id">;
 
 const DEFAULT_POLICY_BY_PLAN = {
   standard: {
@@ -99,6 +100,28 @@ const normalizeDailyUsage = (daily: MediaUsageDaily | null, policy: Pick<MediaUs
     image_limit: daily.image_limit,
     video_limit: daily.video_limit,
   };
+};
+
+export const useActiveBusinessProfile = () => {
+  const { user } = useAuth();
+  const { workspace } = useWorkspace();
+
+  return useQuery({
+    queryKey: ["active-business-profile", user?.id, workspace?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("business_profiles")
+        .select("id, business_name, workspace_id")
+        .eq("workspace_id", workspace!.id)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (error) throw error;
+      return (data ?? null) as ActiveBusiness | null;
+    },
+    enabled: !!user && !!workspace,
+  });
 };
 
 export const useMediaUsage = (): MediaUsageStatus => {
@@ -189,21 +212,27 @@ export const useMediaUsage = (): MediaUsageStatus => {
 export const useMediaGenerations = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
+  const { data: activeBusiness, isLoading: businessLoading } = useActiveBusinessProfile();
 
   return useQuery({
-    queryKey: ["media-generations", workspace?.id],
+    queryKey: ["media-generations", workspace?.id, activeBusiness?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("media_generations")
         .select("*")
         .eq("workspace_id", workspace!.id)
         .order("created_at", { ascending: false })
         .limit(50);
 
+      if (activeBusiness?.id) {
+        query = query.eq("business_id", activeBusiness.id);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       return data as MediaGeneration[];
     },
-    enabled: !!user && !!workspace,
+    enabled: !!user && !!workspace && !businessLoading,
     refetchInterval: (query) => {
       const items = (query.state.data ?? []) as MediaGeneration[];
       return items.some((item) => ["queued", "pending", "generating", "processing"].includes(item.status)) ? 5000 : false;
@@ -250,6 +279,7 @@ export const useMediaUsageAnalytics = (): MediaUsageAnalytics => {
 export const useCreateMediaGeneration = () => {
   const queryClient = useQueryClient();
   const { workspace } = useWorkspace();
+  const { data: activeBusiness } = useActiveBusinessProfile();
   const { toast } = useToast();
 
   return useMutation({
@@ -262,12 +292,17 @@ export const useCreateMediaGeneration = () => {
       prompt: string;
       durationSeconds?: number;
     }) => {
+      if (!activeBusiness?.id) {
+        throw new Error("Create a business profile for this workspace before generating media.");
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-media", {
         body: {
           mediaType,
           prompt,
           durationSeconds: durationSeconds ?? null,
           workspaceId: workspace?.id ?? null,
+          businessId: activeBusiness.id,
         },
       });
 

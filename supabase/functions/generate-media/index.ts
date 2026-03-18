@@ -12,6 +12,7 @@ const requestSchema = z.object({
   prompt: z.string().trim().min(4).max(4000),
   durationSeconds: z.number().int().min(1).max(120).nullable().optional(),
   workspaceId: z.string().uuid().nullable().optional(),
+  businessId: z.string().uuid(),
 });
 
 const DEFAULT_POLICY = {
@@ -49,7 +50,7 @@ serve(async (req) => {
       return json({ error: parsed.error.issues[0]?.message || "Invalid request payload" }, { status: 400 });
     }
 
-    const { mediaType, prompt, durationSeconds, workspaceId } = parsed.data;
+    const { mediaType, prompt, durationSeconds, workspaceId, businessId } = parsed.data;
 
     if (workspaceId) {
       const { data: isMember, error: memberError } = await supabase.rpc("is_workspace_member", {
@@ -82,6 +83,19 @@ serve(async (req) => {
 
     const policy = policyRow ?? { plan_key: normalizedPlan, ...policyFallback };
     const resolvedWorkspaceId = workspaceId ?? subscription?.workspace_id ?? null;
+
+    const { data: businessProfile, error: businessError } = await supabase
+      .from("business_profiles")
+      .select("id, workspace_id, user_id, business_name")
+      .eq("id", businessId)
+      .maybeSingle();
+
+    if (businessError) throw businessError;
+    if (!businessProfile) return json({ error: "Business context not found." }, { status: 404 });
+    if (businessProfile.user_id !== authData.user.id) return json({ error: "Business access denied." }, { status: 403 });
+    if (resolvedWorkspaceId && businessProfile.workspace_id !== resolvedWorkspaceId) {
+      return json({ error: "Business does not belong to the active workspace." }, { status: 403 });
+    }
 
     if (mediaType === "image" && !policy.allow_image_generation) {
       return json({ allowed: false, error: "Image generation is disabled for your current plan." });
@@ -131,6 +145,7 @@ serve(async (req) => {
 
     const generationInsert = {
       workspace_id: resolvedWorkspaceId,
+      business_id: businessProfile.id,
       user_id: authData.user.id,
       media_type: mediaType,
       duration_seconds: mediaType === "video" ? durationSeconds ?? Math.min(policy.max_video_seconds, 10) : null,
@@ -141,13 +156,14 @@ serve(async (req) => {
         requested_at: new Date().toISOString(),
         mock: selectedProvider.is_mock,
         policy_plan_key: normalizedPlan,
+        business_name: businessProfile.business_name,
       },
     };
 
     const { data: generation, error: generationError } = await supabase
       .from("media_generations")
       .insert(generationInsert)
-      .select("id, media_type, duration_seconds, status, provider_key, created_at")
+      .select("id, business_id, media_type, duration_seconds, status, provider_key, created_at")
       .single();
 
     if (generationError) throw generationError;
@@ -160,6 +176,7 @@ serve(async (req) => {
         job_type: "media_generation",
         job_payload: {
           generation_id: generation.id,
+          business_id: businessProfile.id,
           media_type: mediaType,
           provider_key: selectedProvider.provider_key,
         },
@@ -188,6 +205,8 @@ serve(async (req) => {
       status: "queued",
       provider_key: selectedProvider.provider_key,
       metadata: {
+        business_id: businessProfile.id,
+        business_name: businessProfile.business_name,
         prompt_length: prompt.length,
         duration_seconds: mediaType === "video" ? generation.duration_seconds : null,
       },
@@ -203,7 +222,7 @@ serve(async (req) => {
           Authorization: `Bearer ${anonKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ source: "generate-media" }),
+        body: JSON.stringify({ source: "generate-media", businessId: businessProfile.id }),
       }).catch((error) => console.error("Failed to trigger job-worker", error));
     }
 
@@ -212,7 +231,8 @@ serve(async (req) => {
       generationId: generation.id,
       status: "queued",
       providerKey: selectedProvider.provider_key,
-      message: `${mediaType === "video" ? "Video" : "Image"} job queued successfully.`,
+      businessId: businessProfile.id,
+      message: `${mediaType === "video" ? "Video" : "Image"} job queued successfully for ${businessProfile.business_name}.`,
       usage: {
         imagesRemaining: dailyUsage.image_limit === -1 ? null : Math.max(0, dailyUsage.image_limit - dailyUsage.image_count),
         videosRemaining: dailyUsage.video_limit === -1 ? null : Math.max(0, dailyUsage.video_limit - dailyUsage.video_count),
