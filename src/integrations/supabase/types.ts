@@ -4405,45 +4405,6 @@ export type Database = {
         }
         Relationships: []
       }
-      media_usage_policy: {
-        Row: {
-          allow_image_generation: boolean
-          allow_video_generation: boolean
-          created_at: string
-          daily_image_limit: number
-          daily_video_limit: number
-          id: string
-          max_video_seconds: number
-          plan_key: string
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          allow_image_generation?: boolean
-          allow_video_generation?: boolean
-          created_at?: string
-          daily_image_limit?: number
-          daily_video_limit?: number
-          id?: string
-          max_video_seconds?: number
-          plan_key: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          allow_image_generation?: boolean
-          allow_video_generation?: boolean
-          created_at?: string
-          daily_image_limit?: number
-          daily_video_limit?: number
-          id?: string
-          max_video_seconds?: number
-          plan_key?: string
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
       message_delivery_states: {
         Row: {
           broadcast_recipient_id: string | null
