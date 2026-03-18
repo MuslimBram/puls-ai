@@ -130,7 +130,7 @@ const Pricing = () => {
         {/* Plan Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {PLAN_ORDER.map((key) => {
-            const plan = PLANS[key];
+            const plan = plansByKey[key] ?? PLANS[key];
             const isCurrent = currentPlanKey === key;
             const prices = getPrice(key);
             const price = annual ? Math.round(prices.annual / 12) : prices.monthly;

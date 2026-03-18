@@ -237,7 +237,7 @@ const Subscription = () => {
         {/* Plan Cards - matching Pricing page design */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {PLAN_ORDER.map((key) => {
-            const p = PLANS[key];
+            const p = plansByKey[key] ?? PLANS[key];
             const isCurrent = currentPlanKey === key;
             const isLoading = upgradeLoading === key;
             return (

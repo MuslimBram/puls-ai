@@ -28,8 +28,8 @@ export interface PricingSetting {
 
 interface UpdatePricingParams {
   id: string;
-  plan_key: string;
-  is_donation: boolean;
+  plan_key?: string;
+  is_donation?: boolean;
   monthly_price: number;
   annual_price: number;
   donation_label?: string;
@@ -92,7 +92,7 @@ export const usePricingSettings = () => {
         .eq("id", params.id);
       if (pricingError) throw pricingError;
 
-      if (!params.is_donation) {
+      if (params.plan_key && !params.is_donation) {
         const [stripePlanResult, mediaPolicyResult] = await Promise.all([
           supabase
             .from("stripe_product_plans" as any)
@@ -118,6 +118,7 @@ export const usePricingSettings = () => {
       queryClient.invalidateQueries({ queryKey: ["plan-catalog"] });
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       queryClient.invalidateQueries({ queryKey: ["media-usage"] });
+      queryClient.invalidateQueries({ queryKey: ["stripe-subscription"] });
       toast.success("Pricing and plan limits updated");
     },
     onError: (e) => toast.error(`Failed: ${e.message}`),

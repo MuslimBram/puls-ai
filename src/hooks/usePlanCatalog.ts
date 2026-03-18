@@ -22,9 +22,8 @@ export const usePlanCatalog = () => {
 
       if (error) throw error;
 
-      const rowMap = new Map<string, Record<string, unknown>>(
-        ((data || []) as Record<string, unknown>[]).map((row) => [String(row.plan_key), row])
-      );
+      const rows = ((data ?? []) as unknown[]) as Record<string, unknown>[];
+      const rowMap = new Map<string, Record<string, unknown>>(rows.map((row) => [String(row.plan_key), row]));
 
       return PLAN_ORDER.reduce((acc, planKey) => {
         const fallbackPlan = PLANS[planKey];
@@ -32,7 +31,7 @@ export const usePlanCatalog = () => {
 
         acc[planKey] = !row
           ? fallbackPlan
-          : {
+          : ({
               ...fallbackPlan,
               monthlyPrice: numberOrFallback(row.monthly_price, fallbackPlan.monthlyPrice),
               annualPrice: numberOrFallback(row.annual_price, fallbackPlan.annualPrice),
@@ -52,7 +51,7 @@ export const usePlanCatalog = () => {
                 ...fallbackPlan.features,
                 ...(isFeatureRecord(row.feature_entitlements) ? row.feature_entitlements : {}),
               },
-            } satisfies Plan;
+            } satisfies Plan);
 
         return acc;
       }, {} as Record<PlanKey, Plan>);

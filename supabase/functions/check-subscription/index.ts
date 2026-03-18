@@ -7,14 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const PRODUCT_MAP: Record<string, string> = {
-  "prod_U8Qdd9foXaeqnn": "standard",
-  "prod_U8LrDc0TasNxNH": "standard",
-  "prod_U8Lr5611OwyJSV": "professional",
-  "prod_U8LrRodC8eZsTT": "advanced",
-  "prod_U8LsXPlxbqhpmK": "enterprise",
-};
-
 const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${details ? ` ${JSON.stringify(details)}` : ""}`);
 };
@@ -28,6 +20,26 @@ const jsonResponse = (body: unknown, status = 200) =>
 const getIsoDate = (unixSeconds?: number | null) =>
   typeof unixSeconds === "number" ? new Date(unixSeconds * 1000).toISOString() : null;
 
+const loadProductMap = async (supabaseClient: any) => {
+  const { data, error } = await supabaseClient
+    .from("stripe_product_plans")
+    .select("stripe_product_id, plan_name")
+    .eq("is_active", true);
+
+  if (error) throw error;
+
+  const map = Object.fromEntries((data || []).map((row: any) => [row.stripe_product_id, row.plan_name]));
+  return Object.keys(map).length > 0
+    ? map
+    : {
+        prod_U8LrDc0TasNxNH: "standard",
+        prod_U8Qdd9foXaeqnn: "standard",
+        prod_U8Lr5611OwyJSV: "professional",
+        prod_U8LrRodC8eZsTT: "advanced",
+        prod_U8LsXPlxbqhpmK: "enterprise",
+      };
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -40,87 +52,51 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
 
-    if (!supabaseUrl || !serviceRoleKey) {
-      throw new Error("Supabase environment variables are missing");
-    }
-
-    if (!stripeKey) {
-      throw new Error("STRIPE_SECRET_KEY is not set");
-    }
+    if (!supabaseUrl || !serviceRoleKey) throw new Error("Backend environment variables are missing");
+    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
     const supabaseClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
     });
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) {
-      throw new Error("No valid authorization header");
-    }
+    if (!authHeader?.startsWith("Bearer ")) throw new Error("No valid authorization header");
 
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-
-    if (userError) {
-      throw new Error(`Auth error: ${userError.message}`);
-    }
+    if (userError) throw new Error(`Auth error: ${userError.message}`);
 
     const user = userData.user;
-    if (!user?.id || !user.email) {
-      throw new Error("User not authenticated");
-    }
+    if (!user?.id || !user.email) throw new Error("User not authenticated");
 
-    logStep("User authenticated", { userId: user.id, email: user.email });
-
+    const productMap = await loadProductMap(supabaseClient);
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
     const syncSubscriptionRow = async (payload: Record<string, unknown>) => {
-      const { error } = await supabaseClient
-        .from("subscriptions")
-        .update(payload)
-        .eq("user_id", user.id);
-
-      if (error) {
-        logStep("Subscription sync skipped due to DB error", { message: error.message });
-      }
+      const { error } = await supabaseClient.from("subscriptions").update(payload).eq("user_id", user.id);
+      if (error) logStep("Subscription sync skipped due to DB error", { message: error.message });
     };
 
     if (customers.data.length === 0) {
-      logStep("No Stripe customer found");
       await syncSubscriptionRow({ plan: "standard", subscription_status: "none" });
       return jsonResponse({ subscribed: false, plan: "standard", status: "none" });
     }
 
     const customerId = customers.data[0].id;
-    logStep("Stripe customer found", { customerId });
-
-    const subscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      limit: 10,
-    });
-
+    const subscriptions = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
     const prioritizedStatuses = ["active", "trialing", "past_due", "unpaid", "canceled", "incomplete"];
-    const sub =
-      subscriptions.data.sort(
-        (a, b) => prioritizedStatuses.indexOf(a.status) - prioritizedStatuses.indexOf(b.status),
-      )[0] ?? null;
+    const sub = subscriptions.data.sort((a, b) => prioritizedStatuses.indexOf(a.status) - prioritizedStatuses.indexOf(b.status))[0] ?? null;
 
     if (!sub) {
-      logStep("No Stripe subscriptions found");
-      await syncSubscriptionRow({
-        plan: "standard",
-        subscription_status: "none",
-        stripe_customer_id: customerId,
-      });
+      await syncSubscriptionRow({ plan: "standard", subscription_status: "none", stripe_customer_id: customerId });
       return jsonResponse({ subscribed: false, plan: "standard", status: "none" });
     }
 
     const rawProduct = sub.items.data[0]?.price?.product;
     const productId = typeof rawProduct === "string" ? rawProduct : rawProduct?.id ?? "";
-    const plan = PRODUCT_MAP[productId] || "standard";
+    const plan = productMap[productId] || "standard";
     const status = sub.status;
-
-    logStep("Subscription resolved", { subscriptionId: sub.id, status, plan, productId });
 
     await syncSubscriptionRow({
       plan,
@@ -132,15 +108,11 @@ serve(async (req) => {
       trial_end: getIsoDate(sub.trial_end),
     });
 
-    const { data: subData, error: subDataError } = await supabaseClient
+    const { data: subData } = await supabaseClient
       .from("subscriptions")
       .select("leads_used, ai_replies_today, grace_period_end, trial_start, trial_end, referral_discount_percent, referral_discount_months_remaining, referral_discount_expires_at, total_discount_savings")
       .eq("user_id", user.id)
       .maybeSingle();
-
-    if (subDataError) {
-      logStep("Usage read skipped due to DB error", { message: subDataError.message });
-    }
 
     const isActive = ["active", "trialing"].includes(status);
 

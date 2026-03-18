@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FEATURE_COMPARISON, PLAN_ORDER, PlanKey } from "@/config/plans";
+import { STRIPE_TIERS } from "@/config/stripe";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { usePlanCatalog } from "@/hooks/usePlanCatalog";
 import { Check, Zap, ArrowRight, Loader2 } from "lucide-react";
@@ -33,10 +34,13 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
       return;
     }
 
+    const tier = STRIPE_TIERS[target];
+    if (!tier) return;
+
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { planKey: target, annualBilling: false },
+        body: { priceId: tier.price_id },
       });
       if (error) throw error;
       if (data?.url) {
