@@ -114,10 +114,8 @@ export const useGenerateReferralCode = () => {
       } as any);
       if (error) throw error;
 
-      await supabase.from("subscriptions").update({
-        referral_eligible: true,
-        referral_eligible_at: new Date().toISOString(),
-      }).eq("user_id", user!.id);
+      // Note: referral_eligible is now managed by backend logic only
+      // The subscription table is not directly updatable by users for security
 
       return code;
     },
