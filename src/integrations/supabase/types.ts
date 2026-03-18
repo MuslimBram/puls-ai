@@ -4011,37 +4011,106 @@ export type Database = {
           },
         ]
       }
+      media_generation_errors: {
+        Row: {
+          created_at: string
+          error_details: Json
+          error_message: string
+          error_stage: string
+          generation_id: string | null
+          id: string
+          job_id: string | null
+          media_type: string | null
+          provider_key: string | null
+          user_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_details?: Json
+          error_message: string
+          error_stage: string
+          generation_id?: string | null
+          id?: string
+          job_id?: string | null
+          media_type?: string | null
+          provider_key?: string | null
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_details?: Json
+          error_message?: string
+          error_stage?: string
+          generation_id?: string | null
+          id?: string
+          job_id?: string | null
+          media_type?: string | null
+          provider_key?: string | null
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       media_generations: {
         Row: {
+          completed_at: string | null
           created_at: string | null
           duration_seconds: number | null
+          error_message: string | null
           id: string
+          job_id: string | null
           media_type: string
+          metadata: Json
           prompt: string | null
+          provider_job_id: string | null
+          provider_key: string | null
+          request_source: string
           result_url: string | null
+          started_at: string | null
           status: string | null
+          updated_at: string
           user_id: string
           workspace_id: string
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string | null
           duration_seconds?: number | null
+          error_message?: string | null
           id?: string
+          job_id?: string | null
           media_type?: string
+          metadata?: Json
           prompt?: string | null
+          provider_job_id?: string | null
+          provider_key?: string | null
+          request_source?: string
           result_url?: string | null
+          started_at?: string | null
           status?: string | null
+          updated_at?: string
           user_id: string
           workspace_id: string
         }
         Update: {
+          completed_at?: string | null
           created_at?: string | null
           duration_seconds?: number | null
+          error_message?: string | null
           id?: string
+          job_id?: string | null
           media_type?: string
+          metadata?: Json
           prompt?: string | null
+          provider_job_id?: string | null
+          provider_key?: string | null
+          request_source?: string
           result_url?: string | null
+          started_at?: string | null
           status?: string | null
+          updated_at?: string
           user_id?: string
           workspace_id?: string
         }
@@ -4054,6 +4123,180 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      media_provider_settings: {
+        Row: {
+          api_secret_name: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_enabled: boolean
+          is_mock: boolean
+          media_types: string[]
+          priority: number
+          provider_key: string
+          provider_name: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          api_secret_name?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          is_mock?: boolean
+          media_types?: string[]
+          priority?: number
+          provider_key: string
+          provider_name: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          api_secret_name?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_enabled?: boolean
+          is_mock?: boolean
+          media_types?: string[]
+          priority?: number
+          provider_key?: string
+          provider_name?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      media_usage_daily: {
+        Row: {
+          created_at: string
+          id: string
+          image_count: number
+          image_limit: number
+          reset_at: string
+          updated_at: string
+          usage_date: string
+          user_id: string
+          video_count: number
+          video_limit: number
+          window_ends_at: string
+          window_started_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_count?: number
+          image_limit?: number
+          reset_at?: string
+          updated_at?: string
+          usage_date?: string
+          user_id: string
+          video_count?: number
+          video_limit?: number
+          window_ends_at?: string
+          window_started_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_count?: number
+          image_limit?: number
+          reset_at?: string
+          updated_at?: string
+          usage_date?: string
+          user_id?: string
+          video_count?: number
+          video_limit?: number
+          window_ends_at?: string
+          window_started_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
+      media_usage_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          generation_id: string | null
+          id: string
+          media_type: string
+          metadata: Json
+          provider_key: string | null
+          status: string | null
+          units: number
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          generation_id?: string | null
+          id?: string
+          media_type: string
+          metadata?: Json
+          provider_key?: string | null
+          status?: string | null
+          units?: number
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          generation_id?: string | null
+          id?: string
+          media_type?: string
+          metadata?: Json
+          provider_key?: string | null
+          status?: string | null
+          units?: number
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
+      media_usage_policy: {
+        Row: {
+          allow_image_generation: boolean
+          allow_video_generation: boolean
+          created_at: string
+          daily_image_limit: number
+          daily_video_limit: number
+          id: string
+          max_video_seconds: number
+          plan_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          allow_image_generation?: boolean
+          allow_video_generation?: boolean
+          created_at?: string
+          daily_image_limit?: number
+          daily_video_limit?: number
+          id?: string
+          max_video_seconds?: number
+          plan_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          allow_image_generation?: boolean
+          allow_video_generation?: boolean
+          created_at?: string
+          daily_image_limit?: number
+          daily_video_limit?: number
+          id?: string
+          max_video_seconds?: number
+          plan_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
       }
       message_delivery_states: {
         Row: {
@@ -4786,9 +5029,12 @@ export type Database = {
       pricing_settings: {
         Row: {
           annual_price: number
+          daily_image_limit: number
+          daily_video_limit: number
           donation_label: string | null
           id: string
           is_donation: boolean
+          max_video_seconds: number
           monthly_price: number
           plan_key: string
           updated_at: string
@@ -4796,9 +5042,12 @@ export type Database = {
         }
         Insert: {
           annual_price?: number
+          daily_image_limit?: number
+          daily_video_limit?: number
           donation_label?: string | null
           id?: string
           is_donation?: boolean
+          max_video_seconds?: number
           monthly_price?: number
           plan_key: string
           updated_at?: string
@@ -4806,9 +5055,12 @@ export type Database = {
         }
         Update: {
           annual_price?: number
+          daily_image_limit?: number
+          daily_video_limit?: number
           donation_label?: string | null
           id?: string
           is_donation?: boolean
+          max_video_seconds?: number
           monthly_price?: number
           plan_key?: string
           updated_at?: string
@@ -6355,9 +6607,79 @@ export type Database = {
         Args: { _thread_id: string; _workspace_id: string }
         Returns: undefined
       }
+      consume_media_quota: {
+        Args: {
+          _image_limit: number
+          _media_type: string
+          _user_id: string
+          _video_limit: number
+          _workspace_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          image_count: number
+          image_limit: number
+          reset_at: string
+          updated_at: string
+          usage_date: string
+          user_id: string
+          video_count: number
+          video_limit: number
+          window_ends_at: string
+          window_started_at: string
+          workspace_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "media_usage_daily"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       detect_suspicious_login: {
         Args: { _ip_address: string; _user_agent: string; _user_id: string }
         Returns: boolean
+      }
+      ensure_media_daily_usage: {
+        Args: {
+          _image_limit: number
+          _user_id: string
+          _video_limit: number
+          _workspace_id: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          image_count: number
+          image_limit: number
+          reset_at: string
+          updated_at: string
+          usage_date: string
+          user_id: string
+          video_count: number
+          video_limit: number
+          window_ends_at: string
+          window_started_at: string
+          workspace_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "media_usage_daily"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_media_usage_policy_for_user: {
+        Args: { _user_id: string }
+        Returns: {
+          allow_image_generation: boolean
+          allow_video_generation: boolean
+          daily_image_limit: number
+          daily_video_limit: number
+          max_video_seconds: number
+          plan_key: string
+        }[]
       }
       has_role: {
         Args: {
@@ -6384,6 +6706,7 @@ export type Database = {
       }
       process_escalations: { Args: { _workspace_id: string }; Returns: Json }
       reset_daily_ai_replies: { Args: never; Returns: undefined }
+      reset_expired_media_daily_usage: { Args: never; Returns: number }
       reset_monthly_usage: { Args: never; Returns: undefined }
       upsert_conversation_thread: {
         Args: {
