@@ -5,14 +5,13 @@ import { useBillingHistory, usePaymentNotifications } from "@/hooks/useBillingHi
 import { useSubscription } from "@/hooks/useSubscription";
 import { Receipt, ExternalLink, AlertTriangle, FileText, Download, CreditCard, Loader2 } from "lucide-react";
 import { format } from "date-fns";
-import { cn } from "@/lib/utils";
 
-const statusClasses: Record<string, string> = {
-  paid: "border-success/20 bg-success/10 text-foreground",
-  open: "border-warning/20 bg-warning/10 text-foreground",
-  void: "border-border bg-muted text-muted-foreground",
-  uncollectible: "border-destructive/20 bg-destructive/10 text-foreground",
-  draft: "border-border bg-muted text-muted-foreground",
+const statusColors: Record<string, string> = {
+  paid: "bg-green-500/10 text-green-700",
+  open: "bg-yellow-500/10 text-yellow-700",
+  void: "bg-muted text-muted-foreground",
+  uncollectible: "bg-destructive/10 text-destructive",
+  draft: "bg-muted text-muted-foreground",
 };
 
 export const BillingHistoryPanel = () => {
@@ -24,12 +23,13 @@ export const BillingHistoryPanel = () => {
 
   return (
     <div className="space-y-4">
+      {/* Payment Alerts */}
       {activeAlerts.length > 0 && (
         <Card className="border-destructive/30 bg-destructive/5">
-          <CardContent className="space-y-2 pt-4">
+          <CardContent className="pt-4 space-y-2">
             {activeAlerts.map((alert) => (
               <div key={alert.id} className="flex items-start gap-3">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                <AlertTriangle className="h-4 w-4 text-destructive shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-foreground">{alert.title}</p>
                   <p className="text-xs text-muted-foreground">{alert.message}</p>
@@ -40,6 +40,7 @@ export const BillingHistoryPanel = () => {
         </Card>
       )}
 
+      {/* Upcoming Renewal */}
       {stripeData?.subscribed && stripeData.subscription_end && (
         <Card>
           <CardContent className="flex items-center justify-between pt-6">
@@ -60,9 +61,10 @@ export const BillingHistoryPanel = () => {
         </Card>
       )}
 
+      {/* Invoice History */}
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="text-base flex items-center gap-2">
             <Receipt className="h-4 w-4" />
             Invoice History
           </CardTitle>
@@ -82,7 +84,7 @@ export const BillingHistoryPanel = () => {
                       <p className="text-sm font-medium text-foreground">
                         ${Number(record.amount).toFixed(2)} {record.currency.toUpperCase()}
                         {record.discount_amount > 0 && (
-                          <span className="ml-2 text-xs text-primary">
+                          <span className="text-xs text-green-600 ml-2">
                             -${Number(record.discount_amount).toFixed(2)} discount
                           </span>
                         )}
@@ -99,12 +101,7 @@ export const BillingHistoryPanel = () => {
                         Refunded ${Number(record.refund_amount).toFixed(2)}
                       </Badge>
                     )}
-                    <Badge
-                      variant="outline"
-                      className={cn("border px-2.5 py-0.5 capitalize", statusClasses[record.status] || "border-border bg-muted text-muted-foreground")}
-                    >
-                      {record.status}
-                    </Badge>
+                    <Badge className={statusColors[record.status] || ""}>{record.status}</Badge>
                     {record.invoice_url && (
                       <Button size="icon" variant="ghost" className="h-7 w-7" asChild>
                         <a href={record.invoice_url} target="_blank" rel="noopener noreferrer">
@@ -124,7 +121,7 @@ export const BillingHistoryPanel = () => {
               ))}
             </div>
           ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground text-center py-8">
               No billing history yet.
             </p>
           )}
