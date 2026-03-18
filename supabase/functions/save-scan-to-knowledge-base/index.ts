@@ -34,7 +34,7 @@ function unique(values: Array<string | null | undefined>) {
 function stringifySummary(summary: JsonRecord | null | undefined) {
   if (!summary || typeof summary !== "object") return "";
   return Object.entries(summary)
-    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .filter(([key, value]) => key !== "automation" && value !== null && value !== undefined && value !== "")
     .map(([key, value]) => `${key.replace(/_/g, " ")}: ${typeof value === "string" ? value : JSON.stringify(value)}`)
     .join("\n");
 }
@@ -120,6 +120,38 @@ function buildKnowledgeChunks(business: any, scan: ScanRow) {
   );
 
   return chunks;
+}
+
+async function updateScanAutomationSummary(supabase: ReturnType<typeof createClient>, scanHistoryId: string, patch: JsonRecord) {
+  const { data: currentScan, error: readError } = await supabase
+    .from("business_scan_history")
+    .select("summary_json")
+    .eq("id", scanHistoryId)
+    .maybeSingle();
+
+  if (readError) throw readError;
+
+  const currentSummary = currentScan?.summary_json && typeof currentScan.summary_json === "object"
+    ? { ...(currentScan.summary_json as JsonRecord) }
+    : {};
+  const currentAutomation = currentSummary.automation && typeof currentSummary.automation === "object"
+    ? { ...(currentSummary.automation as JsonRecord) }
+    : {};
+
+  const nextSummary = {
+    ...currentSummary,
+    automation: {
+      ...currentAutomation,
+      ...patch,
+    },
+  };
+
+  const { error: updateError } = await supabase
+    .from("business_scan_history")
+    .update({ summary_json: nextSummary } as any)
+    .eq("id", scanHistoryId);
+
+  if (updateError) throw updateError;
 }
 
 serve(async (req) => {
@@ -259,6 +291,16 @@ serve(async (req) => {
 
     const { error: chunksInsertError } = await supabase.from("knowledge_chunks").insert(chunkRows);
     if (chunksInsertError) throw chunksInsertError;
+
+    await updateScanAutomationSummary(supabase, scan_history_id, {
+      status: "completed",
+      knowledge_sync: "completed",
+      completed_at: new Date().toISOString(),
+      knowledge_source_id: sourceId,
+      knowledge_source_name: sourceName,
+      knowledge_chunks_created: chunkRows.length,
+      error: null,
+    });
 
     return new Response(
       JSON.stringify({
