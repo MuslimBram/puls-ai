@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
 import { useChannelRegistry, ChannelRegistryItem } from "@/hooks/useChannelRegistry";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
-import { useIsAdmin } from "@/hooks/useAdmin";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { ChannelCredentialSetup } from "@/components/ChannelCredentialSetup";
 import { TelegramSetup } from "@/components/TelegramSetup";
@@ -22,46 +22,17 @@ import { WebhookSetup } from "@/components/WebhookSetup";
 import { SafeRender } from "@/components/SafeRender";
 import type { PlanKey } from "@/types/monetization";
 import { channelFieldGuides, getFieldGuide } from "@/config/fieldGuides";
-import { FieldLabelWithGuide } from "@/components/FieldGuide";
-import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown, Loader2 } from "lucide-react";
-import { toast } from "@/components/ui/sonner";
-
-const SourcesContent = lazy(() => import("@/pages/Sources"));
-
-const CATEGORY_ICONS: Record<string, any> = {
-  messaging: MessageSquare,
-  email: Mail,
-  website: Globe,
-  social: Share2,
-  custom: Webhook,
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  messaging: "Messaging",
-  email: "Email",
-  website: "Website",
-  social: "Social",
-  custom: "Custom",
-  voice: "Voice",
-};
-
-const STATUS_CONFIG: Record<string, { label: string; variant: "default" | "secondary" | "outline"; icon: any }> = {
-  live: { label: "Live", variant: "default", icon: CheckCircle2 },
-  setup_ready: { label: "Setup Required", variant: "secondary", icon: Settings2 },
-};
-
-const Channels = () => {
-  const [showAdd, setShowAdd] = useState(false);
+...
   const [form, setForm] = useState<ChannelData>({ channel_type: "telegram", channel_name: "" });
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
   const { channels, isLoading, addChannel, toggleChannel, deleteChannel } = useChannels();
   const { registry } = useChannelRegistry();
   const { currentPlanKey } = useFeatureGating();
   const { plansByKey, planOrder } = useMonetizationCatalog();
-  const { isAdmin } = useIsAdmin();
+  const { isSuperAdmin } = useRolePermissions();
 
   const canAccessChannel = (minPlan: string) => {
-    if (isAdmin) return true;
+    if (isSuperAdmin) return true;
     const currentIdx = planOrder.indexOf(currentPlanKey);
     const requiredIdx = planOrder.indexOf(minPlan as PlanKey);
     return requiredIdx === -1 || (currentIdx !== -1 && currentIdx >= requiredIdx);
