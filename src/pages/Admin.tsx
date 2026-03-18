@@ -219,6 +219,10 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="roles">
+            <AdminRoleManager profiles={profiles as any} />
+          </TabsContent>
+
           {/* Partners Tab */}
           <TabsContent value="partners">
             <Card>
