@@ -11,9 +11,8 @@ const PLAN_LIMITS: Record<string, number> = {
   standard: 20, professional: 100, advanced: 500, enterprise: -1,
 };
 
-// Simple in-memory rate limiter per IP
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 30; // requests per minute per IP
+const RATE_LIMIT = 30;
 const RATE_WINDOW = 60_000;
 
 function checkRateLimit(ip: string): boolean {
@@ -31,7 +30,6 @@ function checkRateLimit(ip: string): boolean {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
-  // Rate limit check
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("cf-connecting-ip") || "unknown";
   if (!checkRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: "Too many requests. Please try again later." }), {
@@ -40,14 +38,13 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, visitor_name, visitor_email, message, page_url, channel_type } = await req.json();
+    const { user_id, business_id, workspace_id, visitor_name, visitor_email, message, page_url, channel_type } = await req.json();
     if (!user_id || !message) {
       return new Response(JSON.stringify({ error: "user_id and message are required" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Validate message length
     if (message.length > 5000) {
       return new Response(JSON.stringify({ error: "Message too long (max 5000 chars)" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -61,7 +58,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Check if user is suspended
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_suspended")
@@ -74,10 +70,9 @@ serve(async (req) => {
       });
     }
 
-    // Enforce AI reply daily limit
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
+      .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status")
       .eq("user_id", user_id)
       .maybeSingle();
 
@@ -88,7 +83,7 @@ serve(async (req) => {
     const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
     const now = new Date();
     const hoursSinceReset = (now.getTime() - resetAt.getTime()) / (1000 * 60 * 60);
-    let currentUsed = hoursSinceReset >= 24 ? 0 : (sub?.ai_replies_today || 0);
+    const currentUsed = hoursSinceReset >= 24 ? 0 : (sub?.ai_replies_today || 0);
 
     if (limit !== -1 && currentUsed >= limit) {
       return new Response(JSON.stringify({
@@ -97,58 +92,70 @@ serve(async (req) => {
       }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Check subscription status
     const subStatus = sub?.subscription_status || "active";
-    if (["canceled", "unpaid"].includes(subStatus)) {
-      if (currentUsed >= PLAN_LIMITS.standard) {
-        return new Response(JSON.stringify({
-          error: "Your subscription has expired. Please renew to continue using AI replies.",
-          limit_reached: true,
-        }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+    if (["canceled", "unpaid"].includes(subStatus) && currentUsed >= PLAN_LIMITS.standard) {
+      return new Response(JSON.stringify({
+        error: "Your subscription has expired. Please renew to continue using AI replies.",
+        limit_reached: true,
+      }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Fetch business profile
-    const { data: bizProfile } = await supabase
+    let businessQuery = supabase
       .from("business_profiles")
-      .select("*")
+      .select("id, user_id, workspace_id, business_name, industry, main_services, short_description, target_audience, mission_values, ai_tone, language")
       .eq("user_id", user_id)
-      .maybeSingle();
+      .order("created_at", { ascending: true })
+      .limit(2);
 
-    // Fetch keywords
+    if (workspace_id) businessQuery = businessQuery.eq("workspace_id", workspace_id);
+    if (business_id) businessQuery = businessQuery.eq("id", business_id);
+
+    const { data: businesses, error: businessError } = await businessQuery;
+    if (businessError) throw businessError;
+
+    if (!businesses || businesses.length === 0) {
+      throw new Error("No matching business context found");
+    }
+
+    if (!business_id && businesses.length > 1) {
+      throw new Error("business_id is required when multiple businesses exist in this workspace");
+    }
+
+    const bizProfile = businesses[0];
+
     const { data: keywords } = await supabase
       .from("keywords")
       .select("keyword")
       .eq("user_id", user_id)
       .eq("is_active", true);
 
-    const keywordList = (keywords ?? []).map((k: any) => k.keyword);
+    const keywordList = (keywords ?? []).map((k: { keyword: string }) => k.keyword);
 
-    // Fetch knowledge base context
     let knowledgeContext = "";
     try {
       const { data: kbChunks } = await supabase
         .from("knowledge_chunks")
         .select("content, topic_tags, content_type")
         .eq("user_id", user_id)
+        .eq("business_id", bizProfile.id)
+        .order("created_at", { ascending: false })
         .limit(10);
-      
+
       if (kbChunks && kbChunks.length > 0) {
         const relevantChunks = kbChunks
-          .filter((c: any) => {
+          .filter((c: { topic_tags: string[] | null; content: string; content_type: string }) => {
             const msgLower = message.toLowerCase();
             return c.topic_tags?.some((t: string) => msgLower.includes(t.toLowerCase())) ||
               c.content.toLowerCase().split(/\s+/).some((w: string) => msgLower.includes(w) && w.length > 4);
           })
           .slice(0, 5);
-        
+
         if (relevantChunks.length > 0) {
-          knowledgeContext = "\n\nRelevant Knowledge Base:\n" + 
-            relevantChunks.map((c: any) => `[${c.content_type}] ${c.content.slice(0, 500)}`).join("\n---\n");
+          knowledgeContext = "\n\nRelevant Knowledge Base:\n" +
+            relevantChunks.map((c: { content_type: string; content: string }) => `[${c.content_type}] ${c.content.slice(0, 500)}`).join("\n---\n");
         } else {
-          // Use first few chunks as general context
-          knowledgeContext = "\n\nBusiness Knowledge:\n" + 
-            kbChunks.slice(0, 3).map((c: any) => c.content.slice(0, 300)).join("\n---\n");
+          knowledgeContext = "\n\nBusiness Knowledge:\n" +
+            kbChunks.slice(0, 3).map((c: { content: string }) => c.content.slice(0, 300)).join("\n---\n");
         }
       }
     } catch (e) {
@@ -162,11 +169,9 @@ serve(async (req) => {
     const isSimple = simplePatterns.some((p) => p.test(message.trim()));
     const complexity = isSimple ? "simple" : "complex";
 
-    const businessContext = bizProfile
-      ? `Business: ${bizProfile.business_name}\nIndustry: ${bizProfile.industry || "General"}\nServices: ${bizProfile.main_services || "Various services"}\nDescription: ${bizProfile.short_description || ""}\nTarget Audience: ${bizProfile.target_audience || "General"}\nMission: ${bizProfile.mission_values || ""}\nTone: ${bizProfile.ai_tone || "professional"}\nLanguage: ${bizProfile.language || "en"}`
-      : "No business profile available.";
+    const businessContext = `Business: ${bizProfile.business_name}\nIndustry: ${bizProfile.industry || "General"}\nServices: ${bizProfile.main_services || "Various services"}\nDescription: ${bizProfile.short_description || ""}\nTarget Audience: ${bizProfile.target_audience || "General"}\nMission: ${bizProfile.mission_values || ""}\nTone: ${bizProfile.ai_tone || "professional"}\nLanguage: ${bizProfile.language || "en"}`;
 
-    const systemPrompt = `You are a Dedicated AI Assistant for a business. You respond to visitor inquiries based on the business information provided below.\n\n${businessContext}${knowledgeContext}\n\nKeywords the business monitors: ${keywordList.join(", ") || "none"}\n\nRules:\n- Always respond in the language the visitor writes in\n- Be helpful, knowledgeable about the business's products/services\n- Use the knowledge base information when relevant to provide detailed, accurate answers\n- Present yourself as the business's dedicated AI assistant\n- For simple questions, provide a direct and helpful answer\n- For complex questions, provide an initial helpful response but mention that a team member will follow up\n- Always include a call-to-action\n- Keep responses concise (2-5 sentences)\n- Never make up specific prices, dates, or promises not mentioned in the business profile or knowledge base`;
+    const systemPrompt = `You are a Dedicated AI Assistant for a business. You respond to visitor inquiries based only on the selected business below.\n\nBusiness ID: ${bizProfile.id}\n${businessContext}${knowledgeContext}\n\nKeywords the business monitors: ${keywordList.join(", ") || "none"}\n\nRules:\n- Always respond in the language the visitor writes in\n- Use only this business context and never mix in another business\n- Be helpful and knowledgeable about the business's products/services\n- Use the knowledge base information when relevant to provide detailed, accurate answers\n- Present yourself as the business's dedicated AI assistant\n- For simple questions, provide a direct and helpful answer\n- For complex questions, provide an initial helpful response but mention that a team member will follow up\n- Always include a call-to-action\n- Keep responses concise (2-5 sentences)\n- Never make up specific prices, dates, or promises not mentioned in the business profile or knowledge base`;
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -201,7 +206,6 @@ serve(async (req) => {
     const reply = aiData.choices?.[0]?.message?.content || "Thank you for your message. A team member will get back to you shortly.";
     const isAutoReply = complexity === "simple";
 
-    // Increment AI reply counter
     if (hoursSinceReset >= 24) {
       await supabase.from("subscriptions").update({
         ai_replies_today: 1, ai_replies_reset_at: now.toISOString(),
@@ -212,9 +216,10 @@ serve(async (req) => {
       }).eq("user_id", user_id);
     }
 
-    // Save conversation
     const { data: conversation, error: convError } = await supabase.from("ai_conversations").insert({
       user_id,
+      workspace_id: bizProfile.workspace_id,
+      business_id: bizProfile.id,
       channel_type: channel_type || "website_chat",
       visitor_name: visitor_name || null,
       visitor_email: visitor_email || null,
@@ -229,13 +234,11 @@ serve(async (req) => {
 
     if (convError) console.error("Error saving conversation:", convError);
 
-    // Create inbox message
-    const matchedKws = keywordList.filter((kw: string) =>
-      message.toLowerCase().includes(kw.toLowerCase())
-    );
+    const matchedKws = keywordList.filter((kw: string) => message.toLowerCase().includes(kw.toLowerCase()));
 
     await supabase.from("inbox_messages").insert({
       user_id,
+      workspace_id: bizProfile.workspace_id,
       channel_type: channel_type || "website_chat",
       source_name: visitor_name || "AI Chat Visitor",
       sender_name: visitor_name || "Visitor",
@@ -243,12 +246,17 @@ serve(async (req) => {
       message_content: message,
       matched_keywords: matchedKws,
       priority: matchedKws.length > 0 ? "medium" : "normal",
-      metadata: { ai_conversation_id: conversation?.id, ai_auto_replied: isAutoReply },
+      metadata: {
+        business_id: bizProfile.id,
+        ai_conversation_id: conversation?.id,
+        ai_auto_replied: isAutoReply,
+      },
     });
 
     return new Response(JSON.stringify({
       reply,
       conversation_id: conversation?.id,
+      business_id: bizProfile.id,
       is_auto_reply: isAutoReply,
       complexity,
       ai_replies_used: currentUsed + 1,

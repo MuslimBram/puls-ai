@@ -23,16 +23,18 @@ serve(async (req) => {
     if (userError || !userData.user) throw new Error("Not authenticated");
     const userId = userData.user.id;
 
-    const { query, topic_filter, source_type, limit = 20 } = await req.json();
+    const { query, topic_filter, source_type, business_id, limit = 20 } = await req.json();
     if (!query) throw new Error("Query is required");
+    if (!business_id) throw new Error("business_id is required");
 
-    // Text search using ilike on content and topic_tags
     const searchTerms = query.toLowerCase().split(/\s+/).filter((t: string) => t.length > 2);
-    
+
     let dbQuery = supabase
       .from("knowledge_chunks")
-      .select("*, knowledge_sources!inner(source_name, source_type, source_url)")
+      .select("*, knowledge_sources!inner(source_name, source_type, source_url, business_id)")
       .eq("user_id", userId)
+      .eq("business_id", business_id)
+      .eq("knowledge_sources.business_id", business_id)
       .limit(Math.min(limit, 50));
 
     if (source_type) {
@@ -43,15 +45,12 @@ serve(async (req) => {
       dbQuery = dbQuery.contains("topic_tags", [topic_filter]);
     }
 
-    // Search by content using OR of ilike patterns
     if (searchTerms.length > 0) {
       const orConditions = searchTerms.map((term: string) => `content.ilike.%${term}%`).join(",");
       dbQuery = dbQuery.or(orConditions);
     }
 
-    const { data: chunks, error: searchError } = await dbQuery
-      .order("created_at", { ascending: false });
-
+    const { data: chunks, error: searchError } = await dbQuery.order("created_at", { ascending: false });
     if (searchError) throw searchError;
 
     return new Response(JSON.stringify({

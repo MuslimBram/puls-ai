@@ -18,50 +18,50 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { workspace_id, contact_identifier, new_message, channel_type } = await req.json();
-    if (!workspace_id || !contact_identifier) throw new Error("workspace_id and contact_identifier required");
+    const { workspace_id, business_id, contact_identifier, new_message, channel_type } = await req.json();
+    if (!workspace_id || !business_id || !contact_identifier) throw new Error("workspace_id, business_id and contact_identifier required");
 
-    // Get existing memory for this contact
     const { data: existing } = await supabase
       .from("ai_conversation_memory")
       .select("*")
       .eq("workspace_id", workspace_id)
+      .eq("business_id", business_id)
       .eq("contact_identifier", contact_identifier)
       .eq("memory_type", "conversation")
       .maybeSingle();
 
-    // Get recent conversation history
-    const { data: recentMessages } = await supabase
-      .from("inbox_messages")
-      .select("message_content, sender_name, message_timestamp, channel_type, direction")
+    const { data: recentConversations } = await supabase
+      .from("ai_conversations")
+      .select("visitor_message, ai_reply, visitor_name, created_at, channel_type")
       .eq("workspace_id", workspace_id)
-      .or(`sender_name.eq.${contact_identifier},sender_identifier.eq.${contact_identifier}`)
-      .order("message_timestamp", { ascending: false })
-      .limit(20);
+      .eq("business_id", business_id)
+      .or(`visitor_name.eq.${contact_identifier},visitor_email.eq.${contact_identifier}`)
+      .order("created_at", { ascending: false })
+      .limit(10);
 
-    // Get business profile for context
     const { data: bizProfile } = await supabase
       .from("business_profiles")
-      .select("business_name, main_services, target_audience, ai_tone")
+      .select("id, business_name, main_services, target_audience, ai_tone")
+      .eq("id", business_id)
       .eq("workspace_id", workspace_id)
       .maybeSingle();
 
-    // Get deal context if any
-    const { data: deals } = await supabase
-      .from("deals")
-      .select("title, stage_id, value, contact_name")
-      .eq("workspace_id", workspace_id)
-      .ilike("contact_name", `%${contact_identifier}%`)
-      .limit(3);
+    if (!bizProfile) throw new Error("Business context not found");
 
-    const conversationHistory = (recentMessages || []).map(m => 
-      `[${m.direction || 'in'}] ${m.sender_name}: ${(m.message_content || '').slice(0, 300)}`
-    ).join("\n");
+    const conversationHistory = (recentConversations || []).flatMap((conversation) => {
+      const lines = [] as string[];
+      if (conversation.visitor_message) {
+        lines.push(`[in] ${conversation.visitor_name || contact_identifier}: ${conversation.visitor_message.slice(0, 300)}`);
+      }
+      if (conversation.ai_reply) {
+        lines.push(`[out] ${bizProfile.business_name}: ${conversation.ai_reply.slice(0, 300)}`);
+      }
+      return lines;
+    }).join("\n");
 
     const previousSummary = existing?.summary || "No previous interactions recorded.";
     const previousFacts = existing?.key_facts || [];
 
-    // Build AI prompt for memory update + reply suggestion
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -73,27 +73,28 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are an AI conversation memory manager for "${bizProfile?.business_name || 'a business'}".
-Services: ${bizProfile?.main_services || 'N/A'}
-Tone: ${bizProfile?.ai_tone || 'professional'}
-${deals?.length ? `Active deals: ${deals.map(d => `${d.title} (${d.value})`).join(', ')}` : ''}
+            content: `You are an AI conversation memory manager for "${bizProfile.business_name}".
+Services: ${bizProfile.main_services || "N/A"}
+Tone: ${bizProfile.ai_tone || "professional"}
+Audience: ${bizProfile.target_audience || "N/A"}
+Business ID: ${bizProfile.id}
 
 Previous memory summary: ${previousSummary}
 Previous key facts: ${JSON.stringify(previousFacts)}
 
-Analyze the conversation and return JSON:
+Analyze only the conversation history for this business and return JSON:
 {
   "updated_summary": "Brief summary of relationship and conversation history (max 200 words)",
-  "key_facts": ["fact1", "fact2", ...],
+  "key_facts": ["fact1", "fact2"],
   "sentiment_trend": "positive|neutral|negative|mixed",
   "suggested_reply": "A suggested reply for the latest message considering full context",
-  "deal_suggestion": "Brief suggestion about deal progress or opportunity, or null"
+  "deal_suggestion": "Brief suggestion about opportunity, or null"
 }
 Only return valid JSON.`,
           },
           {
             role: "user",
-            content: `Recent conversation:\n${conversationHistory}\n\n${new_message ? `New message from contact: ${new_message}` : "Update memory from recent history."}`,
+            content: `Recent conversation for this business:\n${conversationHistory}\n\nChannel: ${channel_type || "unknown"}\n${new_message ? `New message from contact: ${new_message}` : "Update memory from recent history."}`,
           },
         ],
         temperature: 0.4,
@@ -113,9 +114,9 @@ Only return valid JSON.`,
       parsed = { updated_summary: content, key_facts: [], sentiment_trend: "neutral", suggested_reply: "" };
     }
 
-    // Upsert conversation memory
     const memoryData = {
       workspace_id,
+      business_id,
       contact_identifier,
       contact_name: contact_identifier,
       memory_type: "conversation" as const,
@@ -147,7 +148,7 @@ Only return valid JSON.`,
     });
   } catch (error) {
     console.error("AI memory error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
