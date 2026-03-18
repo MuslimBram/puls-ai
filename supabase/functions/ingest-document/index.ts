@@ -46,6 +46,7 @@ serve(async (req) => {
 
     const { file_path, file_name, content_text, business_id } = await req.json();
     
+    if (!business_id) throw new Error("business_id is required");
     if (!content_text && !file_path) throw new Error("Either content_text or file_path is required");
 
     let textContent = content_text || "";
