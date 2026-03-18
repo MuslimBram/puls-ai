@@ -277,6 +277,8 @@ serve(async (req) => {
 
         await supabase.from("knowledge_chunks").insert({
           user_id: userId,
+          workspace_id: business.workspace_id,
+          business_id,
           source_id: sourceId,
           content: chunk,
           summary: chunk.slice(0, 200),
