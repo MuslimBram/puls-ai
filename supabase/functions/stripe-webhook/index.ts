@@ -7,33 +7,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Dynamic product mapping — loaded from DB at runtime
+// Dynamic product mapping — loaded from pricing settings at runtime
+import { indexPlanPrices, indexPricingCatalogByProductId, loadPricingCatalogRows } from "../_shared/monetization-catalog.ts";
+
 let PRODUCT_MAP: Record<string, string> = {};
 let PLAN_PRICES: Record<string, number> = {};
 
 async function loadProductMap(supabase: any) {
-  if (Object.keys(PRODUCT_MAP).length > 0) return; // cached for this invocation
-  const { data } = await supabase
-    .from("stripe_product_plans")
-    .select("stripe_product_id, plan_name, monthly_price")
-    .eq("is_active", true);
-  if (data) {
-    for (const row of data) {
-      PRODUCT_MAP[row.stripe_product_id] = row.plan_name;
-      PLAN_PRICES[row.plan_name] = Number(row.monthly_price);
-    }
-  }
-  // Fallback if table is empty
-  if (Object.keys(PRODUCT_MAP).length === 0) {
-    PRODUCT_MAP = {
-      "prod_U8LrDc0TasNxNH": "standard",
-      "prod_U8Qdd9foXaeqnn": "standard",
-      "prod_U8Lr5611OwyJSV": "professional",
-      "prod_U8LrRodC8eZsTT": "advanced",
-      "prod_U8LsXPlxbqhpmK": "enterprise",
-    };
-    PLAN_PRICES = { standard: 29, professional: 79, advanced: 149, enterprise: 399 };
-  }
+  if (Object.keys(PRODUCT_MAP).length > 0) return;
+
+  const rows = await loadPricingCatalogRows(supabase);
+  PRODUCT_MAP = indexPricingCatalogByProductId(rows);
+  PLAN_PRICES = indexPlanPrices(rows);
 }
 
 const GRACE_PERIOD_DAYS = 7;
@@ -211,7 +196,8 @@ serve(async (req) => {
       if (!user) return;
 
       const productId = subscription.items.data[0]?.price?.product as string;
-      const plan = PRODUCT_MAP[productId] || "standard";
+      const metadataPlan = typeof subscription.metadata?.plan_key === "string" ? subscription.metadata.plan_key : null;
+      const plan = PRODUCT_MAP[productId] || metadataPlan || "standard";
       const status = subscription.status;
 
       const updateData: Record<string, any> = {
