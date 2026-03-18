@@ -1,20 +1,31 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { z } from "npm:zod@3.25.76";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const MEDIA_LIMITS: Record<string, { images: number; videos: number; maxSeconds: number }> = {
-  standard: { images: 5, videos: 0, maxSeconds: 0 },
-  professional: { images: 30, videos: 5, maxSeconds: 30 },
-  advanced: { images: 100, videos: 20, maxSeconds: 60 },
-  enterprise: { images: -1, videos: -1, maxSeconds: -1 },
-};
+const requestSchema = z.object({
+  mediaType: z.enum(["image", "video"]),
+  prompt: z.string().trim().min(4).max(4000),
+  durationSeconds: z.number().int().min(1).max(120).nullable().optional(),
+  workspaceId: z.string().uuid().nullable().optional(),
+});
 
-const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const IMAGE_MODEL = "google/gemini-3.1-flash-image-preview";
+const DEFAULT_POLICY = {
+  standard: { daily_image_limit: 5, daily_video_limit: 3, max_video_seconds: 10, allow_image_generation: true, allow_video_generation: true },
+  professional: { daily_image_limit: 25, daily_video_limit: 10, max_video_seconds: 20, allow_image_generation: true, allow_video_generation: true },
+  advanced: { daily_image_limit: 100, daily_video_limit: 30, max_video_seconds: 60, allow_image_generation: true, allow_video_generation: true },
+  enterprise: { daily_image_limit: 1000, daily_video_limit: 300, max_video_seconds: 120, allow_image_generation: true, allow_video_generation: true },
+} as const;
+
+const json = (body: unknown, init?: ResponseInit) =>
+  new Response(JSON.stringify(body), {
+    ...init,
+    headers: { ...corsHeaders, "Content-Type": "application/json", ...(init?.headers ?? {}) },
+  });
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -22,246 +33,194 @@ serve(async (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("No authorization header");
+    if (!authHeader) return json({ error: "Missing authorization header" }, { status: 401 });
 
-    const jwt = authHeader.replace("Bearer ", "");
-    const { data: userData, error: userError } = await supabase.auth.getUser(jwt);
-    if (userError || !userData.user) throw new Error("Not authenticated");
-    const user = userData.user;
+    const token = authHeader.replace("Bearer ", "");
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !authData.user) return json({ error: "Not authenticated" }, { status: 401 });
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
-    const { mediaType, prompt, durationSeconds, workspaceId } = await req.json();
-    if (!mediaType || !prompt) throw new Error("mediaType and prompt required");
-
-    // Get subscription
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("plan, images_generated_this_month, videos_generated_this_month")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    const plan = sub?.plan || "standard";
-    const planMap: Record<string, string> = { free: "standard", pro: "professional" };
-    const normalizedPlan = planMap[plan] || plan;
-    const limits = MEDIA_LIMITS[normalizedPlan] || MEDIA_LIMITS.standard;
-
-    // === Check limits ===
-    if (mediaType === "image") {
-      const used = sub?.images_generated_this_month || 0;
-      let addonRemaining = 0;
-      if (workspaceId) {
-        const { data: addons } = await supabase
-          .from("media_addons")
-          .select("remaining")
-          .eq("workspace_id", workspaceId)
-          .eq("addon_type", "image")
-          .gt("remaining", 0);
-        addonRemaining = (addons || []).reduce((s: number, a: any) => s + Number(a.remaining), 0);
-      }
-      if (limits.images !== -1 && used >= limits.images && addonRemaining <= 0) {
-        return new Response(JSON.stringify({
-          error: `Image limit reached (${used}/${limits.images}). Purchase addon credits.`,
-          allowed: false,
-        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
+    const parsed = requestSchema.safeParse(await req.json());
+    if (!parsed.success) {
+      return json({ error: parsed.error.issues[0]?.message || "Invalid request payload" }, { status: 400 });
     }
 
-    if (mediaType === "video") {
-      if (limits.videos === 0) {
-        return new Response(JSON.stringify({
-          error: "Video generation not available on your plan.",
-          allowed: false,
-        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      const used = sub?.videos_generated_this_month || 0;
-      if (limits.videos !== -1 && used >= limits.videos) {
-        return new Response(JSON.stringify({
-          error: `Video limit reached (${used}/${limits.videos}).`,
-          allowed: false,
-        }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      }
-      // Video not yet supported via AI gateway — return graceful message
-      return new Response(JSON.stringify({
-        error: "Video generation is coming soon. Image generation is fully available.",
-        allowed: false,
-      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
+    const { mediaType, prompt, durationSeconds, workspaceId } = parsed.data;
 
-    // === Create media generation record ===
-    const { data: gen, error: genErr } = await supabase.from("media_generations").insert({
-      workspace_id: workspaceId,
-      user_id: user.id,
-      media_type: mediaType,
-      prompt,
-      duration_seconds: durationSeconds || null,
-      status: "processing",
-    }).select("id").single();
-
-    if (genErr) throw genErr;
-
-    // === Call Lovable AI Gateway for image generation ===
-    console.log("Calling AI Gateway for image generation, gen:", gen.id);
-
-    const aiResponse = await fetch(AI_GATEWAY_URL, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: IMAGE_MODEL,
-        messages: [
-          {
-            role: "user",
-            content: `Generate an image based on this description: ${prompt}`,
-          },
-        ],
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error("AI Gateway error:", aiResponse.status, errText);
-
-      // Mark as failed
-      await supabase.from("media_generations").update({ status: "failed" }).eq("id", gen.id);
-
-      if (aiResponse.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again later.", allowed: false }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiResponse.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds.", allowed: false }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      throw new Error(`AI generation failed: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    console.log("AI response received, extracting image...");
-
-    // Extract image data from response
-    // Gemini image models return inline_data with base64 image in parts
-    let imageBase64: string | null = null;
-    let mimeType = "image/png";
-
-    const choice = aiData.choices?.[0];
-    if (choice?.message?.content) {
-      // Check if content is an array of parts (multimodal response)
-      const content = choice.message.content;
-      if (Array.isArray(content)) {
-        for (const part of content) {
-          if (part.type === "image_url" && part.image_url?.url) {
-            // data:image/png;base64,... format
-            const dataUrl = part.image_url.url;
-            const match = dataUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
-            if (match) {
-              mimeType = match[1];
-              imageBase64 = match[2];
-            }
-          } else if (part.inline_data) {
-            mimeType = part.inline_data.mime_type || "image/png";
-            imageBase64 = part.inline_data.data;
-          }
-        }
-      } else if (typeof content === "string") {
-        // Some models return base64 directly in text or as data URL
-        const dataUrlMatch = content.match(/data:(image\/[^;]+);base64,([A-Za-z0-9+/=]+)/);
-        if (dataUrlMatch) {
-          mimeType = dataUrlMatch[1];
-          imageBase64 = dataUrlMatch[2];
-        }
-      }
-    }
-
-    if (!imageBase64) {
-      console.error("No image data in AI response:", JSON.stringify(aiData).slice(0, 500));
-      await supabase.from("media_generations").update({
-        status: "failed",
-      }).eq("id", gen.id);
-      return new Response(JSON.stringify({
-        error: "AI model did not return image data. Please try a different prompt.",
-        allowed: false,
-      }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // === Upload to storage ===
-    const ext = mimeType === "image/jpeg" ? "jpg" : "png";
-    const filePath = `${user.id}/${gen.id}.${ext}`;
-
-    const imageBytes = Uint8Array.from(atob(imageBase64), (c) => c.charCodeAt(0));
-
-    const { error: uploadError } = await supabase.storage
-      .from("generated-media")
-      .upload(filePath, imageBytes, {
-        contentType: mimeType,
-        upsert: true,
+    if (workspaceId) {
+      const { data: isMember, error: memberError } = await supabase.rpc("is_workspace_member", {
+        _user_id: authData.user.id,
+        _workspace_id: workspaceId,
       });
 
-    if (uploadError) {
-      console.error("Storage upload error:", uploadError);
-      await supabase.from("media_generations").update({ status: "failed" }).eq("id", gen.id);
-      throw new Error("Failed to save generated image");
+      if (memberError) throw memberError;
+      if (!isMember) return json({ error: "Workspace access denied" }, { status: 403 });
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from("generated-media")
-      .getPublicUrl(filePath);
+    const { data: subscription, error: subscriptionError } = await supabase
+      .from("subscriptions")
+      .select("plan, workspace_id")
+      .eq("user_id", authData.user.id)
+      .maybeSingle();
 
-    const resultUrl = publicUrlData.publicUrl;
+    if (subscriptionError) throw subscriptionError;
 
-    // === Update record as completed ===
-    await supabase.from("media_generations").update({
-      status: "completed",
-      result_url: resultUrl,
-    }).eq("id", gen.id);
+    const normalizedPlan = (subscription?.plan === "free" ? "standard" : subscription?.plan || "standard") as keyof typeof DEFAULT_POLICY;
+    const policyFallback = DEFAULT_POLICY[normalizedPlan] ?? DEFAULT_POLICY.standard;
 
-    // === Increment usage counter ===
-    const field = "images_generated_this_month";
-    const currentVal = Number(sub?.images_generated_this_month) || 0;
-    await supabase.from("subscriptions").update({ [field]: currentVal + 1 }).eq("user_id", user.id);
+    const { data: policyRow, error: policyError } = await supabase
+      .from("media_usage_policy")
+      .select("*")
+      .eq("plan_key", normalizedPlan)
+      .maybeSingle();
 
-    // Deduct addon if over plan limit
-    if (limits.images !== -1 && currentVal >= limits.images && workspaceId) {
-      const { data: addon } = await supabase
-        .from("media_addons")
-        .select("id, remaining")
-        .eq("workspace_id", workspaceId)
-        .eq("addon_type", "image")
-        .gt("remaining", 0)
-        .order("purchased_at", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (addon) {
-        await supabase.from("media_addons").update({
-          remaining: Number(addon.remaining) - 1,
-        }).eq("id", addon.id);
+    if (policyError) throw policyError;
+
+    const policy = policyRow ?? { plan_key: normalizedPlan, ...policyFallback };
+    const resolvedWorkspaceId = workspaceId ?? subscription?.workspace_id ?? null;
+
+    if (mediaType === "image" && !policy.allow_image_generation) {
+      return json({ allowed: false, error: "Image generation is disabled for your current plan." });
+    }
+
+    if (mediaType === "video" && !policy.allow_video_generation) {
+      return json({ allowed: false, error: "Video generation is disabled for your current plan." });
+    }
+
+    if (mediaType === "video" && durationSeconds && policy.max_video_seconds !== -1 && durationSeconds > policy.max_video_seconds) {
+      return json({ allowed: false, error: `Video duration exceeds your current limit of ${policy.max_video_seconds} seconds.` });
+    }
+
+    const { data: providers, error: providerError } = await supabase
+      .from("media_provider_settings")
+      .select("*")
+      .eq("is_enabled", true)
+      .order("priority", { ascending: true });
+
+    if (providerError) throw providerError;
+
+    const selectedProvider = (providers ?? []).find((provider) => provider.media_types.includes(mediaType));
+    if (!selectedProvider) {
+      return json({ allowed: false, error: `No active ${mediaType} provider is configured.` });
+    }
+
+    let dailyUsage: any;
+    const { data: consumedUsage, error: consumeError } = await supabase.rpc("consume_media_quota", {
+      _user_id: authData.user.id,
+      _workspace_id: resolvedWorkspaceId,
+      _media_type: mediaType,
+      _image_limit: policy.daily_image_limit,
+      _video_limit: policy.daily_video_limit,
+    });
+
+    if (consumeError) {
+      const message = consumeError.message || "Unable to consume daily media quota";
+      if (message.includes("MEDIA_IMAGE_DAILY_LIMIT_REACHED")) {
+        return json({ allowed: false, error: `Daily image credits reached (${policy.daily_image_limit}/${policy.daily_image_limit}).` });
       }
+      if (message.includes("MEDIA_VIDEO_DAILY_LIMIT_REACHED")) {
+        return json({ allowed: false, error: `Daily video credits reached (${policy.daily_video_limit}/${policy.daily_video_limit}).` });
+      }
+      throw consumeError;
+    }
+    dailyUsage = consumedUsage;
+
+    const generationInsert = {
+      workspace_id: resolvedWorkspaceId,
+      user_id: authData.user.id,
+      media_type: mediaType,
+      duration_seconds: mediaType === "video" ? durationSeconds ?? Math.min(policy.max_video_seconds, 10) : null,
+      prompt,
+      status: "queued",
+      provider_key: selectedProvider.provider_key,
+      metadata: {
+        requested_at: new Date().toISOString(),
+        mock: selectedProvider.is_mock,
+        policy_plan_key: normalizedPlan,
+      },
+    };
+
+    const { data: generation, error: generationError } = await supabase
+      .from("media_generations")
+      .insert(generationInsert)
+      .select("id, media_type, duration_seconds, status, provider_key, created_at")
+      .single();
+
+    if (generationError) throw generationError;
+
+    const { data: job, error: jobError } = await supabase
+      .from("job_queue")
+      .insert({
+        user_id: authData.user.id,
+        workspace_id: resolvedWorkspaceId,
+        job_type: "media_generation",
+        job_payload: {
+          generation_id: generation.id,
+          media_type: mediaType,
+          provider_key: selectedProvider.provider_key,
+        },
+        status: "pending",
+        attempts: 0,
+        max_attempts: mediaType === "video" ? 8 : 4,
+        scheduled_for: new Date().toISOString(),
+        priority: mediaType === "video" ? 95 : 90,
+      })
+      .select("id")
+      .single();
+
+    if (jobError) throw jobError;
+
+    await supabase
+      .from("media_generations")
+      .update({ job_id: job.id, updated_at: new Date().toISOString() })
+      .eq("id", generation.id);
+
+    await supabase.from("media_usage_events").insert({
+      generation_id: generation.id,
+      user_id: authData.user.id,
+      workspace_id: resolvedWorkspaceId,
+      media_type: mediaType,
+      event_type: "requested",
+      status: "queued",
+      provider_key: selectedProvider.provider_key,
+      metadata: {
+        prompt_length: prompt.length,
+        duration_seconds: mediaType === "video" ? generation.duration_seconds : null,
+      },
+    });
+
+    const workerUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/job-worker`;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (anonKey) {
+      fetch(workerUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${anonKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ source: "generate-media" }),
+      }).catch((error) => console.error("Failed to trigger job-worker", error));
     }
 
-    console.log("Media generation completed:", gen.id, resultUrl);
-
-    return new Response(JSON.stringify({
+    return json({
       allowed: true,
-      generationId: gen.id,
-      resultUrl,
-      message: "Image generated successfully.",
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+      generationId: generation.id,
+      status: "queued",
+      providerKey: selectedProvider.provider_key,
+      message: `${mediaType === "video" ? "Video" : "Image"} job queued successfully.`,
+      usage: {
+        imagesRemaining: dailyUsage.image_limit === -1 ? null : Math.max(0, dailyUsage.image_limit - dailyUsage.image_count),
+        videosRemaining: dailyUsage.video_limit === -1 ? null : Math.max(0, dailyUsage.video_limit - dailyUsage.video_count),
+        resetsAt: dailyUsage.window_ends_at ?? null,
+      },
+    });
   } catch (error) {
     console.error("generate-media error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
   }
 });
