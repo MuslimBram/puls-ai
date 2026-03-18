@@ -3073,6 +3073,57 @@ export type Database = {
           },
         ]
       }
+      enterprise_leads: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          email: string
+          id: string
+          message: string | null
+          metadata: Json
+          name: string | null
+          phone: string | null
+          source: string
+          status: string
+          team_size: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          email: string
+          id?: string
+          message?: string | null
+          metadata?: Json
+          name?: string | null
+          phone?: string | null
+          source?: string
+          status?: string
+          team_size?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string | null
+          metadata?: Json
+          name?: string | null
+          phone?: string | null
+          source?: string
+          status?: string
+          team_size?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       escalation_log: {
         Row: {
           action_taken: string
@@ -5121,26 +5172,126 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_feature_rows: {
+        Row: {
+          advanced_value: Json
+          created_at: string
+          enterprise_value: Json
+          feature_key: string
+          feature_name: string
+          feature_tooltip: string | null
+          id: string
+          is_highlight: boolean
+          professional_value: Json
+          section_id: string
+          sort_order: number
+          standard_value: Json
+          updated_at: string
+        }
+        Insert: {
+          advanced_value?: Json
+          created_at?: string
+          enterprise_value?: Json
+          feature_key: string
+          feature_name: string
+          feature_tooltip?: string | null
+          id?: string
+          is_highlight?: boolean
+          professional_value?: Json
+          section_id: string
+          sort_order?: number
+          standard_value?: Json
+          updated_at?: string
+        }
+        Update: {
+          advanced_value?: Json
+          created_at?: string
+          enterprise_value?: Json
+          feature_key?: string
+          feature_name?: string
+          feature_tooltip?: string | null
+          id?: string
+          is_highlight?: boolean
+          professional_value?: Json
+          section_id?: string
+          sort_order?: number
+          standard_value?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_feature_rows_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "pricing_feature_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pricing_feature_sections: {
+        Row: {
+          created_at: string
+          default_expanded: boolean
+          description: string | null
+          id: string
+          is_active: boolean
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          default_expanded?: boolean
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          default_expanded?: boolean
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pricing_settings: {
         Row: {
           ai_replies_per_day_limit: number | null
           annual_price: number
           automation_rules_limit: number | null
+          badge_label: string | null
+          billing_interval: string
           channels_limit: number | null
           conversation_history_days: number | null
+          cta_label: string | null
           daily_image_limit: number
           daily_video_limit: number
           donation_label: string | null
           feature_entitlements: Json
+          highlight_plan: boolean
           id: string
           is_donation: boolean
+          is_public: boolean
           keywords_limit: number | null
           keywords_per_group_limit: number | null
           leads_per_month_limit: number | null
           max_video_seconds: number
           monthly_price: number
+          plan_description: string | null
           plan_key: string
+          plan_label: string | null
+          plan_name: string | null
           social_profiles_limit: number | null
+          sort_order: number | null
+          stripe_price_id: string | null
+          stripe_product_id: string | null
           team_members_limit: number | null
           updated_at: string
           updated_by: string | null
@@ -5149,21 +5300,32 @@ export type Database = {
           ai_replies_per_day_limit?: number | null
           annual_price?: number
           automation_rules_limit?: number | null
+          badge_label?: string | null
+          billing_interval?: string
           channels_limit?: number | null
           conversation_history_days?: number | null
+          cta_label?: string | null
           daily_image_limit?: number
           daily_video_limit?: number
           donation_label?: string | null
           feature_entitlements?: Json
+          highlight_plan?: boolean
           id?: string
           is_donation?: boolean
+          is_public?: boolean
           keywords_limit?: number | null
           keywords_per_group_limit?: number | null
           leads_per_month_limit?: number | null
           max_video_seconds?: number
           monthly_price?: number
+          plan_description?: string | null
           plan_key: string
+          plan_label?: string | null
+          plan_name?: string | null
           social_profiles_limit?: number | null
+          sort_order?: number | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
           team_members_limit?: number | null
           updated_at?: string
           updated_by?: string | null
@@ -5172,21 +5334,32 @@ export type Database = {
           ai_replies_per_day_limit?: number | null
           annual_price?: number
           automation_rules_limit?: number | null
+          badge_label?: string | null
+          billing_interval?: string
           channels_limit?: number | null
           conversation_history_days?: number | null
+          cta_label?: string | null
           daily_image_limit?: number
           daily_video_limit?: number
           donation_label?: string | null
           feature_entitlements?: Json
+          highlight_plan?: boolean
           id?: string
           is_donation?: boolean
+          is_public?: boolean
           keywords_limit?: number | null
           keywords_per_group_limit?: number | null
           leads_per_month_limit?: number | null
           max_video_seconds?: number
           monthly_price?: number
+          plan_description?: string | null
           plan_key?: string
+          plan_label?: string | null
+          plan_name?: string | null
           social_profiles_limit?: number | null
+          sort_order?: number | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
           team_members_limit?: number | null
           updated_at?: string
           updated_by?: string | null
