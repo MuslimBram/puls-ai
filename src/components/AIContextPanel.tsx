@@ -7,6 +7,7 @@ import { useContactMemory, useRefreshMemory, useLeadScore } from "@/hooks/useAIC
 import { toast } from "@/components/ui/sonner";
 
 interface AIContextPanelProps {
+  businessId?: string;
   contactIdentifier?: string;
   contactName?: string;
   leadId?: string;
@@ -34,21 +35,23 @@ const sentimentVariant = (trend: string | null): "default" | "secondary" | "dest
 };
 
 export const AIContextPanel = ({
+  businessId,
   contactIdentifier,
   contactName,
   leadId,
   channelType,
   latestMessage,
 }: AIContextPanelProps) => {
-  const { data: memory, isLoading: memoryLoading } = useContactMemory(contactIdentifier);
+  const { data: memory, isLoading: memoryLoading } = useContactMemory(contactIdentifier, businessId);
   const { data: leadScore } = useLeadScore(leadId);
   const refreshMemory = useRefreshMemory();
   const [suggestedReply, setSuggestedReply] = useState<string | null>(null);
   const [dealSuggestion, setDealSuggestion] = useState<string | null>(null);
 
   const handleRefresh = async () => {
-    if (!contactIdentifier) return;
+    if (!contactIdentifier || !businessId) return;
     const result = await refreshMemory.mutateAsync({
+      businessId,
       contactIdentifier,
       newMessage: latestMessage,
       channelType,
@@ -62,7 +65,7 @@ export const AIContextPanel = ({
     toast.success("Copied to clipboard");
   };
 
-  if (!contactIdentifier) return null;
+  if (!contactIdentifier || !businessId) return null;
 
   return (
     <Card className="border-primary/20">

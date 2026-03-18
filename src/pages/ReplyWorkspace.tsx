@@ -12,7 +12,7 @@ import { useLeads } from "@/hooks/useLeads";
 import { useReplyDrafts, useReplyTemplates, useGenerateReply } from "@/hooks/useReplyWorkspace";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile";
 import { AIContextPanel } from "@/components/AIContextPanel";
-import { Copy, RefreshCw, Star, Trash2, Plus, MessageSquare, Save } from "lucide-react";
+import { Copy, RefreshCw, Star, Trash2, Plus, MessageSquare, Save, Building2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 
@@ -31,7 +31,7 @@ const ReplyWorkspace = () => {
 
   const { leads } = useLeads();
   const lead = useMemo(() => leads.find((l) => l.id === leadId), [leads, leadId]);
-  const { profile } = useBusinessProfile();
+  const { profile, profiles, activeBusinessId, setActiveBusinessId } = useBusinessProfile();
   const { drafts, saveDraft, setPreferred, deleteDraft } = useReplyDrafts(leadId, inboxMessageId);
   const { templates, addTemplate, deleteTemplate } = useReplyTemplates();
   const generateReply = useGenerateReply();
@@ -47,14 +47,21 @@ const ReplyWorkspace = () => {
       toast.error("No lead selected");
       return;
     }
-    const selectedTone = tone === "custom" ? (profile?.ai_tone || "professional") : tone;
+
+    if (!profile?.id || !activeBusinessId) {
+      toast.error("Select a business profile before generating a reply");
+      return;
+    }
+
+    const selectedTone = tone === "custom" ? (profile.ai_tone || "professional") : tone;
     const result = await generateReply.mutateAsync({
       message: lead.message_content,
       senderName: lead.source_name,
       channelType: lead.source_type,
       keywords: lead.detected_keyword ? [lead.detected_keyword] : [],
       tone: selectedTone,
-      businessProfile: profile,
+      businessId: activeBusinessId,
+      workspaceId: profile.workspace_id,
     });
     setGeneratedReply(result.reply);
   };
@@ -115,7 +122,32 @@ const ReplyWorkspace = () => {
   return (
     <DashboardLayout>
       <div className="space-y-4">
-        {/* Lead Context */}
+        {profiles.length > 1 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Building2 className="h-5 w-5 text-primary" />
+                Active Business Context
+              </CardTitle>
+              <CardDescription>All AI replies and memory in this workspace now use the selected business only.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Select value={activeBusinessId ?? undefined} onValueChange={setActiveBusinessId}>
+                <SelectTrigger className="w-full sm:w-80">
+                  <SelectValue placeholder="Select business" />
+                </SelectTrigger>
+                <SelectContent>
+                  {profiles.map((business) => (
+                    <SelectItem key={business.id} value={business.id}>
+                      {business.business_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </CardContent>
+          </Card>
+        )}
+
         {lead && (
           <Card>
             <CardHeader>
@@ -150,9 +182,9 @@ const ReplyWorkspace = () => {
           </Card>
         )}
 
-        {/* AI Context Panel */}
-        {lead && (
+        {lead && activeBusinessId && (
           <AIContextPanel
+            businessId={activeBusinessId}
             contactIdentifier={lead.source_name}
             contactName={lead.source_name}
             leadId={lead.id}
@@ -161,13 +193,18 @@ const ReplyWorkspace = () => {
           />
         )}
 
-        {/* Reply Generator */}
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Generate Reply</CardTitle>
             <CardDescription>Select a tone and generate an AI-powered reply.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {profile && (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm text-foreground">
+                Replying as <span className="font-medium">{profile.business_name}</span>
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-3">
               <Select value={tone} onValueChange={setTone}>
                 <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
@@ -177,7 +214,7 @@ const ReplyWorkspace = () => {
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={handleGenerate} disabled={generateReply.isPending}>
+              <Button onClick={handleGenerate} disabled={generateReply.isPending || !activeBusinessId}>
                 <RefreshCw className={`h-4 w-4 mr-1 ${generateReply.isPending ? "animate-spin" : ""}`} />
                 {generateReply.isPending ? "Generating..." : "Generate Reply"}
               </Button>
@@ -195,7 +232,7 @@ const ReplyWorkspace = () => {
                   <Button size="sm" variant="outline" onClick={() => copyText(generatedReply)}>
                     <Copy className="h-3 w-3 mr-1" /> Copy
                   </Button>
-                  <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generateReply.isPending}>
+                  <Button size="sm" variant="outline" onClick={handleGenerate} disabled={generateReply.isPending || !activeBusinessId}>
                     <RefreshCw className="h-3 w-3 mr-1" /> Regenerate
                   </Button>
                   <Button size="sm" onClick={handleSaveDraft} disabled={saveDraft.isPending}>
@@ -216,7 +253,6 @@ const ReplyWorkspace = () => {
           </CardContent>
         </Card>
 
-        {/* Templates */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -254,7 +290,6 @@ const ReplyWorkspace = () => {
           </CardContent>
         </Card>
 
-        {/* Saved Drafts */}
         {drafts.length > 0 && (
           <Card>
             <CardHeader>
@@ -289,7 +324,6 @@ const ReplyWorkspace = () => {
           </Card>
         )}
 
-        {/* Template Form Dialog */}
         <Dialog open={showTemplateForm} onOpenChange={setShowTemplateForm}>
           <DialogContent>
             <DialogHeader>

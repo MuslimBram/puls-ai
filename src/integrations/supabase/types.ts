@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       ai_conversation_memory: {
         Row: {
+          business_id: string | null
           contact_identifier: string
           contact_name: string | null
           created_at: string
@@ -31,6 +32,7 @@ export type Database = {
           workspace_id: string | null
         }
         Insert: {
+          business_id?: string | null
           contact_identifier: string
           contact_name?: string | null
           created_at?: string
@@ -46,6 +48,7 @@ export type Database = {
           workspace_id?: string | null
         }
         Update: {
+          business_id?: string | null
           contact_identifier?: string
           contact_name?: string | null
           created_at?: string
@@ -62,6 +65,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "ai_conversation_memory_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ai_conversation_memory_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
@@ -73,6 +83,7 @@ export type Database = {
       ai_conversations: {
         Row: {
           ai_reply: string | null
+          business_id: string | null
           channel_type: string
           complexity: string
           created_at: string
@@ -90,6 +101,7 @@ export type Database = {
         }
         Insert: {
           ai_reply?: string | null
+          business_id?: string | null
           channel_type?: string
           complexity?: string
           created_at?: string
@@ -107,6 +119,7 @@ export type Database = {
         }
         Update: {
           ai_reply?: string | null
+          business_id?: string | null
           channel_type?: string
           complexity?: string
           created_at?: string
@@ -123,6 +136,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_conversations_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_conversations_workspace_id_fkey"
             columns: ["workspace_id"]

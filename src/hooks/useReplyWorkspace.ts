@@ -1,6 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 
 export const useReplyDrafts = (leadId?: string, inboxMessageId?: string) => {
@@ -49,7 +50,6 @@ export const useReplyDrafts = (leadId?: string, inboxMessageId?: string) => {
 
   const setPreferred = useMutation({
     mutationFn: async (id: string) => {
-      // Unset all preferred for this lead/message
       if (leadId) {
         await supabase
           .from("reply_drafts")
@@ -125,6 +125,9 @@ export const useReplyTemplates = () => {
 };
 
 export const useGenerateReply = () => {
+  const { user } = useAuth();
+  const { workspace } = useWorkspace();
+
   return useMutation({
     mutationFn: async (params: {
       message: string;
@@ -132,10 +135,18 @@ export const useGenerateReply = () => {
       channelType?: string;
       keywords?: string[];
       tone: string;
-      businessProfile?: any;
+      businessId: string;
+      workspaceId?: string | null;
       template?: string;
     }) => {
-      const { data, error } = await supabase.functions.invoke("generate-reply", { body: params });
+      const { data, error } = await supabase.functions.invoke("generate-reply", {
+        body: {
+          ...params,
+          user_id: user?.id,
+          workspace_id: params.workspaceId ?? workspace?.id ?? null,
+          business_id: params.businessId,
+        },
+      });
       if (error) throw error;
       return data as { reply: string };
     },

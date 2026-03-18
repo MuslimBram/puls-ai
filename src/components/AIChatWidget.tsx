@@ -9,10 +9,12 @@ import { toast } from "@/components/ui/sonner";
 
 interface AIChatWidgetProps {
   userId?: string;
+  businessId?: string;
+  workspaceId?: string;
   businessName?: string;
 }
 
-export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) => {
+export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: AIChatWidgetProps = {}) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -31,6 +33,8 @@ export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) =
       const { data, error } = await supabase.functions.invoke("dedicated-ai-reply", {
         body: {
           user_id: userId,
+          business_id: businessId,
+          workspace_id: workspaceId,
           visitor_name: name || undefined,
           visitor_email: email || undefined,
           message: message.trim(),
@@ -40,8 +44,8 @@ export const AIChatWidget = ({ userId, businessName }: AIChatWidgetProps = {}) =
       if (error) throw error;
       setReply(data.reply);
       setConversationId(data.conversation_id);
-    } catch {
-      toast.error("Failed to send message");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send message");
     }
     setSending(false);
   };
