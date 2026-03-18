@@ -160,7 +160,14 @@ export const useMediaUsage = (): MediaUsageStatus => {
     refetchInterval: 30000,
   });
 
-  return query.data ?? {
+  if (query.data) {
+    return {
+      ...query.data,
+      isLoading: query.isLoading,
+    };
+  }
+
+  return {
     planKey: currentPlanKey,
     imagesUsedToday: 0,
     imagesLimit: getFallbackPolicy(currentPlanKey).daily_image_limit,

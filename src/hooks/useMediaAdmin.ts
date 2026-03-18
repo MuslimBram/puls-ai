@@ -69,7 +69,7 @@ export const useUpsertMediaProviderSetting = () => {
         {
           ...payload,
           updated_by: user?.id ?? null,
-        },
+        } as any,
         { onConflict: "provider_key" },
       );
 
