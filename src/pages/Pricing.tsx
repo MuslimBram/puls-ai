@@ -22,7 +22,7 @@ import type { PlanKey } from "@/types/monetization";
 const Pricing = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [annual, setAnnual] = useState(false);
+  const annualCheckoutAvailable = false;
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState({
