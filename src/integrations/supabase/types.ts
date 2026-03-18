@@ -4124,6 +4124,51 @@ export type Database = {
           },
         ]
       }
+      media_provider_credentials: {
+        Row: {
+          created_at: string
+          credential_label: string | null
+          credential_type: string
+          encrypted_secret: string
+          id: string
+          is_valid: boolean
+          last_validated_at: string | null
+          last_validation_error: string | null
+          provider_key: string
+          secret_hint: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          credential_label?: string | null
+          credential_type?: string
+          encrypted_secret: string
+          id?: string
+          is_valid?: boolean
+          last_validated_at?: string | null
+          last_validation_error?: string | null
+          provider_key: string
+          secret_hint?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          credential_label?: string | null
+          credential_type?: string
+          encrypted_secret?: string
+          id?: string
+          is_valid?: boolean
+          last_validated_at?: string | null
+          last_validation_error?: string | null
+          provider_key?: string
+          secret_hint?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       media_provider_settings: {
         Row: {
           api_secret_name: string | null
