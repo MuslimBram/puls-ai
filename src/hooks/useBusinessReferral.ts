@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { PACKAGE_VARIANTS } from "@/config/plans";
 
 export interface BusinessReferralCode {
   id: string;
@@ -115,7 +114,6 @@ export const useGenerateReferralCode = () => {
       } as any);
       if (error) throw error;
 
-      // Mark subscription as referral eligible
       await supabase.from("subscriptions").update({
         referral_eligible: true,
         referral_eligible_at: new Date().toISOString(),

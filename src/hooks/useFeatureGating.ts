@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useSubscription } from "./useSubscription";
 import { useRolePermissions } from "./useRolePermissions";
-import type { PlanFeatures, PlanKey } from "@/config/plans";
+import type { PlanFeatures, PlanKey } from "@/types/monetization";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 
 export interface FeatureGate {
@@ -22,11 +22,13 @@ export interface UsageStatus {
 export const useFeatureGating = () => {
   const { currentPlan, subscription, stripeData, refetchStripe } = useSubscription();
   const { permissions } = useRolePermissions();
-  const { plansByKey, planOrder } = useMonetizationCatalog();
+  const { plansByKey, planOrder, defaultPlanKey } = useMonetizationCatalog();
 
-  const fallbackPlanKey = (planOrder[0] as PlanKey | undefined) ?? "standard";
+  const highestPlanKey = (planOrder[planOrder.length - 1] as PlanKey | undefined) ?? defaultPlanKey;
+  const fallbackPlanKey = defaultPlanKey;
+
   const plan = useMemo(() => {
-    const key = (currentPlan as PlanKey) in plansByKey ? (currentPlan as PlanKey) : fallbackPlanKey;
+    const key = currentPlan in plansByKey ? (currentPlan as PlanKey) : fallbackPlanKey;
     return plansByKey[key] ?? plansByKey[fallbackPlanKey] ?? null;
   }, [currentPlan, plansByKey, fallbackPlanKey]);
 
@@ -41,7 +43,7 @@ export const useFeatureGating = () => {
       return { allowed: true, requiredPlan: plan.key, currentPlan: plan.key };
     }
 
-    const requiredPlan = ((planOrder as PlanKey[]).find((planKey) => plansByKey[planKey]?.features[feature]) ?? "enterprise") as PlanKey;
+    const requiredPlan = (planOrder.find((planKey) => plansByKey[planKey]?.features[feature]) ?? highestPlanKey) as PlanKey;
     return { allowed: false, requiredPlan, currentPlan: plan.key };
   };
 
