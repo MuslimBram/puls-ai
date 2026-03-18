@@ -51,7 +51,7 @@ serve(async (req) => {
     let formattedUrl = url.trim();
     if (!formattedUrl.startsWith("http")) formattedUrl = `https://${formattedUrl}`;
 
-    // Check for cached scan - skip if source was scanned less than 24h ago
+    if (!business_id) throw new Error("business_id is required");
     if (source_id && !force_rescan) {
       const { data: existingSource } = await supabase
         .from("knowledge_sources")

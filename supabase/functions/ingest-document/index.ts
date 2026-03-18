@@ -44,7 +44,7 @@ serve(async (req) => {
     if (userError || !userData.user) throw new Error("Not authenticated");
     const userId = userData.user.id;
 
-    const { file_path, file_name, content_text } = await req.json();
+    const { file_path, file_name, content_text, business_id } = await req.json();
     
     if (!content_text && !file_path) throw new Error("Either content_text or file_path is required");
 
