@@ -1,17 +1,16 @@
-import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AdminBusinessScanPanel } from "@/components/AdminBusinessScanPanel";
+import { AdminPricingManager } from "@/components/AdminPricingManager";
+import { AdminEnterpriseLeadPanel } from "@/components/AdminEnterpriseLeadPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
-import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, CreditCard, ShieldCheck, Ban, RotateCcw, Crown, FileText, Handshake, CheckCircle, XCircle, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch } from "lucide-react";
+import { Users, Building2, Target, Radio, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch, FileText, Handshake, CheckCircle, XCircle, Ban, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
@@ -30,8 +29,6 @@ const Admin = () => {
   const { profiles, businesses, leads, channels, subscriptions, auditLogs, isLoading } = useAdminData();
   const { suspendUser, resetUsage, updatePlan } = useAdminActions();
   const { partners, approvePartner, rejectPartner } = useAdminPartners();
-  const { settings: pricingSettings, updatePrice } = usePricingSettings();
-  const [editPrices, setEditPrices] = useState<Record<string, { monthly: string; annual: string; label: string }>>({});
 
   if (roleLoading) {
     return (
