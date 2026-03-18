@@ -17,7 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Building2, Heart, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
-import type { PlanKey } from "@/config/plans";
+import type { PlanKey } from "@/types/monetization";
 
 const Pricing = () => {
   const navigate = useNavigate();

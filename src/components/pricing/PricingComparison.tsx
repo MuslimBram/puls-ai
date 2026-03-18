@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { PlanKey } from "@/config/plans";
+import type { PlanKey } from "@/types/monetization";
 import type { PricingComparisonSection } from "@/hooks/useMonetizationCatalog";
 import { cn } from "@/lib/utils";
 import { Check, ChevronDown, HelpCircle, Minus, X } from "lucide-react";

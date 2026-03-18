@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { PlanKey } from "@/config/plans";
+import type { PlanKey } from "@/types/monetization";
 import { ArrowDown, ArrowUp, Check, Crown, Loader2, Sparkles } from "lucide-react";
 import {
   formatLimitValue,

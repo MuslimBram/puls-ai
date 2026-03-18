@@ -14,7 +14,7 @@ import { useIsAdmin } from "@/hooks/useAdmin";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { EXTERNAL_INTEGRATIONS, CATEGORY_LABELS } from "@/integrations/external/registry";
 import { IntegrationDefinition } from "@/integrations/external/types";
-import type { PlanKey } from "@/config/plans";
+import type { PlanKey } from "@/types/monetization";
 import {
   BarChart3, Search, MessageSquare, Phone, Calendar, Layers,
   Share2, Bot, Eye, Settings2, Lock, Crown, CheckCircle2,

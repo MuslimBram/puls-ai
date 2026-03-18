@@ -8,7 +8,7 @@ import { Check, Zap, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import type { PlanKey } from "@/config/plans";
+import type { PlanKey } from "@/types/monetization";
 
 interface UpgradeModalProps {
   open: boolean;
