@@ -2,11 +2,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useActiveBusinessProfile } from "@/hooks/useBusinessProfile";
 import { toast } from "@/components/ui/sonner";
 
 export interface ConversationMemory {
   id: string;
   workspace_id: string;
+  business_id?: string | null;
   contact_identifier: string;
   contact_name: string | null;
   memory_type: string;
@@ -19,44 +21,60 @@ export interface ConversationMemory {
   updated_at: string;
 }
 
-export const useContactMemory = (contactIdentifier?: string) => {
+export const useContactMemory = (contactIdentifier?: string, businessId?: string) => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
+  const { profile: activeBusiness } = useActiveBusinessProfile();
+  const resolvedBusinessId = businessId ?? activeBusiness?.id;
 
   return useQuery({
-    queryKey: ["ai-memory", workspace?.id, contactIdentifier],
+    queryKey: ["ai-memory", workspace?.id, resolvedBusinessId, contactIdentifier],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("ai_conversation_memory")
         .select("*")
         .eq("workspace_id", workspace!.id)
         .eq("contact_identifier", contactIdentifier!)
-        .eq("memory_type", "conversation")
-        .maybeSingle();
+        .eq("memory_type", "conversation");
+
+      if (resolvedBusinessId) {
+        query = query.eq("business_id", resolvedBusinessId);
+      }
+
+      const { data, error } = await query.maybeSingle();
       if (error) throw error;
       return data as ConversationMemory | null;
     },
-    enabled: !!user && !!workspace?.id && !!contactIdentifier,
+    enabled: !!user && !!workspace?.id && !!contactIdentifier && !!resolvedBusinessId,
   });
 };
 
 export const useRefreshMemory = () => {
   const qc = useQueryClient();
   const { workspace } = useWorkspace();
+  const { profile: activeBusiness } = useActiveBusinessProfile();
 
   return useMutation({
     mutationFn: async ({
       contactIdentifier,
       newMessage,
       channelType,
+      businessId,
     }: {
       contactIdentifier: string;
       newMessage?: string;
       channelType?: string;
+      businessId?: string;
     }) => {
+      const resolvedBusinessId = businessId ?? activeBusiness?.id;
+      if (!workspace?.id || !resolvedBusinessId) {
+        throw new Error("Select a business before refreshing AI memory.");
+      }
+
       const { data, error } = await supabase.functions.invoke("ai-conversation-memory", {
         body: {
-          workspace_id: workspace!.id,
+          workspace_id: workspace.id,
+          business_id: resolvedBusinessId,
           contact_identifier: contactIdentifier,
           new_message: newMessage,
           channel_type: channelType,
@@ -71,7 +89,8 @@ export const useRefreshMemory = () => {
       };
     },
     onSuccess: (_, vars) => {
-      qc.invalidateQueries({ queryKey: ["ai-memory", workspace?.id, vars.contactIdentifier] });
+      const resolvedBusinessId = vars.businessId ?? activeBusiness?.id;
+      qc.invalidateQueries({ queryKey: ["ai-memory", workspace?.id, resolvedBusinessId, vars.contactIdentifier] });
       toast.success("AI memory updated");
     },
     onError: (e) => toast.error(e.message),
