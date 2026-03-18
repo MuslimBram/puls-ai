@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { z } from "npm:zod@3.25.76";
+import { loadPricingMediaPolicy, normalizeSubscriptionPlan } from "../_shared/media-policy.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,13 +15,6 @@ const requestSchema = z.object({
   workspaceId: z.string().uuid().nullable().optional(),
   businessId: z.string().uuid(),
 });
-
-const DEFAULT_POLICY = {
-  standard: { daily_image_limit: 5, daily_video_limit: 3, max_video_seconds: 10, allow_image_generation: true, allow_video_generation: true },
-  professional: { daily_image_limit: 25, daily_video_limit: 10, max_video_seconds: 20, allow_image_generation: true, allow_video_generation: true },
-  advanced: { daily_image_limit: 100, daily_video_limit: 30, max_video_seconds: 60, allow_image_generation: true, allow_video_generation: true },
-  enterprise: { daily_image_limit: 1000, daily_video_limit: 300, max_video_seconds: 120, allow_image_generation: true, allow_video_generation: true },
-} as const;
 
 const json = (body: unknown, init?: ResponseInit) =>
   new Response(JSON.stringify(body), {
@@ -70,18 +64,12 @@ serve(async (req) => {
 
     if (subscriptionError) throw subscriptionError;
 
-    const normalizedPlan = (subscription?.plan === "free" ? "standard" : subscription?.plan || "standard") as keyof typeof DEFAULT_POLICY;
-    const policyFallback = DEFAULT_POLICY[normalizedPlan] ?? DEFAULT_POLICY.standard;
+    const normalizedPlan = normalizeSubscriptionPlan(subscription?.plan);
+    if (!normalizedPlan) {
+      return json({ error: "Subscription plan unavailable." }, { status: 409 });
+    }
 
-    const { data: policyRow, error: policyError } = await supabase
-      .from("media_usage_policy")
-      .select("*")
-      .eq("plan_key", normalizedPlan)
-      .maybeSingle();
-
-    if (policyError) throw policyError;
-
-    const policy = policyRow ?? { plan_key: normalizedPlan, ...policyFallback };
+    const policy = await loadPricingMediaPolicy(supabase, normalizedPlan);
     const resolvedWorkspaceId = workspaceId ?? subscription?.workspace_id ?? null;
 
     const { data: businessProfile, error: businessError } = await supabase
@@ -97,16 +85,16 @@ serve(async (req) => {
       return json({ error: "Business does not belong to the active workspace." }, { status: 403 });
     }
 
-    if (mediaType === "image" && !policy.allow_image_generation) {
+    if (mediaType === "image" && !policy.allowImageGeneration) {
       return json({ allowed: false, error: "Image generation is disabled for your current plan." });
     }
 
-    if (mediaType === "video" && !policy.allow_video_generation) {
+    if (mediaType === "video" && !policy.allowVideoGeneration) {
       return json({ allowed: false, error: "Video generation is disabled for your current plan." });
     }
 
-    if (mediaType === "video" && durationSeconds && policy.max_video_seconds !== -1 && durationSeconds > policy.max_video_seconds) {
-      return json({ allowed: false, error: `Video duration exceeds your current limit of ${policy.max_video_seconds} seconds.` });
+    if (mediaType === "video" && durationSeconds && policy.maxVideoSeconds !== -1 && durationSeconds > policy.maxVideoSeconds) {
+      return json({ allowed: false, error: `Video duration exceeds your current limit of ${policy.maxVideoSeconds} seconds.` });
     }
 
     const { data: providers, error: providerError } = await supabase
@@ -127,28 +115,33 @@ serve(async (req) => {
       _user_id: authData.user.id,
       _workspace_id: resolvedWorkspaceId,
       _media_type: mediaType,
-      _image_limit: policy.daily_image_limit,
-      _video_limit: policy.daily_video_limit,
+      _image_limit: policy.dailyImageLimit,
+      _video_limit: policy.dailyVideoLimit,
     });
 
     if (consumeError) {
       const message = consumeError.message || "Unable to consume daily media quota";
       if (message.includes("MEDIA_IMAGE_DAILY_LIMIT_REACHED")) {
-        return json({ allowed: false, error: `Daily image credits reached (${policy.daily_image_limit}/${policy.daily_image_limit}).` });
+        return json({ allowed: false, error: `Daily image credits reached (${policy.dailyImageLimit}/${policy.dailyImageLimit}).` });
       }
       if (message.includes("MEDIA_VIDEO_DAILY_LIMIT_REACHED")) {
-        return json({ allowed: false, error: `Daily video credits reached (${policy.daily_video_limit}/${policy.daily_video_limit}).` });
+        return json({ allowed: false, error: `Daily video credits reached (${policy.dailyVideoLimit}/${policy.dailyVideoLimit}).` });
       }
       throw consumeError;
     }
     dailyUsage = consumedUsage;
+
+    const resolvedDurationSeconds =
+      mediaType === "video"
+        ? durationSeconds ?? (policy.maxVideoSeconds === -1 ? null : policy.maxVideoSeconds)
+        : null;
 
     const generationInsert = {
       workspace_id: resolvedWorkspaceId,
       business_id: businessProfile.id,
       user_id: authData.user.id,
       media_type: mediaType,
-      duration_seconds: mediaType === "video" ? durationSeconds ?? Math.min(policy.max_video_seconds, 10) : null,
+      duration_seconds: resolvedDurationSeconds,
       prompt,
       status: "queued",
       provider_key: selectedProvider.provider_key,

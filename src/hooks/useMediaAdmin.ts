@@ -1,13 +1,13 @@
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 import { useIsAdmin } from "@/hooks/useAdmin";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
 
 type MediaProviderSetting = Database["public"]["Tables"]["media_provider_settings"]["Row"];
-type MediaUsagePolicy = Database["public"]["Tables"]["media_usage_policy"]["Row"];
+type PricingSettingRow = Database["public"]["Tables"]["pricing_settings"]["Row"];
 type MediaGenerationError = Database["public"]["Tables"]["media_generation_errors"]["Row"];
 type MediaUsageEvent = Database["public"]["Tables"]["media_usage_events"]["Row"];
 
@@ -22,7 +22,24 @@ export interface MediaProviderCredentialSummary {
   updatedAt: string;
 }
 
+export interface MediaUsagePolicy {
+  id: string;
+  plan_key: string;
+  daily_image_limit: number;
+  daily_video_limit: number;
+  max_video_seconds: number;
+  media_generation_enabled: boolean;
+}
+
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+const asEntitlements = (value: Json | null): Record<string, boolean> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, boolean>>((acc, [key, entry]) => {
+    if (typeof entry === "boolean") acc[key] = entry;
+    return acc;
+  }, {});
+};
 
 export const useMediaProviderSettings = () => {
   const { isAdmin } = useIsAdmin();
@@ -67,12 +84,26 @@ export const useMediaUsagePolicies = () => {
     queryKey: ["admin-media-usage-policies"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("media_usage_policy")
+        .from("pricing_settings")
         .select("*")
+        .order("sort_order", { ascending: true })
         .order("plan_key", { ascending: true });
 
       if (error) throw error;
-      return (data ?? []) as MediaUsagePolicy[];
+
+      return ((data ?? []) as PricingSettingRow[])
+        .filter((row) => !row.is_donation)
+        .map<MediaUsagePolicy>((row) => {
+          const entitlements = asEntitlements(row.feature_entitlements);
+          return {
+            id: row.id,
+            plan_key: row.plan_key,
+            daily_image_limit: row.daily_image_limit ?? 0,
+            daily_video_limit: row.daily_video_limit ?? 0,
+            max_video_seconds: row.max_video_seconds ?? 0,
+            media_generation_enabled: Boolean(entitlements.mediaGeneration),
+          };
+        });
     },
     enabled: isAdmin,
   });
@@ -174,27 +205,41 @@ export const useUpdateMediaUsagePolicy = () => {
       daily_image_limit: number;
       daily_video_limit: number;
       max_video_seconds: number;
-      allow_image_generation: boolean;
-      allow_video_generation: boolean;
+      media_generation_enabled: boolean;
     }) => {
+      const { data: existing, error: existingError } = await supabase
+        .from("pricing_settings")
+        .select("feature_entitlements")
+        .eq("id", payload.id)
+        .single();
+
+      if (existingError) throw existingError;
+
+      const featureEntitlements = {
+        ...asEntitlements((existing?.feature_entitlements ?? null) as Json | null),
+        mediaGeneration: payload.media_generation_enabled,
+      };
+
       const { error } = await supabase
-        .from("media_usage_policy")
+        .from("pricing_settings")
         .update({
           daily_image_limit: payload.daily_image_limit,
           daily_video_limit: payload.daily_video_limit,
           max_video_seconds: payload.max_video_seconds,
-          allow_image_generation: payload.allow_image_generation,
-          allow_video_generation: payload.allow_video_generation,
+          feature_entitlements: featureEntitlements,
           updated_by: user?.id ?? null,
-        })
+          updated_at: new Date().toISOString(),
+        } as any)
         .eq("id", payload.id);
 
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-media-usage-policies"] });
+      queryClient.invalidateQueries({ queryKey: ["pricing-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["monetization-catalog"] });
       queryClient.invalidateQueries({ queryKey: ["media-usage"] });
-      toast.success("Daily media limits updated");
+      toast.success("Media entitlements updated");
     },
     onError: (error: Error) => toast.error(error.message),
   });

@@ -86,25 +86,12 @@ export const usePricingSettings = () => {
         updated_at: now,
       } as any;
 
-      const { error: pricingError } = await supabase
+      const { error } = await supabase
         .from("pricing_settings" as any)
         .update(pricingUpdate)
         .eq("id", params.id);
-      if (pricingError) throw pricingError;
 
-      if (params.plan_key && !params.is_donation) {
-        const { error: mediaPolicyError } = await supabase
-          .from("media_usage_policy" as any)
-          .update({
-            daily_image_limit: params.daily_image_limit,
-            daily_video_limit: params.daily_video_limit,
-            max_video_seconds: params.max_video_seconds,
-            updated_at: now,
-          } as any)
-          .eq("plan_key", params.plan_key);
-
-        if (mediaPolicyError) throw mediaPolicyError;
-      }
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pricing-settings"] });
@@ -113,6 +100,7 @@ export const usePricingSettings = () => {
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       queryClient.invalidateQueries({ queryKey: ["media-usage"] });
       queryClient.invalidateQueries({ queryKey: ["stripe-subscription"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-media-usage-policies"] });
       toast.success("Pricing and plan limits updated");
     },
     onError: (e) => toast.error(`Failed: ${e.message}`),

@@ -5,49 +5,14 @@ import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
+import { normalizeMediaDailyUsage, resolveCatalogMediaPolicy } from "@/lib/mediaPolicy";
 import { useToast } from "@/hooks/use-toast";
 
 export type MediaGeneration = Database["public"]["Tables"]["media_generations"]["Row"];
 export type MediaGenerationRecord = MediaGeneration & { business_id?: string | null };
-type MediaUsageDaily = Database["public"]["Tables"]["media_usage_daily"]["Row"];
-type MediaUsagePolicy = Database["public"]["Tables"]["media_usage_policy"]["Row"];
 type MediaUsageEvent = Database["public"]["Tables"]["media_usage_events"]["Row"];
 type ActiveBusiness = Pick<Database["public"]["Tables"]["business_profiles"]["Row"], "id" | "business_name" | "workspace_id">;
-
-const DEFAULT_POLICY_BY_PLAN = {
-  standard: {
-    plan_key: "standard",
-    daily_image_limit: 5,
-    daily_video_limit: 3,
-    max_video_seconds: 10,
-    allow_image_generation: true,
-    allow_video_generation: true,
-  },
-  professional: {
-    plan_key: "professional",
-    daily_image_limit: 25,
-    daily_video_limit: 10,
-    max_video_seconds: 20,
-    allow_image_generation: true,
-    allow_video_generation: true,
-  },
-  advanced: {
-    plan_key: "advanced",
-    daily_image_limit: 100,
-    daily_video_limit: 30,
-    max_video_seconds: 60,
-    allow_image_generation: true,
-    allow_video_generation: true,
-  },
-  enterprise: {
-    plan_key: "enterprise",
-    daily_image_limit: 1000,
-    daily_video_limit: 300,
-    max_video_seconds: 120,
-    allow_image_generation: true,
-    allow_video_generation: true,
-  },
-} as const;
 
 export interface MediaUsageStatus {
   planKey: string;
@@ -75,33 +40,6 @@ export interface MediaUsageAnalytics {
   activeJobs: number;
 }
 
-const getFallbackPolicy = (planKey: string) => {
-  return DEFAULT_POLICY_BY_PLAN[planKey as keyof typeof DEFAULT_POLICY_BY_PLAN] ?? DEFAULT_POLICY_BY_PLAN.standard;
-};
-
-const normalizeDailyUsage = (daily: MediaUsageDaily | null, policy: Pick<MediaUsagePolicy, "daily_image_limit" | "daily_video_limit">) => {
-  const now = Date.now();
-  const windowEndsAt = daily?.window_ends_at ? new Date(daily.window_ends_at).getTime() : null;
-
-  if (!daily || (windowEndsAt !== null && windowEndsAt <= now)) {
-    return {
-      image_count: 0,
-      video_count: 0,
-      window_ends_at: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
-      image_limit: policy.daily_image_limit,
-      video_limit: policy.daily_video_limit,
-    };
-  }
-
-  return {
-    image_count: daily.image_count,
-    video_count: daily.video_count,
-    window_ends_at: daily.window_ends_at,
-    image_limit: daily.image_limit,
-    video_limit: daily.video_limit,
-  };
-};
-
 export const useActiveBusinessProfile = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
@@ -126,86 +64,78 @@ export const useActiveBusinessProfile = () => {
 
 export const useMediaUsage = (): MediaUsageStatus => {
   const { user } = useAuth();
-  const { workspace } = useWorkspace();
   const { currentPlanKey } = useFeatureGating();
+  const { plansByKey, defaultPlanKey, isLoading: catalogLoading } = useMonetizationCatalog();
+
+  const activePlan = plansByKey[currentPlanKey] ?? plansByKey[defaultPlanKey] ?? null;
+  const mediaPolicy = useMemo(() => resolveCatalogMediaPolicy(activePlan), [activePlan]);
 
   const query = useQuery({
-    queryKey: ["media-usage", user?.id, workspace?.id, currentPlanKey],
+    queryKey: ["media-usage", user?.id, mediaPolicy?.planKey],
     queryFn: async () => {
-      const [policyResult, dailyResult] = await Promise.all([
-        supabase
-          .from("media_usage_policy")
-          .select("*")
-          .eq("plan_key", currentPlanKey)
-          .maybeSingle(),
-        supabase
-          .from("media_usage_daily")
-          .select("*")
-          .eq("user_id", user!.id)
-          .maybeSingle(),
-      ]);
+      if (!mediaPolicy) {
+        throw new Error("Media pricing policy unavailable");
+      }
 
-      if (policyResult.error) throw policyResult.error;
-      if (dailyResult.error) throw dailyResult.error;
+      const { data, error } = await supabase
+        .from("media_usage_daily")
+        .select("*")
+        .eq("user_id", user!.id)
+        .maybeSingle();
 
-      const resolvedPolicy = (policyResult.data ?? getFallbackPolicy(currentPlanKey)) as Pick<
-        MediaUsagePolicy,
-        | "plan_key"
-        | "daily_image_limit"
-        | "daily_video_limit"
-        | "max_video_seconds"
-        | "allow_image_generation"
-        | "allow_video_generation"
-      >;
+      if (error) throw error;
 
-      const normalizedDaily = normalizeDailyUsage(dailyResult.data, resolvedPolicy);
+      const normalizedDaily = normalizeMediaDailyUsage(data, mediaPolicy);
       const imagesLimit = normalizedDaily.image_limit;
       const videosLimit = normalizedDaily.video_limit;
       const imagesRemaining = imagesLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, imagesLimit - normalizedDaily.image_count);
       const videosRemaining = videosLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videosLimit - normalizedDaily.video_count);
 
       return {
-        planKey: resolvedPolicy.plan_key,
+        planKey: mediaPolicy.planKey,
         imagesUsedToday: normalizedDaily.image_count,
         imagesLimit,
         videosUsedToday: normalizedDaily.video_count,
         videosLimit,
-        videoMaxSeconds: resolvedPolicy.max_video_seconds,
+        videoMaxSeconds: mediaPolicy.max_video_seconds,
         imagesRemaining,
         videosRemaining,
         resetsAt: normalizedDaily.window_ends_at,
         isImageLimitReached: imagesLimit !== -1 && normalizedDaily.image_count >= imagesLimit,
         isVideoLimitReached: videosLimit !== -1 && normalizedDaily.video_count >= videosLimit,
-        canGenerateImages: resolvedPolicy.allow_image_generation && (imagesLimit === -1 || normalizedDaily.image_count < imagesLimit),
-        canGenerateVideos: resolvedPolicy.allow_video_generation && (videosLimit === -1 || normalizedDaily.video_count < videosLimit),
+        canGenerateImages: mediaPolicy.allow_image_generation && (imagesLimit === -1 || normalizedDaily.image_count < imagesLimit),
+        canGenerateVideos: mediaPolicy.allow_video_generation && (videosLimit === -1 || normalizedDaily.video_count < videosLimit),
       };
     },
-    enabled: !!user,
+    enabled: !!user && !!mediaPolicy,
     refetchInterval: 30000,
   });
 
   if (query.data) {
     return {
       ...query.data,
-      isLoading: query.isLoading,
+      isLoading: query.isLoading || catalogLoading,
     };
   }
 
+  const imagesLimit = mediaPolicy?.daily_image_limit ?? 0;
+  const videosLimit = mediaPolicy?.daily_video_limit ?? 0;
+
   return {
-    planKey: currentPlanKey,
+    planKey: mediaPolicy?.planKey ?? currentPlanKey,
     imagesUsedToday: 0,
-    imagesLimit: getFallbackPolicy(currentPlanKey).daily_image_limit,
+    imagesLimit,
     videosUsedToday: 0,
-    videosLimit: getFallbackPolicy(currentPlanKey).daily_video_limit,
-    videoMaxSeconds: getFallbackPolicy(currentPlanKey).max_video_seconds,
-    imagesRemaining: getFallbackPolicy(currentPlanKey).daily_image_limit,
-    videosRemaining: getFallbackPolicy(currentPlanKey).daily_video_limit,
+    videosLimit,
+    videoMaxSeconds: mediaPolicy?.max_video_seconds ?? 0,
+    imagesRemaining: imagesLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, imagesLimit),
+    videosRemaining: videosLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videosLimit),
     resetsAt: null,
-    isImageLimitReached: false,
-    isVideoLimitReached: false,
-    canGenerateImages: true,
-    canGenerateVideos: true,
-    isLoading: query.isLoading,
+    isImageLimitReached: imagesLimit === 0,
+    isVideoLimitReached: videosLimit === 0,
+    canGenerateImages: Boolean(mediaPolicy?.allow_image_generation) && imagesLimit !== 0,
+    canGenerateVideos: Boolean(mediaPolicy?.allow_video_generation) && videosLimit !== 0,
+    isLoading: query.isLoading || catalogLoading,
   };
 };
 
@@ -242,11 +172,10 @@ export const useMediaGenerations = () => {
 
 export const useMediaUsageAnalytics = (): MediaUsageAnalytics => {
   const { user } = useAuth();
-  const { workspace } = useWorkspace();
   const generationsQuery = useMediaGenerations();
 
   const analyticsQuery = useQuery({
-    queryKey: ["media-usage-analytics", user?.id, workspace?.id],
+    queryKey: ["media-usage-analytics", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("media_usage_events")
