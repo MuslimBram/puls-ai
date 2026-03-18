@@ -22,7 +22,7 @@ import type { PlanKey } from "@/types/monetization";
 const Pricing = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [annual, setAnnual] = useState(false);
+  const annualCheckoutAvailable = false;
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState({
@@ -179,12 +179,12 @@ const Pricing = () => {
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">Billing view</p>
-                    <p className="text-xs text-muted-foreground">Switch pricing display instantly.</p>
+                    <p className="text-xs text-muted-foreground">Annual billing stays hidden until checkout supports a true yearly price.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className={`text-sm ${!annual ? "font-medium text-foreground" : "text-muted-foreground"}`}>Monthly</span>
-                    <Switch checked={annual} onCheckedChange={setAnnual} />
-                    <span className={`text-sm ${annual ? "font-medium text-foreground" : "text-muted-foreground"}`}>Annual</span>
+                    <span className="text-sm font-medium text-foreground">Monthly</span>
+                    <Switch checked={false} disabled aria-label="Annual billing coming soon" />
+                    <span className="text-sm text-muted-foreground">Annual</span>
                   </div>
                 </div>
 
@@ -211,7 +211,7 @@ const Pricing = () => {
           {plans.map((plan) => (
             <PricingPlanCard
               key={plan.key}
-              annual={annual}
+              annual={annualCheckoutAvailable}
               currentPlanKey={currentPlanKey}
               loading={loadingPlan === plan.key}
               onSelect={handlePlanAction}
