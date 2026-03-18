@@ -39,8 +39,7 @@ type PolicyDraft = {
   daily_image_limit: string;
   daily_video_limit: string;
   max_video_seconds: string;
-  allow_image_generation: boolean;
-  allow_video_generation: boolean;
+  media_generation_enabled: boolean;
 };
 
 const emptyProviderDraft: ProviderDraft = {
@@ -324,8 +323,8 @@ export const AdminMediaStudioPanel = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Daily quota policy</CardTitle>
-          <CardDescription>Donation plans increase daily credits here without code changes.</CardDescription>
+          <CardTitle className="text-base">Catalog-driven media entitlements</CardTitle>
+          <CardDescription>Daily limits and media access are now managed only from the unified pricing catalog.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           {policies.map((policy) => {
@@ -333,15 +332,17 @@ export const AdminMediaStudioPanel = () => {
               daily_image_limit: String(policy.daily_image_limit),
               daily_video_limit: String(policy.daily_video_limit),
               max_video_seconds: String(policy.max_video_seconds),
-              allow_image_generation: policy.allow_image_generation,
-              allow_video_generation: policy.allow_video_generation,
+              media_generation_enabled: policy.media_generation_enabled,
             };
 
             return (
-              <div key={policy.id} className="grid gap-3 rounded-lg border border-border p-4 lg:grid-cols-6">
+              <div key={policy.id} className="grid gap-3 rounded-lg border border-border p-4 lg:grid-cols-5">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium capitalize text-foreground">{policy.plan_key}</p>
-                  <p className="text-xs text-muted-foreground">Daily credits and max video duration</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium capitalize text-foreground">{policy.plan_key}</p>
+                    {draft.media_generation_enabled ? <Badge>Enabled</Badge> : <Badge variant="outline">Disabled</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">Unified pricing catalog controls daily credits and max video duration.</p>
                 </div>
                 <div className="space-y-2">
                   <Label>Images / day</Label>
@@ -355,17 +356,11 @@ export const AdminMediaStudioPanel = () => {
                   <Label>Max seconds</Label>
                   <Input type="number" value={draft.max_video_seconds} onChange={(e) => setPolicyDrafts((prev) => ({ ...prev, [policy.id]: { ...draft, max_video_seconds: e.target.value } }))} />
                 </div>
-                <div className="space-y-3">
+                <div className="flex flex-col justify-between gap-3">
                   <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                    <span className="text-sm text-foreground">Images</span>
-                    <Switch checked={draft.allow_image_generation} onCheckedChange={(checked) => setPolicyDrafts((prev) => ({ ...prev, [policy.id]: { ...draft, allow_image_generation: checked } }))} />
+                    <span className="text-sm text-foreground">Media generation</span>
+                    <Switch checked={draft.media_generation_enabled} onCheckedChange={(checked) => setPolicyDrafts((prev) => ({ ...prev, [policy.id]: { ...draft, media_generation_enabled: checked } }))} />
                   </div>
-                  <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                    <span className="text-sm text-foreground">Videos</span>
-                    <Switch checked={draft.allow_video_generation} onCheckedChange={(checked) => setPolicyDrafts((prev) => ({ ...prev, [policy.id]: { ...draft, allow_video_generation: checked } }))} />
-                  </div>
-                </div>
-                <div className="flex items-end">
                   <Button
                     className="w-full"
                     onClick={() =>
@@ -374,13 +369,12 @@ export const AdminMediaStudioPanel = () => {
                         daily_image_limit: Number(draft.daily_image_limit),
                         daily_video_limit: Number(draft.daily_video_limit),
                         max_video_seconds: Number(draft.max_video_seconds),
-                        allow_image_generation: draft.allow_image_generation,
-                        allow_video_generation: draft.allow_video_generation,
+                        media_generation_enabled: draft.media_generation_enabled,
                       })
                     }
                     disabled={updatePolicy.isPending}
                   >
-                    <Save className="mr-2 h-4 w-4" /> Save limits
+                    <Save className="mr-2 h-4 w-4" /> Save catalog policy
                   </Button>
                 </div>
               </div>
