@@ -219,6 +219,8 @@ serve(async (req) => {
     const uniqueTopics = [...new Set(allTopics)];
     await supabase.from("knowledge_sources").update({
       status: "active",
+      workspace_id: business.workspace_id,
+      business_id,
       last_scanned_at: new Date().toISOString(),
       metadata: {
         file_path,

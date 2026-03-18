@@ -52,11 +52,23 @@ serve(async (req) => {
     if (!formattedUrl.startsWith("http")) formattedUrl = `https://${formattedUrl}`;
 
     if (!business_id) throw new Error("business_id is required");
+
+    const { data: business, error: businessError } = await supabase
+      .from("business_profiles")
+      .select("id, user_id, workspace_id")
+      .eq("id", business_id)
+      .single();
+
+    if (businessError || !business) throw new Error("Business not found");
+    if (business.user_id !== userId) throw new Error("Forbidden");
+
+    // Check for cached scan - skip if source was scanned less than 24h ago
     if (source_id && !force_rescan) {
       const { data: existingSource } = await supabase
         .from("knowledge_sources")
         .select("last_scanned_at, status")
         .eq("id", source_id)
+        .eq("business_id", business_id)
         .single();
 
       if (existingSource?.last_scanned_at && existingSource.status === "active") {
@@ -64,16 +76,17 @@ serve(async (req) => {
         const hoursSinceLastScan = (Date.now() - lastScan) / (1000 * 60 * 60);
         
         if (hoursSinceLastScan < 24) {
-          // Return cached data
           const { data: cachedChunks } = await supabase
             .from("knowledge_chunks")
             .select("id")
-            .eq("source_id", source_id);
+            .eq("source_id", source_id)
+            .eq("business_id", business_id);
 
           const { data: sourceData } = await supabase
             .from("knowledge_sources")
             .select("metadata")
             .eq("id", source_id)
+            .eq("business_id", business_id)
             .single();
 
           const meta = sourceData?.metadata as any;
@@ -90,14 +103,13 @@ serve(async (req) => {
       }
     }
 
-    // Create or update source
     let sourceId = source_id;
     if (!sourceId) {
-      // Check if URL already exists for this user
       const { data: existingSrc } = await supabase
         .from("knowledge_sources")
         .select("id, last_scanned_at, status")
         .eq("user_id", userId)
+        .eq("business_id", business_id)
         .eq("source_url", formattedUrl)
         .maybeSingle();
 
@@ -109,12 +121,14 @@ serve(async (req) => {
           const { data: cachedChunks } = await supabase
             .from("knowledge_chunks")
             .select("id")
-            .eq("source_id", existingSrc.id);
+            .eq("source_id", existingSrc.id)
+            .eq("business_id", business_id);
 
           const { data: sourceData } = await supabase
             .from("knowledge_sources")
             .select("metadata")
             .eq("id", existingSrc.id)
+            .eq("business_id", business_id)
             .single();
 
           const meta = sourceData?.metadata as any;
@@ -135,6 +149,8 @@ serve(async (req) => {
       if (!sourceId) {
         const { data: src, error: srcErr } = await supabase.from("knowledge_sources").insert({
           user_id: userId,
+          workspace_id: business.workspace_id,
+          business_id,
           source_type: "website",
           source_name: new URL(formattedUrl).hostname,
           source_url: formattedUrl,
