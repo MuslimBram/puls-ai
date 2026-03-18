@@ -44,9 +44,19 @@ serve(async (req) => {
     if (userError || !userData.user) throw new Error("Not authenticated");
     const userId = userData.user.id;
 
-    const { file_path, file_name, content_text } = await req.json();
+    const { file_path, file_name, content_text, business_id } = await req.json();
     
+    if (!business_id) throw new Error("business_id is required");
     if (!content_text && !file_path) throw new Error("Either content_text or file_path is required");
+
+    const { data: business, error: businessError } = await supabase
+      .from("business_profiles")
+      .select("id, user_id, workspace_id")
+      .eq("id", business_id)
+      .single();
+
+    if (businessError || !business) throw new Error("Business not found");
+    if (business.user_id !== userId) throw new Error("Forbidden");
 
     let textContent = content_text || "";
     let sourceName = file_name || "Uploaded Document";
@@ -126,6 +136,8 @@ serve(async (req) => {
     // Create knowledge source
     const { data: source, error: srcErr } = await supabase.from("knowledge_sources").insert({
       user_id: userId,
+      workspace_id: business.workspace_id,
+      business_id,
       source_type: "document",
       source_name: sourceName,
       status: "scanning",
@@ -190,6 +202,8 @@ serve(async (req) => {
 
       await supabase.from("knowledge_chunks").insert({
         user_id: userId,
+        workspace_id: business.workspace_id,
+        business_id,
         source_id: source.id,
         content: chunk,
         summary: chunk.slice(0, 200),
@@ -205,6 +219,8 @@ serve(async (req) => {
     const uniqueTopics = [...new Set(allTopics)];
     await supabase.from("knowledge_sources").update({
       status: "active",
+      workspace_id: business.workspace_id,
+      business_id,
       last_scanned_at: new Date().toISOString(),
       metadata: {
         file_path,

@@ -227,6 +227,7 @@ serve(async (req) => {
       .from("knowledge_sources")
       .select("id")
       .eq("user_id", business.user_id)
+      .eq("business_id", business_id)
       .eq("source_name", sourceName)
       .eq("source_url", scan.scanned_url)
       .maybeSingle();
@@ -240,6 +241,7 @@ serve(async (req) => {
         .from("knowledge_sources")
         .update({
           workspace_id: business.workspace_id,
+          business_id,
           source_type: "website",
           status: "active",
           is_enabled: true,
@@ -260,6 +262,7 @@ serve(async (req) => {
         .insert({
           user_id: business.user_id,
           workspace_id: business.workspace_id,
+          business_id,
           source_type: "website",
           source_name: sourceName,
           source_url: scan.scanned_url,
@@ -278,6 +281,7 @@ serve(async (req) => {
     const chunkRows = chunks.map((chunk, index) => ({
       user_id: business.user_id,
       workspace_id: business.workspace_id,
+      business_id,
       source_id: sourceId!,
       content: chunk.content,
       summary: chunk.content.slice(0, 200),

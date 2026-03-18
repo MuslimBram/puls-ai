@@ -3,11 +3,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/hooks/use-toast";
+import { useActiveBusinessProfile } from "@/hooks/useBusinessProfile";
 
 export interface ScanSource {
   id: string;
   workspace_id: string;
   user_id: string;
+  business_id: string | null;
   platform: string;
   source_type: string;
   url_or_identifier: string;
@@ -35,17 +37,19 @@ export { PLATFORMS, SOURCE_TYPES, SCAN_STATUSES };
 export const useScanSources = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
+  const { profile: activeBusiness } = useActiveBusinessProfile();
   const qc = useQueryClient();
-  const qk = ["scan-sources", workspace?.id];
+  const qk = ["scan-sources", workspace?.id, activeBusiness?.id];
 
   const query = useQuery({
     queryKey: qk,
-    enabled: !!user && !!workspace,
+    enabled: !!user && !!workspace && !!activeBusiness?.id,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("scan_sources")
         .select("*")
         .eq("workspace_id", workspace!.id)
+        .eq("business_id", activeBusiness!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data as ScanSource[];
@@ -54,9 +58,11 @@ export const useScanSources = () => {
 
   const addSource = useMutation({
     mutationFn: async (input: NewScanSource) => {
+      if (!activeBusiness?.id) throw new Error("Select a business before adding a scan source.");
       const { error } = await supabase.from("scan_sources").insert({
         user_id: user!.id,
         workspace_id: workspace!.id,
+        business_id: activeBusiness.id,
         platform: input.platform,
         source_type: input.source_type,
         url_or_identifier: input.url_or_identifier,
@@ -73,7 +79,12 @@ export const useScanSources = () => {
 
   const updateSource = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<ScanSource> & { id: string }) => {
-      const { error } = await supabase.from("scan_sources").update(updates as any).eq("id", id);
+      if (!activeBusiness?.id) throw new Error("Select a business before updating a scan source.");
+      const { error } = await supabase
+        .from("scan_sources")
+        .update(updates as any)
+        .eq("id", id)
+        .eq("business_id", activeBusiness.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -85,7 +96,8 @@ export const useScanSources = () => {
 
   const deleteSource = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("scan_sources").delete().eq("id", id);
+      if (!activeBusiness?.id) throw new Error("Select a business before deleting a scan source.");
+      const { error } = await supabase.from("scan_sources").delete().eq("id", id).eq("business_id", activeBusiness.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -97,12 +109,19 @@ export const useScanSources = () => {
 
   const triggerScan = useMutation({
     mutationFn: async (sourceId: string) => {
+      if (!activeBusiness?.id) throw new Error("Select a business before running a scan.");
+
       // Update source status to scanning
-      await supabase.from("scan_sources").update({ scan_status: "scanning" } as any).eq("id", sourceId);
+      await supabase
+        .from("scan_sources")
+        .update({ scan_status: "scanning" } as any)
+        .eq("id", sourceId)
+        .eq("business_id", activeBusiness.id);
 
       // Create scan record
       const { data: scanData, error: scanErr } = await supabase.from("source_scans").insert({
         source_id: sourceId,
+        business_id: activeBusiness.id,
         user_id: user!.id,
         workspace_id: workspace!.id,
         status: "running",
@@ -118,6 +137,7 @@ export const useScanSources = () => {
           source_id: sourceId,
           scan_id: scan.id,
           workspace_id: workspace!.id,
+          business_id: activeBusiness.id,
         },
       });
 
@@ -130,13 +150,21 @@ export const useScanSources = () => {
       qc.invalidateQueries({ queryKey: qk });
       qc.invalidateQueries({ queryKey: ["scan-insights"] });
       qc.invalidateQueries({ queryKey: ["scan-history"] });
+      qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
+      qc.invalidateQueries({ queryKey: ["knowledge-chunks"] });
       toast({
         title: "Scan completed",
         description: `Found ${data?.insights_count || 0} insights in ${((data?.duration_ms || 0) / 1000).toFixed(1)}s`,
       });
     },
     onError: async (e: any, sourceId) => {
-      await supabase.from("scan_sources").update({ scan_status: "error" } as any).eq("id", sourceId);
+      if (activeBusiness?.id) {
+        await supabase
+          .from("scan_sources")
+          .update({ scan_status: "error" } as any)
+          .eq("id", sourceId)
+          .eq("business_id", activeBusiness.id);
+      }
       qc.invalidateQueries({ queryKey: qk });
       toast({ title: "Scan failed", description: e.message, variant: "destructive" });
     },
