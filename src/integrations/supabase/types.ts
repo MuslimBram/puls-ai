@@ -4327,6 +4327,8 @@ export type Database = {
           user_id: string
           video_count: number
           video_limit: number
+          video_seconds_limit: number
+          video_seconds_used: number
           window_ends_at: string
           window_started_at: string
           workspace_id: string | null
@@ -4342,6 +4344,8 @@ export type Database = {
           user_id: string
           video_count?: number
           video_limit?: number
+          video_seconds_limit?: number
+          video_seconds_used?: number
           window_ends_at?: string
           window_started_at?: string
           workspace_id?: string | null
@@ -4357,6 +4361,8 @@ export type Database = {
           user_id?: string
           video_count?: number
           video_limit?: number
+          video_seconds_limit?: number
+          video_seconds_used?: number
           window_ends_at?: string
           window_started_at?: string
           workspace_id?: string | null
@@ -5234,6 +5240,7 @@ export type Database = {
           cta_label: string | null
           daily_image_limit: number
           daily_video_limit: number
+          daily_video_seconds_limit: number
           donation_label: string | null
           feature_entitlements: Json
           highlight_plan: boolean
@@ -5268,6 +5275,7 @@ export type Database = {
           cta_label?: string | null
           daily_image_limit?: number
           daily_video_limit?: number
+          daily_video_seconds_limit?: number
           donation_label?: string | null
           feature_entitlements?: Json
           highlight_plan?: boolean
@@ -5302,6 +5310,7 @@ export type Database = {
           cta_label?: string | null
           daily_image_limit?: number
           daily_video_limit?: number
+          daily_video_seconds_limit?: number
           donation_label?: string | null
           feature_entitlements?: Json
           highlight_plan?: boolean
@@ -6866,69 +6875,141 @@ export type Database = {
         Args: { _thread_id: string; _workspace_id: string }
         Returns: undefined
       }
-      consume_media_quota: {
-        Args: {
-          _image_limit: number
-          _media_type: string
-          _user_id: string
-          _video_limit: number
-          _workspace_id: string
-        }
-        Returns: {
-          created_at: string
-          id: string
-          image_count: number
-          image_limit: number
-          reset_at: string
-          updated_at: string
-          usage_date: string
-          user_id: string
-          video_count: number
-          video_limit: number
-          window_ends_at: string
-          window_started_at: string
-          workspace_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "media_usage_daily"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      consume_media_quota:
+        | {
+            Args: {
+              _image_limit: number
+              _media_type: string
+              _user_id: string
+              _video_limit: number
+              _workspace_id: string
+            }
+            Returns: {
+              created_at: string
+              id: string
+              image_count: number
+              image_limit: number
+              reset_at: string
+              updated_at: string
+              usage_date: string
+              user_id: string
+              video_count: number
+              video_limit: number
+              video_seconds_limit: number
+              video_seconds_used: number
+              window_ends_at: string
+              window_started_at: string
+              workspace_id: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "media_usage_daily"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              _image_limit: number
+              _media_type: string
+              _requested_video_seconds?: number
+              _user_id: string
+              _video_limit: number
+              _video_seconds_limit?: number
+              _workspace_id: string
+            }
+            Returns: {
+              created_at: string
+              id: string
+              image_count: number
+              image_limit: number
+              reset_at: string
+              updated_at: string
+              usage_date: string
+              user_id: string
+              video_count: number
+              video_limit: number
+              video_seconds_limit: number
+              video_seconds_used: number
+              window_ends_at: string
+              window_started_at: string
+              workspace_id: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "media_usage_daily"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       detect_suspicious_login: {
         Args: { _ip_address: string; _user_agent: string; _user_id: string }
         Returns: boolean
       }
-      ensure_media_daily_usage: {
-        Args: {
-          _image_limit: number
-          _user_id: string
-          _video_limit: number
-          _workspace_id: string
-        }
-        Returns: {
-          created_at: string
-          id: string
-          image_count: number
-          image_limit: number
-          reset_at: string
-          updated_at: string
-          usage_date: string
-          user_id: string
-          video_count: number
-          video_limit: number
-          window_ends_at: string
-          window_started_at: string
-          workspace_id: string | null
-        }
-        SetofOptions: {
-          from: "*"
-          to: "media_usage_daily"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
+      ensure_media_daily_usage:
+        | {
+            Args: {
+              _image_limit: number
+              _user_id: string
+              _video_limit: number
+              _workspace_id: string
+            }
+            Returns: {
+              created_at: string
+              id: string
+              image_count: number
+              image_limit: number
+              reset_at: string
+              updated_at: string
+              usage_date: string
+              user_id: string
+              video_count: number
+              video_limit: number
+              video_seconds_limit: number
+              video_seconds_used: number
+              window_ends_at: string
+              window_started_at: string
+              workspace_id: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "media_usage_daily"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
+        | {
+            Args: {
+              _image_limit: number
+              _user_id: string
+              _video_limit: number
+              _video_seconds_limit?: number
+              _workspace_id: string
+            }
+            Returns: {
+              created_at: string
+              id: string
+              image_count: number
+              image_limit: number
+              reset_at: string
+              updated_at: string
+              usage_date: string
+              user_id: string
+              video_count: number
+              video_limit: number
+              video_seconds_limit: number
+              video_seconds_used: number
+              window_ends_at: string
+              window_started_at: string
+              workspace_id: string | null
+            }
+            SetofOptions: {
+              from: "*"
+              to: "media_usage_daily"
+              isOneToOne: true
+              isSetofReturn: false
+            }
+          }
       get_media_usage_policy_for_user: {
         Args: { _user_id: string }
         Returns: {
@@ -6936,6 +7017,7 @@ export type Database = {
           allow_video_generation: boolean
           daily_image_limit: number
           daily_video_limit: number
+          daily_video_seconds_limit: number
           max_video_seconds: number
           plan_key: string
         }[]
