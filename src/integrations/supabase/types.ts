@@ -3624,6 +3624,7 @@ export type Database = {
       }
       knowledge_chunks: {
         Row: {
+          business_id: string | null
           chunk_index: number | null
           content: string
           content_type: string | null
@@ -3640,6 +3641,7 @@ export type Database = {
           workspace_id: string | null
         }
         Insert: {
+          business_id?: string | null
           chunk_index?: number | null
           content: string
           content_type?: string | null
@@ -3656,6 +3658,7 @@ export type Database = {
           workspace_id?: string | null
         }
         Update: {
+          business_id?: string | null
           chunk_index?: number | null
           content?: string
           content_type?: string | null
@@ -3672,6 +3675,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "knowledge_chunks_source_id_fkey"
             columns: ["source_id"]
@@ -3690,6 +3700,7 @@ export type Database = {
       }
       knowledge_sources: {
         Row: {
+          business_id: string | null
           created_at: string
           id: string
           is_enabled: boolean
@@ -3705,6 +3716,7 @@ export type Database = {
           workspace_id: string | null
         }
         Insert: {
+          business_id?: string | null
           created_at?: string
           id?: string
           is_enabled?: boolean
@@ -3720,6 +3732,7 @@ export type Database = {
           workspace_id?: string | null
         }
         Update: {
+          business_id?: string | null
           created_at?: string
           id?: string
           is_enabled?: boolean
@@ -3735,6 +3748,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "knowledge_sources_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "knowledge_sources_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -4055,6 +4075,7 @@ export type Database = {
       }
       media_generations: {
         Row: {
+          business_id: string | null
           completed_at: string | null
           created_at: string | null
           duration_seconds: number | null
@@ -4075,6 +4096,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          business_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           duration_seconds?: number | null
@@ -4095,6 +4117,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          business_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           duration_seconds?: number | null
@@ -4115,6 +4138,13 @@ export type Database = {
           workspace_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "media_generations_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "media_generations_workspace_id_fkey"
             columns: ["workspace_id"]
