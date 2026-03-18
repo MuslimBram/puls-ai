@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import Stripe from "npm:stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { indexPricingCatalogByProductId, loadPricingCatalogRows } from "../_shared/monetization-catalog.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,26 +20,6 @@ const jsonResponse = (body: unknown, status = 200) =>
 
 const getIsoDate = (unixSeconds?: number | null) =>
   typeof unixSeconds === "number" ? new Date(unixSeconds * 1000).toISOString() : null;
-
-const loadProductMap = async (supabaseClient: any) => {
-  const { data, error } = await supabaseClient
-    .from("stripe_product_plans")
-    .select("stripe_product_id, plan_name")
-    .eq("is_active", true);
-
-  if (error) throw error;
-
-  const map = Object.fromEntries((data || []).map((row: any) => [row.stripe_product_id, row.plan_name]));
-  return Object.keys(map).length > 0
-    ? map
-    : {
-        prod_U8LrDc0TasNxNH: "standard",
-        prod_U8Qdd9foXaeqnn: "standard",
-        prod_U8Lr5611OwyJSV: "professional",
-        prod_U8LrRodC8eZsTT: "advanced",
-        prod_U8LsXPlxbqhpmK: "enterprise",
-      };
-};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -69,7 +50,8 @@ serve(async (req) => {
     const user = userData.user;
     if (!user?.id || !user.email) throw new Error("User not authenticated");
 
-    const productMap = await loadProductMap(supabaseClient);
+    const catalogRows = await loadPricingCatalogRows(supabaseClient);
+    const productMap = indexPricingCatalogByProductId(catalogRows);
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
 
@@ -95,7 +77,8 @@ serve(async (req) => {
 
     const rawProduct = sub.items.data[0]?.price?.product;
     const productId = typeof rawProduct === "string" ? rawProduct : rawProduct?.id ?? "";
-    const plan = productMap[productId] || "standard";
+    const metadataPlan = typeof sub.metadata?.plan_key === "string" ? sub.metadata.plan_key : null;
+    const plan = productMap[productId] || metadataPlan || "standard";
     const status = sub.status;
 
     await syncSubscriptionRow({

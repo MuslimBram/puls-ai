@@ -93,29 +93,23 @@ export const usePricingSettings = () => {
       if (pricingError) throw pricingError;
 
       if (params.plan_key && !params.is_donation) {
-        const [stripePlanResult, mediaPolicyResult] = await Promise.all([
-          supabase
-            .from("stripe_product_plans" as any)
-            .update({ monthly_price: params.monthly_price, updated_at: now } as any)
-            .eq("plan_name", params.plan_key),
-          supabase
-            .from("media_usage_policy" as any)
-            .update({
-              daily_image_limit: params.daily_image_limit,
-              daily_video_limit: params.daily_video_limit,
-              max_video_seconds: params.max_video_seconds,
-              updated_at: now,
-            } as any)
-            .eq("plan_key", params.plan_key),
-        ]);
+        const { error: mediaPolicyError } = await supabase
+          .from("media_usage_policy" as any)
+          .update({
+            daily_image_limit: params.daily_image_limit,
+            daily_video_limit: params.daily_video_limit,
+            max_video_seconds: params.max_video_seconds,
+            updated_at: now,
+          } as any)
+          .eq("plan_key", params.plan_key);
 
-        if (stripePlanResult.error) throw stripePlanResult.error;
-        if (mediaPolicyResult.error) throw mediaPolicyResult.error;
+        if (mediaPolicyError) throw mediaPolicyError;
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pricing-settings"] });
-      queryClient.invalidateQueries({ queryKey: ["plan-catalog"] });
+      queryClient.invalidateQueries({ queryKey: ["monetization-catalog"] });
+      queryClient.invalidateQueries({ queryKey: ["pricing-comparison"] });
       queryClient.invalidateQueries({ queryKey: ["subscription"] });
       queryClient.invalidateQueries({ queryKey: ["media-usage"] });
       queryClient.invalidateQueries({ queryKey: ["stripe-subscription"] });

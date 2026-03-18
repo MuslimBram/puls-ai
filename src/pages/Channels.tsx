@@ -13,13 +13,14 @@ import { useChannels, ChannelData } from "@/hooks/useChannels";
 import { useChannelRegistry, ChannelRegistryItem } from "@/hooks/useChannelRegistry";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useIsAdmin } from "@/hooks/useAdmin";
+import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { ChannelCredentialSetup } from "@/components/ChannelCredentialSetup";
 import { TelegramSetup } from "@/components/TelegramSetup";
 import { EmailSetup } from "@/components/EmailSetup";
 import { WebsiteChatSetup } from "@/components/WebsiteChatSetup";
 import { WebhookSetup } from "@/components/WebhookSetup";
 import { SafeRender } from "@/components/SafeRender";
-import { PLAN_ORDER, PlanKey, PLANS } from "@/config/plans";
+import type { PlanKey } from "@/config/plans";
 import { channelFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
 import { Plus, Trash2, Radio, MessageSquare, Mail, Globe, Share2, Webhook, Settings2, Lock, CheckCircle2, Crown, Loader2 } from "lucide-react";
@@ -56,13 +57,14 @@ const Channels = () => {
   const { channels, isLoading, addChannel, toggleChannel, deleteChannel } = useChannels();
   const { registry } = useChannelRegistry();
   const { currentPlanKey } = useFeatureGating();
+  const { plansByKey, planOrder } = useMonetizationCatalog();
   const { isAdmin } = useIsAdmin();
 
   const canAccessChannel = (minPlan: string) => {
     if (isAdmin) return true;
-    const currentIdx = PLAN_ORDER.indexOf(currentPlanKey);
-    const requiredIdx = PLAN_ORDER.indexOf(minPlan as PlanKey);
-    return requiredIdx === -1 || currentIdx >= requiredIdx;
+    const currentIdx = planOrder.indexOf(currentPlanKey);
+    const requiredIdx = planOrder.indexOf(minPlan as PlanKey);
+    return requiredIdx === -1 || (currentIdx !== -1 && currentIdx >= requiredIdx);
   };
 
   const handleAdd = () => {
@@ -179,7 +181,7 @@ const Channels = () => {
                       const StatusIcon = statusInfo.icon;
                       const hasExistingChannel = channels.some((c) => c.channel_type === item.id);
                       const hasAccess = canAccessChannel(item.min_plan);
-                      const minPlanName = PLANS[item.min_plan as PlanKey]?.name || item.min_plan;
+                      const minPlanName = plansByKey[item.min_plan as PlanKey]?.name || item.min_plan;
                       const canSetup = hasAccess && item.credential_fields.length > 0;
 
                       return (

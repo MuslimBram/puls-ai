@@ -196,7 +196,8 @@ serve(async (req) => {
       if (!user) return;
 
       const productId = subscription.items.data[0]?.price?.product as string;
-      const plan = PRODUCT_MAP[productId] || "standard";
+      const metadataPlan = typeof subscription.metadata?.plan_key === "string" ? subscription.metadata.plan_key : null;
+      const plan = PRODUCT_MAP[productId] || metadataPlan || "standard";
       const status = subscription.status;
 
       const updateData: Record<string, any> = {

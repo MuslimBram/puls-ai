@@ -11,9 +11,10 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useExternalIntegrations, useIntegrationEventLogs } from "@/hooks/useExternalIntegrations";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useIsAdmin } from "@/hooks/useAdmin";
+import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { EXTERNAL_INTEGRATIONS, CATEGORY_LABELS } from "@/integrations/external/registry";
 import { IntegrationDefinition } from "@/integrations/external/types";
-import { PLAN_ORDER, PlanKey, PLANS } from "@/config/plans";
+import type { PlanKey } from "@/config/plans";
 import {
   BarChart3, Search, MessageSquare, Phone, Calendar, Layers,
   Share2, Bot, Eye, Settings2, Lock, Crown, CheckCircle2,
@@ -35,6 +36,7 @@ const STATUS_BADGE: Record<string, { label: string; variant: "default" | "second
 const ExternalIntegrations = () => {
   const { integrations, isLoading, upsertIntegration, toggleIntegration, deleteIntegration } = useExternalIntegrations();
   const { currentPlanKey } = useFeatureGating();
+  const { plansByKey, planOrder } = useMonetizationCatalog();
   const { isAdmin } = useIsAdmin();
   const [setupDef, setSetupDef] = useState<IntegrationDefinition | null>(null);
   const [creds, setCreds] = useState<Record<string, string>>({});
@@ -43,9 +45,9 @@ const ExternalIntegrations = () => {
 
   const canAccess = (minPlan: string) => {
     if (isAdmin) return true;
-    const cur = PLAN_ORDER.indexOf(currentPlanKey);
-    const req = PLAN_ORDER.indexOf(minPlan as PlanKey);
-    return req === -1 || cur >= req;
+    const cur = planOrder.indexOf(currentPlanKey);
+    const req = planOrder.indexOf(minPlan as PlanKey);
+    return req === -1 || (cur !== -1 && cur >= req);
   };
 
   const categories = Object.entries(
@@ -141,7 +143,7 @@ const ExternalIntegrations = () => {
                       const Icon = ICON_MAP[def.icon] || Plug;
                       const hasAccess = canAccess(def.minPlan);
                       const existing = integrations.find((i) => i.integration_key === def.key);
-                      const minPlanName = PLANS[def.minPlan as PlanKey]?.name || def.minPlan;
+                      const minPlanName = plansByKey[def.minPlan as PlanKey]?.name || def.minPlan;
 
                       return (
                         <div
