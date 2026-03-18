@@ -28,6 +28,8 @@ export interface PricingSetting {
 
 interface UpdatePricingParams {
   id: string;
+  plan_key?: string;
+  is_donation?: boolean;
   monthly_price: number;
   annual_price: number;
   donation_label?: string;
