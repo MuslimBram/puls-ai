@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -343,7 +343,7 @@ async function processScanPostProcessJob(supabase: any, job: any, payload: Recor
       user_id: business.user_id,
       workspace_id: business.workspace_id,
       title: "Scan automation completed",
-      message: `${business.business_name} scan insights were synced to the business profile and Knowledge Base.",
+      message: `${business.business_name} scan insights were synced to the business profile and Knowledge Base.`,
       notification_type: "system",
       category: "automation",
       metadata: {
