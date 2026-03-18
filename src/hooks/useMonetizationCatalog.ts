@@ -2,52 +2,9 @@ import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database, Json } from "@/integrations/supabase/types";
-import type { Plan, PlanFeatures, PlanKey } from "@/config/plans";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
+import type { Plan, PlanFeatures, PlanKey } from "@/types/monetization";
+import { DEFAULT_PLAN_KEY, FEATURE_KEYS, isPlanKey } from "@/types/monetization";
 import { toast } from "@/components/ui/sonner";
-
-const PLAN_ORDER: PlanKey[] = ["standard", "professional", "advanced", "enterprise"];
-const PLAN_KEYS = new Set<PlanKey>(PLAN_ORDER);
-const FEATURE_KEYS: (keyof PlanFeatures)[] = [
-  "bulkScheduling",
-  "instagramGridPlanning",
-  "aiContentEnhancement",
-  "campaignTagging",
-  "approvalWorkflow",
-  "messageTagging",
-  "engagementReporting",
-  "competitorReports",
-  "customBrandingReports",
-  "ecommerceIntegrations",
-  "advancedPermissions",
-  "automationWorkflows",
-  "chatbotAutomation",
-  "sentimentClassification",
-  "caseRouting",
-  "teamProductivityReports",
-  "automationRuleBuilder",
-  "biIntegrations",
-  "scheduledReportsDelivery",
-  "crmIntegrations",
-  "apiAccess",
-  "advancedSecurity",
-  "ipWhitelisting",
-  "customOnboarding",
-  "slaSupport",
-  "dedicatedSuccessManager",
-  "whiteLabel",
-  "savedReplies",
-  "basicAnalytics",
-  "advancedAnalytics",
-  "fullReporting",
-  "prioritySupport",
-  "unifiedInbox",
-  "keywordMonitoring",
-  "basicPublishing",
-  "coreIntegrations",
-  "mediaGeneration",
-];
 
 const baseFeatures = FEATURE_KEYS.reduce((acc, key) => {
   acc[key] = false;
@@ -55,8 +12,6 @@ const baseFeatures = FEATURE_KEYS.reduce((acc, key) => {
 }, {} as PlanFeatures);
 
 const numberOr = (value: unknown, fallback = 0) => (typeof value === "number" && Number.isFinite(value) ? value : fallback);
-const stringOr = (value: unknown, fallback = "") => (typeof value === "string" ? value : fallback);
-const boolOr = (value: unknown, fallback = false) => (typeof value === "boolean" ? value : fallback);
 
 const normalizeFeatureRecord = (value: Json | null): PlanFeatures => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return baseFeatures;
@@ -79,6 +34,11 @@ type PricingFeatureSectionRow = Database["public"]["Tables"]["pricing_feature_se
 type PricingFeatureRowRow = Database["public"]["Tables"]["pricing_feature_rows"]["Row"];
 
 type FeatureValue = string | boolean;
+type MonetizationPlanRecord = Plan & {
+  badgeLabel: string | null;
+  stripePriceId: string | null;
+  stripeProductId: string | null;
+};
 
 export interface PricingComparisonRow {
   id: string;
@@ -127,18 +87,20 @@ export const useMonetizationCatalog = () => {
       if (error) throw error;
 
       const rows = (data ?? []) as PricingSettingRow[];
-      const publicPlans = rows.filter((row) => !row.is_donation && PLAN_KEYS.has(row.plan_key as PlanKey));
+      const publicPlans = rows.filter(
+        (row): row is PricingSettingRow & { plan_key: PlanKey } => !row.is_donation && isPlanKey(row.plan_key),
+      );
       const donations = rows.filter((row) => row.is_donation);
 
-      const plans = publicPlans.map((row) => {
-        const key = row.plan_key as PlanKey;
+      const plans = publicPlans.map<MonetizationPlanRecord>((row) => {
+        const key = row.plan_key;
         const plan: Plan = {
           key,
           name: row.plan_label || row.plan_name || row.plan_key,
           description: row.plan_description || "",
           monthlyPrice: row.monthly_price,
           annualPrice: row.annual_price,
-          cta: row.cta_label || (key === "enterprise" ? "Contact sales" : "Choose plan"),
+          cta: row.cta_label || (row.stripe_price_id ? "Choose plan" : "Contact sales"),
           highlighted: row.highlight_plan,
           limits: {
             socialProfiles: numberOr(row.social_profiles_limit, -1),
@@ -158,10 +120,16 @@ export const useMonetizationCatalog = () => {
           support: "Standard",
         };
 
-        return { ...plan, support: getSupportLabel(plan), badgeLabel: row.badge_label, stripePriceId: row.stripe_price_id, stripeProductId: row.stripe_product_id };
+        return {
+          ...plan,
+          support: getSupportLabel(plan),
+          badgeLabel: row.badge_label,
+          stripePriceId: row.stripe_price_id,
+          stripeProductId: row.stripe_product_id,
+        };
       });
 
-      const plansByKey = Object.fromEntries(plans.map((plan) => [plan.key, plan])) as Record<PlanKey, (Plan & { badgeLabel: string | null; stripePriceId: string | null; stripeProductId: string | null })>;
+      const plansByKey = Object.fromEntries(plans.map((plan) => [plan.key, plan])) as Record<PlanKey, MonetizationPlanRecord>;
       const planOrder = plans.map((plan) => plan.key);
 
       return { rows, plans, plansByKey, planOrder, donations };
@@ -214,10 +182,11 @@ export const useMonetizationCatalog = () => {
 
   return {
     plans: plansQuery.data?.plans ?? [],
-    plansByKey: plansQuery.data?.plansByKey ?? ({} as Record<PlanKey, Plan & { badgeLabel: string | null; stripePriceId: string | null; stripeProductId: string | null }>),
-    planOrder: plansQuery.data?.planOrder ?? PLAN_ORDER,
+    plansByKey: plansQuery.data?.plansByKey ?? ({} as Record<PlanKey, MonetizationPlanRecord>),
+    planOrder: plansQuery.data?.planOrder ?? ([] as PlanKey[]),
     donations: plansQuery.data?.donations ?? [],
     comparisonSections: comparisonQuery.data ?? [],
+    defaultPlanKey: (plansQuery.data?.planOrder?.[0] as PlanKey | undefined) ?? DEFAULT_PLAN_KEY,
     isLoading: plansQuery.isLoading || comparisonQuery.isLoading,
   };
 };
