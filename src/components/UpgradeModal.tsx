@@ -2,14 +2,13 @@ import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FEATURE_COMPARISON, PLAN_ORDER, PlanKey } from "@/config/plans";
-import { STRIPE_TIERS } from "@/config/stripe";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
-import { usePlanCatalog } from "@/hooks/usePlanCatalog";
+import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { Check, Zap, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { PlanKey } from "@/config/plans";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -19,13 +18,13 @@ interface UpgradeModalProps {
 
 export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalProps) => {
   const { currentPlanKey } = useFeatureGating();
-  const { plansByKey } = usePlanCatalog();
+  const { plansByKey, comparisonSections, planOrder } = useMonetizationCatalog();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const target = targetPlan || "professional";
   const plan = plansByKey[target];
-  const currentIdx = PLAN_ORDER.indexOf(currentPlanKey);
-  const targetIdx = PLAN_ORDER.indexOf(target);
+  const currentIdx = planOrder.indexOf(currentPlanKey);
+  const targetIdx = planOrder.indexOf(target);
 
   const handleUpgrade = async () => {
     if (target === "enterprise") {
@@ -34,13 +33,10 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
       return;
     }
 
-    const tier = STRIPE_TIERS[target];
-    if (!tier) return;
-
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { priceId: tier.price_id },
+        body: { planKey: target },
       });
       if (error) throw error;
       if (data?.url) {
@@ -59,15 +55,16 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
     navigate("/pricing");
   };
 
-  const upgrades = FEATURE_COMPARISON.flatMap((section) =>
-    section.features
-      .filter((feature) => {
-        const current = feature[currentPlanKey as keyof typeof feature];
-        const next = feature[target as keyof typeof feature];
-        return current !== next && (next === true || (typeof next === "string" && typeof current === "string"));
-      })
-      .slice(0, 3)
-  ).slice(0, 6);
+  const upgrades = comparisonSections
+    .flatMap((section) => section.rows)
+    .filter((feature) => {
+      const current = feature.values[currentPlanKey];
+      const next = feature.values[target];
+      return current !== next && (next === true || typeof next === "string");
+    })
+    .slice(0, 6);
+
+  if (!plan) return null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -80,7 +77,7 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
         </DialogHeader>
         <div className="space-y-4">
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
-            <div className="flex items-baseline gap-2 mb-1">
+            <div className="mb-1 flex items-baseline gap-2">
               <span className="text-3xl font-bold text-foreground">${plan.monthlyPrice}</span>
               <span className="text-sm text-muted-foreground">/month</span>
             </div>
@@ -93,13 +90,13 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
           {upgrades.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-foreground">What you'll unlock:</p>
-              {upgrades.map((feature, index) => (
-                <div key={index} className="flex items-center gap-2 text-sm">
-                  <Check className="h-4 w-4 text-primary shrink-0" />
-                  <span className="text-foreground">{feature.name}</span>
-                  {typeof feature[target as keyof typeof feature] === "string" && (
-                    <Badge variant="secondary" className="text-xs ml-auto">
-                      {feature[target as keyof typeof feature] as string}
+              {upgrades.map((feature) => (
+                <div key={feature.id} className="flex items-center gap-2 text-sm">
+                  <Check className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="text-foreground">{feature.featureName}</span>
+                  {typeof feature.values[target] === "string" && (
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      {feature.values[target] as string}
                     </Badge>
                   )}
                 </div>
@@ -109,11 +106,11 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
 
           <div className="flex gap-2">
             <Button className="flex-1" onClick={handleUpgrade} disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Zap className="h-4 w-4 mr-1" />}
-              Upgrade Now
+              {loading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Zap className="mr-1 h-4 w-4" />}
+              Upgrade now
             </Button>
             <Button variant="outline" onClick={handleViewPlans}>
-              Compare Plans <ArrowRight className="h-4 w-4 ml-1" />
+              Compare plans <ArrowRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
         </div>
