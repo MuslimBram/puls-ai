@@ -58,6 +58,8 @@ import {
   Banknote,
   Store,
   TrendingUp,
+  Heart,
+  Smile,
 } from "lucide-react";
 
 interface NavItem {
