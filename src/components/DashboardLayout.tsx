@@ -60,6 +60,9 @@ import {
   TrendingUp,
   Heart,
   Smile,
+  ShieldCheck as ShieldCheckIcon,
+  FlaskConical,
+  RefreshCw,
 } from "lucide-react";
 
 interface NavItem {
