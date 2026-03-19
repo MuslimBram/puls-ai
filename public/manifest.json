@@ -1,0 +1,30 @@
+{
+  "id": "/",
+  "name": "Menaxheri",
+  "short_name": "Menaxheri",
+  "description": "Lead capture, messaging and AI workflows in one installable app.",
+  "theme_color": "#2663eb",
+  "background_color": "#0b1020",
+  "display": "standalone",
+  "orientation": "portrait",
+  "scope": "/",
+  "start_url": "/",
+  "icons": [
+    {
+      "src": "/pwa/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/pwa/maskable-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
