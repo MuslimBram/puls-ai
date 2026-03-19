@@ -101,7 +101,7 @@ export const RetentionHealthCard = () => {
             size="sm"
             variant="outline"
             className="flex-1 text-xs"
-            onClick={() => runAnalysis.mutate()}
+            onClick={() => runAnalysis.mutate(undefined)}
             disabled={runAnalysis.isPending}
           >
             {runAnalysis.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : null}

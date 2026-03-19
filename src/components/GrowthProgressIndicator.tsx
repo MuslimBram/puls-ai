@@ -19,7 +19,7 @@ export const GrowthProgressIndicator = () => {
   const { channels } = useChannels();
   const { leads } = useLeads();
   const { messages } = useInbox();
-  const { automations } = useAutomations();
+  const { workflows: automations } = useAutomationWorkflows();
 
   const milestones: Milestone[] = [
     {

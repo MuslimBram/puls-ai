@@ -23,7 +23,7 @@ export const PlanStatusCard = () => {
   const aiUsage = checkLimit("aiRepliesPerDay", stripeData?.ai_replies_today ?? 0);
   const leadsUsage = checkLimit("leadsPerMonth", stripeData?.leads_used ?? 0);
 
-  const lockedFeatures = (["advancedCallCenter", "broadcastMessaging", "automationBuilder"] as const)
+  const lockedFeatures = (["automationWorkflows", "chatbotAutomation", "advancedAnalytics"] as (keyof import("@/types/monetization").PlanFeatures)[])
     .filter((f) => !checkFeature(f).allowed);
 
   const urgencyMsg = URGENCY_MESSAGES[Math.floor(Date.now() / 86400000) % URGENCY_MESSAGES.length];
