@@ -53,6 +53,10 @@ import {
   Package,
   Code,
   Rocket,
+  Globe,
+  Cpu,
+  Banknote,
+  Store,
 } from "lucide-react";
 
 interface NavItem {
