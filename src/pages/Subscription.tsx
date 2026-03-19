@@ -215,11 +215,11 @@ const Subscription = () => {
               </div>
               <div>
                 <p className="text-muted-foreground">AI replies / day</p>
-                <p className="font-medium text-foreground">{plan.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan.limits.aiRepliesPerDay}</p>
+                <p className="font-medium text-foreground">{plan?.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan?.limits.aiRepliesPerDay ?? "—"}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Support</p>
-                <p className="font-medium text-foreground">{plan.support}</p>
+                <p className="font-medium text-foreground">{plan?.support ?? "Standard"}</p>
               </div>
             </div>
 
