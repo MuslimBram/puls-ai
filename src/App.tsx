@@ -91,6 +91,7 @@ const App = () => (
                 <Route path="/media-studio" element={<ProtectedPage><MediaStudio /></ProtectedPage>} />
                 <Route path="/broadcast" element={<ProtectedPage><BroadcastMessaging /></ProtectedPage>} />
                 <Route path="/helpdesk" element={<ProtectedPage><Helpdesk /></ProtectedPage>} />
+                <Route path="/telephony" element={<ProtectedPage><Telephony /></ProtectedPage>} />
                 <Route path="/channels" element={<ProtectedPage><Channels /></ProtectedPage>} />
                 <Route path="/connected-accounts" element={<ProtectedPage><ConnectedAccounts /></ProtectedPage>} />
                 <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
