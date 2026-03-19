@@ -61,6 +61,7 @@ export const useTelephony = () => {
   const qc = useQueryClient();
   const [callTimer, setCallTimer] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { createThreadForCall } = useCallInboxIntegration();
 
   // Agent telephony state
   const agentStateQuery = useQuery({
