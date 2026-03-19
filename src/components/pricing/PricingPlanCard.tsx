@@ -111,10 +111,6 @@ export const PricingPlanCard = ({
         <div className="grid gap-2 text-sm text-foreground/90">
           <div className="flex items-center gap-2">
             <Check className="h-4 w-4 shrink-0 text-primary" />
-            <span>{formatLimitValue(plan.limits.socialProfiles, "social profiles")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-primary" />
             <span>{formatLimitValue(plan.limits.channels, "channels")}</span>
           </div>
           <div className="flex items-center gap-2">
@@ -125,10 +121,19 @@ export const PricingPlanCard = ({
             <Check className="h-4 w-4 shrink-0 text-primary" />
             <span>{formatLimitValue(plan.limits.teamMembers, "team members")}</span>
           </div>
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 shrink-0 text-primary" />
+            <span>{formatLimitValue(plan.limits.imagesPerMonth, "images / day")}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <Check className="h-4 w-4 shrink-0 text-primary" />
+            <span>{plan.limits.videoMaxSeconds === -1 ? "Unlimited video / day" : `${Math.floor(plan.limits.videoMaxSeconds / 60)}min video / day`}</span>
+          </div>
         </div>
 
         <div className="rounded-xl border border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground">
-          <span className="font-medium text-foreground">Support:</span> {plan.support}
+          <p><span className="font-medium text-foreground">Support:</span> {plan.support}</p>
+          <p className="mt-1">Daily quotas reset every 24h · no accumulation</p>
         </div>
 
         <Button
