@@ -20,7 +20,7 @@ export interface UsageStatus {
 }
 
 export const useFeatureGating = () => {
-  const { currentPlan, subscription, stripeData, refetchStripe } = useSubscription();
+  const { currentPlan, selectedPlan, selectedPlanDetails, subscription, stripeData, refetchStripe, isTrialExpired } = useSubscription();
   const { permissions } = useRolePermissions();
   const { plansByKey, planOrder, defaultPlanKey } = useMonetizationCatalog();
 
@@ -88,13 +88,16 @@ export const useFeatureGating = () => {
 
   return {
     plan,
+    displayPlan: selectedPlanDetails ?? plan,
     plansByKey,
-    currentPlanKey: (plan?.key ?? fallbackPlanKey) as PlanKey,
+    currentPlanKey: (selectedPlan ?? plan?.key ?? fallbackPlanKey) as PlanKey,
+    effectivePlanKey: (plan?.key ?? fallbackPlanKey) as PlanKey,
     checkFeature,
     checkLimit,
     getUpgradePlan,
     subscription,
     stripeData: stripeData ?? null,
     refetchStripe,
+    isTrialExpired,
   };
 };
