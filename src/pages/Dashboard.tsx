@@ -7,10 +7,15 @@ import { useChannels } from "@/hooks/useChannels";
 import { useKeywords } from "@/hooks/useKeywords";
 import { useInbox } from "@/hooks/useInbox";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { useConversionTracking } from "@/hooks/useConversionTracking";
 import { UsageIndicator } from "@/components/UsageIndicator";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { GrowthAssistant } from "@/components/GrowthAssistant";
 import { SetupChecklist } from "@/components/SetupChecklist";
+import { PlanStatusCard } from "@/components/PlanStatusCard";
+import { RetentionHealthCard } from "@/components/RetentionHealthCard";
+import { RevenueOpportunities } from "@/components/RevenueOpportunities";
+import { GrowthProgressIndicator } from "@/components/GrowthProgressIndicator";
 import { SafeRender } from "@/components/SafeRender";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -23,6 +28,7 @@ import {
   Zap,
 } from "lucide-react";
 import { format } from "date-fns";
+import { useEffect } from "react";
 
 const Dashboard = () => {
   const { profile, isLoading } = useBusinessProfile();
@@ -31,6 +37,11 @@ const Dashboard = () => {
   const { keywords } = useKeywords();
   const { messages } = useInbox();
   const { plan, checkLimit, subscription } = useFeatureGating();
+  const { track } = useConversionTracking();
+
+  useEffect(() => {
+    track("plan_page_view", { page: "dashboard" });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const recentLeads = leads?.slice(0, 5) ?? [];
   const thisWeek = (leads ?? []).filter((l) => {
@@ -120,6 +131,24 @@ const Dashboard = () => {
           </Card>
         </div>
 
+        {/* Plan Status + Health + Growth Progress */}
+        <div className="grid gap-4 lg:grid-cols-3">
+          <SafeRender label="Plan Status">
+            <PlanStatusCard />
+          </SafeRender>
+          <SafeRender label="Retention Health">
+            <RetentionHealthCard />
+          </SafeRender>
+          <SafeRender label="Growth Progress">
+            <GrowthProgressIndicator />
+          </SafeRender>
+        </div>
+
+        {/* Revenue Opportunities */}
+        <SafeRender label="Revenue Opportunities">
+          <RevenueOpportunities />
+        </SafeRender>
+
         {/* Usage & Plan */}
         <Card>
           <CardHeader>
@@ -152,7 +181,7 @@ const Dashboard = () => {
                 {(channels ?? []).length === 0 ? (
                   <div className="flex flex-col items-center py-4 text-center">
                     <p className="text-sm text-muted-foreground mb-2">No channels connected</p>
-                    <Link to="/channels"><Button size="sm" variant="outline">Add Channel</Button></Link>
+                    <Link to="/connections"><Button size="sm" variant="outline">Add Channel</Button></Link>
                   </div>
                 ) : (
                   (channels ?? []).slice(0, 5).map((ch) => (

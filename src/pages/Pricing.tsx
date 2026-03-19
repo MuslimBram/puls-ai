@@ -13,10 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useMonetizationCatalog, useEnterpriseLeadSubmission } from "@/hooks/useMonetizationCatalog";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useConversionTracking } from "@/hooks/useConversionTracking";
 import { getPackageVariant } from "@/lib/packagePricing";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { Building2, Heart, Loader2, Mail, ShieldCheck } from "lucide-react";
+import { Building2, Heart, Loader2, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
 import type { PackageVariant, PlanKey } from "@/types/monetization";
 
@@ -38,9 +39,14 @@ const Pricing = () => {
   const { currentPlanKey } = useFeatureGating();
   const { stripeData, refetchStripe } = useSubscription();
   const { plans, plansByKey, planOrder, comparisonSections, donations, isLoading } = useMonetizationCatalog();
+  const { track } = useConversionTracking();
   const enterpriseLead = useEnterpriseLeadSubmission();
   const currentPackageType = ((stripeData?.package_type as PackageVariant["type"] | undefined) ?? "monthly");
   const selectedVariant = getPackageVariant(packageType);
+
+  useEffect(() => {
+    track("plan_page_view", { source: "pricing" });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -48,6 +54,7 @@ const Pricing = () => {
 
     if (checkout === "success") {
       toast.success("Checkout completed successfully.");
+      track("trial_to_paid", { plan: searchParams.get("plan") });
       refetchStripe();
     } else if (checkout === "canceled") {
       toast.info("Checkout was canceled.");
@@ -90,6 +97,7 @@ const Pricing = () => {
       return;
     }
 
+    track("upgrade_click", { plan: planKey, intent, packageType });
     setLoadingPlan(planKey);
     try {
       if (intent === "downgrade" && stripeData?.subscribed && currentPlanKey !== planKey) {
@@ -158,7 +166,7 @@ const Pricing = () => {
         <section className="overflow-hidden rounded-[2rem] border border-border/60 bg-gradient-to-br from-background via-muted/20 to-primary/10">
           <div className="grid gap-8 px-6 py-10 md:px-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end lg:gap-12 lg:py-14">
             <div className="space-y-6">
-              <Badge variant="secondary" className="w-fit">Monetization Phase 3</Badge>
+              <Badge variant="secondary" className="w-fit gap-1"><Sparkles className="h-3 w-3" />Monetization Phase 3</Badge>
               <div className="space-y-4">
                 <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
                   Choose a plan, then lock your term.
