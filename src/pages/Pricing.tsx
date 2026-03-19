@@ -304,9 +304,10 @@ const Pricing = () => {
       </div>
 
       <Dialog open={enterpriseOpen} onOpenChange={setEnterpriseOpen}>
-        <DialogContent>
+        <DialogContent aria-describedby="enterprise-dialog-desc">
           <DialogHeader>
             <DialogTitle>Enterprise sales request</DialogTitle>
+            <p id="enterprise-dialog-desc" className="text-sm text-muted-foreground">Fill in your details and we'll get back to you about enterprise pricing.</p>
           </DialogHeader>
 
           <div className="grid gap-3">

@@ -70,7 +70,6 @@ serve(async (req) => {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
 
     if (!supabaseUrl || !serviceRoleKey) throw new Error("Backend environment variables are missing");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
 
     const supabaseClient = createClient(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false },
@@ -88,6 +87,47 @@ serve(async (req) => {
 
     const catalogRows = await loadPricingCatalogRows(supabaseClient);
     const productMap = indexPricingCatalogByProductId(catalogRows);
+
+    // --- If no Stripe key, return DB-only subscription data ---
+    if (!stripeKey) {
+      logStep("No STRIPE_SECRET_KEY, returning DB-only subscription data");
+
+      const { data: storedSubscription } = await supabaseClient
+        .from("subscriptions")
+        .select("plan, subscription_status, leads_used, ai_replies_today, grace_period_end, trial_start, trial_end, referral_discount_percent, referral_discount_months_remaining, referral_discount_expires_at, total_discount_savings, package_type, package_start_at, package_end_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const storedPackageType = normalizePackageType(storedSubscription?.package_type);
+      const effectiveStatus = resolveStatus(storedSubscription?.subscription_status, storedSubscription?.trial_end ?? null, false);
+
+      return jsonResponse({
+        subscribed: effectiveStatus === "active" || effectiveStatus === "trialing",
+        plan: storedSubscription?.plan || "standard",
+        selected_plan: storedSubscription?.plan || "standard",
+        status: effectiveStatus,
+        status_label: STATUS_LABELS[effectiveStatus] || "No subscription",
+        trial_end: storedSubscription?.trial_end ?? null,
+        trial_start: storedSubscription?.trial_start ?? null,
+        grace_period_end: storedSubscription?.grace_period_end ?? null,
+        leads_used: storedSubscription?.leads_used || 0,
+        ai_replies_today: storedSubscription?.ai_replies_today || 0,
+        package_type: storedPackageType,
+        package_start_at: storedSubscription?.package_start_at ?? null,
+        package_end_at: storedSubscription?.package_end_at ?? null,
+        commitment_months: PACKAGE_MONTHS[storedPackageType],
+        referral_discount:
+          storedSubscription?.referral_discount_percent && storedSubscription.referral_discount_percent > 0
+            ? {
+                percent: storedSubscription.referral_discount_percent,
+                months_remaining: storedSubscription.referral_discount_months_remaining,
+                expires_at: storedSubscription.referral_discount_expires_at,
+                total_savings: storedSubscription.total_discount_savings || 0,
+              }
+            : null,
+      });
+    }
+
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
 
     const syncSubscriptionRow = async (payload: Record<string, unknown>) => {
