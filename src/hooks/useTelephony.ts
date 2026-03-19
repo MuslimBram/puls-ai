@@ -189,10 +189,19 @@ export const useTelephony = () => {
 
       return call as unknown as ActiveCall;
     },
-    onSuccess: () => {
+    onSuccess: (call) => {
       qc.invalidateQueries({ queryKey: ["active-calls"] });
       qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
       qc.invalidateQueries({ queryKey: ["call-records"] });
+      // Auto-create inbox thread for this call
+      if (call?.call_record_id) {
+        createThreadForCall.mutate({
+          callRecordId: call.call_record_id,
+          contactPhone: call.callee_number || call.caller_number,
+          contactName: call.caller_name || undefined,
+          direction: "outbound",
+        });
+      }
       toast.success("Call initiated");
     },
     onError: (e: Error) => toast.error(e.message),
