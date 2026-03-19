@@ -181,7 +181,7 @@ export const IvrBuilderPanel = () => {
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-foreground">{node.label}</p>
                           <p className="text-[10px] text-muted-foreground truncate">
-                            {node.config.message || node.config.prompt || node.config.target_queue || "Click to configure"}
+                            {String(node.config.message || node.config.prompt || node.config.target_queue || "Click to configure")}
                           </p>
                         </div>
                         <Button
