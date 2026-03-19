@@ -97,10 +97,14 @@ const Telephony = () => {
         </div>
 
         <Tabs defaultValue="live" className="space-y-3">
-          <TabsList className="h-8">
+          <TabsList className="h-8 flex-wrap">
             <TabsTrigger value="live" className="text-xs h-6">Live Calls</TabsTrigger>
             <TabsTrigger value="queues" className="text-xs h-6">Queues</TabsTrigger>
-            <TabsTrigger value="history" className="text-xs h-6">Call History</TabsTrigger>
+            <TabsTrigger value="recordings" className="text-xs h-6">Recordings</TabsTrigger>
+            <TabsTrigger value="ivr" className="text-xs h-6">IVR Builder</TabsTrigger>
+            <TabsTrigger value="supervisor" className="text-xs h-6">Supervisor</TabsTrigger>
+            <TabsTrigger value="dialer" className="text-xs h-6">Dialer</TabsTrigger>
+            <TabsTrigger value="history" className="text-xs h-6">History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="live" className="space-y-3">
