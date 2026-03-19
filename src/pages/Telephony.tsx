@@ -12,6 +12,7 @@ import { TelephonyAnalyticsPanel } from "@/components/telephony/TelephonyAnalyti
 import { CallScriptsPanel } from "@/components/telephony/CallScriptsPanel";
 import { WorkforcePanel } from "@/components/telephony/WorkforcePanel";
 import { WallboardPanel } from "@/components/telephony/WallboardPanel";
+import { TelephonyProviderSetup } from "@/components/telephony/TelephonyProviderSetup";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Phone, PhoneIncoming, PhoneOutgoing, Users, Clock, Activity, Headphones, BarChart3,
