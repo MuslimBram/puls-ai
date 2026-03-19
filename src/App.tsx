@@ -59,6 +59,9 @@ const RevenueEngine = lazy(() => import("./pages/RevenueEngine"));
 const GrowthStrategy = lazy(() => import("./pages/GrowthStrategy"));
 const MarketExpansion = lazy(() => import("./pages/MarketExpansion"));
 const PricingOptimization = lazy(() => import("./pages/PricingOptimization"));
+const CompetitiveIntelligenceEngine = lazy(() => import("./pages/CompetitiveIntelligenceEngine"));
+const BrandReputation = lazy(() => import("./pages/BrandReputation"));
+const CustomerExperience = lazy(() => import("./pages/CustomerExperience"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
