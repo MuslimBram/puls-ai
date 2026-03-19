@@ -2,7 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type AppRole = "admin" | "super_admin" | "controller" | "worker" | "user" | "moderator" | "business_owner" | "partner";
+export type AppRole =
+  | "admin"
+  | "super_admin"
+  | "controller"
+  | "worker"
+  | "user"
+  | "moderator"
+  | "business_owner"
+  | "partner"
+  | "business_manager"
+  | "agent"
+  | "freelancer";
 
 export interface RolePermissions {
   canCreateAdmin: boolean;
@@ -20,144 +31,167 @@ export interface RolePermissions {
   bypassSubscription: boolean;
   bypassFeatureGating: boolean;
   bypassUsageLimits: boolean;
+  canConnectChannels: boolean;
+  canManageIntegrations: boolean;
+  canManageTeam: boolean;
+  canViewCRM: boolean;
+  canManageCampaigns: boolean;
+  canRespondInbox: boolean;
+  canViewAnalytics: boolean;
+  canConfigureAutomations: boolean;
+  canMonitorConnections: boolean;
 }
+
+const BASE_PERMISSIONS: RolePermissions = {
+  canCreateAdmin: false,
+  canCreateController: false,
+  canCreateWorker: false,
+  canRegisterBusiness: false,
+  canReviewBusinesses: false,
+  canApprovePayouts: false,
+  canManageCommissions: false,
+  canAccessBilling: false,
+  canCreateReferralLinks: false,
+  canViewAllWorkspaces: false,
+  canSuspendUsers: false,
+  canChangePlans: false,
+  bypassSubscription: false,
+  bypassFeatureGating: false,
+  bypassUsageLimits: false,
+  canConnectChannels: false,
+  canManageIntegrations: false,
+  canManageTeam: false,
+  canViewCRM: false,
+  canManageCampaigns: false,
+  canRespondInbox: false,
+  canViewAnalytics: false,
+  canConfigureAutomations: false,
+  canMonitorConnections: false,
+};
 
 const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
   super_admin: {
+    ...BASE_PERMISSIONS,
     canCreateAdmin: true,
     canCreateController: true,
     canCreateWorker: true,
-    canRegisterBusiness: false,
     canReviewBusinesses: true,
     canApprovePayouts: true,
     canManageCommissions: true,
-    canAccessBilling: false,
-    canCreateReferralLinks: false,
     canViewAllWorkspaces: true,
     canSuspendUsers: true,
     canChangePlans: true,
     bypassSubscription: true,
     bypassFeatureGating: true,
     bypassUsageLimits: true,
+    canViewCRM: true,
+    canViewAnalytics: true,
+    canMonitorConnections: true,
+    // NOTE: super_admin must NOT connect channels on behalf of businesses
+    canConnectChannels: false,
   },
   admin: {
+    ...BASE_PERMISSIONS,
     canCreateAdmin: true,
     canCreateController: true,
     canCreateWorker: true,
-    canRegisterBusiness: false,
     canReviewBusinesses: true,
     canApprovePayouts: true,
     canManageCommissions: true,
-    canAccessBilling: false,
-    canCreateReferralLinks: false,
     canViewAllWorkspaces: true,
     canSuspendUsers: true,
     canChangePlans: true,
     bypassSubscription: true,
     bypassFeatureGating: true,
     bypassUsageLimits: true,
+    canViewCRM: true,
+    canViewAnalytics: true,
+    canMonitorConnections: true,
+    // Admin can monitor but NOT connect channels for businesses
+    canConnectChannels: false,
   },
   controller: {
-    canCreateAdmin: false,
-    canCreateController: false,
-    canCreateWorker: false,
-    canRegisterBusiness: false,
+    ...BASE_PERMISSIONS,
     canReviewBusinesses: true,
-    canApprovePayouts: false,
-    canManageCommissions: false,
-    canAccessBilling: false,
-    canCreateReferralLinks: false,
     canViewAllWorkspaces: true,
-    canSuspendUsers: false,
-    canChangePlans: false,
-    bypassSubscription: false,
-    bypassFeatureGating: false,
-    bypassUsageLimits: false,
+    canViewAnalytics: true,
+    canMonitorConnections: true,
   },
   worker: {
-    canCreateAdmin: false,
-    canCreateController: false,
-    canCreateWorker: false,
+    ...BASE_PERMISSIONS,
     canRegisterBusiness: true,
-    canReviewBusinesses: false,
-    canApprovePayouts: false,
-    canManageCommissions: false,
-    canAccessBilling: false,
-    canCreateReferralLinks: false,
-    canViewAllWorkspaces: false,
-    canSuspendUsers: false,
-    canChangePlans: false,
-    bypassSubscription: false,
-    bypassFeatureGating: false,
-    bypassUsageLimits: false,
   },
   moderator: {
-    canCreateAdmin: false,
-    canCreateController: false,
-    canCreateWorker: false,
-    canRegisterBusiness: false,
+    ...BASE_PERMISSIONS,
     canReviewBusinesses: true,
-    canApprovePayouts: false,
-    canManageCommissions: false,
-    canAccessBilling: false,
-    canCreateReferralLinks: false,
-    canViewAllWorkspaces: false,
-    canSuspendUsers: false,
-    canChangePlans: false,
-    bypassSubscription: false,
-    bypassFeatureGating: false,
-    bypassUsageLimits: false,
+    canRespondInbox: true,
   },
   business_owner: {
-    canCreateAdmin: false,
-    canCreateController: false,
-    canCreateWorker: false,
+    ...BASE_PERMISSIONS,
     canRegisterBusiness: true,
-    canReviewBusinesses: false,
-    canApprovePayouts: false,
-    canManageCommissions: false,
     canAccessBilling: true,
     canCreateReferralLinks: true,
-    canViewAllWorkspaces: false,
-    canSuspendUsers: false,
-    canChangePlans: false,
     bypassSubscription: true,
     bypassFeatureGating: true,
     bypassUsageLimits: true,
+    canConnectChannels: true,
+    canManageIntegrations: true,
+    canManageTeam: true,
+    canViewCRM: true,
+    canManageCampaigns: true,
+    canRespondInbox: true,
+    canViewAnalytics: true,
+    canConfigureAutomations: true,
+  },
+  business_manager: {
+    ...BASE_PERMISSIONS,
+    canViewCRM: true,
+    canManageCampaigns: true,
+    canRespondInbox: true,
+    canViewAnalytics: true,
+    canConfigureAutomations: true,
+    canManageTeam: true,
+    // Cannot change billing or core integrations
+    canAccessBilling: false,
+    canConnectChannels: false,
+    canManageIntegrations: false,
+  },
+  agent: {
+    ...BASE_PERMISSIONS,
+    canRespondInbox: true,
+    canViewCRM: true,
+    // Cannot access billing, integrations, pricing, or create campaigns
+    canAccessBilling: false,
+    canConnectChannels: false,
+    canManageIntegrations: false,
+    canManageCampaigns: false,
+  },
+  freelancer: {
+    ...BASE_PERMISSIONS,
+    canConnectChannels: true,
+    canManageIntegrations: true,
+    canViewCRM: true,
+    canManageCampaigns: true,
+    canRespondInbox: true,
+    canViewAnalytics: true,
+    canConfigureAutomations: true,
+    canRegisterBusiness: true,
+    // Cannot see other businesses or change global settings
+    canViewAllWorkspaces: false,
+    canChangePlans: false,
   },
   partner: {
-    canCreateAdmin: false,
-    canCreateController: false,
-    canCreateWorker: false,
+    ...BASE_PERMISSIONS,
     canRegisterBusiness: true,
-    canReviewBusinesses: false,
-    canApprovePayouts: false,
-    canManageCommissions: false,
     canAccessBilling: true,
     canCreateReferralLinks: true,
-    canViewAllWorkspaces: false,
-    canSuspendUsers: false,
-    canChangePlans: false,
-    bypassSubscription: false,
-    bypassFeatureGating: false,
-    bypassUsageLimits: false,
+    canViewAnalytics: true,
+    // Cannot control business internal operations
+    canConnectChannels: false,
+    canManageIntegrations: false,
   },
   user: {
-    canCreateAdmin: false,
-    canCreateController: false,
-    canCreateWorker: false,
-    canRegisterBusiness: false,
-    canReviewBusinesses: false,
-    canApprovePayouts: false,
-    canManageCommissions: false,
-    canAccessBilling: false,
-    canCreateReferralLinks: false,
-    canViewAllWorkspaces: false,
-    canSuspendUsers: false,
-    canChangePlans: false,
-    bypassSubscription: false,
-    bypassFeatureGating: false,
-    bypassUsageLimits: false,
+    ...BASE_PERMISSIONS,
   },
 };
 
@@ -190,7 +224,7 @@ export const useRolePermissions = () => {
         return merged;
       }, {} as RolePermissions);
     },
-    { ...ROLE_PERMISSIONS.user }
+    { ...ROLE_PERMISSIONS.user },
   );
 
   const hasRole = (role: AppRole) => roles.includes(role);
@@ -198,6 +232,10 @@ export const useRolePermissions = () => {
   const isSuperAdmin = hasRole("super_admin");
   const isController = hasRole("controller");
   const isWorker = hasRole("worker");
+  const isFreelancer = hasRole("freelancer");
+  const isBusinessOwner = hasRole("business_owner");
+  const isBusinessManager = hasRole("business_manager");
+  const isAgent = hasRole("agent");
   const isSystemRole = isAdmin || isSuperAdmin;
 
   return {
@@ -208,6 +246,10 @@ export const useRolePermissions = () => {
     isSuperAdmin,
     isController,
     isWorker,
+    isFreelancer,
+    isBusinessOwner,
+    isBusinessManager,
+    isAgent,
     isSystemRole,
     isLoading,
   };
