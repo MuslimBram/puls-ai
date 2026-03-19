@@ -98,6 +98,7 @@ const Pricing = () => {
     }
 
     track("upgrade_click", { plan: planKey, intent, packageType });
+    setLoadingPlan(planKey);
     try {
       if (intent === "downgrade" && stripeData?.subscribed && currentPlanKey !== planKey) {
         await openBillingPortal();
