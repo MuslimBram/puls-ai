@@ -13,10 +13,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useMonetizationCatalog, useEnterpriseLeadSubmission } from "@/hooks/useMonetizationCatalog";
 import { useSubscription } from "@/hooks/useSubscription";
+import { useConversionTracking } from "@/hooks/useConversionTracking";
 import { getPackageVariant } from "@/lib/packagePricing";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
-import { Building2, Heart, Loader2, Mail, ShieldCheck } from "lucide-react";
+import { Building2, Heart, Loader2, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
 import type { PackageVariant, PlanKey } from "@/types/monetization";
 
