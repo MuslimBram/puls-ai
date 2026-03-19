@@ -111,6 +111,8 @@ const businessNavGroups: NavGroup[] = [
       { href: "/channels", label: "Channels", icon: Radio },
       { href: "/connected-accounts", label: "Accounts", icon: Link2 },
       { href: "/public-api", label: "Public API", icon: Zap },
+      { href: "/marketplace", label: "Marketplace", icon: Package },
+      { href: "/developer", label: "Developer", icon: Code },
     ],
   },
   {

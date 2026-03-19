@@ -109,6 +109,9 @@ const App = () => (
                 <Route path="/admin/businesses/:businessId/scan-insights" element={<ProtectedPage><AdminBusinessScanInsights /></ProtectedPage>} />
                 <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
                 <Route path="/public-api" element={<ProtectedPage><PublicApi /></ProtectedPage>} />
+                <Route path="/marketplace" element={<ProtectedPage><Marketplace /></ProtectedPage>} />
+                <Route path="/developer" element={<ProtectedPage><DeveloperPortal /></ProtectedPage>} />
+                <Route path="/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
