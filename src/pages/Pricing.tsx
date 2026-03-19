@@ -165,7 +165,7 @@ const Pricing = () => {
         <section className="overflow-hidden rounded-[2rem] border border-border/60 bg-gradient-to-br from-background via-muted/20 to-primary/10">
           <div className="grid gap-8 px-6 py-10 md:px-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end lg:gap-12 lg:py-14">
             <div className="space-y-6">
-              <Badge variant="secondary" className="w-fit">Monetization Phase 3</Badge>
+              <Badge variant="secondary" className="w-fit gap-1"><Sparkles className="h-3 w-3" />Monetization Phase 3</Badge>
               <div className="space-y-4">
                 <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
                   Choose a plan, then lock your term.
