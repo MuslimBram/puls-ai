@@ -40,7 +40,7 @@ export const SoftphoneWidget = () => {
   const {
     agentState, myCall, callTimer, formatTimer,
     setAgentStatus, initiateCall, answerCall, toggleHold, endCall, transferCall,
-    activeCalls, hasRealProvider, isMuted, toggleMute,
+    activeCalls, hasRealProvider, hasWebRtcCredentials, deviceReady, isMuted, toggleMute,
   } = useTelephony();
 
   const [dialNumber, setDialNumber] = useState("");
@@ -266,7 +266,7 @@ export const SoftphoneWidget = () => {
 
         {/* Stats footer */}
         <div className="flex items-center justify-between border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
-          <span>{hasRealProvider ? "🟢 Twilio" : "⚪ Simulation"} · {agentState?.calls_handled_today ?? 0} calls</span>
+          <span>{deviceReady ? "🟢 WebRTC" : hasRealProvider ? "🟡 Twilio" : "⚪ Sim"} · {agentState?.calls_handled_today ?? 0} calls</span>
           <span>Queue: {activeCalls.filter((c) => c.status === "queued").length}</span>
         </div>
       </PopoverContent>
