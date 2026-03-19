@@ -1832,10 +1832,12 @@ export type Database = {
           contact_phone: string | null
           created_at: string
           deal_id: string | null
+          external_call_id: string | null
           follow_up_recommendation: string | null
           id: string
           lead_id: string | null
           notes: string | null
+          recording_duration: number | null
           recording_url: string | null
           tags: string[] | null
           thread_id: string | null
@@ -1856,10 +1858,12 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           deal_id?: string | null
+          external_call_id?: string | null
           follow_up_recommendation?: string | null
           id?: string
           lead_id?: string | null
           notes?: string | null
+          recording_duration?: number | null
           recording_url?: string | null
           tags?: string[] | null
           thread_id?: string | null
@@ -1880,10 +1884,12 @@ export type Database = {
           contact_phone?: string | null
           created_at?: string
           deal_id?: string | null
+          external_call_id?: string | null
           follow_up_recommendation?: string | null
           id?: string
           lead_id?: string | null
           notes?: string | null
+          recording_duration?: number | null
           recording_url?: string | null
           tags?: string[] | null
           thread_id?: string | null
@@ -1929,6 +1935,7 @@ export type Database = {
           description: string | null
           id: string
           is_active: boolean | null
+          last_used_at: string | null
           name: string
           script_type: string
           tags: string[] | null
@@ -1943,6 +1950,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          last_used_at?: string | null
           name: string
           script_type?: string
           tags?: string[] | null
@@ -1957,6 +1965,7 @@ export type Database = {
           description?: string | null
           id?: string
           is_active?: boolean | null
+          last_used_at?: string | null
           name?: string
           script_type?: string
           tags?: string[] | null
@@ -7846,6 +7855,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_usage_count: {
+        Args: { _script_id: string }
+        Returns: undefined
       }
       is_contact_suppressed: {
         Args: {

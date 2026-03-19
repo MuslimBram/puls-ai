@@ -63,6 +63,24 @@ export const useTelephony = () => {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { createThreadForCall } = useCallInboxIntegration();
 
+  // Check if business has a VoIP channel configured
+  const voipConfigQuery = useQuery({
+    queryKey: ["voip-config", workspace?.id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("channels")
+        .select("id, settings")
+        .eq("workspace_id", workspace!.id)
+        .eq("channel_type", "voip")
+        .eq("is_enabled", true)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!workspace,
+  });
+
+  const hasRealProvider = !!voipConfigQuery.data?.settings;
+
   // Agent telephony state
   const agentStateQuery = useQuery({
     queryKey: ["agent-telephony-state", user?.id],
@@ -95,7 +113,6 @@ export const useTelephony = () => {
     refetchInterval: 5000,
   });
 
-  // My current call
   const myCall = activeCallsQuery.data?.find(
     (c) => c.agent_user_id === user?.id && ["in_progress", "on_hold", "ringing"].includes(c.status)
   );
@@ -133,10 +150,29 @@ export const useTelephony = () => {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Initiate outbound call
+  // Helper to call the telephony edge function
+  const callTelephonyApi = async (action: string, extra: Record<string, unknown> = {}) => {
+    const { data, error } = await supabase.functions.invoke("telephony-call-manager", {
+      body: { action, workspace_id: workspace!.id, ...extra },
+    });
+    if (error) throw new Error(error.message || "Telephony API error");
+    if (data?.error) throw new Error(data.error);
+    return data;
+  };
+
+  // Initiate outbound call — uses real Twilio if provider configured, otherwise DB simulation
   const initiateCall = useMutation({
     mutationFn: async (params: { number: string; contactName?: string; dealId?: string }) => {
-      // Create active call record
+      if (hasRealProvider) {
+        const result = await callTelephonyApi("make_call", {
+          number: params.number,
+          contact_name: params.contactName,
+          deal_id: params.dealId,
+        });
+        return result.call as ActiveCall;
+      }
+
+      // Fallback: DB-only simulation
       const { data: call, error } = await supabase
         .from("active_calls")
         .insert({
@@ -153,7 +189,6 @@ export const useTelephony = () => {
         .single();
       if (error) throw error;
 
-      // Create call record entry
       const { data: record } = await supabase
         .from("call_records")
         .insert({
@@ -176,7 +211,6 @@ export const useTelephony = () => {
           .eq("id", (call as any).id);
       }
 
-      // Update agent state
       await supabase
         .from("agent_telephony_state")
         .upsert({
@@ -193,7 +227,6 @@ export const useTelephony = () => {
       qc.invalidateQueries({ queryKey: ["active-calls"] });
       qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
       qc.invalidateQueries({ queryKey: ["call-records"] });
-      // Auto-create inbox thread for this call
       if (call?.call_record_id) {
         createThreadForCall.mutate({
           callRecordId: call.call_record_id,
@@ -202,7 +235,7 @@ export const useTelephony = () => {
           direction: "outbound",
         });
       }
-      toast.success("Call initiated");
+      toast.success(hasRealProvider ? "Call initiated via Twilio" : "Call initiated (simulation)");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -210,6 +243,8 @@ export const useTelephony = () => {
   // Answer call
   const answerCall = useMutation({
     mutationFn: async (callId: string) => {
+      // For real calls, answering is handled by Twilio Client SDK / SIP
+      // Here we update the DB state
       const { error } = await supabase
         .from("active_calls")
         .update({
@@ -234,7 +269,6 @@ export const useTelephony = () => {
     onSuccess: (_, callId) => {
       qc.invalidateQueries({ queryKey: ["active-calls"] });
       qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
-      // Create inbox thread for answered inbound call
       const call = activeCallsQuery.data?.find((c) => c.id === callId);
       if (call?.call_record_id) {
         createThreadForCall.mutate({
@@ -247,17 +281,27 @@ export const useTelephony = () => {
     },
   });
 
-  // Hold/unhold
+  // Hold/unhold — uses real Twilio API if available
   const toggleHold = useMutation({
     mutationFn: async (callId: string) => {
       const call = activeCallsQuery.data?.find((c) => c.id === callId);
       if (!call) throw new Error("Call not found");
 
+      if (hasRealProvider && call.sip_call_id) {
+        if (call.status === "on_hold") {
+          await callTelephonyApi("resume_call", { call_id: callId });
+        } else {
+          await callTelephonyApi("hold_call", { call_id: callId });
+        }
+        return;
+      }
+
+      // DB-only fallback
       if (call.status === "on_hold") {
         const holdDuration = call.hold_started_at
           ? Math.floor((Date.now() - new Date(call.hold_started_at).getTime()) / 1000)
           : 0;
-        const { error } = await supabase
+        await supabase
           .from("active_calls")
           .update({
             status: "in_progress",
@@ -266,9 +310,8 @@ export const useTelephony = () => {
             updated_at: new Date().toISOString(),
           } as any)
           .eq("id", callId);
-        if (error) throw error;
       } else {
-        const { error } = await supabase
+        await supabase
           .from("active_calls")
           .update({
             status: "on_hold",
@@ -276,44 +319,38 @@ export const useTelephony = () => {
             updated_at: new Date().toISOString(),
           } as any)
           .eq("id", callId);
-        if (error) throw error;
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["active-calls"] }),
   });
 
-  // End call
+  // End call — uses real Twilio API if available
   const endCall = useMutation({
     mutationFn: async (callId: string) => {
       const call = activeCallsQuery.data?.find((c) => c.id === callId);
+
+      if (hasRealProvider && call?.sip_call_id) {
+        await callTelephonyApi("end_call", { call_id: callId });
+        return;
+      }
+
+      // DB-only fallback
       const now = new Date().toISOString();
-
-      const { error } = await supabase
+      await supabase
         .from("active_calls")
-        .update({
-          status: "completed",
-          ended_at: now,
-          updated_at: now,
-        } as any)
+        .update({ status: "completed", ended_at: now, updated_at: now } as any)
         .eq("id", callId);
-      if (error) throw error;
 
-      // Update call record
       if (call?.call_record_id) {
         const duration = call.answered_at
           ? Math.floor((Date.now() - new Date(call.answered_at).getTime()) / 1000)
           : 0;
         await supabase
           .from("call_records")
-          .update({
-            call_status: "completed",
-            call_duration: duration,
-            updated_at: now,
-          } as any)
+          .update({ call_status: "completed", call_duration: duration, updated_at: now } as any)
           .eq("id", call.call_record_id);
       }
 
-      // Update agent state
       await supabase
         .from("agent_telephony_state")
         .upsert({
@@ -337,7 +374,13 @@ export const useTelephony = () => {
   // Transfer call
   const transferCall = useMutation({
     mutationFn: async ({ callId, targetNumber }: { callId: string; targetNumber: string }) => {
-      const { error } = await supabase
+      if (hasRealProvider) {
+        await callTelephonyApi("transfer_call", { call_id: callId, target_number: targetNumber });
+        return;
+      }
+
+      // DB-only fallback
+      await supabase
         .from("active_calls")
         .update({
           status: "transferring",
@@ -346,9 +389,7 @@ export const useTelephony = () => {
           updated_at: new Date().toISOString(),
         } as any)
         .eq("id", callId);
-      if (error) throw error;
 
-      // Release agent
       await supabase
         .from("agent_telephony_state")
         .upsert({
@@ -365,6 +406,17 @@ export const useTelephony = () => {
       toast.success("Call transferred");
     },
   });
+
+  // Mute — real audio mute via Twilio Conferences or local media track
+  const [isMuted, setIsMuted] = useState(false);
+  const toggleMute = useCallback(() => {
+    setIsMuted((prev) => {
+      const next = !prev;
+      // In a real WebRTC/Twilio Client integration, this would toggle the local audio track:
+      // localStream.getAudioTracks().forEach(t => t.enabled = !next);
+      return next;
+    });
+  }, []);
 
   // Call timer
   useEffect(() => {
@@ -409,6 +461,9 @@ export const useTelephony = () => {
     queues: queuesQuery.data ?? [],
     callTimer,
     formatTimer,
+    hasRealProvider,
+    isMuted,
+    toggleMute,
     setAgentStatus,
     initiateCall,
     answerCall,

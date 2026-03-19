@@ -40,11 +40,10 @@ export const SoftphoneWidget = () => {
   const {
     agentState, myCall, callTimer, formatTimer,
     setAgentStatus, initiateCall, answerCall, toggleHold, endCall, transferCall,
-    activeCalls,
+    activeCalls, hasRealProvider, isMuted, toggleMute,
   } = useTelephony();
 
   const [dialNumber, setDialNumber] = useState("");
-  const [isMuted, setIsMuted] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferNumber, setTransferNumber] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -162,7 +161,7 @@ export const SoftphoneWidget = () => {
                     variant={isMuted ? "destructive" : "outline"}
                     size="icon"
                     className="h-9 w-9 rounded-full"
-                    onClick={() => setIsMuted(!isMuted)}
+                    onClick={toggleMute}
                   >
                     {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                   </Button>
@@ -267,8 +266,8 @@ export const SoftphoneWidget = () => {
 
         {/* Stats footer */}
         <div className="flex items-center justify-between border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
-          <span>Today: {agentState?.calls_handled_today ?? 0} calls</span>
-          <span>Queue: {activeCalls.filter((c) => c.status === "queued").length} waiting</span>
+          <span>{hasRealProvider ? "🟢 Twilio" : "⚪ Simulation"} · {agentState?.calls_handled_today ?? 0} calls</span>
+          <span>Queue: {activeCalls.filter((c) => c.status === "queued").length}</span>
         </div>
       </PopoverContent>
     </Popover>
