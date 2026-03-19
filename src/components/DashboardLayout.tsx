@@ -48,6 +48,7 @@ import {
   Sparkles,
   Plug,
   Receipt,
+  Paintbrush,
 } from "lucide-react";
 
 interface NavItem {
