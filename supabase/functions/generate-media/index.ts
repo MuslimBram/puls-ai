@@ -126,6 +126,8 @@ serve(async (req) => {
       _media_type: mediaType,
       _image_limit: policy.dailyImageLimit,
       _video_limit: policy.dailyVideoLimit,
+      _video_seconds_limit: policy.dailyVideoSecondsLimit,
+      _requested_video_seconds: mediaType === "video" ? (durationSeconds ?? (policy.maxVideoSeconds === -1 ? 0 : policy.maxVideoSeconds)) : null,
     });
 
     if (consumeError) {
