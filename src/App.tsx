@@ -68,6 +68,10 @@ const VisitorReengagement = lazy(() => import("./pages/VisitorReengagement"));
 const PersonalizationEngine = lazy(() => import("./pages/PersonalizationEngine"));
 const DemandForecasting = lazy(() => import("./pages/DemandForecasting"));
 const WorkforceOptimization = lazy(() => import("./pages/WorkforceOptimization"));
+const ProcessOptimization = lazy(() => import("./pages/ProcessOptimization"));
+const FunnelOptimization = lazy(() => import("./pages/FunnelOptimization"));
+const OfferOptimization = lazy(() => import("./pages/OfferOptimization"));
+const CustomerValueMaximization = lazy(() => import("./pages/CustomerValueMaximization"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
