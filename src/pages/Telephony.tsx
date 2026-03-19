@@ -183,7 +183,6 @@ const Telephony = () => {
           <TabsContent value="analytics">
             <TelephonyAnalyticsPanel />
           </TabsContent>
-          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
