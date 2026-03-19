@@ -64,6 +64,7 @@ const Channels = () => {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState<ChannelData>({ channel_type: "telegram", channel_name: "" });
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
+  const [wizardProvider, setWizardProvider] = useState<ProviderDef | null>(null);
   const { channels, isLoading, addChannel, toggleChannel, deleteChannel } = useChannels();
   const { registry } = useChannelRegistry();
   const { currentPlanKey } = useFeatureGating();
