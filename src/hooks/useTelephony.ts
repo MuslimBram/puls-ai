@@ -231,9 +231,19 @@ export const useTelephony = () => {
           updated_at: new Date().toISOString(),
         } as any, { onConflict: "user_id" });
     },
-    onSuccess: () => {
+    onSuccess: (_, callId) => {
       qc.invalidateQueries({ queryKey: ["active-calls"] });
       qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
+      // Create inbox thread for answered inbound call
+      const call = activeCallsQuery.data?.find((c) => c.id === callId);
+      if (call?.call_record_id) {
+        createThreadForCall.mutate({
+          callRecordId: call.call_record_id,
+          contactPhone: call.caller_number,
+          contactName: call.caller_name || undefined,
+          direction: "inbound",
+        });
+      }
     },
   });
 
