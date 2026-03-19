@@ -45,11 +45,16 @@ const Pricing = () => {
   const selectedVariant = getPackageVariant(packageType);
 
   useEffect(() => {
+    track("plan_page_view", { source: "pricing" });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     const checkout = searchParams.get("checkout");
     if (!checkout) return;
 
     if (checkout === "success") {
       toast.success("Checkout completed successfully.");
+      track("trial_to_paid", { plan: searchParams.get("plan") });
       refetchStripe();
     } else if (checkout === "canceled") {
       toast.info("Checkout was canceled.");
