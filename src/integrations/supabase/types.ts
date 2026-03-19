@@ -7622,12 +7622,14 @@ export type Database = {
           billing_mode: string
           created_at: string
           id: string
+          is_demo: boolean
           max_sessions_per_user: number
           name: string
           owner_id: string
           payment_accounts: Json | null
           payment_mode: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id: string | null
+          region: string | null
           require_2fa: boolean
           slug: string | null
           updated_at: string
@@ -7637,12 +7639,14 @@ export type Database = {
           billing_mode?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           max_sessions_per_user?: number
           name: string
           owner_id: string
           payment_accounts?: Json | null
           payment_mode?: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id?: string | null
+          region?: string | null
           require_2fa?: boolean
           slug?: string | null
           updated_at?: string
@@ -7652,12 +7656,14 @@ export type Database = {
           billing_mode?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           max_sessions_per_user?: number
           name?: string
           owner_id?: string
           payment_accounts?: Json | null
           payment_mode?: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id?: string | null
+          region?: string | null
           require_2fa?: boolean
           slug?: string | null
           updated_at?: string

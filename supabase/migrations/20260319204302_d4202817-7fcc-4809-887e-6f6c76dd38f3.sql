@@ -1,0 +1,3 @@
+
+ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS is_demo BOOLEAN NOT NULL DEFAULT false;
+ALTER TABLE public.workspaces ADD COLUMN IF NOT EXISTS region TEXT DEFAULT 'us-east-1';
