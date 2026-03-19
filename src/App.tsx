@@ -45,6 +45,9 @@ import Marketplace from "./pages/Marketplace";
 import DeveloperPortal from "./pages/DeveloperPortal";
 import Onboarding from "./pages/Onboarding";
 import Branding from "./pages/Branding";
+import SalesEngine from "./pages/SalesEngine";
+import FinancialIntelligence from "./pages/FinancialIntelligence";
+import SaaSHealth from "./pages/SaaSHealth";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
