@@ -130,9 +130,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   // Admin sees admin groups + business groups; regular users see only business
-  const allGroups = isAdmin
-    ? [...adminNavGroups, ...businessNavGroups]
-    : businessNavGroups;
+  const allGroups = isAdmin ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
 
   const allNavFlat = allGroups.flatMap((g) => g.items);
   const currentPageTitle = allNavFlat.find((i) => i.href === location.pathname)?.label || "Dashboard";
@@ -143,14 +141,14 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
       <aside
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
         )}
       >
         <div className="flex h-12 items-center gap-2 border-b border-border px-3">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
             <Zap className="h-3.5 w-3.5 text-primary-foreground" />
           </div>
-          <span className="text-base font-bold text-foreground">LeadPulse</span>
+          <span className="text-base font-bold text-foreground">Pulse AI</span>
           <Button
             variant="ghost"
             size="icon"
@@ -183,10 +181,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
           {allGroups.map((group) => {
             const isGroupActive = group.items.some((item) => location.pathname === item.href);
             return (
-              <Collapsible
-                key={group.label}
-                defaultOpen={group.defaultOpen || isGroupActive}
-              >
+              <Collapsible key={group.label} defaultOpen={group.defaultOpen || isGroupActive}>
                 <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
                   <group.icon className="h-3 w-3" />
                   <span className="flex-1 text-left">{group.label}</span>
@@ -203,7 +198,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
                           "flex items-center gap-2 rounded-md px-2 py-1 text-[13px] font-medium transition-colors",
                           location.pathname === item.href
                             ? "bg-primary/10 text-primary"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground",
                         )}
                       >
                         <item.icon className="h-3.5 w-3.5 shrink-0" />
@@ -218,9 +213,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
         </nav>
 
         <div className="border-t border-border p-2">
-          <div className="mb-1 truncate px-2 text-[11px] text-muted-foreground">
-            {user?.email}
-          </div>
+          <div className="mb-1 truncate px-2 text-[11px] text-muted-foreground">{user?.email}</div>
           <Button
             variant="ghost"
             className="w-full justify-start gap-2 text-muted-foreground h-7 text-xs"
@@ -234,26 +227,16 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
 
       {/* Overlay */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-30 bg-foreground/20 lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        />
+        <div className="fixed inset-0 z-30 bg-foreground/20 lg:hidden" onClick={() => setMobileOpen(false)} />
       )}
 
       {/* Main */}
       <div className="flex flex-1 flex-col">
         <header className="flex h-12 items-center gap-3 border-b border-border px-4 lg:px-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="lg:hidden h-7 w-7"
-            onClick={() => setMobileOpen(true)}
-          >
+          <Button variant="ghost" size="icon" className="lg:hidden h-7 w-7" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <h2 className="text-base font-semibold text-foreground">
-            {currentPageTitle}
-          </h2>
+          <h2 className="text-base font-semibold text-foreground">{currentPageTitle}</h2>
           <div className="ml-auto">
             <NotificationBell />
           </div>
