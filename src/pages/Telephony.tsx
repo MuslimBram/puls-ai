@@ -12,6 +12,7 @@ import { TelephonyAnalyticsPanel } from "@/components/telephony/TelephonyAnalyti
 import { CallScriptsPanel } from "@/components/telephony/CallScriptsPanel";
 import { WorkforcePanel } from "@/components/telephony/WorkforcePanel";
 import { WallboardPanel } from "@/components/telephony/WallboardPanel";
+import { TelephonyProviderSetup } from "@/components/telephony/TelephonyProviderSetup";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Phone, PhoneIncoming, PhoneOutgoing, Users, Clock, Activity, Headphones, BarChart3,
@@ -100,8 +101,9 @@ const Telephony = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="live" className="space-y-3">
+        <Tabs defaultValue="provider" className="space-y-3">
           <TabsList className="h-8 flex-wrap">
+            <TabsTrigger value="provider" className="text-xs h-6">Provider Setup</TabsTrigger>
             <TabsTrigger value="live" className="text-xs h-6">Live Calls</TabsTrigger>
             <TabsTrigger value="queues" className="text-xs h-6">Queues</TabsTrigger>
             <TabsTrigger value="recordings" className="text-xs h-6">Recordings</TabsTrigger>
@@ -114,6 +116,9 @@ const Telephony = () => {
             <TabsTrigger value="history" className="text-xs h-6">History</TabsTrigger>
             <TabsTrigger value="analytics" className="text-xs h-6">Analytics</TabsTrigger>
           </TabsList>
+          <TabsContent value="provider">
+            <TelephonyProviderSetup />
+          </TabsContent>
           <TabsContent value="live" className="space-y-3">
             {activeCalls.length === 0 ? (
               <Card>
