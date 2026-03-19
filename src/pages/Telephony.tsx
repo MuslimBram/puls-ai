@@ -107,7 +107,7 @@ const Telephony = () => {
             <TabsTrigger value="dialer" className="text-xs h-6">Dialer</TabsTrigger>
             <TabsTrigger value="history" className="text-xs h-6">History</TabsTrigger>
             <TabsTrigger value="analytics" className="text-xs h-6">Analytics</TabsTrigger>
-
+          </TabsList>
           <TabsContent value="live" className="space-y-3">
             {activeCalls.length === 0 ? (
               <Card>
