@@ -3,28 +3,29 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PricingPlanCard } from "@/components/pricing/PricingPlanCard";
 import { PricingComparison } from "@/components/pricing/PricingComparison";
+import { PricingDurationSelector } from "@/components/pricing/PricingDurationSelector";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useMonetizationCatalog, useEnterpriseLeadSubmission } from "@/hooks/useMonetizationCatalog";
 import { useSubscription } from "@/hooks/useSubscription";
+import { getPackageVariant } from "@/lib/packagePricing";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Building2, Heart, Loader2, Mail, ShieldCheck } from "lucide-react";
 import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
-import type { PlanKey } from "@/types/monetization";
+import type { PackageVariant, PlanKey } from "@/types/monetization";
 
 const Pricing = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const annualCheckoutAvailable = false;
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
+  const [packageType, setPackageType] = useState<PackageVariant["type"]>("monthly");
   const [contactForm, setContactForm] = useState({
     name: "",
     email: "",
@@ -38,6 +39,8 @@ const Pricing = () => {
   const { stripeData, refetchStripe } = useSubscription();
   const { plans, plansByKey, planOrder, comparisonSections, donations, isLoading } = useMonetizationCatalog();
   const enterpriseLead = useEnterpriseLeadSubmission();
+  const currentPackageType = ((stripeData?.package_type as PackageVariant["type"] | undefined) ?? "monthly");
+  const selectedVariant = getPackageVariant(packageType);
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -50,7 +53,6 @@ const Pricing = () => {
       toast.info("Checkout was canceled.");
     }
 
-    // Clear checkout params so toast doesn't re-trigger on refresh
     const params = new URLSearchParams(searchParams);
     params.delete("checkout");
     params.delete("plan");
@@ -63,9 +65,9 @@ const Pricing = () => {
     () => [
       `${plans.length} active plans`,
       `${comparisonSections.length} comparison sections`,
-      "7-day trial on paid self-serve plans",
+      `7-day trial + ${selectedVariant.label.toLowerCase()} term`,
     ],
-    [plans.length, comparisonSections.length],
+    [plans.length, comparisonSections.length, selectedVariant.label],
   );
 
   const openBillingPortal = async () => {
@@ -80,8 +82,9 @@ const Pricing = () => {
 
   const handlePlanAction = async (planKey: PlanKey) => {
     const intent = getPlanChangeIntent(currentPlanKey, planKey, planOrder);
+    const isCurrentExactSelection = currentPlanKey === planKey && currentPackageType === packageType;
 
-    if (intent === "current") return;
+    if (isCurrentExactSelection) return;
     if (planKey === "enterprise") {
       setEnterpriseOpen(true);
       return;
@@ -89,14 +92,14 @@ const Pricing = () => {
 
     setLoadingPlan(planKey);
     try {
-      if (intent === "downgrade" && stripeData?.subscribed) {
+      if (intent === "downgrade" && stripeData?.subscribed && currentPlanKey !== planKey) {
         await openBillingPortal();
         toast.success("Open billing to manage your downgrade.");
         return;
       }
 
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { planKey },
+        body: { planKey, packageType },
       });
       if (error) throw error;
       if (data?.url) {
@@ -158,10 +161,10 @@ const Pricing = () => {
               <Badge variant="secondary" className="w-fit">Monetization Phase 3</Badge>
               <div className="space-y-4">
                 <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-                  Pricing now runs from one live backend catalog.
+                  Choose a plan, then lock your term.
                 </h1>
                 <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-                  Plans, entitlements, limits, checkout routing, comparison rows, and enterprise lead capture now stay aligned in one interactive flow.
+                  Every paid plan starts with a 7-day trial, then continues on the commitment you choose below with the correct savings applied.
                 </p>
               </div>
 
@@ -176,17 +179,12 @@ const Pricing = () => {
 
             <Card className="border-border/60 bg-card/85 shadow-xl backdrop-blur-sm">
               <CardContent className="space-y-5 p-6">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Billing view</p>
-                    <p className="text-xs text-muted-foreground">Annual billing stays hidden until checkout supports a true yearly price.</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-medium text-foreground">Monthly</span>
-                    <Switch checked={false} disabled aria-label="Annual billing coming soon" />
-                    <span className="text-sm text-muted-foreground">Annual</span>
-                  </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-foreground">Commitment term</p>
+                  <p className="text-xs text-muted-foreground">Longer terms unlock 5%, 10%, and 20% savings while keeping the same plan entitlements.</p>
                 </div>
+
+                <PricingDurationSelector value={packageType} onChange={setPackageType} />
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
@@ -194,12 +192,12 @@ const Pricing = () => {
                     <p className="mt-2 text-lg font-semibold text-foreground">{plansByKey[currentPlanKey]?.name ?? currentPlanKey}</p>
                   </div>
                   <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</p>
-                    <p className="mt-2 text-lg font-semibold capitalize text-foreground">{stripeData?.status ?? "none"}</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Current term</p>
+                    <p className="mt-2 text-lg font-semibold text-foreground">{getPackageVariant(currentPackageType).label}</p>
                   </div>
                   <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
-                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Lead route</p>
-                    <p className="mt-2 text-lg font-semibold text-foreground">Enterprise ready</p>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">Status</p>
+                    <p className="mt-2 text-lg font-semibold text-foreground">{stripeData?.status_label ?? stripeData?.status ?? "none"}</p>
                   </div>
                 </div>
               </CardContent>
@@ -211,10 +209,12 @@ const Pricing = () => {
           {plans.map((plan) => (
             <PricingPlanCard
               key={plan.key}
-              annual={annualCheckoutAvailable}
+              annual={false}
               currentPlanKey={currentPlanKey}
+              currentPackageType={currentPackageType}
               loading={loadingPlan === plan.key}
               onSelect={handlePlanAction}
+              packageType={packageType}
               plan={plan}
               planOrder={planOrder}
             />
@@ -299,7 +299,7 @@ const Pricing = () => {
 
         <div className="flex items-center gap-2 rounded-2xl border border-border/60 bg-muted/20 px-4 py-3 text-sm text-muted-foreground">
           <ShieldCheck className="h-4 w-4 text-primary" />
-          Pricing QA covers success/cancel routing, subscription sync refresh, downgrade handling via billing portal, and trial/past-due UI states.
+          Pricing QA covers trial countdowns, package terms, subscription sync refresh, downgrade handling, and media quota visibility.
         </div>
       </div>
 

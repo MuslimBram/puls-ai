@@ -40,6 +40,7 @@ serve(async (req) => {
     const {
       priceId: rawPriceId,
       planKey,
+      packageType: rawPackageType,
       donationAmount,
       donationRecurring,
       addonType,
@@ -56,6 +57,9 @@ serve(async (req) => {
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     const customerId = customers.data[0]?.id;
     const origin = req.headers.get("origin") || "https://talk-finder-bot.lovable.app";
+    const packageType = rawPackageType === "3-month" || rawPackageType === "6-month" || rawPackageType === "yearly" ? rawPackageType : "monthly";
+    const commitmentMonths = packageType === "3-month" ? 3 : packageType === "6-month" ? 6 : packageType === "yearly" ? 12 : 1;
+    const packageDiscountPercent = packageType === "3-month" ? 5 : packageType === "6-month" ? 10 : packageType === "yearly" ? 20 : 0;
 
     if (donationAmount) {
       const amountCents = Math.round(Number(donationAmount) * 100);
@@ -129,6 +133,8 @@ serve(async (req) => {
     if (!resolvedPriceId) throw new Error(`No checkout price configured${resolvedPlanKey ? ` for ${resolvedPlanKey}` : ""}`);
 
     let discountCouponId: string | undefined;
+    let referralDiscountPercent = 0;
+    let referralDiscountDurationMonths = 0;
     const referralCode = user.user_metadata?.referral_code;
 
     if (referralCode) {
@@ -140,18 +146,8 @@ serve(async (req) => {
         .maybeSingle();
 
       if (partner && partner.referral_discount_percent > 0) {
-        try {
-          const coupon = await stripe.coupons.create({
-            percent_off: partner.referral_discount_percent,
-            duration: partner.discount_duration_months > 1 ? "repeating" : "once",
-            duration_in_months: partner.discount_duration_months > 1 ? partner.discount_duration_months : undefined,
-            name: `Referral Discount (${partner.referral_discount_percent}%)`,
-          });
-          discountCouponId = coupon.id;
-          console.log(`[CREATE-CHECKOUT] Applied referral discount: ${partner.referral_discount_percent}% for ${partner.discount_duration_months} months`);
-        } catch (couponErr) {
-          console.error("[CREATE-CHECKOUT] Failed to create coupon:", couponErr);
-        }
+        referralDiscountPercent = Number(partner.referral_discount_percent);
+        referralDiscountDurationMonths = Number(partner.discount_duration_months || 1);
       }
     } else {
       const { data: sub } = await supabaseClient
@@ -176,19 +172,33 @@ serve(async (req) => {
             .maybeSingle();
 
           if (partner && partner.referral_discount_percent > 0) {
-            try {
-              const coupon = await stripe.coupons.create({
-                percent_off: partner.referral_discount_percent,
-                duration: partner.discount_duration_months > 1 ? "repeating" : "once",
-                duration_in_months: partner.discount_duration_months > 1 ? partner.discount_duration_months : undefined,
-                name: `Partner Referral (${partner.referral_discount_percent}%)`,
-              });
-              discountCouponId = coupon.id;
-            } catch (couponErr) {
-              console.error("[CREATE-CHECKOUT] Coupon error:", couponErr);
-            }
+            referralDiscountPercent = Number(partner.referral_discount_percent);
+            referralDiscountDurationMonths = Number(partner.discount_duration_months || 1);
           }
         }
+      }
+    }
+
+    const appliedDiscountPercent = referralDiscountPercent > 0 ? referralDiscountPercent : packageDiscountPercent;
+    const appliedDiscountDurationMonths = referralDiscountPercent > 0
+      ? referralDiscountDurationMonths
+      : packageDiscountPercent > 0
+        ? commitmentMonths
+        : 0;
+
+    if (appliedDiscountPercent > 0) {
+      try {
+        const coupon = await stripe.coupons.create({
+          percent_off: appliedDiscountPercent,
+          duration: appliedDiscountDurationMonths > 1 ? "repeating" : "once",
+          duration_in_months: appliedDiscountDurationMonths > 1 ? appliedDiscountDurationMonths : undefined,
+          name: referralDiscountPercent > 0
+            ? `Referral Discount (${appliedDiscountPercent}%)`
+            : `Commitment Discount (${appliedDiscountPercent}%)`,
+        });
+        discountCouponId = coupon.id;
+      } catch (couponErr) {
+        console.error("[CREATE-CHECKOUT] Coupon error:", couponErr);
       }
     }
 
@@ -202,6 +212,10 @@ serve(async (req) => {
       trialDays = 7;
     }
 
+    const packageEndsAt = new Date();
+    packageEndsAt.setDate(packageEndsAt.getDate() + trialDays);
+    packageEndsAt.setMonth(packageEndsAt.getMonth() + commitmentMonths);
+
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
       customer: customerId,
       customer_email: customerId ? undefined : user.email,
@@ -211,12 +225,17 @@ serve(async (req) => {
       metadata: {
         user_id: user.id,
         plan_key: resolvedPlanKey ?? "standard",
+        package_type: packageType,
+        commitment_months: String(commitmentMonths),
       },
       subscription_data: {
         ...(trialDays ? { trial_period_days: trialDays } : {}),
+        cancel_at: Math.floor(packageEndsAt.getTime() / 1000),
         metadata: {
           user_id: user.id,
           plan_key: resolvedPlanKey ?? "standard",
+          package_type: packageType,
+          commitment_months: String(commitmentMonths),
         },
       },
       success_url: `${origin}/subscription?checkout=success${resolvedPlanKey ? `&plan=${resolvedPlanKey}` : ""}`,

@@ -20,12 +20,16 @@ export interface MediaUsageStatus {
   imagesLimit: number;
   videosUsedToday: number;
   videosLimit: number;
+  videoSecondsUsedToday: number;
+  videoSecondsLimit: number;
+  videoSecondsRemaining: number;
   videoMaxSeconds: number;
   imagesRemaining: number;
   videosRemaining: number;
   resetsAt: string | null;
   isImageLimitReached: boolean;
   isVideoLimitReached: boolean;
+  isVideoDurationLimitReached: boolean;
   canGenerateImages: boolean;
   canGenerateVideos: boolean;
   isLoading: boolean;
@@ -88,8 +92,11 @@ export const useMediaUsage = (): MediaUsageStatus => {
       const normalizedDaily = normalizeMediaDailyUsage(data, mediaPolicy);
       const imagesLimit = normalizedDaily.image_limit;
       const videosLimit = normalizedDaily.video_limit;
+      const videoSecondsLimit = normalizedDaily.video_seconds_limit;
+      const videoSecondsUsedToday = normalizedDaily.video_seconds_used;
       const imagesRemaining = imagesLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, imagesLimit - normalizedDaily.image_count);
       const videosRemaining = videosLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videosLimit - normalizedDaily.video_count);
+      const videoSecondsRemaining = videoSecondsLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videoSecondsLimit - videoSecondsUsedToday);
 
       return {
         planKey: mediaPolicy.planKey,
@@ -97,14 +104,21 @@ export const useMediaUsage = (): MediaUsageStatus => {
         imagesLimit,
         videosUsedToday: normalizedDaily.video_count,
         videosLimit,
+        videoSecondsUsedToday,
+        videoSecondsLimit,
+        videoSecondsRemaining,
         videoMaxSeconds: mediaPolicy.max_video_seconds,
         imagesRemaining,
         videosRemaining,
         resetsAt: normalizedDaily.window_ends_at,
         isImageLimitReached: imagesLimit !== -1 && normalizedDaily.image_count >= imagesLimit,
         isVideoLimitReached: videosLimit !== -1 && normalizedDaily.video_count >= videosLimit,
+        isVideoDurationLimitReached: videoSecondsLimit !== -1 && videoSecondsUsedToday >= videoSecondsLimit,
         canGenerateImages: mediaPolicy.allow_image_generation && (imagesLimit === -1 || normalizedDaily.image_count < imagesLimit),
-        canGenerateVideos: mediaPolicy.allow_video_generation && (videosLimit === -1 || normalizedDaily.video_count < videosLimit),
+        canGenerateVideos:
+          mediaPolicy.allow_video_generation &&
+          (videosLimit === -1 || normalizedDaily.video_count < videosLimit) &&
+          (videoSecondsLimit === -1 || videoSecondsUsedToday < videoSecondsLimit),
       };
     },
     enabled: !!user && !!mediaPolicy,
@@ -120,6 +134,7 @@ export const useMediaUsage = (): MediaUsageStatus => {
 
   const imagesLimit = mediaPolicy?.daily_image_limit ?? 0;
   const videosLimit = mediaPolicy?.daily_video_limit ?? 0;
+  const videoSecondsLimit = mediaPolicy?.daily_video_seconds_limit ?? 0;
 
   return {
     planKey: mediaPolicy?.planKey ?? currentPlanKey,
@@ -127,14 +142,18 @@ export const useMediaUsage = (): MediaUsageStatus => {
     imagesLimit,
     videosUsedToday: 0,
     videosLimit,
+    videoSecondsUsedToday: 0,
+    videoSecondsLimit,
+    videoSecondsRemaining: videoSecondsLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videoSecondsLimit),
     videoMaxSeconds: mediaPolicy?.max_video_seconds ?? 0,
     imagesRemaining: imagesLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, imagesLimit),
     videosRemaining: videosLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videosLimit),
     resetsAt: null,
     isImageLimitReached: imagesLimit === 0,
     isVideoLimitReached: videosLimit === 0,
+    isVideoDurationLimitReached: videoSecondsLimit === 0,
     canGenerateImages: Boolean(mediaPolicy?.allow_image_generation) && imagesLimit !== 0,
-    canGenerateVideos: Boolean(mediaPolicy?.allow_video_generation) && videosLimit !== 0,
+    canGenerateVideos: Boolean(mediaPolicy?.allow_video_generation) && videosLimit !== 0 && videoSecondsLimit !== 0,
     isLoading: query.isLoading || catalogLoading,
   };
 };
