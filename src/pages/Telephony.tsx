@@ -9,6 +9,9 @@ import { IvrBuilderPanel } from "@/components/telephony/IvrBuilderPanel";
 import { SupervisorPanel } from "@/components/telephony/SupervisorPanel";
 import { DialerCampaignPanel } from "@/components/telephony/DialerCampaignPanel";
 import { TelephonyAnalyticsPanel } from "@/components/telephony/TelephonyAnalyticsPanel";
+import { CallScriptsPanel } from "@/components/telephony/CallScriptsPanel";
+import { WorkforcePanel } from "@/components/telephony/WorkforcePanel";
+import { WallboardPanel } from "@/components/telephony/WallboardPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Phone, PhoneIncoming, PhoneOutgoing, Users, Clock, Activity, Headphones, BarChart3,
