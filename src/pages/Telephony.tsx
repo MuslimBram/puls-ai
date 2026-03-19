@@ -106,7 +106,7 @@ const Telephony = () => {
             <TabsTrigger value="supervisor" className="text-xs h-6">Supervisor</TabsTrigger>
             <TabsTrigger value="dialer" className="text-xs h-6">Dialer</TabsTrigger>
             <TabsTrigger value="history" className="text-xs h-6">History</TabsTrigger>
-          </TabsList>
+            <TabsTrigger value="analytics" className="text-xs h-6">Analytics</TabsTrigger>
 
           <TabsContent value="live" className="space-y-3">
             {activeCalls.length === 0 ? (
