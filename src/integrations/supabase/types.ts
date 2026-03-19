@@ -3572,6 +3572,59 @@ export type Database = {
           },
         ]
       }
+      content_style_recommendations: {
+        Row: {
+          adopted_at: string | null
+          audience_segment: string | null
+          content_format: string | null
+          created_at: string | null
+          engagement_score: number | null
+          id: string
+          is_adopted: boolean | null
+          recommendation: string | null
+          tone: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          adopted_at?: string | null
+          audience_segment?: string | null
+          content_format?: string | null
+          created_at?: string | null
+          engagement_score?: number | null
+          id?: string
+          is_adopted?: boolean | null
+          recommendation?: string | null
+          tone?: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          adopted_at?: string | null
+          audience_segment?: string | null
+          content_format?: string | null
+          created_at?: string | null
+          engagement_score?: number | null
+          id?: string
+          is_adopted?: boolean | null
+          recommendation?: string | null
+          tone?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_style_recommendations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_locks: {
         Row: {
           expires_at: string
@@ -3737,6 +3790,62 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "conversation_threads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_value_signals: {
+        Row: {
+          contact_identifier: string
+          contact_name: string | null
+          created_at: string | null
+          engagement_depth: number | null
+          id: string
+          lifetime_value_estimate: number | null
+          repeat_interaction_count: number | null
+          suggested_actions: Json | null
+          updated_at: string | null
+          upsell_responsiveness: number | null
+          user_id: string
+          value_trend: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          contact_identifier: string
+          contact_name?: string | null
+          created_at?: string | null
+          engagement_depth?: number | null
+          id?: string
+          lifetime_value_estimate?: number | null
+          repeat_interaction_count?: number | null
+          suggested_actions?: Json | null
+          updated_at?: string | null
+          upsell_responsiveness?: number | null
+          user_id: string
+          value_trend?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          contact_identifier?: string
+          contact_name?: string | null
+          created_at?: string | null
+          engagement_depth?: number | null
+          id?: string
+          lifetime_value_estimate?: number | null
+          repeat_interaction_count?: number | null
+          suggested_actions?: Json | null
+          updated_at?: string | null
+          upsell_responsiveness?: number | null
+          user_id?: string
+          value_trend?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_value_signals_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -4918,6 +5027,231 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "forecast_analytics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_analytics: {
+        Row: {
+          campaign_impact_score: number | null
+          created_at: string | null
+          drop_off_reduction: number | null
+          experiment_outcomes: Json | null
+          id: string
+          metric_date: string
+          overall_conversion_rate: number | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          campaign_impact_score?: number | null
+          created_at?: string | null
+          drop_off_reduction?: number | null
+          experiment_outcomes?: Json | null
+          id?: string
+          metric_date?: string
+          overall_conversion_rate?: number | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          campaign_impact_score?: number | null
+          created_at?: string | null
+          drop_off_reduction?: number | null
+          experiment_outcomes?: Json | null
+          id?: string
+          metric_date?: string
+          overall_conversion_rate?: number | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_analytics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_experiments: {
+        Row: {
+          conversion_a: number | null
+          conversion_b: number | null
+          created_at: string | null
+          ended_at: string | null
+          experiment_type: string
+          id: string
+          name: string
+          sample_size: number | null
+          started_at: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+          variant_a: Json | null
+          variant_b: Json | null
+          winner: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          conversion_a?: number | null
+          conversion_b?: number | null
+          created_at?: string | null
+          ended_at?: string | null
+          experiment_type?: string
+          id?: string
+          name: string
+          sample_size?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+          variant_a?: Json | null
+          variant_b?: Json | null
+          winner?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          conversion_a?: number | null
+          conversion_b?: number | null
+          created_at?: string | null
+          ended_at?: string | null
+          experiment_type?: string
+          id?: string
+          name?: string
+          sample_size?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+          variant_a?: Json | null
+          variant_b?: Json | null
+          winner?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_experiments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_optimizations: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          impact_score: number | null
+          is_completed: boolean | null
+          optimization_type: string
+          stage_id: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_score?: number | null
+          is_completed?: boolean | null
+          optimization_type?: string
+          stage_id?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_score?: number | null
+          is_completed?: boolean | null
+          optimization_type?: string
+          stage_id?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_optimizations_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "funnel_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "funnel_optimizations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      funnel_stages: {
+        Row: {
+          analysis_date: string
+          avg_time_in_stage_hours: number | null
+          created_at: string | null
+          drop_off_rate: number | null
+          entry_count: number | null
+          exit_count: number | null
+          friction_points: Json | null
+          id: string
+          stage_name: string
+          stage_order: number
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          analysis_date?: string
+          avg_time_in_stage_hours?: number | null
+          created_at?: string | null
+          drop_off_rate?: number | null
+          entry_count?: number | null
+          exit_count?: number | null
+          friction_points?: Json | null
+          id?: string
+          stage_name: string
+          stage_order?: number
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          analysis_date?: string
+          avg_time_in_stage_hours?: number | null
+          created_at?: string | null
+          drop_off_rate?: number | null
+          entry_count?: number | null
+          exit_count?: number | null
+          friction_points?: Json | null
+          id?: string
+          stage_name?: string
+          stage_order?: number
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funnel_stages_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -6831,6 +7165,233 @@ export type Database = {
           },
         ]
       }
+      offer_analysis: {
+        Row: {
+          analysis_date: string
+          audience_segment: string | null
+          channel: string | null
+          characteristics: Json | null
+          conversion_rate: number | null
+          created_at: string | null
+          engagement_score: number | null
+          id: string
+          offer_name: string
+          offer_type: string
+          revenue_impact: number | null
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          analysis_date?: string
+          audience_segment?: string | null
+          channel?: string | null
+          characteristics?: Json | null
+          conversion_rate?: number | null
+          created_at?: string | null
+          engagement_score?: number | null
+          id?: string
+          offer_name: string
+          offer_type?: string
+          revenue_impact?: number | null
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          analysis_date?: string
+          audience_segment?: string | null
+          channel?: string | null
+          characteristics?: Json | null
+          conversion_rate?: number | null
+          created_at?: string | null
+          engagement_score?: number | null
+          id?: string
+          offer_name?: string
+          offer_type?: string
+          revenue_impact?: number | null
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_analysis_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offer_analytics: {
+        Row: {
+          conversion_lift: number | null
+          created_at: string | null
+          experiment_outcomes: Json | null
+          id: string
+          metric_date: string
+          revenue_impact: number | null
+          segment_performance: Json | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          conversion_lift?: number | null
+          created_at?: string | null
+          experiment_outcomes?: Json | null
+          id?: string
+          metric_date?: string
+          revenue_impact?: number | null
+          segment_performance?: Json | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          conversion_lift?: number | null
+          created_at?: string | null
+          experiment_outcomes?: Json | null
+          id?: string
+          metric_date?: string
+          revenue_impact?: number | null
+          segment_performance?: Json | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_analytics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offer_experiments: {
+        Row: {
+          conversion_a: number | null
+          conversion_b: number | null
+          created_at: string | null
+          ended_at: string | null
+          experiment_type: string
+          id: string
+          name: string
+          revenue_a: number | null
+          revenue_b: number | null
+          sample_size: number | null
+          started_at: string | null
+          status: string
+          updated_at: string | null
+          user_id: string
+          variant_a: Json | null
+          variant_b: Json | null
+          winner: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          conversion_a?: number | null
+          conversion_b?: number | null
+          created_at?: string | null
+          ended_at?: string | null
+          experiment_type?: string
+          id?: string
+          name: string
+          revenue_a?: number | null
+          revenue_b?: number | null
+          sample_size?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+          variant_a?: Json | null
+          variant_b?: Json | null
+          winner?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          conversion_a?: number | null
+          conversion_b?: number | null
+          created_at?: string | null
+          ended_at?: string | null
+          experiment_type?: string
+          id?: string
+          name?: string
+          revenue_a?: number | null
+          revenue_b?: number | null
+          sample_size?: number | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+          variant_a?: Json | null
+          variant_b?: Json | null
+          winner?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_experiments_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      offer_suggestions: {
+        Row: {
+          adopted_at: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          impact_estimate: number | null
+          is_adopted: boolean | null
+          suggestion_type: string
+          target_segment: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          adopted_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_estimate?: number | null
+          is_adopted?: boolean | null
+          suggestion_type?: string
+          target_segment?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          adopted_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          impact_estimate?: number | null
+          is_adopted?: boolean | null
+          suggestion_type?: string
+          target_segment?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "offer_suggestions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       onboarding_progress: {
         Row: {
           completion_score: number
@@ -7760,6 +8321,103 @@ export type Database = {
         }
         Relationships: []
       }
+      posting_analytics: {
+        Row: {
+          consistency_score: number | null
+          conversion_count: number | null
+          created_at: string | null
+          engagement_lift: number | null
+          id: string
+          metric_date: string
+          reach_count: number | null
+          style_adoption_rate: number | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          consistency_score?: number | null
+          conversion_count?: number | null
+          created_at?: string | null
+          engagement_lift?: number | null
+          id?: string
+          metric_date?: string
+          reach_count?: number | null
+          style_adoption_rate?: number | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          consistency_score?: number | null
+          conversion_count?: number | null
+          created_at?: string | null
+          engagement_lift?: number | null
+          id?: string
+          metric_date?: string
+          reach_count?: number | null
+          style_adoption_rate?: number | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posting_analytics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      posting_schedules: {
+        Row: {
+          channel: string
+          created_at: string | null
+          day_of_week: number
+          engagement_score: number | null
+          hour_of_day: number
+          id: string
+          metadata: Json | null
+          recommended: boolean | null
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          channel?: string
+          created_at?: string | null
+          day_of_week?: number
+          engagement_score?: number | null
+          hour_of_day?: number
+          id?: string
+          metadata?: Json | null
+          recommended?: boolean | null
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          channel?: string
+          created_at?: string | null
+          day_of_week?: number
+          engagement_score?: number | null
+          hour_of_day?: number
+          id?: string
+          metadata?: Json | null
+          recommended?: boolean | null
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posting_schedules_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pricing_analytics_snapshots: {
         Row: {
           avg_revenue_per_user: number | null
@@ -8071,6 +8729,65 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      process_bottlenecks: {
+        Row: {
+          affected_entity_id: string | null
+          bottleneck_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_resolved: boolean | null
+          metric_unit: string | null
+          metric_value: number | null
+          resolved_at: string | null
+          severity: string
+          title: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          affected_entity_id?: string | null
+          bottleneck_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metric_unit?: string | null
+          metric_value?: number | null
+          resolved_at?: string | null
+          severity?: string
+          title: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          affected_entity_id?: string | null
+          bottleneck_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metric_unit?: string | null
+          metric_value?: number | null
+          resolved_at?: string | null
+          severity?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "process_bottlenecks_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -9866,6 +10583,59 @@ export type Database = {
         }
         Relationships: []
       }
+      upsell_actions: {
+        Row: {
+          action_type: string
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_completed: boolean | null
+          revenue_impact: number | null
+          target_segment: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          action_type?: string
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          revenue_impact?: number | null
+          target_segment?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          revenue_impact?: number | null
+          target_segment?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "upsell_actions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -9916,6 +10686,106 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      viral_engagement_analytics: {
+        Row: {
+          created_at: string | null
+          id: string
+          metric_date: string
+          new_referrals: number | null
+          reengagement_lift: number | null
+          sharing_rate: number | null
+          user_id: string
+          value_growth_indicator: number | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          metric_date?: string
+          new_referrals?: number | null
+          reengagement_lift?: number | null
+          sharing_rate?: number | null
+          user_id: string
+          value_growth_indicator?: number | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          metric_date?: string
+          new_referrals?: number | null
+          reengagement_lift?: number | null
+          sharing_rate?: number | null
+          user_id?: string
+          value_growth_indicator?: number | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viral_engagement_analytics_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viral_triggers: {
+        Row: {
+          campaign_id: string | null
+          conversion_count: number | null
+          created_at: string | null
+          fire_count: number | null
+          id: string
+          incentive_type: string | null
+          incentive_value: string | null
+          is_active: boolean | null
+          prompt_text: string
+          trigger_type: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          conversion_count?: number | null
+          created_at?: string | null
+          fire_count?: number | null
+          id?: string
+          incentive_type?: string | null
+          incentive_value?: string | null
+          is_active?: boolean | null
+          prompt_text: string
+          trigger_type?: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          conversion_count?: number | null
+          created_at?: string | null
+          fire_count?: number | null
+          id?: string
+          incentive_type?: string | null
+          incentive_value?: string | null
+          is_active?: boolean | null
+          prompt_text?: string
+          trigger_type?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "viral_triggers_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       visitor_events: {
         Row: {
