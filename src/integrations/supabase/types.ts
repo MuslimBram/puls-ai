@@ -4831,6 +4831,234 @@ export type Database = {
           },
         ]
       }
+      marketplace_ai_packs: {
+        Row: {
+          avg_rating: number | null
+          created_at: string
+          description: string | null
+          id: string
+          industry: string | null
+          install_count: number
+          is_published: boolean
+          name: string
+          pack_data: Json
+          pack_type: string
+          price_cents: number
+          updated_at: string
+        }
+        Insert: {
+          avg_rating?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          install_count?: number
+          is_published?: boolean
+          name: string
+          pack_data?: Json
+          pack_type?: string
+          price_cents?: number
+          updated_at?: string
+        }
+        Update: {
+          avg_rating?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          industry?: string | null
+          install_count?: number
+          is_published?: boolean
+          name?: string
+          pack_data?: Json
+          pack_type?: string
+          price_cents?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      marketplace_plugins: {
+        Row: {
+          author_name: string | null
+          author_user_id: string | null
+          avg_rating: number | null
+          category: string
+          created_at: string
+          description: string | null
+          icon_url: string | null
+          id: string
+          install_count: number
+          is_published: boolean
+          is_verified: boolean
+          manifest_json: Json
+          name: string
+          price_cents: number
+          revenue_share_pct: number
+          slug: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          author_name?: string | null
+          author_user_id?: string | null
+          avg_rating?: number | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          icon_url?: string | null
+          id?: string
+          install_count?: number
+          is_published?: boolean
+          is_verified?: boolean
+          manifest_json?: Json
+          name: string
+          price_cents?: number
+          revenue_share_pct?: number
+          slug: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          author_name?: string | null
+          author_user_id?: string | null
+          avg_rating?: number | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          icon_url?: string | null
+          id?: string
+          install_count?: number
+          is_published?: boolean
+          is_verified?: boolean
+          manifest_json?: Json
+          name?: string
+          price_cents?: number
+          revenue_share_pct?: number
+          slug?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      marketplace_ratings: {
+        Row: {
+          created_at: string
+          id: string
+          item_id: string
+          item_type: string
+          rating: number
+          review: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_id: string
+          item_type: string
+          rating: number
+          review?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_id?: string
+          item_type?: string
+          rating?: number
+          review?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      marketplace_templates: {
+        Row: {
+          author_user_id: string | null
+          avg_rating: number | null
+          category: string
+          created_at: string
+          description: string | null
+          id: string
+          install_count: number
+          is_published: boolean
+          name: string
+          price_cents: number
+          tags: string[] | null
+          template_data: Json
+          template_type: string
+          updated_at: string
+        }
+        Insert: {
+          author_user_id?: string | null
+          avg_rating?: number | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          install_count?: number
+          is_published?: boolean
+          name: string
+          price_cents?: number
+          tags?: string[] | null
+          template_data?: Json
+          template_type?: string
+          updated_at?: string
+        }
+        Update: {
+          author_user_id?: string | null
+          avg_rating?: number | null
+          category?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          install_count?: number
+          is_published?: boolean
+          name?: string
+          price_cents?: number
+          tags?: string[] | null
+          template_data?: Json
+          template_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      marketplace_transactions: {
+        Row: {
+          amount_cents: number
+          buyer_user_id: string
+          created_at: string
+          id: string
+          item_id: string
+          item_type: string
+          platform_fee_cents: number
+          seller_payout_cents: number
+          seller_user_id: string | null
+          status: string
+        }
+        Insert: {
+          amount_cents?: number
+          buyer_user_id: string
+          created_at?: string
+          id?: string
+          item_id: string
+          item_type: string
+          platform_fee_cents?: number
+          seller_payout_cents?: number
+          seller_user_id?: string | null
+          status?: string
+        }
+        Update: {
+          amount_cents?: number
+          buyer_user_id?: string
+          created_at?: string
+          id?: string
+          item_id?: string
+          item_type?: string
+          platform_fee_cents?: number
+          seller_payout_cents?: number
+          seller_user_id?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       media_addons: {
         Row: {
           addon_type: string
@@ -7425,6 +7653,55 @@ export type Database = {
           },
         ]
       }
+      workspace_ai_packs: {
+        Row: {
+          ai_pack_id: string
+          business_id: string | null
+          id: string
+          installed_at: string
+          installed_by: string | null
+          workspace_id: string
+        }
+        Insert: {
+          ai_pack_id: string
+          business_id?: string | null
+          id?: string
+          installed_at?: string
+          installed_by?: string | null
+          workspace_id: string
+        }
+        Update: {
+          ai_pack_id?: string
+          business_id?: string | null
+          id?: string
+          installed_at?: string
+          installed_by?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_ai_packs_ai_pack_id_fkey"
+            columns: ["ai_pack_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_ai_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_ai_packs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_ai_packs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_branding: {
         Row: {
           accent_color: string | null
@@ -7558,6 +7835,51 @@ export type Database = {
           },
         ]
       }
+      workspace_plugins: {
+        Row: {
+          config_json: Json | null
+          id: string
+          installed_at: string
+          installed_by: string | null
+          is_enabled: boolean
+          plugin_id: string
+          workspace_id: string
+        }
+        Insert: {
+          config_json?: Json | null
+          id?: string
+          installed_at?: string
+          installed_by?: string | null
+          is_enabled?: boolean
+          plugin_id: string
+          workspace_id: string
+        }
+        Update: {
+          config_json?: Json | null
+          id?: string
+          installed_at?: string
+          installed_by?: string | null
+          is_enabled?: boolean
+          plugin_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_plugins_plugin_id_fkey"
+            columns: ["plugin_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_plugins"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_plugins_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_storage_quotas: {
         Row: {
           documents_count: number
@@ -7617,17 +7939,58 @@ export type Database = {
           },
         ]
       }
+      workspace_templates: {
+        Row: {
+          id: string
+          installed_at: string
+          installed_by: string | null
+          template_id: string
+          workspace_id: string
+        }
+        Insert: {
+          id?: string
+          installed_at?: string
+          installed_by?: string | null
+          template_id: string
+          workspace_id: string
+        }
+        Update: {
+          id?: string
+          installed_at?: string
+          installed_by?: string | null
+          template_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_templates_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "marketplace_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_templates_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspaces: {
         Row: {
           billing_mode: string
           created_at: string
           id: string
+          is_demo: boolean
           max_sessions_per_user: number
           name: string
           owner_id: string
           payment_accounts: Json | null
           payment_mode: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id: string | null
+          region: string | null
           require_2fa: boolean
           slug: string | null
           updated_at: string
@@ -7637,12 +8000,14 @@ export type Database = {
           billing_mode?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           max_sessions_per_user?: number
           name: string
           owner_id: string
           payment_accounts?: Json | null
           payment_mode?: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id?: string | null
+          region?: string | null
           require_2fa?: boolean
           slug?: string | null
           updated_at?: string
@@ -7652,12 +8017,14 @@ export type Database = {
           billing_mode?: string
           created_at?: string
           id?: string
+          is_demo?: boolean
           max_sessions_per_user?: number
           name?: string
           owner_id?: string
           payment_accounts?: Json | null
           payment_mode?: Database["public"]["Enums"]["payment_mode"] | null
           referred_by_partner_id?: string | null
+          region?: string | null
           require_2fa?: boolean
           slug?: string | null
           updated_at?: string
