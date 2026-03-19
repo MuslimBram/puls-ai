@@ -7,7 +7,7 @@ export const useRevenueAttribution = () => {
   return useQuery({
     queryKey: ["revenue-attribution", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("revenue_attribution")
         .select("*")
         .eq("user_id", user!.id)
@@ -25,7 +25,7 @@ export const useProfitInsights = () => {
   return useQuery({
     queryKey: ["profit-insights", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("profit_insights")
         .select("*")
         .eq("user_id", user!.id)
@@ -44,7 +44,7 @@ export const useRevenueForecasts = () => {
   return useQuery({
     queryKey: ["revenue-forecasts", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("revenue_forecasts")
         .select("*")
         .eq("user_id", user!.id)

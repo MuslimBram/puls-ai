@@ -35,14 +35,14 @@ export const useHotOpportunities = () => {
   return useQuery({
     queryKey: ["hot-opportunities", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("hot_opportunities")
         .select("*")
         .eq("user_id", user!.id)
         .order("score", { ascending: false })
         .limit(20);
       if (error) throw error;
-      return (data ?? []) as unknown as HotOpportunity[];
+      return (data ?? []) as HotOpportunity[];
     },
     enabled: !!user,
   });
@@ -55,24 +55,24 @@ export const useSalesOutreach = () => {
   const query = useQuery({
     queryKey: ["sales-outreach", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("sales_outreach")
         .select("*")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return (data ?? []) as unknown as SalesOutreach[];
+      return (data ?? []) as SalesOutreach[];
     },
     enabled: !!user,
   });
 
   const createOutreach = useMutation({
     mutationFn: async (outreach: Partial<SalesOutreach>) => {
-      const { error } = await supabase.from("sales_outreach").insert({
+      const { error } = await (supabase as any).from("sales_outreach").insert({
         ...outreach,
         user_id: user!.id,
-      } as any);
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -90,7 +90,7 @@ export const useSalesPerformance = () => {
   return useQuery({
     queryKey: ["sales-performance", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("sales_performance_snapshots")
         .select("*")
         .eq("user_id", user!.id)

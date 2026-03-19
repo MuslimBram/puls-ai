@@ -7,7 +7,7 @@ export const useSaaSMetrics = () => {
   return useQuery({
     queryKey: ["saas-metrics", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("saas_metrics_snapshots")
         .select("*")
         .order("snapshot_date", { ascending: false })
@@ -25,7 +25,7 @@ export const useCohortRetention = () => {
   return useQuery({
     queryKey: ["cohort-retention", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("cohort_retention")
         .select("*")
         .order("cohort_month", { ascending: false })
@@ -43,7 +43,7 @@ export const usePlatformHealth = () => {
   return useQuery({
     queryKey: ["platform-health", user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("platform_health_checks")
         .select("*")
         .order("checked_at", { ascending: false })
