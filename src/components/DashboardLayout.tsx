@@ -102,6 +102,8 @@ const businessNavGroups: NavGroup[] = [
     icon: Sparkles,
     items: [
       { href: "/automations", label: "Automations", icon: Workflow },
+      { href: "/autonomous-ops", label: "Autonomous OS", icon: Cpu },
+      { href: "/marketing-automation", label: "Marketing", icon: Globe },
       { href: "/keywords", label: "Keywords", icon: Key },
       { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
       { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
