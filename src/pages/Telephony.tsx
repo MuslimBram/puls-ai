@@ -179,6 +179,11 @@ const Telephony = () => {
           <TabsContent value="history">
             <CallHistoryContent />
           </TabsContent>
+
+          <TabsContent value="analytics">
+            <TelephonyAnalyticsPanel />
+          </TabsContent>
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
