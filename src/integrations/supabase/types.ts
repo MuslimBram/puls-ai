@@ -108,6 +108,59 @@ export type Database = {
           },
         ]
       }
+      agent_shifts: {
+        Row: {
+          agent_user_id: string
+          break_minutes: number | null
+          created_at: string
+          end_time: string
+          id: string
+          notes: string | null
+          shift_date: string
+          start_time: string
+          status: string | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          agent_user_id: string
+          break_minutes?: number | null
+          created_at?: string
+          end_time: string
+          id?: string
+          notes?: string | null
+          shift_date: string
+          start_time: string
+          status?: string | null
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          agent_user_id?: string
+          break_minutes?: number | null
+          created_at?: string
+          end_time?: string
+          id?: string
+          notes?: string | null
+          shift_date?: string
+          start_time?: string
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_shifts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_telephony_state: {
         Row: {
           avg_handle_time_seconds: number | null
@@ -1862,6 +1915,59 @@ export type Database = {
           },
           {
             foreignKeyName: "call_records_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_scripts: {
+        Row: {
+          content: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          script_type: string
+          tags: string[] | null
+          updated_at: string
+          usage_count: number | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          script_type?: string
+          tags?: string[] | null
+          updated_at?: string
+          usage_count?: number | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          script_type?: string
+          tags?: string[] | null
+          updated_at?: string
+          usage_count?: number | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_scripts_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
