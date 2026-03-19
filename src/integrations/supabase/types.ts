@@ -14,6 +14,157 @@ export type Database = {
   }
   public: {
     Tables: {
+      active_calls: {
+        Row: {
+          agent_user_id: string | null
+          answered_at: string | null
+          call_record_id: string | null
+          callee_number: string | null
+          caller_name: string | null
+          caller_number: string
+          created_at: string
+          direction: string
+          ended_at: string | null
+          hold_started_at: string | null
+          id: string
+          metadata: Json | null
+          queue_id: string | null
+          sip_call_id: string | null
+          started_at: string
+          status: string
+          total_hold_seconds: number | null
+          transfer_target: string | null
+          transferred_from: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          agent_user_id?: string | null
+          answered_at?: string | null
+          call_record_id?: string | null
+          callee_number?: string | null
+          caller_name?: string | null
+          caller_number: string
+          created_at?: string
+          direction?: string
+          ended_at?: string | null
+          hold_started_at?: string | null
+          id?: string
+          metadata?: Json | null
+          queue_id?: string | null
+          sip_call_id?: string | null
+          started_at?: string
+          status?: string
+          total_hold_seconds?: number | null
+          transfer_target?: string | null
+          transferred_from?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          agent_user_id?: string | null
+          answered_at?: string | null
+          call_record_id?: string | null
+          callee_number?: string | null
+          caller_name?: string | null
+          caller_number?: string
+          created_at?: string
+          direction?: string
+          ended_at?: string | null
+          hold_started_at?: string | null
+          id?: string
+          metadata?: Json | null
+          queue_id?: string | null
+          sip_call_id?: string | null
+          started_at?: string
+          status?: string
+          total_hold_seconds?: number | null
+          transfer_target?: string | null
+          transferred_from?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "active_calls_call_record_id_fkey"
+            columns: ["call_record_id"]
+            isOneToOne: false
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "active_calls_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "call_queues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "active_calls_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_telephony_state: {
+        Row: {
+          avg_handle_time_seconds: number | null
+          calls_handled_today: number | null
+          current_call_id: string | null
+          id: string
+          last_call_ended_at: string | null
+          sip_extension: string | null
+          sip_registered: boolean | null
+          telephony_status: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          avg_handle_time_seconds?: number | null
+          calls_handled_today?: number | null
+          current_call_id?: string | null
+          id?: string
+          last_call_ended_at?: string | null
+          sip_extension?: string | null
+          sip_registered?: boolean | null
+          telephony_status?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          avg_handle_time_seconds?: number | null
+          calls_handled_today?: number | null
+          current_call_id?: string | null
+          id?: string
+          last_call_ended_at?: string | null
+          sip_extension?: string | null
+          sip_registered?: boolean | null
+          telephony_status?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_telephony_state_current_call_id_fkey"
+            columns: ["current_call_id"]
+            isOneToOne: false
+            referencedRelation: "active_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_telephony_state_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_conversation_memory: {
         Row: {
           business_id: string | null
@@ -1395,6 +1546,94 @@ export type Database = {
           },
           {
             foreignKeyName: "business_scan_history_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_queue_members: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          priority: number
+          queue_id: string
+          skills: string[] | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          priority?: number
+          queue_id: string
+          skills?: string[] | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          priority?: number
+          queue_id?: string
+          skills?: string[] | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_queue_members_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "call_queues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_queues: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          max_wait_seconds: number
+          name: string
+          priority: number
+          strategy: string
+          updated_at: string
+          workspace_id: string
+          wrap_up_seconds: number
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_wait_seconds?: number
+          name: string
+          priority?: number
+          strategy?: string
+          updated_at?: string
+          workspace_id: string
+          wrap_up_seconds?: number
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          max_wait_seconds?: number
+          name?: string
+          priority?: number
+          strategy?: string
+          updated_at?: string
+          workspace_id?: string
+          wrap_up_seconds?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_queues_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
