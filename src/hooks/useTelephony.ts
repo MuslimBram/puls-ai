@@ -55,11 +55,53 @@ export interface CallQueue {
   priority: number;
 }
 
+// ─── Twilio Client SDK Device (lazy-loaded) ─────────────────────
+
+let twilioDevice: any = null;
+let twilioConnection: any = null;
+let deviceInitPromise: Promise<void> | null = null;
+
+async function loadTwilioSdk(): Promise<any> {
+  if ((window as any).Twilio?.Device) return (window as any).Twilio.Device;
+  
+  // Load Twilio Client JS SDK dynamically
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[src*="twilio.min.js"]');
+    if (existing) {
+      // Wait for it to load
+      const check = setInterval(() => {
+        if ((window as any).Twilio?.Device) {
+          clearInterval(check);
+          resolve((window as any).Twilio.Device);
+        }
+      }, 100);
+      setTimeout(() => { clearInterval(check); reject(new Error("Twilio SDK load timeout")); }, 10000);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://sdk.twilio.com/js/client/releases/1.14.0/twilio.min.js";
+    script.onload = () => {
+      const check = setInterval(() => {
+        if ((window as any).Twilio?.Device) {
+          clearInterval(check);
+          resolve((window as any).Twilio.Device);
+        }
+      }, 100);
+      setTimeout(() => { clearInterval(check); reject(new Error("Twilio SDK init timeout")); }, 5000);
+    };
+    script.onerror = () => reject(new Error("Failed to load Twilio Client SDK"));
+    document.head.appendChild(script);
+  });
+}
+
 export const useTelephony = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
   const qc = useQueryClient();
   const [callTimer, setCallTimer] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [deviceReady, setDeviceReady] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const { createThreadForCall } = useCallInboxIntegration();
 
@@ -80,6 +122,83 @@ export const useTelephony = () => {
   });
 
   const hasRealProvider = !!voipConfigQuery.data?.settings;
+  const hasWebRtcCredentials = !!((voipConfigQuery.data?.settings as Record<string, string>)?.api_key_sid);
+
+  // Initialize Twilio Device when provider is configured with WebRTC credentials
+  useEffect(() => {
+    if (!hasWebRtcCredentials || !workspace?.id || !user?.id) return;
+    if (deviceInitPromise) return;
+
+    deviceInitPromise = (async () => {
+      try {
+        const TwilioDevice = await loadTwilioSdk();
+
+        // Fetch token from edge function
+        const { data, error } = await supabase.functions.invoke("twilio-token", {
+          body: { workspace_id: workspace.id },
+        });
+        if (error || data?.error) {
+          console.warn("Twilio token error:", data?.error || error?.message);
+          return;
+        }
+
+        twilioDevice = new TwilioDevice(data.token, {
+          codecPreferences: ["opus", "pcmu"],
+          enableRingingState: true,
+        });
+
+        twilioDevice.on("ready", () => {
+          setDeviceReady(true);
+          console.log("Twilio Device ready for WebRTC calls");
+        });
+
+        twilioDevice.on("incoming", (conn: any) => {
+          // Incoming call via browser — auto-accept or show notification
+          twilioConnection = conn;
+          qc.invalidateQueries({ queryKey: ["active-calls"] });
+          toast.info(`Incoming call from ${conn.parameters.From || "Unknown"}`);
+        });
+
+        twilioDevice.on("disconnect", () => {
+          twilioConnection = null;
+          qc.invalidateQueries({ queryKey: ["active-calls"] });
+          qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
+        });
+
+        twilioDevice.on("error", (err: any) => {
+          console.error("Twilio Device error:", err);
+        });
+      } catch (err) {
+        console.warn("Twilio Client SDK not available:", err);
+      }
+    })();
+
+    return () => {
+      if (twilioDevice) {
+        twilioDevice.destroy();
+        twilioDevice = null;
+        twilioConnection = null;
+        deviceInitPromise = null;
+        setDeviceReady(false);
+      }
+    };
+  }, [hasWebRtcCredentials, workspace?.id, user?.id]);
+
+  // Refresh Twilio token every 50 minutes
+  useEffect(() => {
+    if (!deviceReady || !workspace?.id) return;
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await supabase.functions.invoke("twilio-token", {
+          body: { workspace_id: workspace.id },
+        });
+        if (data?.token && twilioDevice) {
+          twilioDevice.updateToken(data.token);
+        }
+      } catch { /* ignore */ }
+    }, 50 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [deviceReady, workspace?.id]);
 
   // Agent telephony state
   const agentStateQuery = useQuery({
@@ -160,10 +279,32 @@ export const useTelephony = () => {
     return data;
   };
 
-  // Initiate outbound call — uses real Twilio if provider configured, otherwise DB simulation
+  // Initiate outbound call
   const initiateCall = useMutation({
     mutationFn: async (params: { number: string; contactName?: string; dealId?: string }) => {
       if (hasRealProvider) {
+        // If WebRTC device is ready, make call via browser
+        if (deviceReady && twilioDevice) {
+          const result = await callTelephonyApi("make_call", {
+            number: params.number,
+            contact_name: params.contactName,
+            deal_id: params.dealId,
+          });
+
+          // The Twilio Device will handle the audio via the TwiML App
+          // Connect browser audio to the call
+          try {
+            twilioConnection = twilioDevice.connect({
+              To: params.number,
+            });
+          } catch (e) {
+            console.warn("Browser audio connect failed, call continues server-side:", e);
+          }
+
+          return result.call as ActiveCall;
+        }
+
+        // Server-side only call (no browser audio)
         const result = await callTelephonyApi("make_call", {
           number: params.number,
           contact_name: params.contactName,
@@ -235,16 +376,23 @@ export const useTelephony = () => {
           direction: "outbound",
         });
       }
-      toast.success(hasRealProvider ? "Call initiated via Twilio" : "Call initiated (simulation)");
+      toast.success(
+        deviceReady ? "Call initiated (WebRTC)" :
+        hasRealProvider ? "Call initiated via Twilio" :
+        "Call initiated (simulation)"
+      );
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // Answer call
+  // Answer call — handle both WebRTC and DB state
   const answerCall = useMutation({
     mutationFn: async (callId: string) => {
-      // For real calls, answering is handled by Twilio Client SDK / SIP
-      // Here we update the DB state
+      // Accept incoming Twilio Client connection
+      if (twilioConnection && typeof twilioConnection.accept === "function") {
+        twilioConnection.accept();
+      }
+
       const { error } = await supabase
         .from("active_calls")
         .update({
@@ -281,7 +429,7 @@ export const useTelephony = () => {
     },
   });
 
-  // Hold/unhold — uses real Twilio API if available
+  // Hold/unhold — real audio + API
   const toggleHold = useMutation({
     mutationFn: async (callId: string) => {
       const call = activeCallsQuery.data?.find((c) => c.id === callId);
@@ -290,8 +438,16 @@ export const useTelephony = () => {
       if (hasRealProvider && call.sip_call_id) {
         if (call.status === "on_hold") {
           await callTelephonyApi("resume_call", { call_id: callId });
+          // Unmute local audio on resume
+          if (twilioConnection) {
+            twilioConnection.mute(false);
+          }
         } else {
           await callTelephonyApi("hold_call", { call_id: callId });
+          // Mute local audio on hold
+          if (twilioConnection) {
+            twilioConnection.mute(true);
+          }
         }
         return;
       }
@@ -324,10 +480,16 @@ export const useTelephony = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["active-calls"] }),
   });
 
-  // End call — uses real Twilio API if available
+  // End call — disconnect WebRTC + API
   const endCall = useMutation({
     mutationFn: async (callId: string) => {
       const call = activeCallsQuery.data?.find((c) => c.id === callId);
+
+      // Disconnect browser audio
+      if (twilioConnection) {
+        try { twilioConnection.disconnect(); } catch { /* ignore */ }
+        twilioConnection = null;
+      }
 
       if (hasRealProvider && call?.sip_call_id) {
         await callTelephonyApi("end_call", { call_id: callId });
@@ -367,6 +529,7 @@ export const useTelephony = () => {
       qc.invalidateQueries({ queryKey: ["active-calls"] });
       qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
       qc.invalidateQueries({ queryKey: ["call-records"] });
+      setIsMuted(false);
       toast.info("Call ended");
     },
   });
@@ -376,10 +539,13 @@ export const useTelephony = () => {
     mutationFn: async ({ callId, targetNumber }: { callId: string; targetNumber: string }) => {
       if (hasRealProvider) {
         await callTelephonyApi("transfer_call", { call_id: callId, target_number: targetNumber });
+        if (twilioConnection) {
+          try { twilioConnection.disconnect(); } catch { /* ignore */ }
+          twilioConnection = null;
+        }
         return;
       }
 
-      // DB-only fallback
       await supabase
         .from("active_calls")
         .update({
@@ -403,17 +569,18 @@ export const useTelephony = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["active-calls"] });
       qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
+      setIsMuted(false);
       toast.success("Call transferred");
     },
   });
 
-  // Mute — real audio mute via Twilio Conferences or local media track
-  const [isMuted, setIsMuted] = useState(false);
+  // Real mute — toggles Twilio Connection audio track
   const toggleMute = useCallback(() => {
     setIsMuted((prev) => {
       const next = !prev;
-      // In a real WebRTC/Twilio Client integration, this would toggle the local audio track:
-      // localStream.getAudioTracks().forEach(t => t.enabled = !next);
+      if (twilioConnection && typeof twilioConnection.mute === "function") {
+        twilioConnection.mute(next);
+      }
       return next;
     });
   }, []);
@@ -462,6 +629,8 @@ export const useTelephony = () => {
     callTimer,
     formatTimer,
     hasRealProvider,
+    hasWebRtcCredentials,
+    deviceReady,
     isMuted,
     toggleMute,
     setAgentStatus,
