@@ -19,14 +19,18 @@ export interface StripeSubscriptionData {
   subscribed: boolean;
   plan: PlanKey;
   status: string;
+  status_label?: string;
   subscription_end?: string;
   trial_end?: string | null;
   trial_start?: string | null;
   cancel_at_period_end?: boolean;
+  cancel_at?: string | null;
   grace_period_end?: string | null;
   leads_used?: number;
   ai_replies_today?: number;
   referral_discount?: ReferralDiscountInfo | null;
+  commitment_months?: number | null;
+  selected_plan?: PlanKey;
 }
 
 const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = DEFAULT_PLAN_KEY): PlanKey => {
@@ -39,7 +43,7 @@ const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = 
 
 export const useSubscription = () => {
   const { user } = useAuth();
-  const { isSuperAdmin } = useRolePermissions();
+  const { isSuperAdmin, hasRole, permissions } = useRolePermissions();
   const { plansByKey, planOrder, defaultPlanKey } = useMonetizationCatalog();
 
   const dbQuery = useQuery({
@@ -62,7 +66,7 @@ export const useSubscription = () => {
       const { data, error } = await supabase.functions.invoke("check-subscription");
       if (error) {
         console.error("check-subscription error:", error);
-        return { subscribed: false, plan: DEFAULT_PLAN_KEY, status: "none" };
+        return { subscribed: false, plan: DEFAULT_PLAN_KEY, selected_plan: DEFAULT_PLAN_KEY, status: "none", status_label: "No subscription" };
       }
       return data as StripeSubscriptionData;
     },
@@ -73,43 +77,60 @@ export const useSubscription = () => {
 
   const stripeData = stripeQuery.data;
   const fallbackPlanKey = defaultPlanKey;
-  const rawPlan = normalizePlanKey(stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
+  const privilegedBypass = isSuperAdmin || hasRole("business_owner") || permissions.bypassSubscription;
+  const selectedPlan = normalizePlanKey(stripeData?.selected_plan ?? stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
 
-  if (isSuperAdmin) {
+  if (privilegedBypass) {
     const adminPlanKey = (planOrder[planOrder.length - 1] as PlanKey | undefined) ?? fallbackPlanKey;
     return {
       subscription: dbQuery.data,
       isLoading: dbQuery.isLoading || stripeQuery.isLoading,
       currentPlan: adminPlanKey,
+      effectivePlan: adminPlanKey,
+      selectedPlan: adminPlanKey,
       planDetails: plansByKey[adminPlanKey] ?? null,
+      selectedPlanDetails: plansByKey[adminPlanKey] ?? null,
       stripeData: stripeData ?? null,
       refetchStripe: stripeQuery.refetch,
+      isTrialExpired: false,
+      privilegedBypass: true,
     };
   }
 
-  let currentPlan = normalizePlanKey(rawPlan, fallbackPlanKey);
+  let effectivePlan = normalizePlanKey(stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
+  const status = stripeData?.status ?? dbQuery.data?.subscription_status ?? "none";
+  const now = new Date();
+  const isTrialExpired = status === "trial_expired" || (
+    Boolean(stripeData?.trial_end) &&
+    new Date(stripeData!.trial_end!) < now &&
+    !stripeData?.subscribed
+  );
+
+  if (isTrialExpired) {
+    effectivePlan = fallbackPlanKey;
+  }
 
   if (stripeData) {
-    const now = new Date();
-    if (stripeData.status === "trialing" && stripeData.trial_end && new Date(stripeData.trial_end) < now) {
-      currentPlan = fallbackPlanKey;
-    }
-
     if (stripeData.status === "past_due" && (!stripeData.grace_period_end || new Date(stripeData.grace_period_end) <= now)) {
-      currentPlan = fallbackPlanKey;
+      effectivePlan = fallbackPlanKey;
     }
 
     if (["canceled", "unpaid"].includes(stripeData.status)) {
-      currentPlan = fallbackPlanKey;
+      effectivePlan = fallbackPlanKey;
     }
   }
 
   return {
     subscription: dbQuery.data,
     isLoading: dbQuery.isLoading || stripeQuery.isLoading,
-    currentPlan,
-    planDetails: plansByKey[currentPlan] ?? plansByKey[fallbackPlanKey] ?? null,
+    currentPlan: effectivePlan,
+    effectivePlan,
+    selectedPlan,
+    planDetails: plansByKey[effectivePlan] ?? plansByKey[fallbackPlanKey] ?? null,
+    selectedPlanDetails: plansByKey[selectedPlan] ?? plansByKey[fallbackPlanKey] ?? null,
     stripeData: stripeData ?? null,
     refetchStripe: stripeQuery.refetch,
+    isTrialExpired,
+    privilegedBypass: false,
   };
 };

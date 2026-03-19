@@ -121,9 +121,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAllWorkspaces: false,
     canSuspendUsers: false,
     canChangePlans: false,
-    bypassSubscription: false,
-    bypassFeatureGating: false,
-    bypassUsageLimits: false,
+    bypassSubscription: true,
+    bypassFeatureGating: true,
+    bypassUsageLimits: true,
   },
   partner: {
     canCreateAdmin: false,
@@ -182,7 +182,6 @@ export const useUserRoles = () => {
 export const useRolePermissions = () => {
   const { data: roles = [], isLoading } = useUserRoles();
 
-  // Merge permissions from all roles (most permissive wins)
   const permissions: RolePermissions = roles.reduce<RolePermissions>(
     (acc, role) => {
       const rp = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.user;
