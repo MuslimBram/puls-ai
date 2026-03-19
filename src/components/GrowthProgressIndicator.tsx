@@ -4,7 +4,7 @@ import { Progress } from "@/components/ui/progress";
 import { useChannels } from "@/hooks/useChannels";
 import { useLeads } from "@/hooks/useLeads";
 import { useInbox } from "@/hooks/useInbox";
-import { useAutomations } from "@/hooks/useAutomations";
+import { useAutomationWorkflows } from "@/hooks/useAutomations";
 import { Rocket, Check, Circle } from "lucide-react";
 import { Link } from "react-router-dom";
 
