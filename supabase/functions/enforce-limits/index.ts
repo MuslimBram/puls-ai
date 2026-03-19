@@ -61,7 +61,21 @@ serve(async (req) => {
     const user = userData.user;
     if (!user) throw new Error("User not authenticated");
 
-    const { action, resource } = await req.json();
+    const [{ action, resource }, { data: roleRows, error: roleError }] = await Promise.all([
+      req.json(),
+      supabase.from("user_roles").select("role").eq("user_id", user.id),
+    ]);
+    if (roleError) throw roleError;
+
+    const roles = (roleRows || []).map((row: { role: string }) => row.role);
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("business_owner") || roles.includes("admin");
+
+    if (hasPrivilegedBypass) {
+      return new Response(JSON.stringify({ allowed: true, currentPlan: "enterprise", bypassed: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const planLimits = await loadPlanLimits(supabase);
 
     const { data: sub } = await supabase

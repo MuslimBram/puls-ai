@@ -53,9 +53,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAllWorkspaces: true,
     canSuspendUsers: true,
     canChangePlans: true,
-    bypassSubscription: false,
-    bypassFeatureGating: false,
-    bypassUsageLimits: false,
+    bypassSubscription: true,
+    bypassFeatureGating: true,
+    bypassUsageLimits: true,
   },
   controller: {
     canCreateAdmin: false,
