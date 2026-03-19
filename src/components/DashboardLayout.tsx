@@ -141,6 +141,9 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Use branding for sidebar logo (inline import to avoid circular deps)
+  const brandingData = workspace ? undefined : undefined; // Will be applied via BrandingThemeProvider
+
   // Admin sees admin groups + business groups; regular users see only business
   const allGroups = isAdmin ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
 
