@@ -266,8 +266,8 @@ export const SoftphoneWidget = () => {
 
         {/* Stats footer */}
         <div className="flex items-center justify-between border-t border-border px-3 py-2 text-[10px] text-muted-foreground">
-          <span>Today: {agentState?.calls_handled_today ?? 0} calls</span>
-          <span>Queue: {activeCalls.filter((c) => c.status === "queued").length} waiting</span>
+          <span>{hasRealProvider ? "🟢 Twilio" : "⚪ Simulation"} · {agentState?.calls_handled_today ?? 0} calls</span>
+          <span>Queue: {activeCalls.filter((c) => c.status === "queued").length}</span>
         </div>
       </PopoverContent>
     </Popover>
