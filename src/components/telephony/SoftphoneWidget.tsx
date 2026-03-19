@@ -161,7 +161,7 @@ export const SoftphoneWidget = () => {
                     variant={isMuted ? "destructive" : "outline"}
                     size="icon"
                     className="h-9 w-9 rounded-full"
-                    onClick={() => setIsMuted(!isMuted)}
+                    onClick={toggleMute}
                   >
                     {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
                   </Button>
