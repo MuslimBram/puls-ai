@@ -246,7 +246,11 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
             <Menu className="h-5 w-5" />
           </Button>
           <h2 className="text-base font-semibold text-foreground">{currentPageTitle}</h2>
-          <div className="ml-auto">
+          <div className="hidden md:flex ml-4">
+            <AgentStatusBar />
+          </div>
+          <div className="ml-auto flex items-center gap-1">
+            <SoftphoneWidget />
             <NotificationBell />
           </div>
         </header>
