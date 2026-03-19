@@ -355,6 +355,15 @@ const Channels = () => {
             onClose={() => setSetupChannel(null)}
           />
         )}
+
+        {/* Self-Service Connection Wizard */}
+        {wizardProvider && (
+          <ChannelConnectionWizard
+            provider={wizardProvider}
+            open={!!wizardProvider}
+            onClose={() => setWizardProvider(null)}
+          />
+        )}
       </div>
         </TabsContent>
 
