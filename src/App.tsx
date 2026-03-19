@@ -149,6 +149,9 @@ const App = () => (
                 <Route path="/competitive-intelligence-engine" element={<ProtectedPage><CompetitiveIntelligenceEngine /></ProtectedPage>} />
                 <Route path="/brand-reputation" element={<ProtectedPage><BrandReputation /></ProtectedPage>} />
                 <Route path="/customer-experience" element={<ProtectedPage><CustomerExperience /></ProtectedPage>} />
+                <Route path="/retention" element={<ProtectedPage><RetentionMaximization /></ProtectedPage>} />
+                <Route path="/partnership-ecosystem" element={<ProtectedPage><PartnershipEcosystem /></ProtectedPage>} />
+                <Route path="/reengagement" element={<ProtectedPage><VisitorReengagement /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
