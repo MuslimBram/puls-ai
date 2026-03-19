@@ -143,6 +143,9 @@ const App = () => (
                 <Route path="/growth-strategy" element={<ProtectedPage><GrowthStrategy /></ProtectedPage>} />
                 <Route path="/market-expansion" element={<ProtectedPage><MarketExpansion /></ProtectedPage>} />
                 <Route path="/pricing-optimization" element={<ProtectedPage><PricingOptimization /></ProtectedPage>} />
+                <Route path="/competitive-intelligence-engine" element={<ProtectedPage><CompetitiveIntelligenceEngine /></ProtectedPage>} />
+                <Route path="/brand-reputation" element={<ProtectedPage><BrandReputation /></ProtectedPage>} />
+                <Route path="/customer-experience" element={<ProtectedPage><CustomerExperience /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
