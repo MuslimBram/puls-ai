@@ -7,6 +7,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationBell } from "@/components/NotificationBell";
+import { SoftphoneWidget } from "@/components/telephony/SoftphoneWidget";
+import { AgentStatusBar } from "@/components/telephony/AgentStatusBar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -76,6 +78,14 @@ const businessNavGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Contact Center",
+    icon: Headphones,
+    items: [
+      { href: "/telephony", label: "Telephony", icon: Phone },
+      { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
+    ],
+  },
+  {
     label: "Growth & AI",
     icon: Sparkles,
     items: [
@@ -85,7 +95,6 @@ const businessNavGroups: NavGroup[] = [
       { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
       { href: "/media-studio", label: "Media Studio", icon: Megaphone },
       { href: "/broadcast", label: "Broadcast", icon: Send },
-      { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
     ],
   },
   {
@@ -237,7 +246,11 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
             <Menu className="h-5 w-5" />
           </Button>
           <h2 className="text-base font-semibold text-foreground">{currentPageTitle}</h2>
-          <div className="ml-auto">
+          <div className="hidden md:flex ml-4">
+            <AgentStatusBar />
+          </div>
+          <div className="ml-auto flex items-center gap-1">
+            <SoftphoneWidget />
             <NotificationBell />
           </div>
         </header>
