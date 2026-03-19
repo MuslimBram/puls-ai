@@ -4,6 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { useTelephony, TelephonyStatus } from "@/hooks/useTelephony";
 import { CallQueueManager } from "@/components/telephony/CallQueueManager";
 import { CallHistoryContent } from "@/components/CallHistoryContent";
+import { RecordingPlayer } from "@/components/telephony/RecordingPlayer";
+import { IvrBuilderPanel } from "@/components/telephony/IvrBuilderPanel";
+import { SupervisorPanel } from "@/components/telephony/SupervisorPanel";
+import { DialerCampaignPanel } from "@/components/telephony/DialerCampaignPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Phone, PhoneIncoming, PhoneOutgoing, Users, Clock, Activity, Headphones,
