@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { format } from "date-fns";
+import { format, formatDistanceToNowStrict } from "date-fns";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,30 +10,34 @@ import { UsageIndicator } from "@/components/UsageIndicator";
 import { AIUsageDashboard } from "@/components/AIUsageDashboard";
 import { BillingHistoryPanel } from "@/components/BillingHistoryPanel";
 import { PricingPlanCard } from "@/components/pricing/PricingPlanCard";
+import { PricingDurationSelector } from "@/components/pricing/PricingDurationSelector";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useLeads } from "@/hooks/useLeads";
 import { useChannels } from "@/hooks/useChannels";
 import { useKeywords } from "@/hooks/useKeywords";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
+import { getPackageVariant } from "@/lib/packagePricing";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, Clock, ExternalLink, Gift, Loader2, Percent } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
-import type { PlanKey } from "@/types/monetization";
+import type { PackageVariant, PlanKey } from "@/types/monetization";
 
 const Subscription = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [portalLoading, setPortalLoading] = useState(false);
   const [planLoading, setPlanLoading] = useState<PlanKey | null>(null);
+  const [packageType, setPackageType] = useState<PackageVariant["type"]>("monthly");
 
   const { plan, currentPlanKey, checkLimit } = useFeatureGating();
-  const { subscription, stripeData, refetchStripe } = useSubscription();
+  const { subscription, stripeData, refetchStripe, isTrialExpired } = useSubscription();
   const { plans, planOrder } = useMonetizationCatalog();
   const { leads } = useLeads();
   const { channels } = useChannels();
   const { keywords } = useKeywords();
+  const currentPackageType = ((stripeData?.package_type as PackageVariant["type"] | undefined) ?? "monthly");
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -46,7 +50,6 @@ const Subscription = () => {
       toast.info("Checkout was canceled. No changes applied.");
     }
 
-    // Clear checkout params to prevent re-trigger on refresh
     const params = new URLSearchParams(searchParams);
     params.delete("checkout");
     params.delete("plan");
@@ -59,7 +62,7 @@ const Subscription = () => {
   const keywordsUsage = checkLimit("keywords", (keywords ?? []).length);
 
   const statusTone = useMemo(() => {
-    if (stripeData?.status === "past_due") return "destructive" as const;
+    if (stripeData?.status === "past_due" || stripeData?.status === "trial_expired") return "destructive" as const;
     if (stripeData?.status === "trialing") return "secondary" as const;
     return "default" as const;
   }, [stripeData?.status]);
@@ -88,8 +91,9 @@ const Subscription = () => {
 
   const handlePlanAction = async (planKey: PlanKey) => {
     const intent = getPlanChangeIntent(currentPlanKey, planKey, planOrder);
-    if (intent === "current") return;
-    if (planKey === "enterprise" || intent === "downgrade") {
+    const isCurrentExactSelection = currentPlanKey === planKey && currentPackageType === packageType;
+    if (isCurrentExactSelection) return;
+    if (planKey === "enterprise" || (intent === "downgrade" && currentPlanKey !== planKey)) {
       await openBillingPortal();
       return;
     }
@@ -97,7 +101,7 @@ const Subscription = () => {
     setPlanLoading(planKey);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { planKey },
+        body: { planKey, packageType },
       });
       if (error) throw error;
       if (data?.url) {
@@ -121,9 +125,24 @@ const Subscription = () => {
               <Clock className="mt-0.5 h-5 w-5 text-primary" />
               <div className="flex-1">
                 <p className="text-sm font-medium text-foreground">Trial active</p>
-                <p className="text-xs text-muted-foreground">Ends {format(new Date(stripeData.trial_end), "MMM d, yyyy")}. Billing begins automatically if not canceled.</p>
+                <p className="text-xs text-muted-foreground">
+                  Ends {format(new Date(stripeData.trial_end), "MMM d, yyyy")} ({formatDistanceToNowStrict(new Date(stripeData.trial_end), { addSuffix: true })}).
+                </p>
               </div>
               <Button size="sm" variant="outline" onClick={openBillingPortal} disabled={portalLoading}>Manage trial</Button>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {isTrialExpired ? (
+          <Card className="border-destructive/40 bg-destructive/5">
+            <CardContent className="flex items-start gap-3 pt-6">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">Trial expired</p>
+                <p className="text-xs text-muted-foreground">Your selected plan is on hold until checkout is completed again.</p>
+              </div>
+              <Button size="sm" variant="destructive" onClick={() => navigate("/pricing")}>Resume plan</Button>
             </CardContent>
           </Card>
         ) : null}
@@ -163,14 +182,20 @@ const Subscription = () => {
         <Card>
           <CardHeader>
             <CardTitle className="text-xl">Current subscription</CardTitle>
-            <CardDescription>Plan sync, limits, and billing state all read from the live monetization catalog.</CardDescription>
+            <CardDescription>Plan sync, trial window, package term, and billing state all read from the live monetization catalog.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{plan.name}</Badge>
-              <Badge variant={statusTone}>{stripeData?.status ?? "none"}</Badge>
-              <span className="text-sm text-muted-foreground">${plan.monthlyPrice}/month</span>
+              <Badge variant={statusTone}>{stripeData?.status_label ?? stripeData?.status ?? "none"}</Badge>
+              <Badge variant="outline">{getPackageVariant(currentPackageType).label}</Badge>
+              <span className="text-sm text-muted-foreground">${plan.monthlyPrice}/month base</span>
               {stripeData?.cancel_at_period_end ? <Badge variant="outline">Downgrade scheduled</Badge> : null}
+            </div>
+
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
+              <p className="mb-3 text-sm font-medium text-foreground">Change commitment term</p>
+              <PricingDurationSelector value={packageType} onChange={setPackageType} />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
@@ -181,16 +206,16 @@ const Subscription = () => {
 
             <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <div>
+                <p className="text-muted-foreground">Plan expires</p>
+                <p className="font-medium text-foreground">{stripeData?.package_end_at ? format(new Date(stripeData.package_end_at), "MMM d, yyyy") : "—"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Commitment</p>
+                <p className="font-medium text-foreground">{stripeData?.commitment_months ? `${stripeData.commitment_months} months` : getPackageVariant(currentPackageType).label}</p>
+              </div>
+              <div>
                 <p className="text-muted-foreground">AI replies / day</p>
                 <p className="font-medium text-foreground">{plan.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan.limits.aiRepliesPerDay}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Team members</p>
-                <p className="font-medium text-foreground">{plan.limits.teamMembers === -1 ? "Unlimited" : plan.limits.teamMembers}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">Conversation history</p>
-                <p className="font-medium text-foreground">{plan.limits.conversationHistoryDays === -1 ? "Unlimited" : `${plan.limits.conversationHistoryDays} days`}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Support</p>
@@ -213,8 +238,10 @@ const Subscription = () => {
               key={catalogPlan.key}
               annual={false}
               currentPlanKey={currentPlanKey}
+              currentPackageType={currentPackageType}
               loading={planLoading === catalogPlan.key}
               onSelect={handlePlanAction}
+              packageType={packageType}
               plan={catalogPlan}
               planOrder={planOrder}
             />

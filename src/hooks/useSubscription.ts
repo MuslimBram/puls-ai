@@ -31,6 +31,9 @@ export interface StripeSubscriptionData {
   referral_discount?: ReferralDiscountInfo | null;
   commitment_months?: number | null;
   selected_plan?: PlanKey;
+  package_type?: string | null;
+  package_start_at?: string | null;
+  package_end_at?: string | null;
 }
 
 const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = DEFAULT_PLAN_KEY): PlanKey => {
@@ -66,7 +69,14 @@ export const useSubscription = () => {
       const { data, error } = await supabase.functions.invoke("check-subscription");
       if (error) {
         console.error("check-subscription error:", error);
-        return { subscribed: false, plan: DEFAULT_PLAN_KEY, selected_plan: DEFAULT_PLAN_KEY, status: "none", status_label: "No subscription" };
+        return {
+          subscribed: false,
+          plan: DEFAULT_PLAN_KEY,
+          selected_plan: DEFAULT_PLAN_KEY,
+          status: "none",
+          status_label: "No subscription",
+          package_type: "monthly",
+        };
       }
       return data as StripeSubscriptionData;
     },

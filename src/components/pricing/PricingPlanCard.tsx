@@ -2,8 +2,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import type { PlanKey } from "@/types/monetization";
+import type { PackageVariant, PlanKey } from "@/types/monetization";
 import { ArrowDown, ArrowUp, Check, Crown, Loader2, Sparkles } from "lucide-react";
+import {
+  formatCommitmentLabel,
+  formatPackageBadge,
+  getDiscountedMonthlyPrice,
+  getPackageSavings,
+  getPackageTotalPrice,
+} from "@/lib/packagePricing";
 import {
   formatLimitValue,
   getPlanActionLabel,
@@ -14,16 +21,38 @@ import {
 interface PricingPlanCardProps {
   annual: boolean;
   currentPlanKey: PlanKey;
+  currentPackageType?: PackageVariant["type"];
   loading: boolean;
   onSelect: (planKey: PlanKey) => void;
+  packageType: PackageVariant["type"];
   plan: MonetizationPlan;
   planOrder: PlanKey[];
 }
 
-export const PricingPlanCard = ({ annual, currentPlanKey, loading, onSelect, plan, planOrder }: PricingPlanCardProps) => {
+export const PricingPlanCard = ({
+  annual: _annual,
+  currentPlanKey,
+  currentPackageType,
+  loading,
+  onSelect,
+  packageType,
+  plan,
+  planOrder,
+}: PricingPlanCardProps) => {
   const intent = getPlanChangeIntent(currentPlanKey, plan.key, planOrder);
-  const actionLabel = getPlanActionLabel(intent, plan.cta);
-  const displayPrice = annual ? Math.round(plan.annualPrice / 12) : plan.monthlyPrice;
+  const isCurrentSelection = currentPlanKey === plan.key && currentPackageType === packageType;
+  const isSamePlanDifferentTerm = currentPlanKey === plan.key && !isCurrentSelection;
+  const actionLabel = isCurrentSelection
+    ? "Current term"
+    : isSamePlanDifferentTerm
+      ? "Select term"
+      : getPlanActionLabel(intent, plan.cta);
+
+  const displayPrice = getDiscountedMonthlyPrice(plan.monthlyPrice, packageType);
+  const totalPrice = getPackageTotalPrice(plan.monthlyPrice, packageType);
+  const savings = getPackageSavings(plan.monthlyPrice, packageType);
+  const commitmentLabel = formatCommitmentLabel(packageType);
+  const packageBadge = formatPackageBadge(packageType);
   const badgeText = plan.badgeLabel || (plan.highlighted ? "Recommended" : null);
 
   return (
@@ -31,7 +60,7 @@ export const PricingPlanCard = ({ annual, currentPlanKey, loading, onSelect, pla
       className={cn(
         "relative flex h-full flex-col overflow-hidden border-border/70 bg-card/80 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
         plan.highlighted && "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary/20",
-        currentPlanKey === plan.key && "border-primary/60 ring-1 ring-primary/25",
+        isCurrentSelection && "border-primary/60 ring-1 ring-primary/25",
       )}
     >
       <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0" />
@@ -51,7 +80,7 @@ export const PricingPlanCard = ({ annual, currentPlanKey, loading, onSelect, pla
           <CardDescription className="min-h-[3rem] text-sm leading-6">{plan.description}</CardDescription>
         </div>
 
-        <div className="space-y-1">
+        <div className="space-y-2">
           {plan.key === "enterprise" ? (
             <div className="space-y-1">
               <p className="text-4xl font-semibold tracking-tight text-foreground">Custom</p>
@@ -63,9 +92,16 @@ export const PricingPlanCard = ({ annual, currentPlanKey, loading, onSelect, pla
                 <span className="text-4xl font-semibold tracking-tight text-foreground">${displayPrice}</span>
                 <span className="pb-1 text-sm text-muted-foreground">/mo</span>
               </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{commitmentLabel}</Badge>
+                {packageBadge ? <Badge variant="secondary">{packageBadge}</Badge> : null}
+              </div>
+
               <p className="text-xs text-muted-foreground">
-                {annual ? `$${plan.annualPrice}/year billed annually` : "Monthly billing"}
+                7-day trial, then ${totalPrice} total billed for {commitmentLabel.toLowerCase()}
               </p>
+              {savings > 0 ? <p className="text-xs font-medium text-primary">You save ${savings.toFixed(2)} on this term</p> : null}
             </>
           )}
         </div>
@@ -97,12 +133,12 @@ export const PricingPlanCard = ({ annual, currentPlanKey, loading, onSelect, pla
 
         <Button
           className="mt-auto w-full"
-          variant={plan.highlighted || intent === "upgrade" ? "default" : "outline"}
-          disabled={loading || intent === "current"}
+          variant={plan.highlighted || intent === "upgrade" || isSamePlanDifferentTerm ? "default" : "outline"}
+          disabled={loading || isCurrentSelection}
           onClick={() => onSelect(plan.key)}
         >
           {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {!loading && intent === "upgrade" ? <ArrowUp className="mr-2 h-4 w-4" /> : null}
+          {!loading && intent === "upgrade" && !isSamePlanDifferentTerm ? <ArrowUp className="mr-2 h-4 w-4" /> : null}
           {!loading && intent === "downgrade" ? <ArrowDown className="mr-2 h-4 w-4" /> : null}
           {actionLabel}
         </Button>

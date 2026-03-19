@@ -203,12 +203,25 @@ serve(async (req) => {
       const plan = PRODUCT_MAP[productId] || metadataPlan || "standard";
       const status = subscription.status;
 
+      const packageType = typeof subscription.metadata?.package_type === "string" ? subscription.metadata.package_type : "monthly";
+      const commitmentMonths = Number(subscription.metadata?.commitment_months || 1);
+      const packageStartAt = subscription.trial_start
+        ? new Date(subscription.trial_start * 1000).toISOString()
+        : new Date(subscription.current_period_start * 1000).toISOString();
+      const packageEndAt = subscription.cancel_at
+        ? new Date(subscription.cancel_at * 1000).toISOString()
+        : new Date(subscription.current_period_end * 1000).toISOString();
+
       const updateData: Record<string, any> = {
         plan: ["active", "trialing"].includes(status) ? plan : "standard",
         subscription_status: status,
         stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
         billing_cycle_start: new Date(subscription.current_period_start * 1000).toISOString(),
+        package_type: packageType,
+        qualifying_package_type: ["3-month", "6-month"].includes(packageType) ? packageType : null,
+        package_start_at: packageStartAt,
+        package_end_at: packageEndAt,
         updated_at: new Date().toISOString(),
       };
 
@@ -232,7 +245,7 @@ serve(async (req) => {
 
       const { error } = await supabase.from("subscriptions").update(updateData).eq("user_id", user.id);
       if (error) console.error("[STRIPE-WEBHOOK] DB update error:", error);
-      else console.log(`[STRIPE-WEBHOOK] Updated user ${user.id} to plan=${updateData.plan}, status=${status}`);
+      else console.log(`[STRIPE-WEBHOOK] Updated user ${user.id} to plan=${updateData.plan}, status=${status}, term=${commitmentMonths}m`);
     };
 
     const createCommission = async (

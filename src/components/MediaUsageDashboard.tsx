@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { useMediaUsage, useMediaGenerations, useMediaUsageAnalytics } from "@/hooks/useMediaGeneration";
+import { formatDurationSeconds } from "@/lib/duration";
 import { Image, Video, Zap, AlertTriangle, Clock3, CheckCircle2, Activity } from "lucide-react";
 
 interface MediaUsageDashboardProps {
@@ -26,6 +27,7 @@ export const MediaUsageDashboard = ({ onUpgrade }: MediaUsageDashboardProps) => 
 
   const imagePercent = usage.imagesLimit === -1 ? 0 : Math.min(100, Math.round((usage.imagesUsedToday / Math.max(usage.imagesLimit, 1)) * 100));
   const videoPercent = usage.videosLimit === -1 ? 0 : Math.min(100, Math.round((usage.videosUsedToday / Math.max(usage.videosLimit, 1)) * 100));
+  const videoDurationPercent = usage.videoSecondsLimit === -1 ? 0 : Math.min(100, Math.round((usage.videoSecondsUsedToday / Math.max(usage.videoSecondsLimit, 1)) * 100));
   const resetLabel = usage.resetsAt ? formatDistanceToNowStrict(new Date(usage.resetsAt), { addSuffix: true }) : "in 24 hours";
 
   return (
@@ -69,19 +71,33 @@ export const MediaUsageDashboard = ({ onUpgrade }: MediaUsageDashboardProps) => 
               Video credits today
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                {usage.videosUsedToday} used · {usage.videosRemaining === Number.POSITIVE_INFINITY ? "Unlimited" : `${usage.videosRemaining} left`}
-              </span>
-              <Badge variant="outline" className="text-xs">
-                max {usage.videoMaxSeconds === -1 ? "Unlimited" : `${usage.videoMaxSeconds}s`}
-              </Badge>
+          <CardContent className="space-y-4">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {usage.videosUsedToday} used · {usage.videosRemaining === Number.POSITIVE_INFINITY ? "Unlimited" : `${usage.videosRemaining} left`}
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  max {usage.videoMaxSeconds === -1 ? "Unlimited" : formatDurationSeconds(usage.videoMaxSeconds)} / clip
+                </Badge>
+              </div>
+              <Progress value={videoPercent} className="h-2" />
             </div>
-            <Progress value={videoPercent} className="h-2" />
-            {usage.isVideoLimitReached && onUpgrade ? (
+
+            <div className="space-y-3 rounded-xl border border-border/60 bg-muted/20 p-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Total video time today</span>
+                <span className="font-medium text-foreground">
+                  {formatDurationSeconds(usage.videoSecondsUsedToday)}
+                  {usage.videoSecondsLimit === -1 ? " / Unlimited" : ` / ${formatDurationSeconds(usage.videoSecondsLimit)}`}
+                </span>
+              </div>
+              <Progress value={videoDurationPercent} className="h-2" />
+            </div>
+
+            {(usage.isVideoLimitReached || usage.isVideoDurationLimitReached) && onUpgrade ? (
               <Button size="sm" variant="outline" onClick={onUpgrade} className="w-full">
-                <Zap className="mr-1 h-3 w-3" /> Increase daily video credits
+                <Zap className="mr-1 h-3 w-3" /> Increase daily video limits
               </Button>
             ) : null}
           </CardContent>
