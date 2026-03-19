@@ -159,11 +159,55 @@ const Channels = () => {
           </CardContent>
         </Card>
 
-        {/* Channel Setup Sections */}
-        <SafeRender label="Telegram Setup"><TelegramSetup /></SafeRender>
-        <SafeRender label="Email Setup"><EmailSetup /></SafeRender>
-        <SafeRender label="Website Chat Setup"><WebsiteChatSetup /></SafeRender>
-        <SafeRender label="Webhook Setup"><WebhookSetup /></SafeRender>
+        {/* Self-Service Channel Connection Wizards */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <Plug className="h-5 w-5 text-primary" />
+              Connect Your Channels
+            </CardTitle>
+            <CardDescription>
+              Set up your own provider connections step-by-step. Each channel is scoped to your business workspace.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {CHANNEL_PROVIDERS.map((prov) => {
+                const isConnected = channels.some((c) => c.channel_type === prov.id);
+                const IconMap: Record<string, LucideIcon> = {
+                  whatsapp: Phone, telegram: MessageSquare, email: Mail,
+                  facebook: Globe, sms: Phone,
+                };
+                const Icon = IconMap[prov.id] || Radio;
+                return (
+                  <div key={prov.id} className="rounded-lg border border-border p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <span className="text-sm font-medium text-foreground">{prov.name}</span>
+                      {isConnected && (
+                        <Badge variant="default" className="ml-auto gap-1 text-xs">
+                          <CheckCircle2 className="h-3 w-3" /> Connected
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{prov.description}</p>
+                    <Button
+                      size="sm"
+                      variant={isConnected ? "ghost" : "outline"}
+                      className="text-xs w-full"
+                      onClick={() => setWizardProvider(prov)}
+                    >
+                      <Settings2 className="h-3 w-3 mr-1" />
+                      {isConnected ? "Update Connection" : "Connect"}
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Channel Registry */}
         <Card>
