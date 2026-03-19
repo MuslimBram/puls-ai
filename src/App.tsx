@@ -17,6 +17,7 @@ import BusinessProfile from "./pages/BusinessProfile";
 import Leads from "./pages/Leads";
 import Keywords from "./pages/Keywords";
 import Channels from "./pages/Channels";
+import ConnectionsHub from "./pages/ConnectionsHub";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
 import Admin from "./pages/Admin";
@@ -94,6 +95,7 @@ const App = () => (
                 <Route path="/helpdesk" element={<ProtectedPage><Helpdesk /></ProtectedPage>} />
                 <Route path="/telephony" element={<ProtectedPage><Telephony /></ProtectedPage>} />
                 <Route path="/channels" element={<ProtectedPage><Channels /></ProtectedPage>} />
+                <Route path="/connections" element={<ProtectedPage><ConnectionsHub /></ProtectedPage>} />
                 <Route path="/connected-accounts" element={<ProtectedPage><ConnectedAccounts /></ProtectedPage>} />
                 <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
                 <Route path="/subscription" element={<ProtectedPage><Subscription /></ProtectedPage>} />

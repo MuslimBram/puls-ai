@@ -37,9 +37,10 @@ const loadPlanLimits = async (supabase: any) => {
   return Object.keys(map).length > 0
     ? map
     : {
-        standard: { channels: 3, keywords: 10, aiRepliesPerDay: 20, leadsPerMonth: 100, teamMembers: 1 },
-        professional: { channels: 15, keywords: 50, aiRepliesPerDay: 100, leadsPerMonth: 500, teamMembers: 5 },
-        advanced: { channels: 50, keywords: 100, aiRepliesPerDay: 500, leadsPerMonth: 2000, teamMembers: 20 },
+        standard: { channels: 2, keywords: 10, aiRepliesPerDay: 15, leadsPerMonth: 50, teamMembers: 1 },
+        starter: { channels: 5, keywords: 30, aiRepliesPerDay: 50, leadsPerMonth: 200, teamMembers: 3 },
+        professional: { channels: 15, keywords: 150, aiRepliesPerDay: 200, leadsPerMonth: 1000, teamMembers: 10 },
+        advanced: { channels: -1, keywords: -1, aiRepliesPerDay: -1, leadsPerMonth: -1, teamMembers: -1 },
         enterprise: { channels: -1, keywords: -1, aiRepliesPerDay: -1, leadsPerMonth: -1, teamMembers: -1 },
       };
 };
