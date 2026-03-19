@@ -56,15 +56,24 @@ serve(async (req) => {
       if (!isMember) return json({ error: "Workspace access denied" }, { status: 403 });
     }
 
-    const { data: subscription, error: subscriptionError } = await supabase
-      .from("subscriptions")
-      .select("plan, workspace_id")
-      .eq("user_id", authData.user.id)
-      .maybeSingle();
+    const [{ data: subscription, error: subscriptionError }, { data: roleRows, error: roleError }] = await Promise.all([
+      supabase
+        .from("subscriptions")
+        .select("plan, workspace_id")
+        .eq("user_id", authData.user.id)
+        .maybeSingle(),
+      supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", authData.user.id),
+    ]);
 
     if (subscriptionError) throw subscriptionError;
+    if (roleError) throw roleError;
 
-    const normalizedPlan = normalizeSubscriptionPlan(subscription?.plan);
+    const roles = (roleRows ?? []).map((row) => row.role);
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("business_owner") || roles.includes("admin");
+    const normalizedPlan = hasPrivilegedBypass ? "enterprise" : normalizeSubscriptionPlan(subscription?.plan);
     if (!normalizedPlan) {
       return json({ error: "Subscription plan unavailable." }, { status: 409 });
     }
