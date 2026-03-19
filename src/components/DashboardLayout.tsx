@@ -258,7 +258,8 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
           <div className="hidden md:flex ml-4">
             <AgentStatusBar />
           </div>
-          <div className="ml-auto flex items-center gap-1">
+          <div className="ml-auto flex items-center gap-2">
+            <TrialCountdown />
             <SoftphoneWidget />
             <NotificationBell />
           </div>
