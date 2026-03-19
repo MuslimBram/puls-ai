@@ -149,6 +149,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <div className="flex min-h-screen bg-background">
+      <BrandingThemeProvider />
       {/* Sidebar */}
       <aside
         className={cn(
