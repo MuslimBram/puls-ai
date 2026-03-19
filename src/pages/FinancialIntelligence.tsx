@@ -86,7 +86,7 @@ const FinancialIntelligence = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {Object.entries(bySource).sort((a, b) => b[1] - a[1]).map(([source, amount]) => (
+                    {Object.entries(bySource).sort((a, b) => Number(b[1]) - Number(a[1])).map(([source, amount]) => (
                       <div key={source} className="flex items-center justify-between rounded-lg border border-border p-3">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-xs capitalize">{source}</Badge>
