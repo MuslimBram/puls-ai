@@ -40,6 +40,7 @@ import Index from "./pages/Index";
 import Pricing from "./pages/Pricing";
 import PublicApi from "./pages/PublicApi";
 import Telephony from "./pages/Telephony";
+import Branding from "./pages/Branding";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -98,6 +99,7 @@ const App = () => (
                 <Route path="/subscription" element={<ProtectedPage><Subscription /></ProtectedPage>} />
                 <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
                 <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
+                <Route path="/branding" element={<ProtectedPage><Branding /></ProtectedPage>} />
                 <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
                 <Route path="/admin/businesses/:businessId/scan-insights" element={<ProtectedPage><AdminBusinessScanInsights /></ProtectedPage>} />
                 <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />

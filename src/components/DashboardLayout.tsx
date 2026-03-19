@@ -1,4 +1,5 @@
 import { ReactNode, useState } from "react";
+import { BrandingThemeProvider } from "@/components/BrandingThemeProvider";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -47,6 +48,7 @@ import {
   Sparkles,
   Plug,
   Receipt,
+  Paintbrush,
 } from "lucide-react";
 
 interface NavItem {
@@ -111,6 +113,7 @@ const businessNavGroups: NavGroup[] = [
     icon: Receipt,
     items: [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
+      { href: "/branding", label: "Branding", icon: Paintbrush },
       { href: "/subscription", label: "Billing", icon: CreditCard },
       { href: "/partner", label: "Partners", icon: Handshake },
       { href: "/security", label: "Security", icon: Shield },
@@ -138,6 +141,9 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Use branding for sidebar logo (inline import to avoid circular deps)
+  const brandingData = workspace ? undefined : undefined; // Will be applied via BrandingThemeProvider
+
   // Admin sees admin groups + business groups; regular users see only business
   const allGroups = isAdmin ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
 
@@ -146,6 +152,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
 
   return (
     <div className="flex min-h-screen bg-background">
+      <BrandingThemeProvider />
       {/* Sidebar */}
       <aside
         className={cn(

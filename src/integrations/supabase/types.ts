@@ -7425,6 +7425,107 @@ export type Database = {
           },
         ]
       }
+      workspace_branding: {
+        Row: {
+          accent_color: string | null
+          accent_foreground: string | null
+          body_font: string | null
+          brand_gradient_from: string | null
+          brand_gradient_to: string | null
+          business_name: string | null
+          chat_widget_avatar_url: string | null
+          chat_widget_bubble_color: string | null
+          chat_widget_greeting: string | null
+          chat_widget_position: string | null
+          created_at: string | null
+          custom_css: string | null
+          email_footer_html: string | null
+          email_from_name: string | null
+          email_header_html: string | null
+          favicon_url: string | null
+          heading_font: string | null
+          id: string
+          login_background_url: string | null
+          login_welcome_text: string | null
+          logo_dark_url: string | null
+          logo_url: string | null
+          powered_by_visible: boolean | null
+          primary_color: string | null
+          primary_foreground: string | null
+          tagline: string | null
+          updated_at: string | null
+          workspace_id: string
+        }
+        Insert: {
+          accent_color?: string | null
+          accent_foreground?: string | null
+          body_font?: string | null
+          brand_gradient_from?: string | null
+          brand_gradient_to?: string | null
+          business_name?: string | null
+          chat_widget_avatar_url?: string | null
+          chat_widget_bubble_color?: string | null
+          chat_widget_greeting?: string | null
+          chat_widget_position?: string | null
+          created_at?: string | null
+          custom_css?: string | null
+          email_footer_html?: string | null
+          email_from_name?: string | null
+          email_header_html?: string | null
+          favicon_url?: string | null
+          heading_font?: string | null
+          id?: string
+          login_background_url?: string | null
+          login_welcome_text?: string | null
+          logo_dark_url?: string | null
+          logo_url?: string | null
+          powered_by_visible?: boolean | null
+          primary_color?: string | null
+          primary_foreground?: string | null
+          tagline?: string | null
+          updated_at?: string | null
+          workspace_id: string
+        }
+        Update: {
+          accent_color?: string | null
+          accent_foreground?: string | null
+          body_font?: string | null
+          brand_gradient_from?: string | null
+          brand_gradient_to?: string | null
+          business_name?: string | null
+          chat_widget_avatar_url?: string | null
+          chat_widget_bubble_color?: string | null
+          chat_widget_greeting?: string | null
+          chat_widget_position?: string | null
+          created_at?: string | null
+          custom_css?: string | null
+          email_footer_html?: string | null
+          email_from_name?: string | null
+          email_header_html?: string | null
+          favicon_url?: string | null
+          heading_font?: string | null
+          id?: string
+          login_background_url?: string | null
+          login_welcome_text?: string | null
+          logo_dark_url?: string | null
+          logo_url?: string | null
+          powered_by_visible?: boolean | null
+          primary_color?: string | null
+          primary_foreground?: string | null
+          tagline?: string | null
+          updated_at?: string | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_branding_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workspace_members: {
         Row: {
           created_at: string
