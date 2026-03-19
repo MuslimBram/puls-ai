@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -8,50 +9,53 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+
+// Eagerly loaded (critical path)
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
-import BusinessProfile from "./pages/BusinessProfile";
-import Leads from "./pages/Leads";
-import Keywords from "./pages/Keywords";
-import Channels from "./pages/Channels";
-import ConnectionsHub from "./pages/ConnectionsHub";
-import Analytics from "./pages/Analytics";
-import Subscription from "./pages/Subscription";
-import Admin from "./pages/Admin";
-import AdminBusinessScanInsights from "./pages/AdminBusinessScanInsights";
-import Inbox from "./pages/Inbox";
-import ConnectedAccounts from "./pages/ConnectedAccounts";
-import KnowledgeBase from "./pages/KnowledgeBase";
-import Campaigns from "./pages/Campaigns";
-import CompetitorIntelligence from "./pages/CompetitorIntelligence";
-import PartnerDashboard from "./pages/PartnerDashboard";
-import SessionSecurity from "./pages/SessionSecurity";
-import CRM from "./pages/CRM";
-
-import Helpdesk from "./pages/Helpdesk";
-import BroadcastMessaging from "./pages/BroadcastMessaging";
-import Automations from "./pages/Automations";
-import DeepAnalytics from "./pages/DeepAnalytics";
-import MediaStudio from "./pages/MediaStudio";
-import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
-import Pricing from "./pages/Pricing";
-import PublicApi from "./pages/PublicApi";
-import Telephony from "./pages/Telephony";
-import Marketplace from "./pages/Marketplace";
-import DeveloperPortal from "./pages/DeveloperPortal";
-import Onboarding from "./pages/Onboarding";
-import Branding from "./pages/Branding";
-import SalesEngine from "./pages/SalesEngine";
-import FinancialIntelligence from "./pages/FinancialIntelligence";
-import SaaSHealth from "./pages/SaaSHealth";
-import ResellerDashboard from "./pages/ResellerDashboard";
-import MarketingAutomation from "./pages/MarketingAutomation";
-import AutonomousOps from "./pages/AutonomousOps";
-import RevenueEngine from "./pages/RevenueEngine";
+import NotFound from "./pages/NotFound";
+
+// Lazy loaded pages
+const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
+const Leads = lazy(() => import("./pages/Leads"));
+const Keywords = lazy(() => import("./pages/Keywords"));
+const Channels = lazy(() => import("./pages/Channels"));
+const ConnectionsHub = lazy(() => import("./pages/ConnectionsHub"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Subscription = lazy(() => import("./pages/Subscription"));
+const Admin = lazy(() => import("./pages/Admin"));
+const AdminBusinessScanInsights = lazy(() => import("./pages/AdminBusinessScanInsights"));
+const Inbox = lazy(() => import("./pages/Inbox"));
+const ConnectedAccounts = lazy(() => import("./pages/ConnectedAccounts"));
+const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
+const Campaigns = lazy(() => import("./pages/Campaigns"));
+const CompetitorIntelligence = lazy(() => import("./pages/CompetitorIntelligence"));
+const PartnerDashboard = lazy(() => import("./pages/PartnerDashboard"));
+const SessionSecurity = lazy(() => import("./pages/SessionSecurity"));
+const CRM = lazy(() => import("./pages/CRM"));
+const Helpdesk = lazy(() => import("./pages/Helpdesk"));
+const BroadcastMessaging = lazy(() => import("./pages/BroadcastMessaging"));
+const Automations = lazy(() => import("./pages/Automations"));
+const DeepAnalytics = lazy(() => import("./pages/DeepAnalytics"));
+const MediaStudio = lazy(() => import("./pages/MediaStudio"));
+const Pricing = lazy(() => import("./pages/Pricing"));
+const PublicApi = lazy(() => import("./pages/PublicApi"));
+const Telephony = lazy(() => import("./pages/Telephony"));
+const Marketplace = lazy(() => import("./pages/Marketplace"));
+const DeveloperPortal = lazy(() => import("./pages/DeveloperPortal"));
+const Onboarding = lazy(() => import("./pages/Onboarding"));
+const Branding = lazy(() => import("./pages/Branding"));
+const SalesEngine = lazy(() => import("./pages/SalesEngine"));
+const FinancialIntelligence = lazy(() => import("./pages/FinancialIntelligence"));
+const SaaSHealth = lazy(() => import("./pages/SaaSHealth"));
+const ResellerDashboard = lazy(() => import("./pages/ResellerDashboard"));
+const MarketingAutomation = lazy(() => import("./pages/MarketingAutomation"));
+const AutonomousOps = lazy(() => import("./pages/AutonomousOps"));
+const RevenueEngine = lazy(() => import("./pages/RevenueEngine"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -67,9 +71,13 @@ const queryClient = new QueryClient({
   },
 });
 
+const LazyFallback = () => <div className="flex items-center justify-center h-screen text-muted-foreground">Loading…</div>;
+
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <ErrorBoundary fallback={<PageErrorFallback />}>{children}</ErrorBoundary>
+    <ErrorBoundary fallback={<PageErrorFallback />}>
+      <Suspense fallback={<LazyFallback />}>{children}</Suspense>
+    </ErrorBoundary>
   </ProtectedRoute>
 );
 
