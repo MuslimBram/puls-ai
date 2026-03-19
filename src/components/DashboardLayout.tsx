@@ -103,8 +103,9 @@ const businessNavGroups: NavGroup[] = [
     label: "Integrations",
     icon: Plug,
     items: [
+      { href: "/connections", label: "Connections Hub", icon: Plug },
       { href: "/channels", label: "Channels", icon: Radio },
-      { href: "/connected-accounts", label: "Connections", icon: Link2 },
+      { href: "/connected-accounts", label: "Accounts", icon: Link2 },
       { href: "/public-api", label: "Public API", icon: Zap },
     ],
   },

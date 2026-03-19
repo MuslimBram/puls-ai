@@ -355,11 +355,11 @@ const ConnectionsHub = () => {
                         <div key={ch.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                           <div className="flex items-center gap-3">
                             {isHealthy ? (
-                              <Wifi className="h-4 w-4 text-green-500" />
+                              <Wifi className="h-4 w-4 text-primary" />
                             ) : isError ? (
                               <WifiOff className="h-4 w-4 text-destructive" />
                             ) : (
-                              <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                              <AlertTriangle className="h-4 w-4 text-muted-foreground" />
                             )}
                             <Icon className="h-4 w-4 text-muted-foreground" />
                             <span className="text-sm font-medium text-foreground">{ch.channel_name}</span>
