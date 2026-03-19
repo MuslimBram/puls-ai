@@ -84,6 +84,7 @@ const businessNavGroups: NavGroup[] = [
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
       { href: "/sales-engine", label: "Sales Engine", icon: Rocket },
+      { href: "/revenue-engine", label: "Revenue Engine", icon: Banknote },
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
