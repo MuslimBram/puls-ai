@@ -56,6 +56,9 @@ const ResellerDashboard = lazy(() => import("./pages/ResellerDashboard"));
 const MarketingAutomation = lazy(() => import("./pages/MarketingAutomation"));
 const AutonomousOps = lazy(() => import("./pages/AutonomousOps"));
 const RevenueEngine = lazy(() => import("./pages/RevenueEngine"));
+const GrowthStrategy = lazy(() => import("./pages/GrowthStrategy"));
+const MarketExpansion = lazy(() => import("./pages/MarketExpansion"));
+const PricingOptimization = lazy(() => import("./pages/PricingOptimization"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -134,6 +137,9 @@ const App = () => (
                 <Route path="/marketing-automation" element={<ProtectedPage><MarketingAutomation /></ProtectedPage>} />
                 <Route path="/autonomous-ops" element={<ProtectedPage><AutonomousOps /></ProtectedPage>} />
                 <Route path="/revenue-engine" element={<ProtectedPage><RevenueEngine /></ProtectedPage>} />
+                <Route path="/growth-strategy" element={<ProtectedPage><GrowthStrategy /></ProtectedPage>} />
+                <Route path="/market-expansion" element={<ProtectedPage><MarketExpansion /></ProtectedPage>} />
+                <Route path="/pricing-optimization" element={<ProtectedPage><PricingOptimization /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
