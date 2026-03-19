@@ -62,6 +62,9 @@ const PricingOptimization = lazy(() => import("./pages/PricingOptimization"));
 const CompetitiveIntelligenceEngine = lazy(() => import("./pages/CompetitiveIntelligenceEngine"));
 const BrandReputation = lazy(() => import("./pages/BrandReputation"));
 const CustomerExperience = lazy(() => import("./pages/CustomerExperience"));
+const RetentionMaximization = lazy(() => import("./pages/RetentionMaximization"));
+const PartnershipEcosystem = lazy(() => import("./pages/PartnershipEcosystem"));
+const VisitorReengagement = lazy(() => import("./pages/VisitorReengagement"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
