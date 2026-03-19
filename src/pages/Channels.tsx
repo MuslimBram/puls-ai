@@ -15,10 +15,7 @@ import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { ChannelCredentialSetup } from "@/components/ChannelCredentialSetup";
-import { TelegramSetup } from "@/components/TelegramSetup";
-import { EmailSetup } from "@/components/EmailSetup";
-import { WebsiteChatSetup } from "@/components/WebsiteChatSetup";
-import { WebhookSetup } from "@/components/WebhookSetup";
+import { ChannelConnectionWizard, CHANNEL_PROVIDERS, ProviderDef } from "@/components/ChannelConnectionWizard";
 import { SafeRender } from "@/components/SafeRender";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
 import type { PlanKey } from "@/types/monetization";
@@ -31,7 +28,9 @@ import {
   Lock,
   Mail,
   MessageSquare,
+  Phone,
   Plus,
+  Plug,
   Radio,
   Settings2,
   Trash2,
