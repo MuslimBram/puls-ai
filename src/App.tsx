@@ -17,6 +17,7 @@ import BusinessProfile from "./pages/BusinessProfile";
 import Leads from "./pages/Leads";
 import Keywords from "./pages/Keywords";
 import Channels from "./pages/Channels";
+import ConnectionsHub from "./pages/ConnectionsHub";
 import Analytics from "./pages/Analytics";
 import Subscription from "./pages/Subscription";
 import Admin from "./pages/Admin";
