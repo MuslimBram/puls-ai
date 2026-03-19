@@ -1641,6 +1641,85 @@ export type Database = {
           },
         ]
       }
+      call_recordings: {
+        Row: {
+          active_call_id: string | null
+          agent_user_id: string | null
+          ai_summary: string | null
+          call_record_id: string | null
+          created_at: string
+          duration_seconds: number | null
+          file_size_bytes: number | null
+          format: string | null
+          id: string
+          sentiment_score: number | null
+          storage_path: string | null
+          storage_url: string | null
+          transcription: string | null
+          transcription_status: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          active_call_id?: string | null
+          agent_user_id?: string | null
+          ai_summary?: string | null
+          call_record_id?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          format?: string | null
+          id?: string
+          sentiment_score?: number | null
+          storage_path?: string | null
+          storage_url?: string | null
+          transcription?: string | null
+          transcription_status?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          active_call_id?: string | null
+          agent_user_id?: string | null
+          ai_summary?: string | null
+          call_record_id?: string | null
+          created_at?: string
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          format?: string | null
+          id?: string
+          sentiment_score?: number | null
+          storage_path?: string | null
+          storage_url?: string | null
+          transcription?: string | null
+          transcription_status?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_recordings_active_call_id_fkey"
+            columns: ["active_call_id"]
+            isOneToOne: false
+            referencedRelation: "active_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_recordings_call_record_id_fkey"
+            columns: ["call_record_id"]
+            isOneToOne: false
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_recordings_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_records: {
         Row: {
           ai_call_summary: string | null
@@ -3118,6 +3197,183 @@ export type Database = {
           },
         ]
       }
+      dialer_campaign_contacts: {
+        Row: {
+          assigned_agent_id: string | null
+          attempts: number | null
+          call_record_id: string | null
+          campaign_id: string
+          contact_data: Json | null
+          contact_name: string | null
+          created_at: string
+          disposition: string | null
+          id: string
+          last_attempt_at: string | null
+          next_attempt_at: string | null
+          notes: string | null
+          phone_number: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_agent_id?: string | null
+          attempts?: number | null
+          call_record_id?: string | null
+          campaign_id: string
+          contact_data?: Json | null
+          contact_name?: string | null
+          created_at?: string
+          disposition?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          next_attempt_at?: string | null
+          notes?: string | null
+          phone_number: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_agent_id?: string | null
+          attempts?: number | null
+          call_record_id?: string | null
+          campaign_id?: string
+          contact_data?: Json | null
+          contact_name?: string | null
+          created_at?: string
+          disposition?: string | null
+          id?: string
+          last_attempt_at?: string | null
+          next_attempt_at?: string | null
+          notes?: string | null
+          phone_number?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialer_campaign_contacts_call_record_id_fkey"
+            columns: ["call_record_id"]
+            isOneToOne: false
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dialer_campaign_contacts_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "dialer_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dialer_campaigns: {
+        Row: {
+          answered: number | null
+          busy: number | null
+          caller_id: string | null
+          completed_at: string | null
+          contact_list: Json
+          contacted: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          dialer_mode: string
+          disposition_codes: Json | null
+          failed: number | null
+          id: string
+          max_attempts: number | null
+          name: string
+          no_answer: number | null
+          pacing_ratio: number | null
+          queue_id: string | null
+          retry_interval_minutes: number | null
+          schedule_days: string[] | null
+          schedule_end: string | null
+          schedule_start: string | null
+          script: string | null
+          started_at: string | null
+          status: string
+          total_contacts: number | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          answered?: number | null
+          busy?: number | null
+          caller_id?: string | null
+          completed_at?: string | null
+          contact_list?: Json
+          contacted?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          dialer_mode?: string
+          disposition_codes?: Json | null
+          failed?: number | null
+          id?: string
+          max_attempts?: number | null
+          name: string
+          no_answer?: number | null
+          pacing_ratio?: number | null
+          queue_id?: string | null
+          retry_interval_minutes?: number | null
+          schedule_days?: string[] | null
+          schedule_end?: string | null
+          schedule_start?: string | null
+          script?: string | null
+          started_at?: string | null
+          status?: string
+          total_contacts?: number | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          answered?: number | null
+          busy?: number | null
+          caller_id?: string | null
+          completed_at?: string | null
+          contact_list?: Json
+          contacted?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          dialer_mode?: string
+          disposition_codes?: Json | null
+          failed?: number | null
+          id?: string
+          max_attempts?: number | null
+          name?: string
+          no_answer?: number | null
+          pacing_ratio?: number | null
+          queue_id?: string | null
+          retry_interval_minutes?: number | null
+          schedule_days?: string[] | null
+          schedule_end?: string | null
+          schedule_start?: string | null
+          script?: string | null
+          started_at?: string | null
+          status?: string
+          total_contacts?: number | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialer_campaigns_queue_id_fkey"
+            columns: ["queue_id"]
+            isOneToOne: false
+            referencedRelation: "call_queues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dialer_campaigns_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       discount_audit_log: {
         Row: {
           action: string
@@ -3825,6 +4081,62 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "external_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ivr_flows: {
+        Row: {
+          created_at: string
+          description: string | null
+          edges: Json
+          id: string
+          is_active: boolean | null
+          is_default: boolean | null
+          name: string
+          nodes: Json
+          published_at: string | null
+          settings: Json | null
+          updated_at: string
+          version: number | null
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          edges?: Json
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name: string
+          nodes?: Json
+          published_at?: string | null
+          settings?: Json | null
+          updated_at?: string
+          version?: number | null
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          edges?: Json
+          id?: string
+          is_active?: boolean | null
+          is_default?: boolean | null
+          name?: string
+          nodes?: Json
+          published_at?: string | null
+          settings?: Json | null
+          updated_at?: string
+          version?: number | null
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ivr_flows_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -6445,6 +6757,60 @@ export type Database = {
           },
           {
             foreignKeyName: "subscriptions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      supervisor_sessions: {
+        Row: {
+          active_call_id: string | null
+          agent_user_id: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          mode: string
+          notes: string | null
+          started_at: string
+          supervisor_user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          active_call_id?: string | null
+          agent_user_id: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          mode?: string
+          notes?: string | null
+          started_at?: string
+          supervisor_user_id: string
+          workspace_id: string
+        }
+        Update: {
+          active_call_id?: string | null
+          agent_user_id?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          mode?: string
+          notes?: string | null
+          started_at?: string
+          supervisor_user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "supervisor_sessions_active_call_id_fkey"
+            columns: ["active_call_id"]
+            isOneToOne: false
+            referencedRelation: "active_calls"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "supervisor_sessions_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
