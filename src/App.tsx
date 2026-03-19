@@ -39,7 +39,7 @@ import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
 import Pricing from "./pages/Pricing";
 import PublicApi from "./pages/PublicApi";
-
+import Telephony from "./pages/Telephony";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
