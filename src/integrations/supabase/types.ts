@@ -1553,6 +1553,51 @@ export type Database = {
           },
         ]
       }
+      call_notes: {
+        Row: {
+          call_record_id: string
+          created_at: string
+          id: string
+          note_text: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          call_record_id: string
+          created_at?: string
+          id?: string
+          note_text: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          call_record_id?: string
+          created_at?: string
+          id?: string
+          note_text?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_notes_call_record_id_fkey"
+            columns: ["call_record_id"]
+            isOneToOne: false
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_notes_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       call_queue_members: {
         Row: {
           created_at: string
@@ -1736,9 +1781,11 @@ export type Database = {
           deal_id: string | null
           follow_up_recommendation: string | null
           id: string
+          lead_id: string | null
           notes: string | null
           recording_url: string | null
           tags: string[] | null
+          thread_id: string | null
           updated_at: string
           user_id: string
           workspace_id: string | null
@@ -1758,9 +1805,11 @@ export type Database = {
           deal_id?: string | null
           follow_up_recommendation?: string | null
           id?: string
+          lead_id?: string | null
           notes?: string | null
           recording_url?: string | null
           tags?: string[] | null
+          thread_id?: string | null
           updated_at?: string
           user_id: string
           workspace_id?: string | null
@@ -1780,9 +1829,11 @@ export type Database = {
           deal_id?: string | null
           follow_up_recommendation?: string | null
           id?: string
+          lead_id?: string | null
           notes?: string | null
           recording_url?: string | null
           tags?: string[] | null
+          thread_id?: string | null
           updated_at?: string
           user_id?: string
           workspace_id?: string | null
@@ -1796,7 +1847,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "call_records_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_records_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "call_records_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      call_tags: {
+        Row: {
+          call_record_id: string
+          created_at: string
+          id: string
+          tag: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          call_record_id: string
+          created_at?: string
+          id?: string
+          tag: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          call_record_id?: string
+          created_at?: string
+          id?: string
+          tag?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "call_tags_call_record_id_fkey"
+            columns: ["call_record_id"]
+            isOneToOne: false
+            referencedRelation: "call_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "call_tags_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
