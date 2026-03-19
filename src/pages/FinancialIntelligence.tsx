@@ -93,9 +93,9 @@ const FinancialIntelligence = () => {
                           <span className="text-sm text-foreground capitalize">{source} Revenue</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-foreground">${(amount as number).toLocaleString()}</span>
+                          <span className="text-sm font-bold text-foreground">${Number(amount).toLocaleString()}</span>
                           <span className="text-xs text-muted-foreground">
-                            ({totalRevenue > 0 ? Math.round(((amount as number) / totalRevenue) * 100) : 0}%)
+                            ({totalRevenue > 0 ? Math.round((Number(amount) / totalRevenue) * 100) : 0}%)
                           </span>
                         </div>
                       </div>
