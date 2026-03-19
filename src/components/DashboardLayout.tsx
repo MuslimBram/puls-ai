@@ -79,6 +79,7 @@ const businessNavGroups: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: Inbox },
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
+      { href: "/sales-engine", label: "Sales Engine", icon: Rocket },
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
@@ -121,6 +122,7 @@ const businessNavGroups: NavGroup[] = [
     items: [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
       { href: "/branding", label: "Branding", icon: Paintbrush },
+      { href: "/financial-intelligence", label: "Financials", icon: Receipt },
       { href: "/subscription", label: "Billing", icon: CreditCard },
       { href: "/partner", label: "Partners", icon: Handshake },
       { href: "/security", label: "Security", icon: Shield },
@@ -137,6 +139,7 @@ const adminNavGroups: NavGroup[] = [
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
       { href: "/deep-analytics", label: "Analytics", icon: PieChart },
+      { href: "/saas-health", label: "SaaS Health", icon: Brain },
     ],
   },
 ];
