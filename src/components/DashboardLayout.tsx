@@ -58,6 +58,8 @@ import {
   Banknote,
   Store,
   TrendingUp,
+  Heart,
+  Smile,
 } from "lucide-react";
 
 interface NavItem {
@@ -108,6 +110,9 @@ const businessNavGroups: NavGroup[] = [
       { href: "/growth-strategy", label: "Growth Strategy", icon: TrendingUp },
       { href: "/market-expansion", label: "Market Expansion", icon: Globe },
       { href: "/pricing-optimization", label: "Pricing AI", icon: Banknote },
+      { href: "/competitive-intelligence-engine", label: "Competitive Intel", icon: Radar },
+      { href: "/brand-reputation", label: "Brand & Reputation", icon: Heart },
+      { href: "/customer-experience", label: "Customer Experience", icon: Smile },
       { href: "/keywords", label: "Keywords", icon: Key },
       { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
       { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },

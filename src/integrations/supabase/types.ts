@@ -1051,6 +1051,157 @@ export type Database = {
           },
         ]
       }
+      brand_improvement_actions: {
+        Row: {
+          action_text: string
+          action_type: string | null
+          alert_id: string | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          action_text: string
+          action_type?: string | null
+          alert_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          action_text?: string
+          action_type?: string | null
+          alert_id?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_improvement_actions_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "brand_risk_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brand_improvement_actions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_risk_alerts: {
+        Row: {
+          alert_type: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_resolved: boolean | null
+          metadata: Json | null
+          resolved_at: string | null
+          severity: string
+          title: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          alert_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string
+          title: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string
+          title?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_risk_alerts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      brand_sentiment_scores: {
+        Row: {
+          created_at: string | null
+          data_points: number | null
+          id: string
+          metadata: Json | null
+          negative_pct: number | null
+          neutral_pct: number | null
+          overall_score: number | null
+          positive_pct: number | null
+          score_date: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          data_points?: number | null
+          id?: string
+          metadata?: Json | null
+          negative_pct?: number | null
+          neutral_pct?: number | null
+          overall_score?: number | null
+          positive_pct?: number | null
+          score_date?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          data_points?: number | null
+          id?: string
+          metadata?: Json | null
+          negative_pct?: number | null
+          neutral_pct?: number | null
+          overall_score?: number | null
+          positive_pct?: number | null
+          score_date?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "brand_sentiment_scores_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       broadcast_optouts: {
         Row: {
           channel_type: string
@@ -2719,6 +2870,123 @@ export type Database = {
         }
         Relationships: []
       }
+      competitive_actions: {
+        Row: {
+          action_text: string
+          action_type: string | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          is_completed: boolean | null
+          signal_id: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          action_text: string
+          action_type?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          signal_id?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          action_text?: string
+          action_type?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          is_completed?: boolean | null
+          signal_id?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitive_actions_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "competitive_signals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitive_actions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      competitive_signals: {
+        Row: {
+          competitor_id: string | null
+          created_at: string | null
+          description: string | null
+          detected_at: string | null
+          id: string
+          is_actioned: boolean | null
+          is_read: boolean | null
+          metadata: Json | null
+          severity: string
+          signal_type: string
+          title: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          competitor_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          detected_at?: string | null
+          id?: string
+          is_actioned?: boolean | null
+          is_read?: boolean | null
+          metadata?: Json | null
+          severity?: string
+          signal_type?: string
+          title: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          competitor_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          detected_at?: string | null
+          id?: string
+          is_actioned?: boolean | null
+          is_read?: boolean | null
+          metadata?: Json | null
+          severity?: string
+          signal_type?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitive_signals_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "competitive_signals_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitor_alerts: {
         Row: {
           alert_type: string
@@ -3363,6 +3631,159 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "conversation_threads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cx_journey_events: {
+        Row: {
+          contact_identifier: string
+          created_at: string | null
+          event_type: string
+          friction_score: number | null
+          id: string
+          metadata: Json | null
+          occurred_at: string | null
+          sentiment: string | null
+          stage: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          contact_identifier: string
+          created_at?: string | null
+          event_type: string
+          friction_score?: number | null
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string | null
+          sentiment?: string | null
+          stage?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          contact_identifier?: string
+          created_at?: string | null
+          event_type?: string
+          friction_score?: number | null
+          id?: string
+          metadata?: Json | null
+          occurred_at?: string | null
+          sentiment?: string | null
+          stage?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cx_journey_events_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cx_risk_alerts: {
+        Row: {
+          alert_type: string
+          contact_identifier: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          is_resolved: boolean | null
+          metadata: Json | null
+          resolved_at: string | null
+          severity: string
+          title: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          alert_type?: string
+          contact_identifier?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string
+          title: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          alert_type?: string
+          contact_identifier?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          metadata?: Json | null
+          resolved_at?: string | null
+          severity?: string
+          title?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cx_risk_alerts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cx_scores: {
+        Row: {
+          created_at: string | null
+          cx_score: number | null
+          data_points: number | null
+          engagement_score: number | null
+          id: string
+          metadata: Json | null
+          resolution_score: number | null
+          response_speed_score: number | null
+          score_date: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          cx_score?: number | null
+          data_points?: number | null
+          engagement_score?: number | null
+          id?: string
+          metadata?: Json | null
+          resolution_score?: number | null
+          response_speed_score?: number | null
+          score_date?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          cx_score?: number | null
+          data_points?: number | null
+          engagement_score?: number | null
+          id?: string
+          metadata?: Json | null
+          resolution_score?: number | null
+          response_speed_score?: number | null
+          score_date?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cx_scores_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
