@@ -162,6 +162,10 @@ const App = () => (
                 <Route path="/personalization" element={<ProtectedPage><PersonalizationEngine /></ProtectedPage>} />
                 <Route path="/demand-forecasting" element={<ProtectedPage><DemandForecasting /></ProtectedPage>} />
                 <Route path="/workforce-optimization" element={<ProtectedPage><WorkforceOptimization /></ProtectedPage>} />
+                <Route path="/process-optimization" element={<ProtectedPage><ProcessOptimization /></ProtectedPage>} />
+                <Route path="/funnel-optimization" element={<ProtectedPage><FunnelOptimization /></ProtectedPage>} />
+                <Route path="/offer-optimization" element={<ProtectedPage><OfferOptimization /></ProtectedPage>} />
+                <Route path="/customer-value" element={<ProtectedPage><CustomerValueMaximization /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
