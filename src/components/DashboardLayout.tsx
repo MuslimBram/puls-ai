@@ -63,6 +63,9 @@ import {
   ShieldCheck as ShieldCheckIcon,
   FlaskConical,
   RefreshCw,
+  Fingerprint,
+  Activity,
+  Gauge,
 } from "lucide-react";
 
 interface NavItem {
