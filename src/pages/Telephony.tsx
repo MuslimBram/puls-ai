@@ -182,6 +182,18 @@ const Telephony = () => {
             <DialerCampaignPanel />
           </TabsContent>
 
+          <TabsContent value="scripts">
+            <CallScriptsPanel />
+          </TabsContent>
+
+          <TabsContent value="workforce">
+            <WorkforcePanel />
+          </TabsContent>
+
+          <TabsContent value="wallboard">
+            <WallboardPanel />
+          </TabsContent>
+
           <TabsContent value="history">
             <CallHistoryContent />
           </TabsContent>
