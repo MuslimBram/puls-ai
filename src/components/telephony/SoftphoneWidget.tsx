@@ -40,11 +40,10 @@ export const SoftphoneWidget = () => {
   const {
     agentState, myCall, callTimer, formatTimer,
     setAgentStatus, initiateCall, answerCall, toggleHold, endCall, transferCall,
-    activeCalls,
+    activeCalls, hasRealProvider, isMuted, toggleMute,
   } = useTelephony();
 
   const [dialNumber, setDialNumber] = useState("");
-  const [isMuted, setIsMuted] = useState(false);
   const [showTransfer, setShowTransfer] = useState(false);
   const [transferNumber, setTransferNumber] = useState("");
   const [isOpen, setIsOpen] = useState(false);
