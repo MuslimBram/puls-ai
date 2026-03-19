@@ -159,6 +159,22 @@ const Telephony = () => {
             <CallQueueManager />
           </TabsContent>
 
+          <TabsContent value="recordings">
+            <RecordingPlayer showControls={false} />
+          </TabsContent>
+
+          <TabsContent value="ivr">
+            <IvrBuilderPanel />
+          </TabsContent>
+
+          <TabsContent value="supervisor">
+            <SupervisorPanel />
+          </TabsContent>
+
+          <TabsContent value="dialer">
+            <DialerCampaignPanel />
+          </TabsContent>
+
           <TabsContent value="history">
             <CallHistoryContent />
           </TabsContent>
