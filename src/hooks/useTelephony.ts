@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
+import { useCallInboxIntegration } from "./useCallInboxIntegration";
 
 export type TelephonyStatus = "online" | "busy" | "on_call" | "wrap_up" | "offline" | "dnd";
 export type CallStatus = "ringing" | "queued" | "in_progress" | "on_hold" | "transferring" | "completed" | "failed";
@@ -60,6 +61,7 @@ export const useTelephony = () => {
   const qc = useQueryClient();
   const [callTimer, setCallTimer] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const { createThreadForCall } = useCallInboxIntegration();
 
   // Agent telephony state
   const agentStateQuery = useQuery({
@@ -187,10 +189,19 @@ export const useTelephony = () => {
 
       return call as unknown as ActiveCall;
     },
-    onSuccess: () => {
+    onSuccess: (call) => {
       qc.invalidateQueries({ queryKey: ["active-calls"] });
       qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
       qc.invalidateQueries({ queryKey: ["call-records"] });
+      // Auto-create inbox thread for this call
+      if (call?.call_record_id) {
+        createThreadForCall.mutate({
+          callRecordId: call.call_record_id,
+          contactPhone: call.callee_number || call.caller_number,
+          contactName: call.caller_name || undefined,
+          direction: "outbound",
+        });
+      }
       toast.success("Call initiated");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -220,9 +231,19 @@ export const useTelephony = () => {
           updated_at: new Date().toISOString(),
         } as any, { onConflict: "user_id" });
     },
-    onSuccess: () => {
+    onSuccess: (_, callId) => {
       qc.invalidateQueries({ queryKey: ["active-calls"] });
       qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
+      // Create inbox thread for answered inbound call
+      const call = activeCallsQuery.data?.find((c) => c.id === callId);
+      if (call?.call_record_id) {
+        createThreadForCall.mutate({
+          callRecordId: call.call_record_id,
+          contactPhone: call.caller_number,
+          contactName: call.caller_name || undefined,
+          direction: "inbound",
+        });
+      }
     },
   });
 

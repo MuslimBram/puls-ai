@@ -8,9 +8,10 @@ import { RecordingPlayer } from "@/components/telephony/RecordingPlayer";
 import { IvrBuilderPanel } from "@/components/telephony/IvrBuilderPanel";
 import { SupervisorPanel } from "@/components/telephony/SupervisorPanel";
 import { DialerCampaignPanel } from "@/components/telephony/DialerCampaignPanel";
+import { TelephonyAnalyticsPanel } from "@/components/telephony/TelephonyAnalyticsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Phone, PhoneIncoming, PhoneOutgoing, Users, Clock, Activity, Headphones,
+  Phone, PhoneIncoming, PhoneOutgoing, Users, Clock, Activity, Headphones, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -105,8 +106,8 @@ const Telephony = () => {
             <TabsTrigger value="supervisor" className="text-xs h-6">Supervisor</TabsTrigger>
             <TabsTrigger value="dialer" className="text-xs h-6">Dialer</TabsTrigger>
             <TabsTrigger value="history" className="text-xs h-6">History</TabsTrigger>
+            <TabsTrigger value="analytics" className="text-xs h-6">Analytics</TabsTrigger>
           </TabsList>
-
           <TabsContent value="live" className="space-y-3">
             {activeCalls.length === 0 ? (
               <Card>
@@ -177,6 +178,10 @@ const Telephony = () => {
 
           <TabsContent value="history">
             <CallHistoryContent />
+          </TabsContent>
+
+          <TabsContent value="analytics">
+            <TelephonyAnalyticsPanel />
           </TabsContent>
         </Tabs>
       </div>
