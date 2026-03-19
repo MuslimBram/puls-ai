@@ -71,9 +71,13 @@ const queryClient = new QueryClient({
   },
 });
 
+const LazyFallback = () => <div className="flex items-center justify-center h-screen text-muted-foreground">Loading…</div>;
+
 const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   <ProtectedRoute>
-    <ErrorBoundary fallback={<PageErrorFallback />}>{children}</ErrorBoundary>
+    <ErrorBoundary fallback={<PageErrorFallback />}>
+      <Suspense fallback={<LazyFallback />}>{children}</Suspense>
+    </ErrorBoundary>
   </ProtectedRoute>
 );
 
