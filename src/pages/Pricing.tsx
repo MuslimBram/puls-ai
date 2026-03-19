@@ -39,6 +39,7 @@ const Pricing = () => {
   const { currentPlanKey } = useFeatureGating();
   const { stripeData, refetchStripe } = useSubscription();
   const { plans, plansByKey, planOrder, comparisonSections, donations, isLoading } = useMonetizationCatalog();
+  const { track } = useConversionTracking();
   const enterpriseLead = useEnterpriseLeadSubmission();
   const currentPackageType = ((stripeData?.package_type as PackageVariant["type"] | undefined) ?? "monthly");
   const selectedVariant = getPackageVariant(packageType);
