@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { NotificationBell } from "@/components/NotificationBell";
+import { TrialCountdown } from "@/components/TrialCountdown";
 import { SoftphoneWidget } from "@/components/telephony/SoftphoneWidget";
 import { AgentStatusBar } from "@/components/telephony/AgentStatusBar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
