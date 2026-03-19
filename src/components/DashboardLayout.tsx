@@ -57,6 +57,7 @@ import {
   Cpu,
   Banknote,
   Store,
+  TrendingUp,
 } from "lucide-react";
 
 interface NavItem {
