@@ -40,6 +40,7 @@ import Index from "./pages/Index";
 import Pricing from "./pages/Pricing";
 import PublicApi from "./pages/PublicApi";
 import Telephony from "./pages/Telephony";
+import Branding from "./pages/Branding";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
