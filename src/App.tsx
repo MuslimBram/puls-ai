@@ -155,6 +155,9 @@ const App = () => (
                 <Route path="/retention" element={<ProtectedPage><RetentionMaximization /></ProtectedPage>} />
                 <Route path="/partnership-ecosystem" element={<ProtectedPage><PartnershipEcosystem /></ProtectedPage>} />
                 <Route path="/reengagement" element={<ProtectedPage><VisitorReengagement /></ProtectedPage>} />
+                <Route path="/personalization" element={<ProtectedPage><PersonalizationEngine /></ProtectedPage>} />
+                <Route path="/demand-forecasting" element={<ProtectedPage><DemandForecasting /></ProtectedPage>} />
+                <Route path="/workforce-optimization" element={<ProtectedPage><WorkforceOptimization /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
