@@ -48,6 +48,10 @@ import Branding from "./pages/Branding";
 import SalesEngine from "./pages/SalesEngine";
 import FinancialIntelligence from "./pages/FinancialIntelligence";
 import SaaSHealth from "./pages/SaaSHealth";
+import ResellerDashboard from "./pages/ResellerDashboard";
+import MarketingAutomation from "./pages/MarketingAutomation";
+import AutonomousOps from "./pages/AutonomousOps";
+import RevenueEngine from "./pages/RevenueEngine";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
