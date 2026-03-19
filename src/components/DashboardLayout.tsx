@@ -113,6 +113,7 @@ const businessNavGroups: NavGroup[] = [
     icon: Receipt,
     items: [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
+      { href: "/branding", label: "Branding", icon: Paintbrush },
       { href: "/subscription", label: "Billing", icon: CreditCard },
       { href: "/partner", label: "Partners", icon: Handshake },
       { href: "/security", label: "Security", icon: Shield },
