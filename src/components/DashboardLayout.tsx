@@ -78,6 +78,14 @@ const businessNavGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Contact Center",
+    icon: Headphones,
+    items: [
+      { href: "/telephony", label: "Telephony", icon: Phone },
+      { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
+    ],
+  },
+  {
     label: "Growth & AI",
     icon: Sparkles,
     items: [
@@ -87,7 +95,6 @@ const businessNavGroups: NavGroup[] = [
       { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
       { href: "/media-studio", label: "Media Studio", icon: Megaphone },
       { href: "/broadcast", label: "Broadcast", icon: Send },
-      { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
     ],
   },
   {
