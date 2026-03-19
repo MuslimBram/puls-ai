@@ -50,6 +50,9 @@ import {
   Plug,
   Receipt,
   Paintbrush,
+  Package,
+  Code,
+  Rocket,
 } from "lucide-react";
 
 interface NavItem {
