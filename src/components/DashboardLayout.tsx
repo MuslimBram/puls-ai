@@ -139,6 +139,7 @@ const adminNavGroups: NavGroup[] = [
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
       { href: "/deep-analytics", label: "Analytics", icon: PieChart },
+      { href: "/saas-health", label: "SaaS Health", icon: Brain },
     ],
   },
 ];
