@@ -132,6 +132,7 @@ const businessNavGroups: NavGroup[] = [
       { href: "/financial-intelligence", label: "Financials", icon: Receipt },
       { href: "/subscription", label: "Billing", icon: CreditCard },
       { href: "/partner", label: "Partners", icon: Handshake },
+      { href: "/reseller", label: "Reseller", icon: Store },
       { href: "/security", label: "Security", icon: Shield },
     ],
   },
