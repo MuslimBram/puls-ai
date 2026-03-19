@@ -4301,6 +4301,127 @@ export type Database = {
           },
         ]
       }
+      growth_action_items: {
+        Row: {
+          category: string | null
+          completed_at: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          outcome_notes: string | null
+          priority: string | null
+          status: string | null
+          strategy_id: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          outcome_notes?: string | null
+          priority?: string | null
+          status?: string | null
+          strategy_id: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          category?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          outcome_notes?: string | null
+          priority?: string | null
+          status?: string | null
+          strategy_id?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_action_items_strategy_id_fkey"
+            columns: ["strategy_id"]
+            isOneToOne: false
+            referencedRelation: "growth_strategies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      growth_strategies: {
+        Row: {
+          action_items: Json | null
+          adopted_at: string | null
+          ai_analysis: Json | null
+          competitive_signals: Json | null
+          created_at: string | null
+          experiments: Json | null
+          id: string
+          impact_metrics: Json | null
+          period_end: string | null
+          period_start: string | null
+          status: string | null
+          strategy_type: string | null
+          summary: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          action_items?: Json | null
+          adopted_at?: string | null
+          ai_analysis?: Json | null
+          competitive_signals?: Json | null
+          created_at?: string | null
+          experiments?: Json | null
+          id?: string
+          impact_metrics?: Json | null
+          period_end?: string | null
+          period_start?: string | null
+          status?: string | null
+          strategy_type?: string | null
+          summary?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          action_items?: Json | null
+          adopted_at?: string | null
+          ai_analysis?: Json | null
+          competitive_signals?: Json | null
+          created_at?: string | null
+          experiments?: Json | null
+          id?: string
+          impact_metrics?: Json | null
+          period_end?: string | null
+          period_start?: string | null
+          status?: string | null
+          strategy_type?: string | null
+          summary?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "growth_strategies_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       health_scores: {
         Row: {
           automation_usage_score: number | null
@@ -5058,6 +5179,74 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "leads_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      market_expansion_opportunities: {
+        Row: {
+          acted_at: string | null
+          action_checklist: Json | null
+          confidence: number | null
+          created_at: string | null
+          description: string | null
+          id: string
+          opportunity_type: string
+          performance: Json | null
+          readiness_score: number | null
+          region: string | null
+          segment: string | null
+          signals: Json | null
+          status: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          acted_at?: string | null
+          action_checklist?: Json | null
+          confidence?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          opportunity_type?: string
+          performance?: Json | null
+          readiness_score?: number | null
+          region?: string | null
+          segment?: string | null
+          signals?: Json | null
+          status?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          acted_at?: string | null
+          action_checklist?: Json | null
+          confidence?: number | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          opportunity_type?: string
+          performance?: Json | null
+          readiness_score?: number | null
+          region?: string | null
+          segment?: string | null
+          signals?: Json | null
+          status?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_expansion_opportunities_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -6575,6 +6764,59 @@ export type Database = {
         }
         Relationships: []
       }
+      pricing_analytics_snapshots: {
+        Row: {
+          avg_revenue_per_user: number | null
+          churn_rate: number | null
+          conversion_rate: number | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          offer_adoption_rate: number | null
+          snapshot_date: string | null
+          trial_conversion_rate: number | null
+          upgrade_rate: number | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          avg_revenue_per_user?: number | null
+          churn_rate?: number | null
+          conversion_rate?: number | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          offer_adoption_rate?: number | null
+          snapshot_date?: string | null
+          trial_conversion_rate?: number | null
+          upgrade_rate?: number | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          avg_revenue_per_user?: number | null
+          churn_rate?: number | null
+          conversion_rate?: number | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          offer_adoption_rate?: number | null
+          snapshot_date?: string | null
+          trial_conversion_rate?: number | null
+          upgrade_rate?: number | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_analytics_snapshots_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pricing_feature_rows: {
         Row: {
           advanced_value: Json
@@ -6663,6 +6905,68 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      pricing_optimization_suggestions: {
+        Row: {
+          adopted_at: string | null
+          confidence: number | null
+          created_at: string | null
+          current_state: Json | null
+          description: string | null
+          id: string
+          outcome: Json | null
+          predicted_impact: Json | null
+          recommended_action: Json | null
+          status: string | null
+          suggestion_type: string
+          title: string
+          updated_at: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          adopted_at?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          current_state?: Json | null
+          description?: string | null
+          id?: string
+          outcome?: Json | null
+          predicted_impact?: Json | null
+          recommended_action?: Json | null
+          status?: string | null
+          suggestion_type?: string
+          title: string
+          updated_at?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          adopted_at?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          current_state?: Json | null
+          description?: string | null
+          id?: string
+          outcome?: Json | null
+          predicted_impact?: Json | null
+          recommended_action?: Json | null
+          status?: string | null
+          suggestion_type?: string
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pricing_optimization_suggestions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pricing_settings: {
         Row: {
