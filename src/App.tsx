@@ -56,6 +56,9 @@ const ResellerDashboard = lazy(() => import("./pages/ResellerDashboard"));
 const MarketingAutomation = lazy(() => import("./pages/MarketingAutomation"));
 const AutonomousOps = lazy(() => import("./pages/AutonomousOps"));
 const RevenueEngine = lazy(() => import("./pages/RevenueEngine"));
+const GrowthStrategy = lazy(() => import("./pages/GrowthStrategy"));
+const MarketExpansion = lazy(() => import("./pages/MarketExpansion"));
+const PricingOptimization = lazy(() => import("./pages/PricingOptimization"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
