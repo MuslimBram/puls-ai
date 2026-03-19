@@ -53,6 +53,10 @@ import {
   Package,
   Code,
   Rocket,
+  Globe,
+  Cpu,
+  Banknote,
+  Store,
 } from "lucide-react";
 
 interface NavItem {
@@ -80,6 +84,7 @@ const businessNavGroups: NavGroup[] = [
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
       { href: "/sales-engine", label: "Sales Engine", icon: Rocket },
+      { href: "/revenue-engine", label: "Revenue Engine", icon: Banknote },
       { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
@@ -97,6 +102,8 @@ const businessNavGroups: NavGroup[] = [
     icon: Sparkles,
     items: [
       { href: "/automations", label: "Automations", icon: Workflow },
+      { href: "/autonomous-ops", label: "Autonomous OS", icon: Cpu },
+      { href: "/marketing-automation", label: "Marketing", icon: Globe },
       { href: "/keywords", label: "Keywords", icon: Key },
       { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
       { href: "/knowledge-base", label: "Knowledge Base", icon: BookOpen },
@@ -125,6 +132,7 @@ const businessNavGroups: NavGroup[] = [
       { href: "/financial-intelligence", label: "Financials", icon: Receipt },
       { href: "/subscription", label: "Billing", icon: CreditCard },
       { href: "/partner", label: "Partners", icon: Handshake },
+      { href: "/reseller", label: "Reseller", icon: Store },
       { href: "/security", label: "Security", icon: Shield },
     ],
   },

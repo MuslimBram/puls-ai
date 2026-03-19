@@ -48,6 +48,10 @@ import Branding from "./pages/Branding";
 import SalesEngine from "./pages/SalesEngine";
 import FinancialIntelligence from "./pages/FinancialIntelligence";
 import SaaSHealth from "./pages/SaaSHealth";
+import ResellerDashboard from "./pages/ResellerDashboard";
+import MarketingAutomation from "./pages/MarketingAutomation";
+import AutonomousOps from "./pages/AutonomousOps";
+import RevenueEngine from "./pages/RevenueEngine";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -118,6 +122,10 @@ const App = () => (
                 <Route path="/sales-engine" element={<ProtectedPage><SalesEngine /></ProtectedPage>} />
                 <Route path="/financial-intelligence" element={<ProtectedPage><FinancialIntelligence /></ProtectedPage>} />
                 <Route path="/saas-health" element={<ProtectedPage><SaaSHealth /></ProtectedPage>} />
+                <Route path="/reseller" element={<ProtectedPage><ResellerDashboard /></ProtectedPage>} />
+                <Route path="/marketing-automation" element={<ProtectedPage><MarketingAutomation /></ProtectedPage>} />
+                <Route path="/autonomous-ops" element={<ProtectedPage><AutonomousOps /></ProtectedPage>} />
+                <Route path="/revenue-engine" element={<ProtectedPage><RevenueEngine /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
