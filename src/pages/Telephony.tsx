@@ -9,6 +9,9 @@ import { IvrBuilderPanel } from "@/components/telephony/IvrBuilderPanel";
 import { SupervisorPanel } from "@/components/telephony/SupervisorPanel";
 import { DialerCampaignPanel } from "@/components/telephony/DialerCampaignPanel";
 import { TelephonyAnalyticsPanel } from "@/components/telephony/TelephonyAnalyticsPanel";
+import { CallScriptsPanel } from "@/components/telephony/CallScriptsPanel";
+import { WorkforcePanel } from "@/components/telephony/WorkforcePanel";
+import { WallboardPanel } from "@/components/telephony/WallboardPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Phone, PhoneIncoming, PhoneOutgoing, Users, Clock, Activity, Headphones, BarChart3,
@@ -105,6 +108,9 @@ const Telephony = () => {
             <TabsTrigger value="ivr" className="text-xs h-6">IVR Builder</TabsTrigger>
             <TabsTrigger value="supervisor" className="text-xs h-6">Supervisor</TabsTrigger>
             <TabsTrigger value="dialer" className="text-xs h-6">Dialer</TabsTrigger>
+            <TabsTrigger value="scripts" className="text-xs h-6">Scripts</TabsTrigger>
+            <TabsTrigger value="workforce" className="text-xs h-6">Workforce</TabsTrigger>
+            <TabsTrigger value="wallboard" className="text-xs h-6">Wallboard</TabsTrigger>
             <TabsTrigger value="history" className="text-xs h-6">History</TabsTrigger>
             <TabsTrigger value="analytics" className="text-xs h-6">Analytics</TabsTrigger>
           </TabsList>
@@ -174,6 +180,18 @@ const Telephony = () => {
 
           <TabsContent value="dialer">
             <DialerCampaignPanel />
+          </TabsContent>
+
+          <TabsContent value="scripts">
+            <CallScriptsPanel />
+          </TabsContent>
+
+          <TabsContent value="workforce">
+            <WorkforcePanel />
+          </TabsContent>
+
+          <TabsContent value="wallboard">
+            <WallboardPanel />
           </TabsContent>
 
           <TabsContent value="history">
