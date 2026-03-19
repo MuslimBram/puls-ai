@@ -186,10 +186,10 @@ const Subscription = () => {
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge>{plan.name}</Badge>
+              <Badge>{plan?.name ?? currentPlanKey}</Badge>
               <Badge variant={statusTone}>{stripeData?.status_label ?? stripeData?.status ?? "none"}</Badge>
               <Badge variant="outline">{getPackageVariant(currentPackageType).label}</Badge>
-              <span className="text-sm text-muted-foreground">${plan.monthlyPrice}/month base</span>
+              <span className="text-sm text-muted-foreground">${plan?.monthlyPrice ?? 0}/month base</span>
               {stripeData?.cancel_at_period_end ? <Badge variant="outline">Downgrade scheduled</Badge> : null}
             </div>
 
@@ -215,11 +215,11 @@ const Subscription = () => {
               </div>
               <div>
                 <p className="text-muted-foreground">AI replies / day</p>
-                <p className="font-medium text-foreground">{plan.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan.limits.aiRepliesPerDay}</p>
+                <p className="font-medium text-foreground">{plan?.limits.aiRepliesPerDay === -1 ? "Unlimited" : plan?.limits.aiRepliesPerDay ?? "—"}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Support</p>
-                <p className="font-medium text-foreground">{plan.support}</p>
+                <p className="font-medium text-foreground">{plan?.support ?? "Standard"}</p>
               </div>
             </div>
 
