@@ -72,6 +72,14 @@ const ProcessOptimization = lazy(() => import("./pages/ProcessOptimization"));
 const FunnelOptimization = lazy(() => import("./pages/FunnelOptimization"));
 const OfferOptimization = lazy(() => import("./pages/OfferOptimization"));
 const CustomerValueMaximization = lazy(() => import("./pages/CustomerValueMaximization"));
+const CommunityGrowth = lazy(() => import("./pages/CommunityGrowth"));
+const LeadMagnets = lazy(() => import("./pages/LeadMagnets"));
+const Gamification = lazy(() => import("./pages/Gamification"));
+const AIDecisions = lazy(() => import("./pages/AIDecisions"));
+const Benchmarks = lazy(() => import("./pages/Benchmarks"));
+const GrowthLoop = lazy(() => import("./pages/GrowthLoop"));
+const CreditEconomy = lazy(() => import("./pages/CreditEconomy"));
+const OpsStability = lazy(() => import("./pages/OpsStability"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -166,6 +174,14 @@ const App = () => (
                 <Route path="/funnel-optimization" element={<ProtectedPage><FunnelOptimization /></ProtectedPage>} />
                 <Route path="/offer-optimization" element={<ProtectedPage><OfferOptimization /></ProtectedPage>} />
                 <Route path="/customer-value" element={<ProtectedPage><CustomerValueMaximization /></ProtectedPage>} />
+                <Route path="/community" element={<ProtectedPage><CommunityGrowth /></ProtectedPage>} />
+                <Route path="/lead-magnets" element={<ProtectedPage><LeadMagnets /></ProtectedPage>} />
+                <Route path="/gamification" element={<ProtectedPage><Gamification /></ProtectedPage>} />
+                <Route path="/ai-decisions" element={<ProtectedPage><AIDecisions /></ProtectedPage>} />
+                <Route path="/benchmarks" element={<ProtectedPage><Benchmarks /></ProtectedPage>} />
+                <Route path="/growth-loop" element={<ProtectedPage><GrowthLoop /></ProtectedPage>} />
+                <Route path="/credits" element={<ProtectedPage><CreditEconomy /></ProtectedPage>} />
+                <Route path="/ops-stability" element={<ProtectedPage><OpsStability /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
