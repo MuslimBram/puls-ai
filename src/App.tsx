@@ -72,6 +72,14 @@ const ProcessOptimization = lazy(() => import("./pages/ProcessOptimization"));
 const FunnelOptimization = lazy(() => import("./pages/FunnelOptimization"));
 const OfferOptimization = lazy(() => import("./pages/OfferOptimization"));
 const CustomerValueMaximization = lazy(() => import("./pages/CustomerValueMaximization"));
+const CommunityGrowth = lazy(() => import("./pages/CommunityGrowth"));
+const LeadMagnets = lazy(() => import("./pages/LeadMagnets"));
+const Gamification = lazy(() => import("./pages/Gamification"));
+const AIDecisions = lazy(() => import("./pages/AIDecisions"));
+const Benchmarks = lazy(() => import("./pages/Benchmarks"));
+const GrowthLoop = lazy(() => import("./pages/GrowthLoop"));
+const CreditEconomy = lazy(() => import("./pages/CreditEconomy"));
+const OpsStability = lazy(() => import("./pages/OpsStability"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
