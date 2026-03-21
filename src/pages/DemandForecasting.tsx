@@ -79,7 +79,7 @@ const DemandForecasting = () => {
             {planningItems.data?.map((item: any) => (
               <Card key={item.id}>
                 <CardContent className="flex items-center gap-4 py-4">
-                  <Checkbox checked={item.status === "completed"} onCheckedChange={() => item.status !== "completed" && completePlanningItem.mutate(item.id)} />
+                  <Checkbox checked={item.status === "completed"} onCheckedChange={() => item.status !== "completed" && completePlanningItem.mutate({ id: item.id, fields: { status: "completed", completed_at: new Date().toISOString() } })} />
                   <div className="flex-1">
                     <p className={`font-medium ${item.status === "completed" ? "line-through text-muted-foreground" : ""}`}>{item.title}</p>
                     <p className="text-xs text-muted-foreground">{item.description}</p>
