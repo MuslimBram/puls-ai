@@ -1,14 +1,15 @@
 {
   "id": "/",
-  "name": "Menaxheri",
-  "short_name": "Menaxheri",
-  "description": "Lead capture, messaging and AI workflows in one installable app.",
-  "theme_color": "#2663eb",
-  "background_color": "#0b1020",
+  "name": "Pulse AI v1.0",
+  "short_name": "Pulse AI",
+  "description": "Platforma inteligjente e biznesit — menaxhoni, automatizoni dhe rritni biznesin me AI.",
+  "theme_color": "#0a1628",
+  "background_color": "#0a1628",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "any",
   "scope": "/",
   "start_url": "/",
+  "categories": ["business", "productivity"],
   "icons": [
     {
       "src": "/pwa/icon-192.png",
