@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -27,7 +27,7 @@ export function useUserQuery<T>(
   return useQuery({
     queryKey: [queryKey, user?.id, options?.filters],
     queryFn: async () => {
-      let q = supabase
+      let q = (supabase as any)
         .from(table)
         .select(select)
         .eq("user_id", user!.id)
@@ -44,7 +44,7 @@ export function useUserQuery<T>(
 
       const { data, error } = await q;
       if (error) throw error;
-      return (data || []) as unknown as T[];
+      return (data || []) as T[];
     },
     enabled: !!user,
   });
@@ -66,7 +66,7 @@ export function useToggleMutation(
         [boolField]: value,
         [timestampField]: value ? new Date().toISOString() : null,
       };
-      const { error } = await supabase.from(table).update(update as any).eq("id", id);
+      const { error } = await (supabase as any).from(table).update(update).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [invalidateKey] }),
@@ -88,11 +88,11 @@ export function useInsertMutation<TInput extends Record<string, unknown>>(
 
   return useMutation({
     mutationFn: async (data: TInput) => {
-      const { error } = await supabase.from(table).insert({
+      const { error } = await (supabase as any).from(table).insert({
         ...data,
         user_id: user!.id,
         workspace_id: workspace?.id || null,
-      } as any);
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -115,7 +115,7 @@ export function useUpdateFieldMutation(
 
   return useMutation({
     mutationFn: async ({ id, fields }: { id: string; fields: Record<string, unknown> }) => {
-      const { error } = await supabase.from(table).update(fields as any).eq("id", id);
+      const { error } = await (supabase as any).from(table).update(fields).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
