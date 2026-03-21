@@ -69,7 +69,7 @@ const OfferOptimization = () => {
                         {s.description && <p className="text-xs text-muted-foreground">{s.description}</p>}
                       </div>
                       {!s.is_adopted ? (
-                        <Button size="sm" variant="outline" onClick={() => adoptSuggestion.mutate(s.id)}>
+                        <Button size="sm" variant="outline" onClick={() => adoptSuggestion.mutate({ id: s.id, value: true })}>
                           <CheckCircle className="h-3 w-3 mr-1" />Adopt
                         </Button>
                       ) : (
