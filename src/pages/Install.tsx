@@ -58,7 +58,7 @@ const InstallPage = () => {
           <img src="/pwa/icon-64.png" alt="Pulse AI" className="h-8 w-8 rounded-lg" />
           <div>
             <span className="font-semibold text-sm tracking-tight">Pulse AI</span>
-            <span className="text-[10px] text-[hsl(220,15%,50%)] ml-1.5">v1.0</span>
+            <span className="text-[10px] text-[hsl(220,15%,50%)] ml-1.5">v{APP_VERSION}</span>
           </div>
         </div>
         <a href="/login">
