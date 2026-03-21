@@ -118,7 +118,7 @@ const CompetitorIntelligence = () => {
           </TabsContent>
 
           <TabsContent value="alerts" className="space-y-3">
-            <CompetitorAlertsList alerts={alerts} onMarkRead={(id) => markReadMutation.mutate(id)} />
+            <CompetitorAlertsList alerts={alerts} onMarkRead={(id) => markReadMutation.mutate({ id, fields: { is_read: true } })} />
           </TabsContent>
 
           <TabsContent value="trends" className="space-y-4">
