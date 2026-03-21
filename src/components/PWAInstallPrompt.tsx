@@ -81,7 +81,7 @@ export const PWAInstallPrompt = () => {
         <div className="fixed bottom-4 left-4 z-[60] rounded-full border border-border bg-card/95 px-3 py-2 text-xs font-medium text-foreground shadow-lg backdrop-blur">
           <span className="flex items-center gap-2">
             <WifiOff className="h-3.5 w-3.5 text-primary" />
-            Offline mode active
+            Offline mode
           </span>
         </div>
       )}
@@ -96,15 +96,15 @@ export const PWAInstallPrompt = () => {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-foreground">Install Menaxheri</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Install Pulse AI</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Add the app to your home screen for full-screen access, splash screen, and offline support.
+                    Add the app to your device for full-screen access, offline support, and instant loading.
                   </p>
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" onClick={handleInstall}>
                       <Download className="mr-2 h-4 w-4" />
-                      Install app
+                      Install
                     </Button>
                     <Button size="sm" variant="ghost" onClick={handleDismiss}>
                       Not now
