@@ -1,16 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { toast } from "sonner";
+import { useToggleMutation } from "@/hooks/useSupabaseQuery";
 
 export const useCustomerValueMaximization = () => {
   const { user } = useAuth();
-  const { workspace } = useWorkspace();
-  const qc = useQueryClient();
 
   const valueSignals = useQuery({
-    queryKey: ["customer-value-signals", workspace?.id],
+    queryKey: ["customer-value-signals"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("customer_value_signals")
@@ -24,7 +21,7 @@ export const useCustomerValueMaximization = () => {
   });
 
   const upsellActions = useQuery({
-    queryKey: ["upsell-actions", workspace?.id],
+    queryKey: ["upsell-actions"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("upsell_actions")
@@ -36,22 +33,10 @@ export const useCustomerValueMaximization = () => {
     enabled: !!user,
   });
 
-  const completeUpsellAction = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("upsell_actions")
-        .update({ is_completed: true, completed_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["upsell-actions"] });
-      toast.success("Upsell action completed");
-    },
-  });
+  const completeUpsellAction = useToggleMutation("upsell_actions", "upsell-actions");
 
   const viralTriggers = useQuery({
-    queryKey: ["viral-triggers", workspace?.id],
+    queryKey: ["viral-triggers"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viral_triggers")
@@ -64,7 +49,7 @@ export const useCustomerValueMaximization = () => {
   });
 
   const viralAnalytics = useQuery({
-    queryKey: ["viral-engagement-analytics", workspace?.id],
+    queryKey: ["viral-engagement-analytics"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("viral_engagement_analytics")

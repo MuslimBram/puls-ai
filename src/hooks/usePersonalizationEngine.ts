@@ -1,8 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
+import { useUserQuery } from "@/hooks/useSupabaseQuery";
 
 export const usePersonalizationEngine = () => {
   const { user } = useAuth();
@@ -11,48 +12,18 @@ export const usePersonalizationEngine = () => {
   const uid = user?.id;
   const wid = workspace?.id;
 
-  const profiles = useQuery({
-    queryKey: ["personalization-profiles", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("personalization_profiles")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("engagement_score", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
+  const profiles = useUserQuery("personalization_profiles", "personalization-profiles", {
+    orderBy: "engagement_score",
+    limit: 100,
   });
 
-  const rules = useQuery({
-    queryKey: ["personalization-rules", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("personalization_rules")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("priority", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
+  const rules = useUserQuery("personalization_rules", "personalization-rules", {
+    orderBy: "priority",
   });
 
-  const analytics = useQuery({
-    queryKey: ["personalization-analytics", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("personalization_analytics")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("metric_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
+  const analytics = useUserQuery("personalization_analytics", "personalization-analytics", {
+    orderBy: "metric_date",
+    limit: 30,
   });
 
   const generateProfiles = useMutation({
