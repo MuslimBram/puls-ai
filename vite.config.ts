@@ -59,7 +59,7 @@ export default defineConfig(({ mode }) => ({
       ],
       manifest: {
         id: "/",
-        name: "Pulse AI v1.0",
+        name: "Pulse AI v1.26.03.21",
         short_name: "Pulse AI",
         description: "The intelligent business platform — manage, automate, and grow your business with AI.",
         theme_color: "#0a1628",

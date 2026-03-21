@@ -4,6 +4,7 @@ import {
   Monitor, Smartphone, Tablet, Download, CheckCircle2, 
   ArrowRight, Zap, Shield, Globe, Apple, Chrome
 } from "lucide-react";
+import { APP_VERSION } from "@/config/version";
 
 const InstallPage = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -57,7 +58,7 @@ const InstallPage = () => {
           <img src="/pwa/icon-64.png" alt="Pulse AI" className="h-8 w-8 rounded-lg" />
           <div>
             <span className="font-semibold text-sm tracking-tight">Pulse AI</span>
-            <span className="text-[10px] text-[hsl(220,15%,50%)] ml-1.5">v1.0</span>
+            <span className="text-[10px] text-[hsl(220,15%,50%)] ml-1.5">v{APP_VERSION}</span>
           </div>
         </div>
         <a href="/login">
@@ -75,7 +76,7 @@ const InstallPage = () => {
 
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 leading-tight">
           Download Pulse AI
-          <span className="text-[hsl(145,73%,49%)] ml-2">v1.0</span>
+          <span className="text-[hsl(145,73%,49%)] ml-2">v{APP_VERSION}</span>
         </h1>
 
         <p className="text-[hsl(220,15%,55%)] text-sm sm:text-base max-w-md mb-6 leading-relaxed">

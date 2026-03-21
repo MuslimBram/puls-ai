@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { X, LogOut, ChevronDown } from "lucide-react";
 import { businessNavGroups, adminNavGroups, type NavGroup } from "./nav-config";
+import { APP_VERSION } from "@/config/version";
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -34,7 +35,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
         <img src="/pwa/icon-64.png" alt="Pulse AI" className="h-7 w-7 rounded-lg" />
         <div className="flex items-baseline gap-1">
           <span className="text-base font-bold text-foreground">Pulse AI</span>
-          <span className="text-[9px] text-muted-foreground">v1.0</span>
+          <span className="text-[9px] text-muted-foreground">v{APP_VERSION}</span>
         </div>
         <Button variant="ghost" size="icon" className="ml-auto lg:hidden h-7 w-7" onClick={onClose}>
           <X className="h-4 w-4" />
