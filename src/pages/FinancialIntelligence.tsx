@@ -10,8 +10,8 @@ const FinancialIntelligence = () => {
   const { data: insights = [] } = useProfitInsights();
   const { data: forecasts = [] } = useRevenueForecasts();
 
-  const totalRevenue = attributions.reduce((s: number, a: any) => s + (a.revenue_amount || 0), 0);
-  const bySource = attributions.reduce((acc: Record<string, number>, a: any) => {
+  const totalRevenue = (attributions as any[]).reduce((s: number, a: any) => s + (a.revenue_amount || 0), 0);
+  const bySource = (attributions as any[]).reduce((acc: Record<string, number>, a: any) => {
     const k = a.source_type || "other";
     acc[k] = (acc[k] || 0) + (a.revenue_amount || 0);
     return acc;

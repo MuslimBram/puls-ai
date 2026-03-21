@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "@/components/ui/sonner";
+import { useUserQuery, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface PricingOptimizationSuggestion {
   id: string;
@@ -29,58 +29,20 @@ export interface PricingSnapshot {
   offer_adoption_rate: number;
 }
 
-export const usePricingOptimizations = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["pricing-optimizations", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pricing_optimization_suggestions")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("confidence", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as PricingOptimizationSuggestion[];
-    },
-    enabled: !!user,
+export const usePricingOptimizations = () =>
+  useUserQuery<PricingOptimizationSuggestion>("pricing_optimization_suggestions", "pricing-optimizations", {
+    orderBy: "confidence",
+    limit: 30,
   });
-};
 
-export const useAdoptPricingSuggestion = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("pricing_optimization_suggestions")
-        .update({ status: "adopted", adopted_at: new Date().toISOString(), updated_at: new Date().toISOString() } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["pricing-optimizations"] });
-      toast.success("Suggestion adopted");
-    },
-  });
-};
+export const useAdoptPricingSuggestion = () =>
+  useUpdateFieldMutation("pricing_optimization_suggestions", "pricing-optimizations", "Suggestion adopted");
 
-export const usePricingSnapshots = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["pricing-snapshots", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("pricing_analytics_snapshots")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("snapshot_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as PricingSnapshot[];
-    },
-    enabled: !!user,
+export const usePricingSnapshots = () =>
+  useUserQuery<PricingSnapshot>("pricing_analytics_snapshots", "pricing-snapshots", {
+    orderBy: "snapshot_date",
+    limit: 30,
   });
-};
 
 export const usePricingAnalytics = () => {
   const { user } = useAuth();

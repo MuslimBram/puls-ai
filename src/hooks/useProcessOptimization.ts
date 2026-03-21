@@ -1,16 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { toast } from "sonner";
+import { useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export const useProcessOptimization = () => {
   const { user } = useAuth();
-  const { workspace } = useWorkspace();
-  const qc = useQueryClient();
 
   const bottlenecks = useQuery({
-    queryKey: ["process-bottlenecks", workspace?.id],
+    queryKey: ["process-bottlenecks"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("process_bottlenecks")
@@ -23,22 +20,10 @@ export const useProcessOptimization = () => {
     enabled: !!user,
   });
 
-  const resolveBottleneck = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("process_bottlenecks")
-        .update({ is_resolved: true, resolved_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["process-bottlenecks"] });
-      toast.success("Bottleneck resolved");
-    },
-  });
+  const resolveBottleneck = useUpdateFieldMutation("process_bottlenecks", "process-bottlenecks", "Bottleneck resolved");
 
   const postingSchedules = useQuery({
-    queryKey: ["posting-schedules", workspace?.id],
+    queryKey: ["posting-schedules"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posting_schedules")
@@ -52,7 +37,7 @@ export const useProcessOptimization = () => {
   });
 
   const styleRecommendations = useQuery({
-    queryKey: ["content-style-recommendations", workspace?.id],
+    queryKey: ["content-style-recommendations"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("content_style_recommendations")
@@ -64,22 +49,10 @@ export const useProcessOptimization = () => {
     enabled: !!user,
   });
 
-  const adoptStyle = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("content_style_recommendations")
-        .update({ is_adopted: true, adopted_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["content-style-recommendations"] });
-      toast.success("Style recommendation adopted");
-    },
-  });
+  const adoptStyle = useUpdateFieldMutation("content_style_recommendations", "content-style-recommendations", "Style recommendation adopted");
 
   const postingAnalytics = useQuery({
-    queryKey: ["posting-analytics", workspace?.id],
+    queryKey: ["posting-analytics"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("posting_analytics")

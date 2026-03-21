@@ -1,8 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
+import { useUserQuery, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export const useWorkforceOptimization = () => {
   const { user } = useAuth();
@@ -11,50 +12,19 @@ export const useWorkforceOptimization = () => {
   const uid = user?.id;
   const wid = workspace?.id;
 
-  const utilization = useQuery({
-    queryKey: ["agent-utilization", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("agent_utilization")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("measurement_date", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
+  const utilization = useUserQuery("agent_utilization", "agent-utilization", {
+    orderBy: "measurement_date",
+    limit: 50,
   });
 
-  const alerts = useQuery({
-    queryKey: ["capacity-alerts", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("capacity_alerts")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
+  const alerts = useUserQuery("capacity_alerts", "capacity-alerts", { limit: 50 });
+
+  const analytics = useUserQuery("workforce_analytics", "workforce-analytics", {
+    orderBy: "metric_date",
+    limit: 30,
   });
 
-  const analytics = useQuery({
-    queryKey: ["workforce-analytics", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("workforce_analytics")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("metric_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
-  });
+  const resolveAlert = useUpdateFieldMutation("capacity_alerts", "capacity-alerts", "Alert resolved");
 
   const generateUtilization = useMutation({
     mutationFn: async () => {
@@ -68,14 +38,6 @@ export const useWorkforceOptimization = () => {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Utilization analysis generated"); qc.invalidateQueries({ queryKey: ["agent-utilization"] }); },
-  });
-
-  const resolveAlert = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("capacity_alerts").update({ is_resolved: true, resolved_at: new Date().toISOString() } as any).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Alert resolved"); qc.invalidateQueries({ queryKey: ["capacity-alerts"] }); },
   });
 
   const generateAlerts = useMutation({

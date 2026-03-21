@@ -91,7 +91,7 @@ const WorkforceOptimization = () => {
                   </div>
                   <Badge variant={severityColors[alert.severity] as any || "outline"}>{alert.severity}</Badge>
                   {!alert.is_resolved ? (
-                    <Button size="sm" variant="outline" onClick={() => resolveAlert.mutate(alert.id)}>
+                    <Button size="sm" variant="outline" onClick={() => resolveAlert.mutate({ id: alert.id, fields: { is_resolved: true, resolved_at: new Date().toISOString() } })}>
                       <CheckCircle className="h-4 w-4 mr-1" /> Resolve
                     </Button>
                   ) : <Badge variant="outline">Resolved</Badge>}

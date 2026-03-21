@@ -1,16 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { toast } from "sonner";
+import { useInsertMutation } from "@/hooks/useSupabaseQuery";
 
 export const useCommunityGrowth = () => {
   const { user } = useAuth();
-  const { workspace } = useWorkspace();
-  const qc = useQueryClient();
 
   const groups = useQuery({
-    queryKey: ["community-groups", workspace?.id],
+    queryKey: ["community-groups"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("community_groups")
@@ -23,7 +20,7 @@ export const useCommunityGrowth = () => {
   });
 
   const members = useQuery({
-    queryKey: ["community-members", workspace?.id],
+    queryKey: ["community-members"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("community_members")
@@ -37,7 +34,7 @@ export const useCommunityGrowth = () => {
   });
 
   const analytics = useQuery({
-    queryKey: ["community-analytics", workspace?.id],
+    queryKey: ["community-analytics"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("community_analytics")
@@ -50,21 +47,11 @@ export const useCommunityGrowth = () => {
     enabled: !!user,
   });
 
-  const createGroup = useMutation({
-    mutationFn: async (input: { name: string; description?: string; group_type?: string }) => {
-      const { data, error } = await supabase.from("community_groups").insert({
-        user_id: user!.id,
-        workspace_id: workspace?.id,
-        ...input,
-      }).select().single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Community group created");
-      qc.invalidateQueries({ queryKey: ["community-groups"] });
-    },
-  });
+  const createGroup = useInsertMutation<{ name: string; description?: string; group_type?: string }>(
+    "community_groups",
+    "community-groups",
+    "Community group created",
+  );
 
   return { groups: groups.data ?? [], members: members.data ?? [], analytics: analytics.data ?? [], createGroup, isLoading: groups.isLoading };
 };

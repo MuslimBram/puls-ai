@@ -73,7 +73,7 @@ const CustomerValueMaximization = () => {
                         {a.description && <p className="text-xs text-muted-foreground">{a.description}</p>}
                       </div>
                       {!a.is_completed ? (
-                        <Button size="sm" variant="outline" onClick={() => completeUpsellAction.mutate(a.id)}>
+                        <Button size="sm" variant="outline" onClick={() => completeUpsellAction.mutate({ id: a.id, value: true })}>
                           <CheckCircle className="h-3 w-3 mr-1" />Done
                         </Button>
                       ) : (
