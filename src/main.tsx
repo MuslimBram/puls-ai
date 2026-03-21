@@ -6,7 +6,7 @@ import "./index.css";
 registerSW({
   immediate: true,
   onOfflineReady() {
-    console.info("Menaxheri is ready for offline use.");
+    console.info("Pulse AI is ready for offline use.");
   },
 });
 
