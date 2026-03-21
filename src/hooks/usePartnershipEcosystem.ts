@@ -1,7 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useUserQuery, useToggleMutation, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface PartnershipOpportunity {
   id: string;
@@ -34,91 +31,26 @@ export interface EcosystemSnapshot {
   partner_retention_rate: number;
 }
 
-export const usePartnershipOpportunities = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["partnership-opportunities", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("partnership_opportunities")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("match_score", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as PartnershipOpportunity[];
-    },
-    enabled: !!user,
+export const usePartnershipOpportunities = () =>
+  useUserQuery<PartnershipOpportunity>("partnership_opportunities", "partnership-opportunities", {
+    orderBy: "match_score",
+    limit: 50,
   });
-};
 
-export const usePartnershipActions = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["partnership-actions", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("partnership_actions")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data || []) as unknown as PartnershipAction[];
-    },
-    enabled: !!user,
-  });
-};
+export const usePartnershipActions = () =>
+  useUserQuery<PartnershipAction>("partnership_actions", "partnership-actions", { limit: 100 });
 
-export const useEcosystemAnalytics = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["ecosystem-analytics", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("ecosystem_analytics")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("snapshot_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as EcosystemSnapshot[];
-    },
-    enabled: !!user,
+export const useEcosystemAnalytics = () =>
+  useUserQuery<EcosystemSnapshot>("ecosystem_analytics", "ecosystem-analytics", {
+    orderBy: "snapshot_date",
+    limit: 30,
   });
-};
 
-export const useTogglePartnershipAction = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
-      const { error } = await supabase
-        .from("partnership_actions")
-        .update({ is_completed: completed, completed_at: completed ? new Date().toISOString() : null } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["partnership-actions"] }),
-  });
-};
+export const useTogglePartnershipAction = () =>
+  useToggleMutation("partnership_actions", "partnership-actions");
 
-export const useUpdateOpportunityStatus = () => {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase
-        .from("partnership_opportunities")
-        .update({ status } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["partnership-opportunities"] });
-      toast({ title: "Status updated" });
-    },
-  });
-};
+export const useUpdateOpportunityStatus = () =>
+  useUpdateFieldMutation("partnership_opportunities", "partnership-opportunities", "Status updated");
 
 export const usePartnershipStats = () => {
   const { data: opps } = usePartnershipOpportunities();
