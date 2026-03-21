@@ -24,21 +24,38 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    let isMounted = true;
+
+    const syncSession = async (nextSession: Session | null) => {
+      try {
+        if (nextSession?.user) {
+          const { error } = await supabase.rpc("ensure_current_user_bootstrap" as any);
+          if (error) {
+            console.error("[Auth] ensure_current_user_bootstrap failed:", error.message);
+          }
+        }
+      } finally {
+        if (!isMounted) return;
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
         setLoading(false);
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, nextSession) => {
+        void syncSession(nextSession);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
+      void syncSession(nextSession);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
