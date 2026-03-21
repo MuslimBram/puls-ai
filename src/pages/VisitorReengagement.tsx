@@ -75,7 +75,7 @@ export default function VisitorReengagement() {
                     <div className="flex items-center gap-2">
                       <Badge variant={statusColor[e.status] as any || "secondary"}>{e.status}</Badge>
                       {e.status === "draft" && (
-                        <Button size="sm" variant="outline" onClick={() => updateExpStatus.mutate({ id: e.id, status: "running" })}>
+                        <Button size="sm" variant="outline" onClick={() => updateExpStatus.mutate({ id: e.id, fields: { status: "running", started_at: new Date().toISOString() } })}>
                           Start
                         </Button>
                       )}
