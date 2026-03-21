@@ -13,10 +13,11 @@ interface DashboardHeaderProps {
 }
 
 export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
-  const { isAdmin } = useRolePermissions();
+  const { isAdmin, isBusinessOwner } = useRolePermissions();
   const location = useLocation();
 
-  const allGroups = isAdmin ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
+  const hasElevatedNavAccess = isAdmin || isBusinessOwner;
+  const allGroups = hasElevatedNavAccess ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
   const allNavFlat = allGroups.flatMap((g) => g.items);
   const currentPageTitle = allNavFlat.find((i) => i.href === location.pathname)?.label || "Dashboard";
 
