@@ -1,28 +1,17 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { toast } from "@/components/ui/sonner";
 
 export const useIsAdmin = () => {
-  const { user } = useAuth();
+  const { isAdmin, isBusinessOwner, isLoading } = useRolePermissions();
 
-  const query = useQuery({
-    queryKey: ["user-role", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("role")
-        .eq("user_id", user!.id)
-        .eq("role", "admin")
-        .maybeSingle();
-      if (error) throw error;
-      return !!data;
-    },
-    enabled: !!user,
-  });
-
-  return { isAdmin: query.data ?? false, isLoading: query.isLoading };
+  return {
+    // Admin panel duhet të jetë i aksesueshëm nga admin/super_admin dhe business_owner
+    isAdmin: isAdmin || isBusinessOwner,
+    isLoading,
+  };
 };
 
 export const useAdminData = () => {
