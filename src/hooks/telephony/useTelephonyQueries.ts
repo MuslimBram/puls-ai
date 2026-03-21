@@ -10,13 +10,29 @@ import type { ActiveCall, AgentTelephonyState, CallQueue } from "./types";
 
 export function useAgentState() {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   return useQuery({
     queryKey: ["agent-telephony-state", user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("agent_telephony_state").select("*").eq("user_id", user!.id).maybeSingle();
       if (error) throw error;
-      return data as AgentTelephonyState | null;
+      if (data) return data as AgentTelephonyState;
+
+      // Auto-create with "online" status when user is logged in
+      if (workspace?.id) {
+        const { data: created, error: createErr } = await supabase
+          .from("agent_telephony_state")
+          .upsert({
+            user_id: user!.id,
+            workspace_id: workspace.id,
+            telephony_status: "online",
+          }, { onConflict: "user_id" })
+          .select()
+          .single();
+        if (!createErr && created) return created as AgentTelephonyState;
+      }
+      return { telephony_status: "online" } as AgentTelephonyState;
     },
     enabled: !!user,
   });
