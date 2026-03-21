@@ -56,7 +56,7 @@ serve(async (req) => {
     const smtpUser = settings.smtp_user;
     const smtpPass = settings.smtp_password;
     const fromEmail = settings.smtp_from || settings.imap_user || smtpUser;
-    const fromName = settings.smtp_from_name || "LeadPulse";
+    const fromName = settings.smtp_from_name || "Pulse AI";
 
     // Connect via TLS
     const encoder = new TextEncoder();

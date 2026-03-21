@@ -98,7 +98,7 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
 
   const exportFullReport = () => {
     const rows = [
-      ["LeadPulse Executive Report", ""],
+      ["Pulse AI Executive Report", ""],
       ["Generated", format(new Date(), "PPpp")],
       ["Period", dateRange],
       ["", ""],

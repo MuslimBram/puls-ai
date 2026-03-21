@@ -69,7 +69,7 @@ serve(async (req) => {
           unit_amount: amountCents,
           currency: "usd",
           recurring: { interval: "month" },
-          product_data: { name: "LeadPulse Monthly Support" },
+          product_data: { name: "Pulse AI Monthly Support" },
         });
 
         const session = await stripe.checkout.sessions.create({
@@ -90,7 +90,7 @@ serve(async (req) => {
         line_items: [{
           price_data: {
             currency: "usd",
-            product_data: { name: "LeadPulse One-time Support" },
+            product_data: { name: "Pulse AI One-time Support" },
             unit_amount: amountCents,
           },
           quantity: 1,
