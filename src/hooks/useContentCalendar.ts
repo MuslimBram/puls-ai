@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { useUserQuery, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface ContentPost {
   id: string;
@@ -56,43 +57,16 @@ export const useContentPosts = (statusFilter?: string) => {
   });
 };
 
-export const useContentIdeas = () => {
-  const { user } = useAuth();
-
-  return useQuery({
-    queryKey: ["content-ideas", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("content_ideas")
-        .select("*")
-        .eq("user_id", user!.id)
-        .eq("is_used", false)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return (data || []) as unknown as ContentIdea[];
-    },
-    enabled: !!user,
+export const useContentIdeas = () =>
+  useUserQuery<ContentIdea>("content_ideas", "content-ideas", {
+    filters: { is_used: false },
+    limit: 20,
   });
-};
 
-export const useContentKnowledge = () => {
-  const { user } = useAuth();
-
-  return useQuery({
-    queryKey: ["content-knowledge", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("content_knowledge")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("scanned_at", { ascending: false });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!user,
+export const useContentKnowledge = () =>
+  useUserQuery("content_knowledge", "content-knowledge", {
+    orderBy: "scanned_at",
   });
-};
 
 export const useScanWebsite = () => {
   const queryClient = useQueryClient();
