@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { X, LogOut, ChevronDown } from "lucide-react";
 import { businessNavGroups, adminNavGroups, type NavGroup } from "./nav-config";
+import { APP_VERSION } from "@/config/version";
 
 interface SidebarProps {
   mobileOpen: boolean;
