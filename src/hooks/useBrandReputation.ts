@@ -1,8 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useToast } from "@/hooks/use-toast";
+import { useUserQuery, useToggleMutation, useInsertMutation, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface BrandSentiment {
   id: string;
@@ -37,112 +33,30 @@ export interface BrandAction {
   created_at: string;
 }
 
-export const useBrandSentiment = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["brand-sentiment", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("brand_sentiment_scores")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("score_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as BrandSentiment[];
-    },
-    enabled: !!user,
+export const useBrandSentiment = () =>
+  useUserQuery<BrandSentiment>("brand_sentiment_scores", "brand-sentiment", {
+    orderBy: "score_date",
+    limit: 30,
   });
-};
 
-export const useBrandRiskAlerts = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["brand-risk-alerts", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("brand_risk_alerts")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as BrandRiskAlert[];
-    },
-    enabled: !!user,
-  });
-};
+export const useBrandRiskAlerts = () =>
+  useUserQuery<BrandRiskAlert>("brand_risk_alerts", "brand-risk-alerts", { limit: 50 });
 
-export const useResolveBrandAlert = () => {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("brand_risk_alerts")
-        .update({ is_resolved: true, resolved_at: new Date().toISOString() } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["brand-risk-alerts"] });
-      toast({ title: "Alert resolved" });
-    },
-  });
-};
+export const useResolveBrandAlert = () =>
+  useUpdateFieldMutation("brand_risk_alerts", "brand-risk-alerts", "Alert resolved");
 
-export const useBrandActions = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["brand-actions", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("brand_improvement_actions")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data || []) as unknown as BrandAction[];
-    },
-    enabled: !!user,
-  });
-};
+export const useBrandActions = () =>
+  useUserQuery<BrandAction>("brand_improvement_actions", "brand-actions", { limit: 100 });
 
-export const useToggleBrandAction = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
-      const { error } = await supabase
-        .from("brand_improvement_actions")
-        .update({ is_completed: completed, completed_at: completed ? new Date().toISOString() : null } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["brand-actions"] }),
-  });
-};
+export const useToggleBrandAction = () =>
+  useToggleMutation("brand_improvement_actions", "brand-actions");
 
-export const useCreateBrandAction = () => {
-  const qc = useQueryClient();
-  const { user } = useAuth();
-  const { workspace } = useWorkspace();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async (data: { alert_id?: string; action_text: string; action_type?: string }) => {
-      const { error } = await supabase.from("brand_improvement_actions").insert({
-        ...data,
-        user_id: user!.id,
-        workspace_id: workspace?.id || null,
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["brand-actions"] });
-      toast({ title: "Action created" });
-    },
-  });
-};
+export const useCreateBrandAction = () =>
+  useInsertMutation<{ alert_id?: string; action_text: string; action_type?: string }>(
+    "brand_improvement_actions",
+    "brand-actions",
+    "Action created",
+  );
 
 export const useBrandStats = () => {
   const { data: sentiment } = useBrandSentiment();

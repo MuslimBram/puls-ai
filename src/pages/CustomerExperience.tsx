@@ -102,7 +102,7 @@ export default function CustomerExperience() {
                     <div className="flex items-center gap-2">
                       <Badge variant={a.severity === "high" || a.severity === "critical" ? "destructive" : "secondary"}>{a.severity}</Badge>
                       {!a.is_resolved && (
-                        <Button size="sm" variant="outline" onClick={() => resolveAlert.mutate(a.id)}>Resolve</Button>
+                        <Button size="sm" variant="outline" onClick={() => resolveAlert.mutate({ id: a.id, fields: { is_resolved: true, resolved_at: new Date().toISOString() } })}>Resolve</Button>
                       )}
                     </div>
                   </div>

@@ -1,8 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useToast } from "@/hooks/use-toast";
+import { useUserQuery, useToggleMutation } from "@/hooks/useSupabaseQuery";
 
 export interface RetentionRisk {
   id: string;
@@ -38,73 +34,23 @@ export interface RetentionAnalyticsSnapshot {
   at_risk_count: number;
 }
 
-export const useRetentionRisks = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["retention-risks", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("retention_risk_scores")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("risk_score", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as RetentionRisk[];
-    },
-    enabled: !!user,
+export const useRetentionRisks = () =>
+  useUserQuery<RetentionRisk>("retention_risk_scores", "retention-risks", {
+    orderBy: "risk_score",
+    limit: 50,
   });
-};
 
-export const useRetentionActions = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["retention-actions", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("retention_actions")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data || []) as unknown as RetentionAction[];
-    },
-    enabled: !!user,
-  });
-};
+export const useRetentionActions = () =>
+  useUserQuery<RetentionAction>("retention_actions", "retention-actions", { limit: 100 });
 
-export const useRetentionAnalytics = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["retention-analytics", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("retention_analytics")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("snapshot_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as RetentionAnalyticsSnapshot[];
-    },
-    enabled: !!user,
+export const useRetentionAnalytics = () =>
+  useUserQuery<RetentionAnalyticsSnapshot>("retention_analytics", "retention-analytics", {
+    orderBy: "snapshot_date",
+    limit: 30,
   });
-};
 
-export const useToggleRetentionAction = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
-      const { error } = await supabase
-        .from("retention_actions")
-        .update({ is_completed: completed, completed_at: completed ? new Date().toISOString() : null } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["retention-actions"] }),
-  });
-};
+export const useToggleRetentionAction = () =>
+  useToggleMutation("retention_actions", "retention-actions");
 
 export const useRetentionStats = () => {
   const { data: risks } = useRetentionRisks();

@@ -100,7 +100,7 @@ export default function BrandReputation() {
                     <div className="flex items-center gap-2">
                       <Badge variant={a.severity === "high" || a.severity === "critical" ? "destructive" : "secondary"}>{a.severity}</Badge>
                       {!a.is_resolved && (
-                        <Button size="sm" variant="outline" onClick={() => resolveAlert.mutate(a.id)}>Resolve</Button>
+                        <Button size="sm" variant="outline" onClick={() => resolveAlert.mutate({ id: a.id, fields: { is_resolved: true, resolved_at: new Date().toISOString() } })}>Resolve</Button>
                       )}
                     </div>
                   </div>
@@ -118,7 +118,7 @@ export default function BrandReputation() {
               <div key={a.id} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
                 <Checkbox
                   checked={a.is_completed}
-                  onCheckedChange={(checked) => toggleAction.mutate({ id: a.id, completed: !!checked })}
+                  onCheckedChange={(checked) => toggleAction.mutate({ id: a.id, value: !!checked })}
                 />
                 <div className="flex-1">
                   <p className={`text-sm ${a.is_completed ? "line-through text-muted-foreground" : ""}`}>{a.action_text}</p>

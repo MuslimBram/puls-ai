@@ -78,7 +78,7 @@ export default function CompetitiveIntelligenceEngine() {
                     <div className="flex items-center gap-2">
                       <Badge className={severityColor[s.severity] || ""}>{s.severity}</Badge>
                       {!s.is_read && (
-                        <Button size="sm" variant="ghost" onClick={() => markRead.mutate(s.id)}>
+                        <Button size="sm" variant="ghost" onClick={() => markRead.mutate({ id: s.id, fields: { is_read: true } })}>
                           <Eye className="h-3.5 w-3.5 mr-1" /> Mark read
                         </Button>
                       )}
@@ -106,7 +106,7 @@ export default function CompetitiveIntelligenceEngine() {
               <div key={a.id} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
                 <Checkbox
                   checked={a.is_completed}
-                  onCheckedChange={(checked) => toggleAction.mutate({ id: a.id, completed: !!checked })}
+                  onCheckedChange={(checked) => toggleAction.mutate({ id: a.id, value: !!checked })}
                 />
                 <div className="flex-1">
                   <p className={`text-sm ${a.is_completed ? "line-through text-muted-foreground" : ""}`}>{a.action_text}</p>
