@@ -81,7 +81,7 @@ export const PWAInstallPrompt = () => {
         <div className="fixed bottom-4 left-4 z-[60] rounded-full border border-border bg-card/95 px-3 py-2 text-xs font-medium text-foreground shadow-lg backdrop-blur">
           <span className="flex items-center gap-2">
             <WifiOff className="h-3.5 w-3.5 text-primary" />
-            Offline mode active
+            Offline mode
           </span>
         </div>
       )}
