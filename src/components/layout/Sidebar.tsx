@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Zap, X, LogOut, ChevronDown } from "lucide-react";
+import { X, LogOut, ChevronDown } from "lucide-react";
 import { businessNavGroups, adminNavGroups, type NavGroup } from "./nav-config";
 
 interface SidebarProps {
