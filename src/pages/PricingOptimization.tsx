@@ -53,7 +53,7 @@ const PricingOptimization = () => {
                       <p className="text-xs text-green-600 mt-1">Predicted conversion lift: +{s.predicted_impact.conversion_lift}%</p>
                     )}
                   </div>
-                  <Button size="sm" onClick={() => adoptSuggestion.mutate(s.id)} className="ml-4">
+                  <Button size="sm" onClick={() => adoptSuggestion.mutate({ id: s.id, fields: { status: "adopted", adopted_at: new Date().toISOString() } })} className="ml-4">
                     <CheckCircle2 className="mr-1 h-3 w-3" />Adopt
                   </Button>
                 </CardContent>

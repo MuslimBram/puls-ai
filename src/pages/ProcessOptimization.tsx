@@ -130,7 +130,7 @@ const ProcessOptimization = () => {
                         <p className="text-xs text-muted-foreground">Engagement score: {Number(r.engagement_score).toFixed(1)}</p>
                       </div>
                       {!r.is_adopted ? (
-                        <Button size="sm" variant="outline" onClick={() => adoptStyle.mutate(r.id)}>Adopt</Button>
+                        <Button size="sm" variant="outline" onClick={() => adoptStyle.mutate({ id: r.id, fields: { is_adopted: true, adopted_at: new Date().toISOString() } })}>Adopt</Button>
                       ) : (
                         <Badge variant="secondary">Adopted</Badge>
                       )}
