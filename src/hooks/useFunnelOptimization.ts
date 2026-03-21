@@ -1,13 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { toast } from "sonner";
+import { useToggleMutation } from "@/hooks/useSupabaseQuery";
 
 export const useFunnelOptimization = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
-  const qc = useQueryClient();
 
   const stages = useQuery({
     queryKey: ["funnel-stages", workspace?.id],
@@ -35,19 +34,12 @@ export const useFunnelOptimization = () => {
     enabled: !!user,
   });
 
-  const completeOptimization = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("funnel_optimizations")
-        .update({ is_completed: true, completed_at: new Date().toISOString() })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["funnel-optimizations"] });
-      toast.success("Optimization completed");
-    },
-  });
+  const completeOptimization = useToggleMutation(
+    "funnel_optimizations",
+    "funnel-optimizations",
+    "is_completed",
+    "completed_at",
+  );
 
   const experiments = useQuery({
     queryKey: ["funnel-experiments", workspace?.id],

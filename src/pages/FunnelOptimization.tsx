@@ -73,7 +73,7 @@ const FunnelOptimization = () => {
                         {o.description && <p className="text-xs text-muted-foreground">{o.description}</p>}
                       </div>
                       {!o.is_completed ? (
-                        <Button size="sm" variant="outline" onClick={() => completeOptimization.mutate(o.id)}>
+                        <Button size="sm" variant="outline" onClick={() => completeOptimization.mutate({ id: o.id, value: true })}>
                           <CheckCircle className="h-3 w-3 mr-1" />Done
                         </Button>
                       ) : (

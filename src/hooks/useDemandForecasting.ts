@@ -1,8 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "sonner";
+import { useUserQuery, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export const useDemandForecasting = () => {
   const { user } = useAuth();
@@ -11,49 +12,23 @@ export const useDemandForecasting = () => {
   const uid = user?.id;
   const wid = workspace?.id;
 
-  const forecasts = useQuery({
-    queryKey: ["demand-forecasts", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("demand_forecasts")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("period_start", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
+  const forecasts = useUserQuery("demand_forecasts", "demand-forecasts", {
+    orderBy: "period_start",
+    limit: 50,
   });
 
-  const planningItems = useQuery({
-    queryKey: ["resource-planning", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("resource_planning_items")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
+  const planningItems = useUserQuery("resource_planning_items", "resource-planning");
+
+  const forecastAnalytics = useUserQuery("forecast_analytics", "forecast-analytics", {
+    orderBy: "metric_date",
+    limit: 30,
   });
 
-  const forecastAnalytics = useQuery({
-    queryKey: ["forecast-analytics", uid],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("forecast_analytics")
-        .select("*")
-        .eq("user_id", uid!)
-        .order("metric_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!uid,
-  });
+  const completePlanningItem = useUpdateFieldMutation(
+    "resource_planning_items",
+    "resource-planning",
+    "Item completed",
+  );
 
   const generateForecasts = useMutation({
     mutationFn: async () => {
@@ -68,14 +43,6 @@ export const useDemandForecasting = () => {
       if (error) throw error;
     },
     onSuccess: () => { toast.success("Demand forecasts generated"); qc.invalidateQueries({ queryKey: ["demand-forecasts"] }); },
-  });
-
-  const completePlanningItem = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("resource_planning_items").update({ status: "completed", completed_at: new Date().toISOString() } as any).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => { toast.success("Item completed"); qc.invalidateQueries({ queryKey: ["resource-planning"] }); },
   });
 
   const generatePlanningItems = useMutation({

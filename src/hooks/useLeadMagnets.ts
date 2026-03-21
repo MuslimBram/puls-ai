@@ -1,13 +1,12 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { toast } from "sonner";
+import { useInsertMutation } from "@/hooks/useSupabaseQuery";
 
 export const useLeadMagnets = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
-  const qc = useQueryClient();
 
   const magnets = useQuery({
     queryKey: ["lead-magnets", workspace?.id],
@@ -29,21 +28,11 @@ export const useLeadMagnets = () => {
     enabled: !!user,
   });
 
-  const createMagnet = useMutation({
-    mutationFn: async (input: { name: string; magnet_type: string; content_config?: any }) => {
-      const { data, error } = await supabase.from("lead_magnets").insert({
-        user_id: user!.id,
-        workspace_id: workspace?.id,
-        ...input,
-      }).select().single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Lead magnet created");
-      qc.invalidateQueries({ queryKey: ["lead-magnets"] });
-    },
-  });
+  const createMagnet = useInsertMutation<{ name: string; magnet_type: string; content_config?: any }>(
+    "lead_magnets",
+    "lead-magnets",
+    "Lead magnet created",
+  );
 
   const totalCaptures = captures.data?.length ?? 0;
   const avgConversion = magnets.data?.length
