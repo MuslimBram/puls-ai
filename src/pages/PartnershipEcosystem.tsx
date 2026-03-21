@@ -75,7 +75,7 @@ export default function PartnershipEcosystem() {
                       <Badge variant="outline">Match: {o.match_score}%</Badge>
                       <Badge variant="secondary">{o.status}</Badge>
                       {o.status === "suggested" && (
-                        <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: o.id, status: "in_progress" })}>
+                        <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: o.id, fields: { status: "in_progress" } })}>
                           Start
                         </Button>
                       )}
