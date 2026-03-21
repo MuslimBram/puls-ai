@@ -27,7 +27,7 @@ export const WebsiteChatSetup = () => {
 
   const webchatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webchat-ingest`;
 
-  const embedSnippet = `<!-- LeadPulse Chat Widget -->
+  const embedSnippet = `<!-- Pulse AI Chat Widget -->
 <script>
 (function() {
   var s = document.createElement('script');
