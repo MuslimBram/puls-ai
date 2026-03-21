@@ -12353,6 +12353,10 @@ export type Database = {
         Args: { _thread_id: string; _workspace_id: string }
         Returns: string
       }
+      bootstrap_user_account_for: {
+        Args: { _user_id: string }
+        Returns: undefined
+      }
       check_rate_limit: {
         Args: {
           _bucket_key: string
@@ -12473,6 +12477,7 @@ export type Database = {
         Args: { _ip_address: string; _user_agent: string; _user_id: string }
         Returns: boolean
       }
+      ensure_current_user_bootstrap: { Args: never; Returns: undefined }
       ensure_media_daily_usage:
         | {
             Args: {
