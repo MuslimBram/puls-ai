@@ -80,10 +80,20 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
-    if (userError) throw new Error(`Auth error: ${userError.message}`);
+    if (userError || !userData?.user?.id || !userData?.user?.email) {
+      return jsonResponse({
+        subscribed: false,
+        plan: "standard",
+        selected_plan: "standard",
+        status: "none",
+        status_label: "No subscription",
+        package_type: "monthly",
+        leads_used: 0,
+        ai_replies_today: 0,
+      });
+    }
 
     const user = userData.user;
-    if (!user?.id || !user.email) throw new Error("User not authenticated");
 
     const catalogRows = await loadPricingCatalogRows(supabaseClient);
     const productMap = indexPricingCatalogByProductId(catalogRows);
