@@ -96,9 +96,9 @@ export const PWAInstallPrompt = () => {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm font-semibold text-foreground">Install Menaxheri</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Install Pulse AI</h3>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Add the app to your home screen for full-screen access, splash screen, and offline support.
+                    Add the app to your device for full-screen access, offline support, and instant loading.
                   </p>
 
                   <div className="mt-3 flex flex-wrap gap-2">
