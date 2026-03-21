@@ -6322,6 +6322,47 @@ export type Database = {
           },
         ]
       }
+      ip_blocklist: {
+        Row: {
+          blocked_at: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          ip_address: string
+          reason: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          blocked_at?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          ip_address: string
+          reason?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          blocked_at?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          ip_address?: string
+          reason?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ip_blocklist_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ivr_flows: {
         Row: {
           created_at: string
@@ -10663,6 +10704,39 @@ export type Database = {
           risk_score?: number | null
           user_agent?: string | null
           user_id?: string
+        }
+        Relationships: []
+      }
+      security_scan_results: {
+        Row: {
+          created_at: string
+          critical_count: number
+          findings: Json
+          findings_count: number
+          high_count: number
+          id: string
+          medium_count: number
+          scan_time: string
+        }
+        Insert: {
+          created_at?: string
+          critical_count?: number
+          findings?: Json
+          findings_count?: number
+          high_count?: number
+          id?: string
+          medium_count?: number
+          scan_time?: string
+        }
+        Update: {
+          created_at?: string
+          critical_count?: number
+          findings?: Json
+          findings_count?: number
+          high_count?: number
+          id?: string
+          medium_count?: number
+          scan_time?: string
         }
         Relationships: []
       }
