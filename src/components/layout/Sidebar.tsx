@@ -31,10 +31,11 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
     >
       {/* Logo */}
       <div className="flex h-12 items-center gap-2 border-b border-border px-3">
-        <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary">
-          <Zap className="h-3.5 w-3.5 text-primary-foreground" />
+        <img src="/pwa/icon-64.png" alt="Pulse AI" className="h-7 w-7 rounded-lg" />
+        <div className="flex items-baseline gap-1">
+          <span className="text-base font-bold text-foreground">Pulse AI</span>
+          <span className="text-[9px] text-muted-foreground">v1.0</span>
         </div>
-        <span className="text-base font-bold text-foreground">Pulse AI</span>
         <Button variant="ghost" size="icon" className="ml-auto lg:hidden h-7 w-7" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>

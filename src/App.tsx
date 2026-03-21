@@ -80,6 +80,7 @@ const Benchmarks = lazy(() => import("./pages/Benchmarks"));
 const GrowthLoop = lazy(() => import("./pages/GrowthLoop"));
 const CreditEconomy = lazy(() => import("./pages/CreditEconomy"));
 const OpsStability = lazy(() => import("./pages/OpsStability"));
+const InstallPage = lazy(() => import("./pages/Install"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
