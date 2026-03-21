@@ -77,7 +77,7 @@ const PublicApiPage = () => {
               <CardHeader className="flex-row items-center justify-between">
                 <div>
                   <CardTitle>API Keys</CardTitle>
-                  <CardDescription>Authenticate external requests to your LeadPulse data</CardDescription>
+                  <CardDescription>Authenticate external requests to your Pulse AI data</CardDescription>
                 </div>
                 <Dialog open={showCreateDialog} onOpenChange={setShowCreateDialog}>
                   <DialogTrigger asChild>

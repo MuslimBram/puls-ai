@@ -34,7 +34,7 @@ const Index = () => {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Zap className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-bold text-foreground">LeadPulse</span>
+            <span className="text-lg font-bold text-foreground">Pulse AI</span>
           </div>
           <div className="flex items-center gap-3">
             <Link to="/pricing">
@@ -158,7 +158,7 @@ const Index = () => {
           </div>
           <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3">
             {[
-              { name: "Sarah K.", role: "Marketing Director", quote: "LeadPulse transformed how we handle inbound leads. Response times dropped by 80%." },
+              { name: "Sarah K.", role: "Marketing Director", quote: "Pulse AI transformed how we handle inbound leads. Response times dropped by 80%." },
               { name: "Michael R.", role: "Agency Owner", quote: "The AI assistant feels like a team member. It handles initial conversations perfectly." },
               { name: "Elena T.", role: "Sales Manager", quote: "We discovered 3x more qualified leads within the first month of using the platform." },
             ].map((t) => (
@@ -182,7 +182,7 @@ const Index = () => {
           <div className="container mx-auto px-4 py-16 text-center">
             <h2 className="mb-3 text-3xl font-bold text-foreground">Ready to Capture More Leads?</h2>
             <p className="mx-auto mb-6 max-w-md text-muted-foreground">
-              Join businesses using LeadPulse to discover, qualify, and convert leads with AI.
+              Join businesses using Pulse AI to discover, qualify, and convert leads with AI.
             </p>
             <Link to="/register">
               <Button size="lg">
@@ -199,9 +199,9 @@ const Index = () => {
             <div className="flex h-6 w-6 items-center justify-center rounded bg-primary">
               <Zap className="h-3 w-3 text-primary-foreground" />
             </div>
-            <span className="font-medium text-foreground">LeadPulse</span>
+            <span className="font-medium text-foreground">Pulse AI</span>
           </div>
-          <p>© {new Date().getFullYear()} LeadPulse. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Pulse AI. All rights reserved.</p>
         </div>
       </footer>
 

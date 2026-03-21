@@ -92,7 +92,7 @@ Deno.serve(async (req) => {
     if (action === "enroll") {
       // Generate new secret
       const secret = generateSecret();
-      const issuer = "LeadPulse";
+      const issuer = "Pulse AI";
       const otpauthUrl = `otpauth://totp/${issuer}:${user.email}?secret=${secret}&issuer=${issuer}&digits=6&period=30`;
 
       // Store (upsert) unverified secret
