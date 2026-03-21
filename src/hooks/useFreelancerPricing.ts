@@ -1,12 +1,18 @@
 import { useMemo } from "react";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import {
+  FREELANCER_PACKAGE_VARIANTS,
+  FREELANCER_COMMISSION_RATE,
+  FREELANCER_MIN_ACTIVE_REFERRALS,
+} from "@/config/plans";
 
 /**
  * Freelancer pricing logic:
- * - 1st business: normal plan pricing
- * - Each additional business: 40% discount on monthly plan price
- * - Discount applied automatically based on active business count
+ * - Own subscription: reduced package discounts (0%, 5%, 10%, 15%)
+ * - Referral commission: 20% lifetime on every referred business payment
+ * - Minimum 1 active referred business to maintain freelancer status
+ * - Additional businesses: 40% discount on monthly plan price
  */
 export const useFreelancerPricing = () => {
   const { isFreelancer } = useRolePermissions();
@@ -22,6 +28,9 @@ export const useFreelancerPricing = () => {
         activeBusinessCount,
         discountedBusinessCount: 0,
         discountPercent: 0,
+        commissionRate: FREELANCER_COMMISSION_RATE,
+        minActiveReferrals: FREELANCER_MIN_ACTIVE_REFERRALS,
+        packageVariants: FREELANCER_PACKAGE_VARIANTS,
         getEffectiveMonthlyPrice: (basePrice: number) => basePrice,
         getTotalMonthlyPrice: (basePrice: number) => basePrice * Math.max(activeBusinessCount, 1),
       };
@@ -35,8 +44,10 @@ export const useFreelancerPricing = () => {
       activeBusinessCount,
       discountedBusinessCount: discountedCount,
       discountPercent: FREELANCER_DISCOUNT_PERCENT,
+      commissionRate: FREELANCER_COMMISSION_RATE,
+      minActiveReferrals: FREELANCER_MIN_ACTIVE_REFERRALS,
+      packageVariants: FREELANCER_PACKAGE_VARIANTS,
       getEffectiveMonthlyPrice: (basePrice: number) => {
-        // Price for the first business (full) + discounted additional businesses
         const firstBusiness = basePrice;
         const additionalBusinesses = basePrice * discountMultiplier * discountedCount;
         return Number(((firstBusiness + additionalBusinesses) / activeBusinessCount).toFixed(2));
