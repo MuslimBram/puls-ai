@@ -18,10 +18,11 @@ interface SidebarProps {
 export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const { signOut, user } = useAuth();
   const { workspace, workspaces, switchWorkspace } = useWorkspace();
-  const { isAdmin } = useRolePermissions();
+  const { isAdmin, isBusinessOwner } = useRolePermissions();
   const location = useLocation();
 
-  const allGroups: NavGroup[] = isAdmin ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
+  const hasElevatedNavAccess = isAdmin || isBusinessOwner;
+  const allGroups: NavGroup[] = hasElevatedNavAccess ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
 
   return (
     <aside
