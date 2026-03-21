@@ -55,7 +55,7 @@ const ProcessOptimization = () => {
                         )}
                       </div>
                       {!b.is_resolved && (
-                        <Button size="sm" variant="outline" onClick={() => resolveBottleneck.mutate(b.id)}>
+                        <Button size="sm" variant="outline" onClick={() => resolveBottleneck.mutate({ id: b.id, fields: { is_resolved: true, resolved_at: new Date().toISOString() } })}>
                           <CheckCircle className="h-3 w-3 mr-1" />Resolve
                         </Button>
                       )}
