@@ -57,7 +57,7 @@ const RevenueEngine = () => {
                   </div>
                   <div className="flex items-center gap-3 ml-4">
                     <span className="text-sm font-bold text-green-600">${opp.estimated_value.toLocaleString()}</span>
-                    <Button size="sm" onClick={() => actOnOpp.mutate({ id: opp.id, action: "followed_up" })}><Zap className="mr-1 h-3 w-3" />Act</Button>
+                    <Button size="sm" onClick={() => actOnOpp.mutate({ id: opp.id, fields: { status: "acted", outcome: "followed_up", action_taken_at: new Date().toISOString(), updated_at: new Date().toISOString() } })}><Zap className="mr-1 h-3 w-3" />Act</Button>
                   </div>
                 </CardContent>
               </Card>
