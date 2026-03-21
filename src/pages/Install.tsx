@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { 
   Monitor, Smartphone, Tablet, Download, CheckCircle2, 
-  ArrowRight, Zap, Shield, Globe 
+  ArrowRight, Zap, Shield, Globe, Apple, Chrome
 } from "lucide-react";
 
 const InstallPage = () => {
@@ -38,9 +38,15 @@ const InstallPage = () => {
   };
 
   const features = [
-    { icon: Zap, title: "Shpejtësi Maksimale", desc: "Ngarkohet menjëherë, punon offline." },
-    { icon: Shield, title: "Siguri e Lartë", desc: "Të dhënat tuaja janë të mbrojtura." },
-    { icon: Globe, title: "Çdo Pajisje", desc: "Kompjuter, laptop, tablet, telefon." },
+    { icon: Zap, title: "Lightning Fast", desc: "Loads instantly, works offline." },
+    { icon: Shield, title: "Secure & Private", desc: "Your data stays protected." },
+    { icon: Globe, title: "Any Device", desc: "PC, laptop, tablet, or phone." },
+  ];
+
+  const platforms = [
+    { icon: Monitor, label: "PC / Laptop", active: platform === "desktop" },
+    { icon: Tablet, label: "Tablet", active: false },
+    { icon: Smartphone, label: "Mobile", active: platform !== "desktop" },
   ];
 
   return (
@@ -56,7 +62,7 @@ const InstallPage = () => {
         </div>
         <a href="/login">
           <Button variant="outline" size="sm" className="border-[hsl(222,25%,16%)] bg-transparent text-[hsl(220,20%,80%)] hover:bg-[hsl(222,30%,10%)] h-8 text-xs">
-            Hyr
+            Sign in
           </Button>
         </a>
       </header>
@@ -68,21 +74,21 @@ const InstallPage = () => {
         </div>
 
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 leading-tight">
-          Pulse AI
+          Download Pulse AI
           <span className="text-[hsl(145,73%,49%)] ml-2">v1.0</span>
         </h1>
 
-        <p className="text-[hsl(220,15%,55%)] text-sm sm:text-base max-w-md mb-10 leading-relaxed">
-          Platforma inteligjente e biznesit. Instaloni në çdo pajisje dhe filloni menjëherë.
+        <p className="text-[hsl(220,15%,55%)] text-sm sm:text-base max-w-md mb-6 leading-relaxed">
+          Install Pulse AI on any device for full-screen, native-like performance with offline support.
         </p>
 
-        {/* Device icons */}
+        {/* Platform badges */}
+        <p className="text-[10px] uppercase tracking-widest text-[hsl(220,15%,40%)] mb-4 font-medium">
+          Available on
+        </p>
+
         <div className="flex items-center gap-6 mb-10">
-          {[
-            { icon: Monitor, label: "Desktop", active: platform === "desktop" },
-            { icon: Tablet, label: "Tablet", active: false },
-            { icon: Smartphone, label: "Mobile", active: platform !== "desktop" },
-          ].map(({ icon: Icon, label, active }) => (
+          {platforms.map(({ icon: Icon, label, active }) => (
             <div key={label} className="flex flex-col items-center gap-1.5">
               <div className={`p-3 rounded-xl transition-colors ${
                 active 
@@ -100,7 +106,7 @@ const InstallPage = () => {
         {installed ? (
           <div className="flex items-center gap-2 text-[hsl(145,73%,49%)] mb-8">
             <CheckCircle2 className="h-5 w-5" />
-            <span className="text-sm font-medium">Pulse AI është instaluar!</span>
+            <span className="text-sm font-medium">Pulse AI is installed!</span>
           </div>
         ) : deferredPrompt ? (
           <Button 
@@ -108,37 +114,103 @@ const InstallPage = () => {
             className="bg-[hsl(145,73%,49%)] text-[hsl(222,47%,5%)] hover:bg-[hsl(145,73%,42%)] h-12 px-8 text-sm font-semibold gap-2 rounded-xl mb-8 active:scale-[0.97] transition-transform"
           >
             <Download className="h-4 w-4" />
-            Instalo Pulse AI
+            Install Pulse AI
           </Button>
         ) : (
-          <div className="mb-8 max-w-sm">
+          <div className="mb-8 max-w-sm w-full space-y-3">
             {platform === "ios" ? (
-              <div className="rounded-xl border border-[hsl(222,25%,16%)] bg-[hsl(222,40%,8%)] p-4 text-left">
-                <p className="text-xs font-medium text-[hsl(220,20%,80%)] mb-2">Instalo në iPhone / iPad:</p>
-                <ol className="text-xs text-[hsl(220,15%,50%)] space-y-1.5">
-                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold">1.</span> Shtyp butonin Share ↗</li>
-                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold">2.</span> Zgjidhni "Add to Home Screen"</li>
-                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold">3.</span> Konfirmoni me "Add"</li>
+              <div className="rounded-xl border border-[hsl(222,25%,16%)] bg-[hsl(222,40%,8%)] p-5 text-left">
+                <div className="flex items-center gap-2 mb-3">
+                  <Apple className="h-4 w-4 text-[hsl(145,73%,49%)]" />
+                  <p className="text-xs font-semibold text-[hsl(220,20%,85%)]">Download for iPhone / iPad</p>
+                </div>
+                <ol className="text-xs text-[hsl(220,15%,55%)] space-y-2">
+                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold shrink-0">1.</span> Tap the Share button <span className="inline-block">↗</span> in Safari</li>
+                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold shrink-0">2.</span> Select "Add to Home Screen"</li>
+                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold shrink-0">3.</span> Tap "Add" to confirm</li>
                 </ol>
               </div>
             ) : platform === "android" ? (
-              <div className="rounded-xl border border-[hsl(222,25%,16%)] bg-[hsl(222,40%,8%)] p-4 text-left">
-                <p className="text-xs font-medium text-[hsl(220,20%,80%)] mb-2">Instalo në Android:</p>
-                <ol className="text-xs text-[hsl(220,15%,50%)] space-y-1.5">
-                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold">1.</span> Shtyp menynë ⋮ të browser-it</li>
-                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold">2.</span> Zgjidhni "Install app" ose "Add to Home Screen"</li>
-                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold">3.</span> Konfirmoni instalimin</li>
+              <div className="rounded-xl border border-[hsl(222,25%,16%)] bg-[hsl(222,40%,8%)] p-5 text-left">
+                <div className="flex items-center gap-2 mb-3">
+                  <Smartphone className="h-4 w-4 text-[hsl(145,73%,49%)]" />
+                  <p className="text-xs font-semibold text-[hsl(220,20%,85%)]">Download for Android</p>
+                </div>
+                <ol className="text-xs text-[hsl(220,15%,55%)] space-y-2">
+                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold shrink-0">1.</span> Tap the browser menu ⋮</li>
+                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold shrink-0">2.</span> Select "Install app" or "Add to Home Screen"</li>
+                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold shrink-0">3.</span> Confirm the installation</li>
                 </ol>
               </div>
             ) : (
-              <div className="rounded-xl border border-[hsl(222,25%,16%)] bg-[hsl(222,40%,8%)] p-4 text-left">
-                <p className="text-xs font-medium text-[hsl(220,20%,80%)] mb-2">Instalo në Desktop:</p>
-                <ol className="text-xs text-[hsl(220,15%,50%)] space-y-1.5">
-                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold">1.</span> Klikoni ikonën e instalimit në adress bar</li>
-                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold">2.</span> Ose përdorni menynë: "Install Pulse AI"</li>
+              <div className="rounded-xl border border-[hsl(222,25%,16%)] bg-[hsl(222,40%,8%)] p-5 text-left">
+                <div className="flex items-center gap-2 mb-3">
+                  <Chrome className="h-4 w-4 text-[hsl(145,73%,49%)]" />
+                  <p className="text-xs font-semibold text-[hsl(220,20%,85%)]">Download for PC / Laptop</p>
+                </div>
+                <ol className="text-xs text-[hsl(220,15%,55%)] space-y-2">
+                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold shrink-0">1.</span> Click the install icon in the address bar</li>
+                  <li className="flex items-start gap-2"><span className="text-[hsl(145,73%,49%)] font-bold shrink-0">2.</span> Or use the menu: "Install Pulse AI"</li>
                 </ol>
               </div>
             )}
+
+            {/* Show all platform instructions */}
+            <details className="group">
+              <summary className="text-[11px] text-[hsl(220,15%,45%)] cursor-pointer hover:text-[hsl(145,73%,49%)] transition-colors flex items-center gap-1.5">
+                <ArrowRight className="h-3 w-3 transition-transform group-open:rotate-90" />
+                View instructions for other devices
+              </summary>
+              <div className="mt-3 space-y-3">
+                {platform !== "ios" && (
+                  <div className="rounded-xl border border-[hsl(222,25%,14%)] bg-[hsl(222,40%,7%)] p-4 text-left">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Apple className="h-3.5 w-3.5 text-[hsl(220,15%,50%)]" />
+                      <p className="text-[11px] font-medium text-[hsl(220,20%,70%)]">iPhone / iPad</p>
+                    </div>
+                    <ol className="text-[11px] text-[hsl(220,15%,45%)] space-y-1">
+                      <li>1. Tap Share ↗ in Safari</li>
+                      <li>2. "Add to Home Screen"</li>
+                      <li>3. Tap "Add"</li>
+                    </ol>
+                  </div>
+                )}
+                {platform !== "android" && (
+                  <div className="rounded-xl border border-[hsl(222,25%,14%)] bg-[hsl(222,40%,7%)] p-4 text-left">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Smartphone className="h-3.5 w-3.5 text-[hsl(220,15%,50%)]" />
+                      <p className="text-[11px] font-medium text-[hsl(220,20%,70%)]">Android</p>
+                    </div>
+                    <ol className="text-[11px] text-[hsl(220,15%,45%)] space-y-1">
+                      <li>1. Tap browser menu ⋮</li>
+                      <li>2. "Install app"</li>
+                      <li>3. Confirm</li>
+                    </ol>
+                  </div>
+                )}
+                {platform !== "desktop" && (
+                  <div className="rounded-xl border border-[hsl(222,25%,14%)] bg-[hsl(222,40%,7%)] p-4 text-left">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Monitor className="h-3.5 w-3.5 text-[hsl(220,15%,50%)]" />
+                      <p className="text-[11px] font-medium text-[hsl(220,20%,70%)]">PC / Laptop</p>
+                    </div>
+                    <ol className="text-[11px] text-[hsl(220,15%,45%)] space-y-1">
+                      <li>1. Click install icon in address bar</li>
+                      <li>2. Or menu → "Install Pulse AI"</li>
+                    </ol>
+                  </div>
+                )}
+                <div className="rounded-xl border border-[hsl(222,25%,14%)] bg-[hsl(222,40%,7%)] p-4 text-left">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Tablet className="h-3.5 w-3.5 text-[hsl(220,15%,50%)]" />
+                    <p className="text-[11px] font-medium text-[hsl(220,20%,70%)]">Tablet</p>
+                  </div>
+                  <p className="text-[11px] text-[hsl(220,15%,45%)]">
+                    Same steps as your tablet's OS (iOS or Android above).
+                  </p>
+                </div>
+              </div>
+            </details>
           </div>
         )}
 
@@ -155,7 +227,7 @@ const InstallPage = () => {
 
         <a href="/register" className="mt-10">
           <Button variant="ghost" className="text-[hsl(220,15%,50%)] hover:text-[hsl(145,73%,49%)] text-xs gap-1.5">
-            Krijo llogari falas
+            Create a free account
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
         </a>
@@ -164,7 +236,7 @@ const InstallPage = () => {
       {/* Footer */}
       <footer className="border-t border-[hsl(222,25%,10%)] px-6 py-4 text-center">
         <p className="text-[10px] text-[hsl(220,15%,35%)]">
-          © 2026 Pulse AI — Të gjitha të drejtat e rezervuara.
+          © 2026 Pulse AI — All rights reserved.
         </p>
       </footer>
     </div>

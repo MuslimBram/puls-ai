@@ -61,7 +61,7 @@ export default defineConfig(({ mode }) => ({
         id: "/",
         name: "Pulse AI v1.0",
         short_name: "Pulse AI",
-        description: "Platforma inteligjente e biznesit — menaxhoni, automatizoni dhe rritni biznesin me AI.",
+        description: "The intelligent business platform — manage, automate, and grow your business with AI.",
         theme_color: "#0a1628",
         background_color: "#0a1628",
         display: "standalone",

@@ -104,7 +104,7 @@ export const PWAInstallPrompt = () => {
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Button size="sm" onClick={handleInstall}>
                       <Download className="mr-2 h-4 w-4" />
-                      Install app
+                      Install
                     </Button>
                     <Button size="sm" variant="ghost" onClick={handleDismiss}>
                       Not now
