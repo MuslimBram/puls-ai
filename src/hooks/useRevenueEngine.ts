@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "@/components/ui/sonner";
+import { useUserQuery, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface RevenueOpportunity {
   id: string;
@@ -27,63 +27,20 @@ export interface RevenueTrend {
   trend_signal: string;
 }
 
-export const useRevenueOpportunities = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["revenue-opportunities", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("revenue_opportunities")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("estimated_value", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as RevenueOpportunity[];
-    },
-    enabled: !!user,
+export const useRevenueOpportunities = () =>
+  useUserQuery<RevenueOpportunity>("revenue_opportunities", "revenue-opportunities", {
+    orderBy: "estimated_value",
+    limit: 50,
   });
-};
 
-export const useActOnOpportunity = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, action }: { id: string; action: string }) => {
-      const { error } = await supabase
-        .from("revenue_opportunities")
-        .update({
-          status: "acted",
-          outcome: action,
-          action_taken_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["revenue-opportunities"] });
-      toast.success("Action recorded");
-    },
-  });
-};
+export const useActOnOpportunity = () =>
+  useUpdateFieldMutation("revenue_opportunities", "revenue-opportunities", "Action recorded");
 
-export const useRevenueTrends = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["revenue-trends", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("revenue_trend_snapshots")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("snapshot_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as RevenueTrend[];
-    },
-    enabled: !!user,
+export const useRevenueTrends = () =>
+  useUserQuery<RevenueTrend>("revenue_trend_snapshots", "revenue-trends", {
+    orderBy: "snapshot_date",
+    limit: 30,
   });
-};
 
 export const useRevenueAnalytics = () => {
   const { user } = useAuth();

@@ -1,7 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "@/components/ui/sonner";
+import { useUserQuery, useInsertMutation } from "@/hooks/useSupabaseQuery";
 
 export interface SalesOutreach {
   id: string;
@@ -30,75 +27,20 @@ export interface HotOpportunity {
   created_at: string;
 }
 
-export const useHotOpportunities = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["hot-opportunities", user?.id],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("hot_opportunities")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("score", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return (data ?? []) as HotOpportunity[];
-    },
-    enabled: !!user,
+export const useHotOpportunities = () =>
+  useUserQuery<HotOpportunity>("hot_opportunities", "hot-opportunities", {
+    orderBy: "score",
+    limit: 20,
   });
-};
 
 export const useSalesOutreach = () => {
-  const { user } = useAuth();
-  const qc = useQueryClient();
-
-  const query = useQuery({
-    queryKey: ["sales-outreach", user?.id],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("sales_outreach")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data ?? []) as SalesOutreach[];
-    },
-    enabled: !!user,
-  });
-
-  const createOutreach = useMutation({
-    mutationFn: async (outreach: Partial<SalesOutreach>) => {
-      const { error } = await (supabase as any).from("sales_outreach").insert({
-        ...outreach,
-        user_id: user!.id,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["sales-outreach"] });
-      toast.success("Outreach created");
-    },
-    onError: (e) => toast.error(e.message),
-  });
-
+  const query = useUserQuery<SalesOutreach>("sales_outreach", "sales-outreach", { limit: 50 });
+  const createOutreach = useInsertMutation("sales_outreach", "sales-outreach", "Outreach created");
   return { outreach: query.data ?? [], isLoading: query.isLoading, createOutreach };
 };
 
-export const useSalesPerformance = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["sales-performance", user?.id],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from("sales_performance_snapshots")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("snapshot_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data ?? []) as any[];
-    },
-    enabled: !!user,
+export const useSalesPerformance = () =>
+  useUserQuery<any>("sales_performance_snapshots", "sales-performance", {
+    orderBy: "snapshot_date",
+    limit: 30,
   });
-};
