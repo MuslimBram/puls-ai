@@ -3,6 +3,8 @@ import { BrandingThemeProvider } from "@/components/BrandingThemeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
+import { ReferralIncentivePopup } from "@/components/ReferralIncentivePopup";
+import { FloatingAIBot } from "@/components/FloatingAIBot";
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -23,6 +25,9 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
+
+      <ReferralIncentivePopup />
+      <FloatingAIBot />
     </div>
   );
 };
