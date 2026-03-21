@@ -78,7 +78,7 @@ export default function CompetitiveIntelligenceEngine() {
                     <div className="flex items-center gap-2">
                       <Badge className={severityColor[s.severity] || ""}>{s.severity}</Badge>
                       {!s.is_read && (
-                        <Button size="sm" variant="ghost" onClick={() => markRead.mutate(s.id)}>
+                        <Button size="sm" variant="ghost" onClick={() => markRead.mutate({ id: s.id, fields: { is_read: true } })}>
                           <Eye className="h-3.5 w-3.5 mr-1" /> Mark read
                         </Button>
                       )}
