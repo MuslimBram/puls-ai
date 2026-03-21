@@ -112,7 +112,7 @@ const CompetitorIntelligence = () => {
               onScan={(id) => scanMutation.mutate(id)}
               onDelete={(id) => deleteMutation.mutate(id)}
               onAdd={() => setShowAdd(true)}
-              onUpdateFrequency={(id, freq) => updateFrequencyMutation.mutateAsync({ competitorId: id, frequency: freq })}
+              onUpdateFrequency={(id, freq) => updateFrequencyMutation.mutateAsync({ id, fields: { scan_frequency: freq } })}
               isScanPending={scanMutation.isPending}
             />
           </TabsContent>
