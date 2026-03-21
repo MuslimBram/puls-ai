@@ -80,7 +80,7 @@ export default function VisitorReengagement() {
                         </Button>
                       )}
                       {e.status === "running" && (
-                        <Button size="sm" variant="outline" onClick={() => updateExpStatus.mutate({ id: e.id, status: "completed" })}>
+                        <Button size="sm" variant="outline" onClick={() => updateExpStatus.mutate({ id: e.id, fields: { status: "completed", ended_at: new Date().toISOString() } })}>
                           Complete
                         </Button>
                       )}
