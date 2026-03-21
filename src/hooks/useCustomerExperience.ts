@@ -1,7 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
+import { useUserQuery, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface CxJourneyEvent {
   id: string;
@@ -37,77 +34,23 @@ export interface CxScore {
   created_at: string;
 }
 
-export const useCxJourneyEvents = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["cx-journey", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cx_journey_events")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("occurred_at", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data || []) as unknown as CxJourneyEvent[];
-    },
-    enabled: !!user,
+export const useCxJourneyEvents = () =>
+  useUserQuery<CxJourneyEvent>("cx_journey_events", "cx-journey", {
+    orderBy: "occurred_at",
+    limit: 100,
   });
-};
 
-export const useCxRiskAlerts = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["cx-risk-alerts", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cx_risk_alerts")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as CxRiskAlert[];
-    },
-    enabled: !!user,
-  });
-};
+export const useCxRiskAlerts = () =>
+  useUserQuery<CxRiskAlert>("cx_risk_alerts", "cx-risk-alerts", { limit: 50 });
 
-export const useResolveCxAlert = () => {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("cx_risk_alerts")
-        .update({ is_resolved: true, resolved_at: new Date().toISOString() } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["cx-risk-alerts"] });
-      toast({ title: "Alert resolved" });
-    },
-  });
-};
+export const useResolveCxAlert = () =>
+  useUpdateFieldMutation("cx_risk_alerts", "cx-risk-alerts", "Alert resolved");
 
-export const useCxScores = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["cx-scores", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cx_scores")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("score_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as CxScore[];
-    },
-    enabled: !!user,
+export const useCxScores = () =>
+  useUserQuery<CxScore>("cx_scores", "cx-scores", {
+    orderBy: "score_date",
+    limit: 30,
   });
-};
 
 export const useCxStats = () => {
   const { data: scores } = useCxScores();

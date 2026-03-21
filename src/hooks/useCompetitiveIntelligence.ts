@@ -1,8 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useToast } from "@/hooks/use-toast";
+import { useUserQuery, useToggleMutation, useInsertMutation, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface CompetitiveSignal {
   id: string;
@@ -29,92 +25,30 @@ export interface CompetitiveAction {
   created_at: string;
 }
 
-export const useCompetitiveSignals = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["competitive-signals", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("competitive_signals")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("detected_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as CompetitiveSignal[];
-    },
-    enabled: !!user,
+export const useCompetitiveSignals = () =>
+  useUserQuery<CompetitiveSignal>("competitive_signals", "competitive-signals", {
+    orderBy: "detected_at",
+    limit: 50,
   });
-};
 
-export const useCompetitiveActions = (signalId?: string | null) => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["competitive-actions", user?.id, signalId],
-    queryFn: async () => {
-      let q = supabase
-        .from("competitive_actions")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (signalId) q = q.eq("signal_id", signalId);
-      const { data, error } = await q.limit(100);
-      if (error) throw error;
-      return (data || []) as unknown as CompetitiveAction[];
-    },
-    enabled: !!user,
+export const useCompetitiveActions = (signalId?: string | null) =>
+  useUserQuery<CompetitiveAction>("competitive_actions", "competitive-actions", {
+    limit: 100,
+    filters: signalId ? { signal_id: signalId } : undefined,
   });
-};
 
-export const useMarkSignalRead = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("competitive_signals").update({ is_read: true } as any).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["competitive-signals"] }),
-  });
-};
+export const useMarkSignalRead = () =>
+  useUpdateFieldMutation("competitive_signals", "competitive-signals");
 
-export const useToggleCompetitiveAction = () => {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async ({ id, completed }: { id: string; completed: boolean }) => {
-      const { error } = await supabase
-        .from("competitive_actions")
-        .update({ is_completed: completed, completed_at: completed ? new Date().toISOString() : null } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["competitive-actions"] });
-      toast({ title: "Action updated" });
-    },
-  });
-};
+export const useToggleCompetitiveAction = () =>
+  useToggleMutation("competitive_actions", "competitive-actions");
 
-export const useCreateCompetitiveAction = () => {
-  const qc = useQueryClient();
-  const { user } = useAuth();
-  const { workspace } = useWorkspace();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async (data: { signal_id?: string; action_text: string; action_type?: string }) => {
-      const { error } = await supabase.from("competitive_actions").insert({
-        ...data,
-        user_id: user!.id,
-        workspace_id: workspace?.id || null,
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["competitive-actions"] });
-      toast({ title: "Action created" });
-    },
-  });
-};
+export const useCreateCompetitiveAction = () =>
+  useInsertMutation<{ signal_id?: string; action_text: string; action_type?: string }>(
+    "competitive_actions",
+    "competitive-actions",
+    "Action created",
+  );
 
 export const useCompetitiveStats = () => {
   const { data: signals } = useCompetitiveSignals();
