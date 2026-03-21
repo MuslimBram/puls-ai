@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useUserQuery, useInsertMutation, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 import { toast } from "@/components/ui/sonner";
 
 export interface GrowthStrategy {
@@ -34,59 +34,14 @@ export interface GrowthActionItem {
   created_at: string;
 }
 
-export const useGrowthStrategies = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["growth-strategies", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("growth_strategies")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(20);
-      if (error) throw error;
-      return (data || []) as unknown as GrowthStrategy[];
-    },
-    enabled: !!user,
-  });
-};
+export const useGrowthStrategies = () =>
+  useUserQuery<GrowthStrategy>("growth_strategies", "growth-strategies", { limit: 20 });
 
-export const useCreateStrategy = () => {
-  const qc = useQueryClient();
-  const { user } = useAuth();
-  const { workspace } = useWorkspace();
-  return useMutation({
-    mutationFn: async (strategy: { title: string; summary?: string; strategy_type?: string }) => {
-      const { error } = await supabase
-        .from("growth_strategies")
-        .insert({ user_id: user!.id, workspace_id: workspace?.id, ...strategy } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["growth-strategies"] });
-      toast.success("Strategy created");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-};
+export const useCreateStrategy = () =>
+  useInsertMutation("growth_strategies", "growth-strategies", "Strategy created");
 
-export const useAdoptStrategy = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("growth_strategies")
-        .update({ status: "adopted", adopted_at: new Date().toISOString(), updated_at: new Date().toISOString() } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["growth-strategies"] });
-      toast.success("Strategy adopted");
-    },
-  });
-};
+export const useAdoptStrategy = () =>
+  useUpdateFieldMutation("growth_strategies", "growth-strategies", "Strategy adopted");
 
 export const useActionItems = (strategyId: string | null) => {
   const { user } = useAuth();
