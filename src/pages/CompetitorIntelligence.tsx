@@ -56,21 +56,12 @@ const CompetitorIntelligence = () => {
   }, [competitors]);
 
   const handleAdd = async (data: { name: string; url: string; category: string; frequency: string }) => {
-    const comp = await addMutation.mutateAsync({
+    await addMutation.mutateAsync({
       name: data.name,
       website_url: data.url || undefined,
       category: data.category,
     });
-    if (comp) {
-      await updateFrequencyMutation.mutateAsync({ competitorId: comp.id, frequency: data.frequency });
-    }
     setShowAdd(false);
-    if (!comp) return;
-    if (data.url) {
-      scanMutation.mutate(comp.id);
-    } else {
-      autoAnalyzeMutation.mutate(comp.id);
-    }
   };
 
   return (

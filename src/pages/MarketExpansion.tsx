@@ -54,7 +54,7 @@ const MarketExpansion = () => {
                       <span>Confidence: <span className="font-medium text-foreground">{Math.round(opp.confidence * 100)}%</span></span>
                     </div>
                   </div>
-                  <Button size="sm" onClick={() => actOn.mutate(opp.id)} className="ml-4">
+                  <Button size="sm" onClick={() => actOn.mutate({ id: opp.id, fields: { status: "acted", acted_at: new Date().toISOString(), updated_at: new Date().toISOString() } })} className="ml-4">
                     <Zap className="mr-1 h-3 w-3" />Act
                   </Button>
                 </CardContent>

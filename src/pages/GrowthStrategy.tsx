@@ -79,7 +79,7 @@ const GrowthStrategy = () => {
                     {s.summary && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{s.summary}</p>}
                   </div>
                   {s.status === "draft" && (
-                    <Button size="sm" onClick={() => adoptStrategy.mutate(s.id)} className="ml-4">
+                    <Button size="sm" onClick={() => adoptStrategy.mutate({ id: s.id, fields: { status: "adopted", adopted_at: new Date().toISOString(), updated_at: new Date().toISOString() } })} className="ml-4">
                       <CheckCircle2 className="mr-1 h-3 w-3" />Adopt
                     </Button>
                   )}
