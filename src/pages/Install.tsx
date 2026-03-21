@@ -4,6 +4,7 @@ import {
   Monitor, Smartphone, Tablet, Download, CheckCircle2, 
   ArrowRight, Zap, Shield, Globe, Apple, Chrome
 } from "lucide-react";
+import { APP_VERSION } from "@/config/version";
 
 const InstallPage = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
