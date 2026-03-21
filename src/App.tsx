@@ -80,6 +80,7 @@ const Benchmarks = lazy(() => import("./pages/Benchmarks"));
 const GrowthLoop = lazy(() => import("./pages/GrowthLoop"));
 const CreditEconomy = lazy(() => import("./pages/CreditEconomy"));
 const OpsStability = lazy(() => import("./pages/OpsStability"));
+const InstallPage = lazy(() => import("./pages/Install"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -116,6 +117,7 @@ const App = () => (
             <BrowserRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
+                <Route path="/install" element={<Suspense fallback={<LazyFallback />}><InstallPage /></Suspense>} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
