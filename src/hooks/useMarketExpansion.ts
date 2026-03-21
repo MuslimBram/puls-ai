@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { toast } from "@/components/ui/sonner";
+import { useUserQuery, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface MarketExpansionOpportunity {
   id: string;
@@ -19,40 +19,15 @@ export interface MarketExpansionOpportunity {
   created_at: string;
 }
 
-export const useMarketExpansionOpportunities = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["market-expansion", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("market_expansion_opportunities")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("readiness_score", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as MarketExpansionOpportunity[];
-    },
-    enabled: !!user,
+export const useMarketExpansionOpportunities = () =>
+  useUserQuery<MarketExpansionOpportunity>("market_expansion_opportunities", "market-expansion", {
+    orderBy: "readiness_score",
+    ascending: false,
+    limit: 30,
   });
-};
 
-export const useActOnExpansion = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("market_expansion_opportunities")
-        .update({ status: "acted", acted_at: new Date().toISOString(), updated_at: new Date().toISOString() } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["market-expansion"] });
-      toast.success("Expansion action recorded");
-    },
-  });
-};
+export const useActOnExpansion = () =>
+  useUpdateFieldMutation("market_expansion_opportunities", "market-expansion", "Expansion action recorded");
 
 export const useExpansionAnalytics = () => {
   const { user } = useAuth();

@@ -75,12 +75,12 @@ export default function VisitorReengagement() {
                     <div className="flex items-center gap-2">
                       <Badge variant={statusColor[e.status] as any || "secondary"}>{e.status}</Badge>
                       {e.status === "draft" && (
-                        <Button size="sm" variant="outline" onClick={() => updateExpStatus.mutate({ id: e.id, status: "running" })}>
+                        <Button size="sm" variant="outline" onClick={() => updateExpStatus.mutate({ id: e.id, fields: { status: "running", started_at: new Date().toISOString() } })}>
                           Start
                         </Button>
                       )}
                       {e.status === "running" && (
-                        <Button size="sm" variant="outline" onClick={() => updateExpStatus.mutate({ id: e.id, status: "completed" })}>
+                        <Button size="sm" variant="outline" onClick={() => updateExpStatus.mutate({ id: e.id, fields: { status: "completed", ended_at: new Date().toISOString() } })}>
                           Complete
                         </Button>
                       )}
@@ -119,7 +119,7 @@ export default function VisitorReengagement() {
                 </div>
                 <div className="text-right flex items-center gap-2">
                   <Badge variant={v.inactivity_score > 70 ? "destructive" : "secondary"}>Score: {v.inactivity_score}</Badge>
-                  <Button size="sm" variant="outline" onClick={() => markReengaged.mutate(v.id)}>
+                  <Button size="sm" variant="outline" onClick={() => markReengaged.mutate({ id: v.id, fields: { is_reengaged: true, reengaged_at: new Date().toISOString() } })}>
                     <RefreshCw className="h-3 w-3 mr-1" /> Re-engage
                   </Button>
                 </div>

@@ -56,21 +56,12 @@ const CompetitorIntelligence = () => {
   }, [competitors]);
 
   const handleAdd = async (data: { name: string; url: string; category: string; frequency: string }) => {
-    const comp = await addMutation.mutateAsync({
+    await addMutation.mutateAsync({
       name: data.name,
       website_url: data.url || undefined,
       category: data.category,
     });
-    if (comp) {
-      await updateFrequencyMutation.mutateAsync({ competitorId: comp.id, frequency: data.frequency });
-    }
     setShowAdd(false);
-    if (!comp) return;
-    if (data.url) {
-      scanMutation.mutate(comp.id);
-    } else {
-      autoAnalyzeMutation.mutate(comp.id);
-    }
   };
 
   return (
@@ -121,13 +112,13 @@ const CompetitorIntelligence = () => {
               onScan={(id) => scanMutation.mutate(id)}
               onDelete={(id) => deleteMutation.mutate(id)}
               onAdd={() => setShowAdd(true)}
-              onUpdateFrequency={(id, freq) => updateFrequencyMutation.mutateAsync({ competitorId: id, frequency: freq })}
+              onUpdateFrequency={(id, freq) => updateFrequencyMutation.mutateAsync({ id, fields: { scan_frequency: freq } })}
               isScanPending={scanMutation.isPending}
             />
           </TabsContent>
 
           <TabsContent value="alerts" className="space-y-3">
-            <CompetitorAlertsList alerts={alerts} onMarkRead={(id) => markReadMutation.mutate(id)} />
+            <CompetitorAlertsList alerts={alerts} onMarkRead={(id) => markReadMutation.mutate({ id, fields: { is_read: true } })} />
           </TabsContent>
 
           <TabsContent value="trends" className="space-y-4">

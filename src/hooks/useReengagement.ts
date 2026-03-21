@@ -1,8 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
-import { useWorkspace } from "@/contexts/WorkspaceContext";
-import { useToast } from "@/hooks/use-toast";
+import { useUserQuery, useInsertMutation, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 
 export interface GrowthExperiment {
   id: string;
@@ -43,113 +39,30 @@ export interface ReengagementSnapshot {
   churn_prevented: number;
 }
 
-export const useGrowthExperiments = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["growth-experiments", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("growth_experiments")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as GrowthExperiment[];
-    },
-    enabled: !!user,
-  });
-};
+export const useGrowthExperiments = () =>
+  useUserQuery<GrowthExperiment>("growth_experiments", "growth-experiments", { limit: 50 });
 
-export const useCreateExperiment = () => {
-  const qc = useQueryClient();
-  const { user } = useAuth();
-  const { workspace } = useWorkspace();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async (data: { title: string; hypothesis?: string; experiment_type?: string; variant_a?: string; variant_b?: string }) => {
-      const { error } = await supabase.from("growth_experiments").insert({
-        ...data,
-        user_id: user!.id,
-        workspace_id: workspace?.id || null,
-      } as any);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["growth-experiments"] });
-      toast({ title: "Experiment created" });
-    },
-  });
-};
+export const useCreateExperiment = () =>
+  useInsertMutation("growth_experiments", "growth-experiments", "Experiment created");
 
-export const useUpdateExperimentStatus = () => {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const updates: Record<string, unknown> = { status };
-      if (status === "running") updates.started_at = new Date().toISOString();
-      if (status === "completed") updates.ended_at = new Date().toISOString();
-      const { error } = await supabase.from("growth_experiments").update(updates as any).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["growth-experiments"] }),
-  });
-};
+export const useUpdateExperimentStatus = () =>
+  useUpdateFieldMutation("growth_experiments", "growth-experiments");
 
-export const useVisitorInactivity = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["visitor-inactivity", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("visitor_inactivity_scores")
-        .select("*")
-        .eq("user_id", user!.id)
-        .eq("is_reengaged", false)
-        .order("inactivity_score", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as VisitorInactivity[];
-    },
-    enabled: !!user,
+export const useVisitorInactivity = () =>
+  useUserQuery<VisitorInactivity>("visitor_inactivity_scores", "visitor-inactivity", {
+    orderBy: "inactivity_score",
+    limit: 50,
+    filters: { is_reengaged: false },
   });
-};
 
-export const useMarkReengaged = () => {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from("visitor_inactivity_scores")
-        .update({ is_reengaged: true, reengaged_at: new Date().toISOString() } as any)
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["visitor-inactivity"] });
-      toast({ title: "Marked as re-engaged" });
-    },
-  });
-};
+export const useMarkReengaged = () =>
+  useUpdateFieldMutation("visitor_inactivity_scores", "visitor-inactivity", "Marked as re-engaged");
 
-export const useReengagementAnalytics = () => {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ["reengagement-analytics", user?.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("reengagement_analytics")
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("snapshot_date", { ascending: false })
-        .limit(30);
-      if (error) throw error;
-      return (data || []) as unknown as ReengagementSnapshot[];
-    },
-    enabled: !!user,
+export const useReengagementAnalytics = () =>
+  useUserQuery<ReengagementSnapshot>("reengagement_analytics", "reengagement-analytics", {
+    orderBy: "snapshot_date",
+    limit: 30,
   });
-};
 
 export const useReengagementStats = () => {
   const { data: inactive } = useVisitorInactivity();
