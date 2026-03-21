@@ -75,7 +75,7 @@ export default function PartnershipEcosystem() {
                       <Badge variant="outline">Match: {o.match_score}%</Badge>
                       <Badge variant="secondary">{o.status}</Badge>
                       {o.status === "suggested" && (
-                        <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: o.id, status: "in_progress" })}>
+                        <Button size="sm" variant="outline" onClick={() => updateStatus.mutate({ id: o.id, fields: { status: "in_progress" } })}>
                           Start
                         </Button>
                       )}
@@ -96,7 +96,7 @@ export default function PartnershipEcosystem() {
             )}
             {actions?.map((a) => (
               <div key={a.id} className="flex items-center gap-3 p-3 border rounded-lg bg-card">
-                <Checkbox checked={a.is_completed} onCheckedChange={(c) => toggleAction.mutate({ id: a.id, completed: !!c })} />
+                <Checkbox checked={a.is_completed} onCheckedChange={(c) => toggleAction.mutate({ id: a.id, value: !!c })} />
                 <div className="flex-1">
                   <p className={`text-sm ${a.is_completed ? "line-through text-muted-foreground" : ""}`}>{a.action_text}</p>
                   <p className="text-xs text-muted-foreground">{a.action_type.replace(/_/g, " ")}</p>
