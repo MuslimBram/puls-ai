@@ -62,10 +62,10 @@ export const ReferralIncentivePopup = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground leading-tight">
-                Fito 15% për çdo referim!
+                Earn 15% on every referral!
               </p>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Refero biznese të tjera dhe fito 15% nga çdo pagesë që ata bëjnë — përgjithmonë.
+                Refer other businesses and earn 15% of everything they spend — forever.
               </p>
             </div>
           </div>
@@ -83,7 +83,7 @@ export const ReferralIncentivePopup = () => {
             ) : (
               <Link to="/referral-program" className="w-full">
                 <Button size="sm" className="w-full h-8 text-xs gap-1.5">
-                  Fillo të fitosh
+                  Start earning
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
               </Link>

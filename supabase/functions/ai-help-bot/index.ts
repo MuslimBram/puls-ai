@@ -14,20 +14,21 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
-    const systemPrompt = `Ti je një asistent AI i platformës sonë. Ndihmo përdoruesit me pyetje rreth funksioneve, çmimeve, referaleve, dhe përdorimit të platformës.
+    const systemPrompt = `You are Pulse AI's built-in support assistant. Help users with questions about features, pricing, referrals, and platform usage.
 
-Informacione kryesore:
-- Planet: START (29€/muaj), GROWTH (79€/muaj), PRO (149€/muaj), ENTERPRISE (399€+/muaj)
-- Zbritjet e paketave: mujore 0%, 3-mujore 5%, 6-mujore 10%, vjetore 15%
-- Referale biznesi: 15% komision përjetë nga çdo pagesë e biznesit të referuar
-- Referale freelancer: 20% komision përjetë
-- 7 ditë provë falas
+Key information:
+- Plans: START (€29/month), GROWTH (€79/month), PRO (€149/month), ENTERPRISE (€399+/month)
+- Duration discounts: monthly 0%, 3-month 5%, 6-month 10%, yearly 15%
+- Business referrals: 15% lifetime commission on every payment from referred businesses
+- Freelancer referrals: 20% lifetime commission
+- 7-day free trial
+- PWA: installable on desktop, laptop, tablet, iOS and Android
 
-Rregulla:
-- Përgjigju në shqip
-- Ji i shkurtër dhe i qartë
-- Nëse nuk mund ta zgjidhësh çështjen ose përdoruesi kërkon ndihmë specifike teknike, kthe needs_admin: true
-- Nëse pyetja është rreth pagesave, faturave, ose problemeve teknike të llogarisë, kthe needs_admin: true`;
+Rules:
+- Reply in English
+- Be concise and helpful
+- If you cannot resolve the issue or the user asks for specific technical help, billing, or account issues, call the escalate_to_admin tool. In your reply, tell the user to keep chatting while a specialist connects with them.
+- Never show raw JSON or technical escalation data to the user`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -46,12 +47,12 @@ Rregulla:
             type: "function",
             function: {
               name: "escalate_to_admin",
-              description: "Escalate the conversation to a human admin when the AI cannot resolve the issue",
+              description: "Escalate the conversation to a human specialist when the AI cannot resolve the issue",
               parameters: {
                 type: "object",
                 properties: {
                   reason: { type: "string", description: "Why escalation is needed" },
-                  reply: { type: "string", description: "Final reply to user before escalation" },
+                  reply: { type: "string", description: "Reply to user — tell them to keep chatting while a specialist connects" },
                 },
                 required: ["reason", "reply"],
               },
@@ -90,15 +91,15 @@ Rregulla:
       if (toolCall.function?.name === "escalate_to_admin") {
         try {
           const args = JSON.parse(toolCall.function.arguments);
-          reply = args.reply || "Do t'ju lidhim me një administrator.";
+          reply = args.reply || "I'm connecting you with a specialist. Please keep chatting in the meantime.";
           needs_admin = true;
         } catch {
-          reply = "Do t'ju lidhim me një administrator.";
+          reply = "I'm connecting you with a specialist. Please keep chatting in the meantime.";
           needs_admin = true;
         }
       }
     } else {
-      reply = choice?.message?.content || "Nuk munda të gjej një përgjigje.";
+      reply = choice?.message?.content || "I couldn't find an answer. Please try again.";
     }
 
     return new Response(JSON.stringify({ reply, needs_admin }), {
