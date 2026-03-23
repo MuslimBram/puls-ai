@@ -248,5 +248,6 @@ export default function Sources() {
         </DialogContent>
       </Dialog>
     </div>
+    </DashboardLayout>
   );
 }
