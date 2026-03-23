@@ -253,6 +253,9 @@ const Subscription = () => {
           <TabsList>
             <TabsTrigger value="billing">Billing history</TabsTrigger>
             <TabsTrigger value="usage">Usage details</TabsTrigger>
+            <TabsTrigger value="payment-accounts">
+              <CreditCard className="mr-1 h-3.5 w-3.5" /> Payment Accounts
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="billing">
             <BillingHistoryPanel />
