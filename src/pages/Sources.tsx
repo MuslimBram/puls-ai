@@ -74,7 +74,14 @@ export default function Sources() {
 
   const viewingSource = sources.find((s) => s.id === viewSourceId);
 
+  const { isSuperAdmin } = useRolePermissions();
+
+  if (!isSuperAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
+    <DashboardLayout>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
