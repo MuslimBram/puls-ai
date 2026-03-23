@@ -10,7 +10,7 @@ import { useWorkspacePayment, PaymentAccount, PaymentProcessorType } from "@/hoo
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import {
   CreditCard, Plus, Trash2, Star, Globe, CheckCircle2,
-  Wallet, Building2, Smartphone,
+  Wallet, Building2, Smartphone, Pencil,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
