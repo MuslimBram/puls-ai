@@ -108,6 +108,51 @@ export type Database = {
           },
         ]
       }
+      admin_saved_scans: {
+        Row: {
+          content_html: string | null
+          content_markdown: string | null
+          created_at: string
+          extracted_items: Json | null
+          id: string
+          metadata: Json | null
+          scan_name: string
+          scan_type: string
+          status: string
+          updated_at: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          content_html?: string | null
+          content_markdown?: string | null
+          created_at?: string
+          extracted_items?: Json | null
+          id?: string
+          metadata?: Json | null
+          scan_name: string
+          scan_type?: string
+          status?: string
+          updated_at?: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          content_html?: string | null
+          content_markdown?: string | null
+          created_at?: string
+          extracted_items?: Json | null
+          id?: string
+          metadata?: Json | null
+          scan_name?: string
+          scan_type?: string
+          status?: string
+          updated_at?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       agent_shifts: {
         Row: {
           agent_user_id: string

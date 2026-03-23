@@ -1,5 +1,6 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AdminBusinessScanPanel } from "@/components/AdminBusinessScanPanel";
+import { AdminWebScanner } from "@/components/AdminWebScanner";
 import { AdminPricingManager } from "@/components/AdminPricingManager";
 import { AdminEnterpriseLeadPanel } from "@/components/AdminEnterpriseLeadPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -169,6 +170,10 @@ const Admin = () => {
             <TabsTrigger value="jobs">
               <ListChecks className="h-3 w-3 mr-1" />
               Job Queue
+            </TabsTrigger>
+            <TabsTrigger value="scanner">
+              <ScanSearch className="h-3 w-3 mr-1" />
+              Web Scanner
             </TabsTrigger>
           </TabsList>
 
@@ -479,6 +484,10 @@ const Admin = () => {
 
           <TabsContent value="jobs">
             <AdminJobQueuePanel />
+          </TabsContent>
+
+          <TabsContent value="scanner">
+            <AdminWebScanner />
           </TabsContent>
         </Tabs>
       </div>
