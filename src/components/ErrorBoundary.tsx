@@ -10,26 +10,28 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  errorInfo: string | null;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
+    return { hasError: true, error, errorInfo: null };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[ErrorBoundary] Error:", error.message);
     console.error("[ErrorBoundary] Stack:", error.stack);
     console.error("[ErrorBoundary] Component:", info.componentStack);
+    this.setState({ errorInfo: info.componentStack || null });
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, errorInfo: null });
   };
 
   render() {
@@ -44,9 +46,14 @@ export class ErrorBoundary extends Component<Props, State> {
               {this.state.error?.message || "Kjo faqe hasi një gabim. Provo ta rifreskosh ose të lundrosh diku tjetër."}
             </p>
           </div>
-          <Button variant="outline" onClick={this.handleReset}>
-            <RefreshCw className="h-4 w-4 mr-2" /> Rifresko
-          </Button>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={this.handleReset}>
+              <RefreshCw className="h-4 w-4 mr-2" /> Rifresko
+            </Button>
+            <Button onClick={() => (window.location.href = "/dashboard")} variant="default">
+              Shko te Paneli i Kontrollit
+            </Button>
+          </div>
         </div>
       );
     }
@@ -60,12 +67,18 @@ export const PageErrorFallback = () => (
     <div>
       <h2 className="text-xl font-semibold text-foreground">Gabim në faqe</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Kjo faqe hasi një gabim. Provo ta rifreskosh ose të lundrosh diku tjetër.
+        Kjo faqe ka një gabim. Provo ta rifreskosh ose të lundrosh diku tjetër.
       </p>
     </div>
     <div className="flex gap-3">
-      <Button variant="outline" onClick={() => window.location.reload()}>
-        <RefreshCw className="h-4 w-4 mr-2" /> Rifresko faqen
+      <Button variant="outline" onClick={() => {
+        // Clear caches + hard reload
+        if ('caches' in window) {
+          caches.keys().then(names => names.forEach(n => caches.delete(n)));
+        }
+        window.location.reload();
+      }}>
+        <RefreshCw className="h-4 w-4 mr-2" /> Pastro cache & Rifresko
       </Button>
       <Button onClick={() => (window.location.href = "/dashboard")} variant="default">
         Shko te Paneli i Kontrollit
