@@ -15,7 +15,8 @@ const statusConfig: Record<TelephonyStatus, { color: string; label: string }> = 
 export const AgentStatusBar = () => {
   const { agentState, activeCalls, myCall, callTimer, formatTimer } = useTelephony();
 
-  const status = (agentState?.telephony_status as TelephonyStatus) || "offline";
+  const rawStatus = agentState?.telephony_status as TelephonyStatus | undefined;
+  const status: TelephonyStatus = rawStatus && rawStatus in statusConfig ? rawStatus : "online";
   const config = statusConfig[status];
   const queuedCalls = activeCalls.filter((c) => c.status === "queued").length;
   const incomingCalls = activeCalls.filter((c) => c.status === "ringing" && c.direction === "inbound").length;

@@ -6,7 +6,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
-import type { ActiveCall, AgentTelephonyState, CallQueue } from "./types";
+import type { ActiveCall, AgentTelephonyState, CallQueue, TelephonyStatus } from "./types";
+
+const STALE_OFFLINE_MS = 5 * 60 * 1000;
+const VALID_TELEPHONY_STATUSES = new Set<TelephonyStatus>([
+  "online",
+  "busy",
+  "on_call",
+  "wrap_up",
+  "offline",
+  "dnd",
+]);
 
 export function useAgentState() {
   const { user } = useAuth();
@@ -17,7 +27,34 @@ export function useAgentState() {
       const { data, error } = await supabase
         .from("agent_telephony_state").select("*").eq("user_id", user!.id).maybeSingle();
       if (error) throw error;
-      if (data) return data as AgentTelephonyState;
+      if (data) {
+        const state = data as AgentTelephonyState;
+        const status = state.telephony_status as TelephonyStatus;
+
+        if (!VALID_TELEPHONY_STATUSES.has(status)) {
+          return { ...state, telephony_status: "online" } as AgentTelephonyState;
+        }
+
+        // Recover stale offline status on new app sessions
+        if (status === "offline") {
+          const updatedAt = new Date(state.updated_at).getTime();
+          const isStaleOffline = Number.isFinite(updatedAt) && (Date.now() - updatedAt > STALE_OFFLINE_MS);
+
+          if (isStaleOffline) {
+            const { data: updated, error: updateError } = await supabase
+              .from("agent_telephony_state")
+              .update({ telephony_status: "online", updated_at: new Date().toISOString() })
+              .eq("id", state.id)
+              .eq("user_id", user!.id)
+              .select("*")
+              .maybeSingle();
+
+            if (!updateError && updated) return updated as AgentTelephonyState;
+          }
+        }
+
+        return state;
+      }
 
       // Auto-create with "online" status when user is logged in
       if (workspace?.id) {
