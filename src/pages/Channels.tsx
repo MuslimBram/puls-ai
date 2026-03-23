@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -38,7 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-const SourcesContent = lazy(() => import("./Sources"));
+
 
 const CATEGORY_LABELS: Record<string, string> = {
   messaging: "Messaging",
@@ -102,7 +102,7 @@ const Channels = () => {
       <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="channels">Channels</TabsTrigger>
-          <TabsTrigger value="sources">Sources</TabsTrigger>
+          
         </TabsList>
 
         <TabsContent value="channels">
@@ -367,11 +367,6 @@ const Channels = () => {
       </div>
         </TabsContent>
 
-        <TabsContent value="sources">
-          <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>}>
-            <SourcesContent />
-          </Suspense>
-        </TabsContent>
       </Tabs>
     </DashboardLayout>
   );

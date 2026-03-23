@@ -1,5 +1,8 @@
 import { useState } from "react";
-// Sources - renders as standalone content (embedded in Channels page)
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { Navigate } from "react-router-dom";
+// Sources - admin-only page for scanning web sources
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,7 +74,14 @@ export default function Sources() {
 
   const viewingSource = sources.find((s) => s.id === viewSourceId);
 
+  const { isSuperAdmin } = useRolePermissions();
+
+  if (!isSuperAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
+    <DashboardLayout>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
@@ -238,5 +248,6 @@ export default function Sources() {
         </DialogContent>
       </Dialog>
     </div>
+    </DashboardLayout>
   );
 }

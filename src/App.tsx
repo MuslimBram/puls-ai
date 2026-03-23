@@ -81,6 +81,7 @@ const GrowthLoop = lazy(() => import("./pages/GrowthLoop"));
 const CreditEconomy = lazy(() => import("./pages/CreditEconomy"));
 const OpsStability = lazy(() => import("./pages/OpsStability"));
 const InstallPage = lazy(() => import("./pages/Install"));
+const Sources = lazy(() => import("./pages/Sources"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -189,7 +190,7 @@ const App = () => (
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
                 <Route path="/call-history" element={<Navigate to="/crm?tab=calls" replace />} />
                 <Route path="/content-calendar" element={<Navigate to="/campaigns?tab=calendar" replace />} />
-                <Route path="/sources" element={<Navigate to="/channels?tab=sources" replace />} />
+                <Route path="/sources" element={<ProtectedPage><Sources /></ProtectedPage>} />
                 <Route path="/reply-workspace" element={<Navigate to="/inbox" replace />} />
                 <Route path="/dedicated-ai" element={<Navigate to="/knowledge-base" replace />} />
                 <Route path="/visitor-intelligence" element={<Navigate to="/helpdesk" replace />} />
