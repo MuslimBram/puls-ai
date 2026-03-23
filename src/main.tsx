@@ -14,11 +14,14 @@ const updateSW = registerSW({
   },
 });
 
-// Force clear stale caches on load to prevent "page error" from old cached code
+// Force clear ALL stale caches on load to prevent offline/stale errors
 if ("caches" in window) {
   caches.keys().then((names) => {
-    const stale = names.filter((n) => n.startsWith("workbox-precache"));
-    stale.forEach((n) => caches.delete(n));
+    names.forEach((n) => {
+      if (n.startsWith("workbox-precache") || n === "pages-cache") {
+        caches.delete(n);
+      }
+    });
   });
 }
 
