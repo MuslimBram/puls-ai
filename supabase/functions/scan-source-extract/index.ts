@@ -388,7 +388,24 @@ serve(async (req) => {
 
     const scrapeData = await scrapeRes.json();
     if (!scrapeRes.ok) {
-      throw new Error(scrapeData?.error || `Failed to scrape ${typedSource.platform} source`);
+      const scrapeError = scrapeData?.error || scrapeData?.message || `Failed to scrape ${typedSource.platform} source`;
+      const isUnsupported = typeof scrapeError === "string" && scrapeError.toLowerCase().includes("do not support this site");
+
+      if (isUnsupported) {
+        // Mark scan as completed with warning instead of failing
+        await sb.from("scan_sources").update({ scan_status: "active", last_scan_at: new Date().toISOString() } as never).eq("id", source_id);
+        if (scan_id) {
+          await sb.from("source_scans").update({ status: "completed", scan_phase: "done", completed_at: new Date().toISOString(), result_summary: { warning: "Kjo faqe nuk mbështetet për skanim automatik. Provoni një URL tjetër." } } as never).eq("id", scan_id);
+        }
+        return new Response(JSON.stringify({
+          success: true,
+          warning: "Kjo faqe nuk mbështetet për skanim automatik. Provoni një URL tjetër.",
+          insights_count: 0,
+          duration_ms: Date.now() - startTime,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+
+      throw new Error(scrapeError);
     }
 
     const markdown = scrapeData.data?.markdown || scrapeData.markdown || "";
