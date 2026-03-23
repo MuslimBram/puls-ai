@@ -135,8 +135,12 @@ export default function ScanResultViewer({ sourceId, scanId }: ScanResultViewerP
     business_info: true,
     product: true,
     service: true,
+    social_post: true,
+    offer: true,
     contact: true,
     social: true,
+    cta: false,
+    pricing: true,
     structure: false,
     opportunity: true,
   });
