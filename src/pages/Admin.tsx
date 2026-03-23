@@ -485,6 +485,10 @@ const Admin = () => {
           <TabsContent value="jobs">
             <AdminJobQueuePanel />
           </TabsContent>
+
+          <TabsContent value="scanner">
+            <AdminWebScanner />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
