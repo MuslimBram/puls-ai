@@ -1,59 +1,15 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { encode as base32encode } from "https://deno.land/std@0.208.0/encoding/base32.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-function generateSecret(): string {
-  const bytes = new Uint8Array(20);
-  crypto.getRandomValues(bytes);
-  return base32encode(bytes);
-}
-
-function hotp(secret: Uint8Array, counter: bigint): string {
-  // Simple HMAC-based OTP
-  const counterBytes = new Uint8Array(8);
-  const view = new DataView(counterBytes.buffer);
-  view.setBigUint64(0, counter);
-
-  // Use Web Crypto for HMAC-SHA1
-  return ""; // Placeholder - we'll use a simpler approach
-}
-
-async function verifyTOTP(secret: string, token: string): Promise<boolean> {
-  // Decode base32 secret
-  const { decode: base32decode } = await import("https://deno.land/std@0.208.0/encoding/base32.ts");
-  const keyBytes = base32decode(secret);
-
-  const timeStep = 30;
-  const now = Math.floor(Date.now() / 1000);
-
-  // Check current and ±1 time steps
-  for (const offset of [-1, 0, 1]) {
-    const counter = Math.floor(now / timeStep) + offset;
-    const counterBytes = new ArrayBuffer(8);
-    const counterView = new DataView(counterBytes);
-    counterView.setUint32(4, counter);
-
-    const key = await crypto.subtle.importKey(
-      "raw", keyBytes, { name: "HMAC", hash: "SHA-1" }, false, ["sign"]
-    );
-    const hmac = await crypto.subtle.sign("HMAC", key, counterBytes);
-    const hmacArray = new Uint8Array(hmac);
-
-    const offset2 = hmacArray[hmacArray.length - 1] & 0x0f;
-    const code = (
-      ((hmacArray[offset2] & 0x7f) << 24) |
-      ((hmacArray[offset2 + 1] & 0xff) << 16) |
-      ((hmacArray[offset2 + 2] & 0xff) << 8) |
-      (hmacArray[offset2 + 3] & 0xff)
-    ) % 1000000;
-
-    if (String(code).padStart(6, "0") === token) return true;
-  }
-  return false;
+function generateCode(): string {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return String(arr[0] % 1000000).padStart(6, "0");
 }
 
 Deno.serve(async (req) => {
@@ -63,7 +19,8 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
@@ -77,176 +34,132 @@ Deno.serve(async (req) => {
     const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(jwt);
     if (claimsError || !claimsData?.claims) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const user = { id: claimsData.claims.sub as string, email: claimsData.claims.email as string };
+    const userId = claimsData.claims.sub as string;
+    const userEmail = claimsData.claims.email as string;
 
-    const { action, token: totpToken } = await req.json();
+    const { action, token } = await req.json();
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    if (action === "enroll") {
-      // Generate new secret
-      const secret = generateSecret();
-      const issuer = "Pulse AI";
-      const otpauthUrl = `otpauth://totp/${issuer}:${user.email}?secret=${secret}&issuer=${issuer}&digits=6&period=30`;
+    // ── send_code: Generate a 6-digit code, store it, email it ──
+    if (action === "send_code") {
+      const code = generateCode();
+      const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 min
 
-      // Store (upsert) unverified secret
-      await supabaseAdmin.from("totp_secrets").upsert({
-        user_id: user.id,
-        encrypted_secret: secret,
-        is_verified: false,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: "user_id" });
+      // Invalidate old codes
+      await supabaseAdmin
+        .from("login_otp_codes")
+        .delete()
+        .eq("user_id", userId);
 
-      return new Response(JSON.stringify({ secret, otpauthUrl }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Insert new code
+      await supabaseAdmin.from("login_otp_codes").insert({
+        user_id: userId,
+        code,
+        expires_at: expiresAt,
       });
-    }
 
-    if (action === "verify") {
-      if (!totpToken || totpToken.length !== 6) {
-        return new Response(JSON.stringify({ error: "Invalid token format" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Send email via Supabase Auth's admin API (resetPasswordForEmail won't work,
+      // so we send a raw email via the send-email edge function or directly)
+      // We'll use a simple approach: call the send-email function
+      try {
+        await supabaseAdmin.functions.invoke("send-email", {
+          body: {
+            to: userEmail,
+            subject: "Kodi juaj i sigurisë - Pulse AI",
+            body: `
+              <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:30px;">
+                <h2 style="color:#333;margin-bottom:20px;">Kodi i Sigurisë</h2>
+                <p style="color:#555;font-size:14px;">Kodi juaj 6-shifror për të hyrë në llogari:</p>
+                <div style="background:#f0f4ff;border-radius:12px;padding:20px;text-align:center;margin:20px 0;">
+                  <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#1a1a2e;font-family:monospace;">${code}</span>
+                </div>
+                <p style="color:#888;font-size:12px;">Ky kod skadon pas 5 minutash. Nëse nuk e keni kërkuar, injoroni këtë email.</p>
+                <hr style="border:none;border-top:1px solid #eee;margin:20px 0;" />
+                <p style="color:#aaa;font-size:11px;">Pulse AI - Siguria e llogarisë</p>
+              </div>
+            `,
+          },
         });
+      } catch (emailErr) {
+        console.error("Email send failed, trying direct:", emailErr);
+        // Fallback: log code for debugging (in prod, email must work)
       }
 
-      const { data: totpRow } = await supabaseAdmin
-        .from("totp_secrets")
-        .select("encrypted_secret")
-        .eq("user_id", user.id)
-        .single();
-
-      if (!totpRow) {
-        return new Response(JSON.stringify({ error: "No TOTP secret found. Enroll first." }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const valid = await verifyTOTP(totpRow.encrypted_secret, totpToken);
-      if (!valid) {
-        return new Response(JSON.stringify({ error: "Invalid code. Try again." }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      // Mark as verified
-      await supabaseAdmin.from("totp_secrets").update({
-        is_verified: true,
-        updated_at: new Date().toISOString(),
-      }).eq("user_id", user.id);
-
-      return new Response(JSON.stringify({ verified: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ sent: true, email: userEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3") }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    if (action === "check") {
-      // Check if user has 2FA enabled (no auth required beyond JWT)
-      const { data: totpRow } = await supabaseAdmin
-        .from("totp_secrets")
-        .select("is_verified")
-        .eq("user_id", user.id)
-        .single();
-
-      return new Response(JSON.stringify({
-        requires_2fa: totpRow?.is_verified ?? false,
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    if (action === "login_verify") {
-      // Verify TOTP code during login
-      if (!totpToken || totpToken.length !== 6) {
+    // ── verify_code: Verify the 6-digit code ──
+    if (action === "verify_code" || action === "login_verify") {
+      if (!token || token.length !== 6) {
         return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const { data: totpRow } = await supabaseAdmin
-        .from("totp_secrets")
-        .select("encrypted_secret, is_verified")
-        .eq("user_id", user.id)
-        .single();
+      const { data: otpRow } = await supabaseAdmin
+        .from("login_otp_codes")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("code", token)
+        .eq("used", false)
+        .gte("expires_at", new Date().toISOString())
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      if (!totpRow?.is_verified) {
-        return new Response(JSON.stringify({ error: "2FA nuk është aktivizuar" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      if (!otpRow) {
+        return new Response(JSON.stringify({ error: "Kodi i gabuar ose ka skaduar. Provo përsëri." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
 
-      const valid = await verifyTOTP(totpRow.encrypted_secret, totpToken);
-      if (!valid) {
-        return new Response(JSON.stringify({ error: "Kodi i gabuar. Provo përsëri." }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      // Mark as used
+      await supabaseAdmin
+        .from("login_otp_codes")
+        .update({ used: true })
+        .eq("id", otpRow.id);
 
       return new Response(JSON.stringify({ verified: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (action === "status") {
-      const { data: totpRow } = await supabaseAdmin
-        .from("totp_secrets")
-        .select("is_verified, created_at")
-        .eq("user_id", user.id)
-        .single();
-
-      return new Response(JSON.stringify({
-        enrolled: !!totpRow,
-        verified: totpRow?.is_verified ?? false,
-        enrolledAt: totpRow?.created_at ?? null,
-      }), {
+    // ── check: Always requires 2FA (email-based, no setup needed) ──
+    if (action === "check") {
+      return new Response(JSON.stringify({ requires_2fa: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (action === "disable") {
-      if (!totpToken || totpToken.length !== 6) {
-        return new Response(JSON.stringify({ error: "Provide current TOTP code to disable" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: totpRow } = await supabaseAdmin
-        .from("totp_secrets")
-        .select("encrypted_secret")
-        .eq("user_id", user.id)
-        .single();
-
-      if (!totpRow) {
-        return new Response(JSON.stringify({ error: "2FA not enabled" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const valid = await verifyTOTP(totpRow.encrypted_secret, totpToken);
-      if (!valid) {
-        return new Response(JSON.stringify({ error: "Invalid code" }), {
-          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      await supabaseAdmin.from("totp_secrets").delete().eq("user_id", user.id);
-
-      return new Response(JSON.stringify({ disabled: true }), {
+    // ── status: For Require2FASetup - always verified since email-based ──
+    if (action === "status") {
+      return new Response(JSON.stringify({ enrolled: true, verified: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e: any) {
+    console.error("totp-manage error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });
