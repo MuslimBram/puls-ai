@@ -142,7 +142,7 @@ export default function ScanResultViewer({ sourceId, scanId }: ScanResultViewerP
   });
 
   const latestScan = scans?.[0];
-  const sectionOrder = ["business_info", "product", "service", "contact", "social", "structure", "opportunity"];
+  const sectionOrder = ["business_info", "product", "service", "social_post", "offer", "contact", "social", "cta", "pricing", "structure", "opportunity"];
 
   const toggleSection = (key: string) => {
     setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
