@@ -213,7 +213,7 @@ export const PaymentProcessorSetup = () => {
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {selectedProcessor ? `Connect ${processor?.name}` : "Choose Payment Processor"}
+                {isEditing ? `Edit ${processor?.name}` : selectedProcessor ? `Connect ${processor?.name}` : "Choose Payment Processor"}
               </DialogTitle>
             </DialogHeader>
 
