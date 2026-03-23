@@ -13,8 +13,12 @@ const SECTION_CONFIG: Record<string, { label: string; icon: React.ElementType; c
   business_info: { label: "Business Summary", icon: Building2, color: "text-blue-500" },
   product: { label: "Products", icon: Package, color: "text-emerald-500" },
   service: { label: "Services", icon: Wrench, color: "text-violet-500" },
+  social_post: { label: "Posts & Content", icon: FileText, color: "text-indigo-500" },
+  offer: { label: "Offers & Promotions", icon: Lightbulb, color: "text-orange-500" },
   contact: { label: "Contact Methods", icon: Phone, color: "text-amber-500" },
   social: { label: "Social Links", icon: Share2, color: "text-pink-500" },
+  cta: { label: "Call-to-Action", icon: Layout, color: "text-cyan-500" },
+  pricing: { label: "Pricing Signals", icon: Package, color: "text-teal-500" },
   structure: { label: "Website Structure", icon: Layout, color: "text-cyan-500" },
   opportunity: { label: "Detected Opportunities", icon: Lightbulb, color: "text-yellow-500" },
 };
