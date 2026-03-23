@@ -48,7 +48,8 @@ export const SoftphoneWidget = () => {
   const [transferNumber, setTransferNumber] = useState("");
   const [isOpen, setIsOpen] = useState(false);
 
-  const currentStatus = (agentState?.telephony_status as TelephonyStatus) || "offline";
+  const rawStatus = agentState?.telephony_status as TelephonyStatus | undefined;
+  const currentStatus: TelephonyStatus = rawStatus && rawStatus in statusColors ? rawStatus : "online";
   const incomingCalls = activeCalls.filter(
     (c) => c.status === "ringing" && c.direction === "inbound" && !c.agent_user_id
   );
