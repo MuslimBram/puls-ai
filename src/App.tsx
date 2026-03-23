@@ -163,7 +163,7 @@ const App = () => (
                 <Route path="/growth-strategy" element={<ProtectedPage><GrowthStrategy /></ProtectedPage>} />
                 <Route path="/market-expansion" element={<ProtectedPage><MarketExpansion /></ProtectedPage>} />
                 <Route path="/pricing-optimization" element={<ProtectedPage><PricingOptimization /></ProtectedPage>} />
-                <Route path="/competitive-intelligence-engine" element={<ProtectedPage><CompetitiveIntelligenceEngine /></ProtectedPage>} />
+                <Route path="/competitive-intelligence-engine" element={<Navigate to="/competitor-intelligence" replace />} />
                 <Route path="/brand-reputation" element={<ProtectedPage><BrandReputation /></ProtectedPage>} />
                 <Route path="/customer-experience" element={<ProtectedPage><CustomerExperience /></ProtectedPage>} />
                 <Route path="/retention" element={<ProtectedPage><RetentionMaximization /></ProtectedPage>} />
@@ -174,7 +174,7 @@ const App = () => (
                 <Route path="/workforce-optimization" element={<ProtectedPage><WorkforceOptimization /></ProtectedPage>} />
                 <Route path="/process-optimization" element={<ProtectedPage><ProcessOptimization /></ProtectedPage>} />
                 <Route path="/funnel-optimization" element={<ProtectedPage><FunnelOptimization /></ProtectedPage>} />
-                <Route path="/offer-optimization" element={<ProtectedPage><OfferOptimization /></ProtectedPage>} />
+                <Route path="/offer-optimization" element={<Navigate to="/pricing-optimization" replace />} />
                 <Route path="/customer-value" element={<ProtectedPage><CustomerValueMaximization /></ProtectedPage>} />
                 <Route path="/community" element={<ProtectedPage><CommunityGrowth /></ProtectedPage>} />
                 <Route path="/lead-magnets" element={<ProtectedPage><LeadMagnets /></ProtectedPage>} />
