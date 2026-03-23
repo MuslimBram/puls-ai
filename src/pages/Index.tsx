@@ -9,6 +9,8 @@ import {
   Zap, MessageSquare, BarChart3, Bot, ArrowRight, Shield,
   Users, Target, Sparkles, CheckCircle2, Star, Phone,
 } from "lucide-react";
+import { BusinessCapabilities } from "@/components/landing/BusinessCapabilities";
+import { FreelancerCapabilities } from "@/components/landing/FreelancerCapabilities";
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -128,6 +130,9 @@ const Index = () => {
             ))}
           </div>
         </section>
+
+        <BusinessCapabilities />
+        <FreelancerCapabilities />
 
         <section className="border-t border-border bg-muted/30">
           <div className="container mx-auto px-4 py-16 text-center">
