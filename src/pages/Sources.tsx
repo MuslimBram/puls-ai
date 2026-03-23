@@ -1,5 +1,8 @@
 import { useState } from "react";
-// Sources - renders as standalone content (embedded in Channels page)
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { Navigate } from "react-router-dom";
+// Sources - admin-only page for scanning web sources
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
