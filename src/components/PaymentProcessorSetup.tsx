@@ -201,9 +201,12 @@ export const PaymentProcessorSetup = () => {
             Connect your bank or payment processor to receive payments from anywhere in the world.
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) { setSelectedProcessor(null); setFormData({}); setEditingIndex(null); }
+        }}>
           <DialogTrigger asChild>
-            <Button size="sm" onClick={() => { setSelectedProcessor(null); setFormData({}); }}>
+            <Button size="sm" onClick={() => { setSelectedProcessor(null); setFormData({}); setEditingIndex(null); }}>
               <Plus className="mr-1 h-4 w-4" /> Add Account
             </Button>
           </DialogTrigger>
