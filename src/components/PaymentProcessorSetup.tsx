@@ -122,26 +122,57 @@ export const PaymentProcessorSetup = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProcessor, setSelectedProcessor] = useState<PaymentProcessorType | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const accounts: PaymentAccount[] = (data?.payment_accounts as PaymentAccount[]) || [];
   const processor = PROCESSORS.find((p) => p.type === selectedProcessor);
+
+  const isEditing = editingIndex !== null;
 
   const handleAdd = () => {
     if (!processor) return;
     const label = formData.email || formData.account_id || formData.iban || formData.business_number || processor.name;
     const value = JSON.stringify(formData);
-    const newAccount: PaymentAccount = {
-      type: processor.type,
-      label: `${processor.name} — ${label}`,
-      value,
-      is_primary: accounts.length === 0,
-      status: "pending",
-    };
-    updatePaymentAccounts.mutate({ accounts: [...accounts, newAccount] });
+
+    if (isEditing) {
+      const updated = accounts.map((acc, i) =>
+        i === editingIndex
+          ? { ...acc, label: `${processor.name} — ${label}`, value, status: acc.status }
+          : acc
+      );
+      updatePaymentAccounts.mutate({ accounts: updated });
+      toast.success(`${processor.name} account updated`);
+    } else {
+      const newAccount: PaymentAccount = {
+        type: processor.type,
+        label: `${processor.name} — ${label}`,
+        value,
+        is_primary: accounts.length === 0,
+        status: "pending",
+      };
+      updatePaymentAccounts.mutate({ accounts: [...accounts, newAccount] });
+      toast.success(`${processor.name} account added`);
+    }
+
     setDialogOpen(false);
     setSelectedProcessor(null);
     setFormData({});
-    toast.success(`${processor.name} account added`);
+    setEditingIndex(null);
+  };
+
+  const handleEdit = (index: number) => {
+    const acc = accounts[index];
+    const proc = PROCESSORS.find((p) => p.type === acc.type);
+    if (!proc) return;
+    try {
+      const parsed = JSON.parse(acc.value);
+      setFormData(parsed);
+    } catch {
+      setFormData({});
+    }
+    setSelectedProcessor(acc.type);
+    setEditingIndex(index);
+    setDialogOpen(true);
   };
 
   const handleRemove = (index: number) => {
