@@ -274,6 +274,9 @@ const Subscription = () => {
               </CardContent>
             </Card>
           </TabsContent>
+          <TabsContent value="payment-accounts">
+            <PaymentProcessorSetup />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
