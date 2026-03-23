@@ -92,7 +92,7 @@ export const businessNavGroups: NavGroup[] = [
     items: [
       { href: "/automations", label: "Automations", icon: Workflow },
       { href: "/autonomous-ops", label: "Autonomous OS", icon: Cpu },
-      { href: "/marketing-automation", label: "Marketing", icon: Globe },
+      { href: "/marketing-automation", label: "Marketing Auto", icon: Globe },
       { href: "/growth-strategy", label: "Growth Strategy", icon: TrendingUp },
       { href: "/market-expansion", label: "Market Expansion", icon: Globe },
       { href: "/ai-decisions", label: "AI Decisions", icon: Brain },
@@ -103,13 +103,12 @@ export const businessNavGroups: NavGroup[] = [
     label: "Optimization AI",
     icon: Gauge,
     items: [
-      { href: "/pricing-optimization", label: "Pricing AI", icon: Banknote },
+      { href: "/pricing-optimization", label: "Pricing & Offers", icon: Banknote },
       { href: "/personalization", label: "Personalization", icon: Fingerprint },
       { href: "/demand-forecasting", label: "Demand Forecast", icon: Activity },
       { href: "/workforce-optimization", label: "Workforce AI", icon: Gauge },
       { href: "/process-optimization", label: "Process AI", icon: Cpu },
       { href: "/funnel-optimization", label: "Funnel AI", icon: TrendingUp },
-      { href: "/offer-optimization", label: "Offer AI", icon: Banknote },
       { href: "/customer-value", label: "Customer Value", icon: Heart },
     ],
   },
@@ -117,8 +116,7 @@ export const businessNavGroups: NavGroup[] = [
     label: "Intelligence",
     icon: Radar,
     items: [
-      { href: "/competitive-intelligence-engine", label: "Competitive Intel", icon: Radar },
-      { href: "/competitor-intelligence", label: "Competitor Intel", icon: Search },
+      { href: "/competitor-intelligence", label: "Competitor Intel", icon: Radar },
       { href: "/brand-reputation", label: "Brand & Reputation", icon: Heart },
       { href: "/customer-experience", label: "Customer Experience", icon: Smile },
       { href: "/retention", label: "Retention", icon: ShieldCheckIcon },
