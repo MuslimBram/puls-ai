@@ -1,10 +1,9 @@
-/** App version — format: 1.YY.MM.DD — auto-set at build time */
+/** App version — format: 1.MM.DD — auto-set from current date */
 function computeVersion(): string {
   const now = new Date();
-  const yy = String(now.getFullYear()).slice(-2);
   const mm = String(now.getMonth() + 1).padStart(2, "0");
   const dd = String(now.getDate()).padStart(2, "0");
-  return `1.${yy}.${mm}.${dd}`;
+  return `1.${mm}.${dd}`;
 }
 
 export const APP_VERSION = computeVersion();
