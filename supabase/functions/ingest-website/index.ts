@@ -211,7 +211,12 @@ serve(async (req) => {
         pages = statusData.data || [];
         break;
       } else if (statusData.status === "failed") {
-        throw new Error("Crawl failed");
+        await supabase.from("knowledge_sources").update({ status: "error" }).eq("id", sourceId);
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Skanimi dështoi. Provoni përsëri ose me një URL tjetër.",
+          source_id: sourceId,
+        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
       attempts++;
     }
