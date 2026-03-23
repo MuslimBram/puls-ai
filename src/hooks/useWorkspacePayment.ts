@@ -4,11 +4,25 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { useToast } from "@/hooks/use-toast";
 
+export type PaymentProcessorType =
+  | "stripe"
+  | "paypal"
+  | "wise"
+  | "payoneer"
+  | "square"
+  | "razorpay"
+  | "mpesa"
+  | "bank_transfer"
+  | "custom";
+
 export interface PaymentAccount {
-  type: "bank_account" | "iban" | "paypal" | "stripe" | "custom";
+  type: PaymentProcessorType;
   label: string;
   value: string;
   is_primary?: boolean;
+  country?: string;
+  currency?: string;
+  status?: "active" | "pending" | "verified";
 }
 
 export const useWorkspacePayment = (workspaceId: string | null) => {

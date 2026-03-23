@@ -19,7 +19,8 @@ import { useKeywords } from "@/hooks/useKeywords";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { getPackageVariant } from "@/lib/packagePricing";
 import { supabase } from "@/integrations/supabase/client";
-import { AlertTriangle, Clock, ExternalLink, Gift, Loader2, Percent } from "lucide-react";
+import { AlertTriangle, Clock, ExternalLink, Gift, Loader2, Percent, CreditCard } from "lucide-react";
+import { PaymentProcessorSetup } from "@/components/PaymentProcessorSetup";
 import { toast } from "@/components/ui/sonner";
 import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
 import type { PackageVariant, PlanKey } from "@/types/monetization";
@@ -252,6 +253,9 @@ const Subscription = () => {
           <TabsList>
             <TabsTrigger value="billing">Billing history</TabsTrigger>
             <TabsTrigger value="usage">Usage details</TabsTrigger>
+            <TabsTrigger value="payment-accounts">
+              <CreditCard className="mr-1 h-3.5 w-3.5" /> Payment Accounts
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="billing">
             <BillingHistoryPanel />
@@ -269,6 +273,9 @@ const Subscription = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+          <TabsContent value="payment-accounts">
+            <PaymentProcessorSetup />
           </TabsContent>
         </Tabs>
       </div>
