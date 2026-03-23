@@ -9,6 +9,8 @@ import {
   Zap, MessageSquare, BarChart3, Bot, ArrowRight, Shield,
   Users, Target, Sparkles, CheckCircle2, Star, Phone,
 } from "lucide-react";
+import { BusinessCapabilities } from "@/components/landing/BusinessCapabilities";
+import { FreelancerCapabilities } from "@/components/landing/FreelancerCapabilities";
 
 const Index = () => {
   const { user, loading } = useAuth();
