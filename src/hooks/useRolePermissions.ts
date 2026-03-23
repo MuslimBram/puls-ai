@@ -104,11 +104,15 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     bypassSubscription: true,
     bypassFeatureGating: true,
     bypassUsageLimits: true,
+    canConnectChannels: true,
+    canManageIntegrations: true,
+    canManageTeam: true,
     canViewCRM: true,
+    canManageCampaigns: true,
+    canRespondInbox: true,
     canViewAnalytics: true,
+    canConfigureAutomations: true,
     canMonitorConnections: true,
-    // Admin can monitor but NOT connect channels for businesses
-    canConnectChannels: false,
   },
   controller: {
     ...BASE_PERMISSIONS,

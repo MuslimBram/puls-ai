@@ -100,7 +100,7 @@ const Admin = () => {
 
         {/* Tabs */}
         <Tabs defaultValue="users">
-          <TabsList>
+          <TabsList className="flex flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="users">Users</TabsTrigger>
             <TabsTrigger value="roles">
               <ShieldPlus className="h-3 w-3 mr-1" />
