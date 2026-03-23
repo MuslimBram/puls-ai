@@ -38,7 +38,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-const SourcesContent = lazy(() => import("./Sources"));
+
 
 const CATEGORY_LABELS: Record<string, string> = {
   messaging: "Messaging",
