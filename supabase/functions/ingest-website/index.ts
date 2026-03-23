@@ -182,8 +182,16 @@ serve(async (req) => {
 
     const crawlData = await crawlRes.json();
     if (!crawlRes.ok) {
-      await supabase.from("knowledge_sources").update({ status: "error", metadata: { error: crawlData.error } }).eq("id", sourceId);
-      throw new Error(crawlData.error || "Crawl failed");
+      const errorMsg = crawlData.error || "Crawl failed";
+      await supabase.from("knowledge_sources").update({ status: "error", metadata: { error: errorMsg } }).eq("id", sourceId);
+      // Return 200 with error info so the client gets a friendly message
+      return new Response(JSON.stringify({
+        success: false,
+        error: errorMsg.includes("do not support this site")
+          ? "Kjo faqe nuk mbështetet për skanim automatik. Provoni një URL tjetër."
+          : errorMsg,
+        source_id: sourceId,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     // Firecrawl crawl is async - poll for results
