@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShieldPlus, ShieldMinus, Crown, Shield, Users } from "lucide-react";
-import type { AppRole } from "@/hooks/useRolePermissions";
+import { useRolePermissions, type AppRole } from "@/hooks/useRolePermissions";
 
 interface Profile {
   id: string;
@@ -38,30 +38,26 @@ const ROLE_COLORS: Record<string, "default" | "secondary" | "destructive" | "out
 export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
   const queryClient = useQueryClient();
   const { log } = useAuditLog();
+  const { isAdmin } = useRolePermissions();
   const [selectedRole, setSelectedRole] = useState<AppRole>("admin");
+  const canManageRoles = isAdmin;
 
-  // Fetch all user roles
   const rolesQuery = useQuery({
     queryKey: ["admin-all-user-roles"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_roles")
-        .select("*");
+      const { data, error } = await supabase.from("user_roles").select("*");
       if (error) throw error;
       return data || [];
     },
   });
 
   const allRoles = rolesQuery.data ?? [];
-
-  const getRolesForUser = (userId: string) =>
-    allRoles.filter((r) => r.user_id === userId).map((r) => r.role);
+  const getRolesForUser = (userId: string) => allRoles.filter((r) => r.user_id === userId).map((r) => r.role);
 
   const assignRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
-      const { error } = await supabase
-        .from("user_roles")
-        .insert({ user_id: userId, role: role as any });
+      if (!canManageRoles) throw new Error("Only admins can assign roles");
+      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: role as any });
       if (error) throw error;
     },
     onSuccess: async (_, { userId, role }) => {
@@ -70,7 +66,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
       toast.success(`Role "${role}" assigned successfully`);
     },
-    onError: (e) => {
+    onError: (e: Error) => {
       if (e.message?.includes("duplicate")) {
         toast.error("User already has this role");
       } else {
@@ -81,11 +77,8 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
 
   const removeRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      const { error } = await supabase
-        .from("user_roles")
-        .delete()
-        .eq("user_id", userId)
-        .eq("role", role as any);
+      if (!canManageRoles) throw new Error("Only admins can remove roles");
+      const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role as any);
       if (error) throw error;
     },
     onSuccess: async (_, { userId, role }) => {
@@ -94,7 +87,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
       queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
       toast.success(`Role "${role}" removed`);
     },
-    onError: (e) => toast.error(`Failed: ${e.message}`),
+    onError: (e: Error) => toast.error(`Failed: ${e.message}`),
   });
 
   return (
@@ -104,10 +97,16 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
           <ShieldPlus className="h-4 w-4" />
           Role Management
         </CardTitle>
-        <CardDescription>Assign or remove roles for platform users</CardDescription>
+        <CardDescription>
+          {canManageRoles ? "Assign or remove roles for platform users" : "Only admins can assign/remove roles"}
+        </CardDescription>
       </CardHeader>
       <CardContent>
-        {profiles.length === 0 ? (
+        {!canManageRoles ? (
+          <p className="py-6 text-center text-sm text-muted-foreground">
+            You have admin panel access as owner, but role changes are restricted to admin users.
+          </p>
+        ) : profiles.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">No users found</p>
         ) : (
           <div className="space-y-2">
@@ -125,6 +124,10 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
                           variant={ROLE_COLORS[role] || "outline"}
                           className="text-xs cursor-pointer hover:opacity-70 gap-1"
                           onClick={() => {
+                            if (!canManageRoles) {
+                              toast.error("Only admins can remove roles");
+                              return;
+                            }
                             if (role === "user") {
                               toast.error("Cannot remove the base 'user' role");
                               return;
@@ -158,7 +161,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
                     <Button
                       size="sm"
                       variant="default"
-                      disabled={assignRole.isPending || userRoles.includes(selectedRole)}
+                      disabled={!canManageRoles || assignRole.isPending || userRoles.includes(selectedRole)}
                       onClick={() => assignRole.mutate({ userId: p.user_id, role: selectedRole })}
                     >
                       <ShieldPlus className="h-3 w-3 mr-1" />
