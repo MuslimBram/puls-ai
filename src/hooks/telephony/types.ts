@@ -27,6 +27,7 @@ export interface AgentTelephonyState {
   user_id: string;
   workspace_id: string;
   telephony_status: TelephonyStatus;
+  updated_at: string;
   current_call_id: string | null;
   last_call_ended_at: string | null;
   calls_handled_today: number;
