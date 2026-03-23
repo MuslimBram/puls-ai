@@ -319,6 +319,14 @@ export const PaymentProcessorSetup = () => {
                       </Badge>
                     </div>
                     <div className="mt-2 flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => handleEdit(i)}
+                      >
+                        <Pencil className="mr-1 h-3 w-3" /> Edit
+                      </Button>
                       {!acc.is_primary && (
                         <Button
                           variant="ghost"
