@@ -259,14 +259,16 @@ export const PaymentProcessorSetup = () => {
                 ))}
 
                 <div className="flex gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setSelectedProcessor(null)}>
-                    Back
-                  </Button>
+                  {!isEditing && (
+                    <Button variant="outline" onClick={() => setSelectedProcessor(null)}>
+                      Back
+                    </Button>
+                  )}
                   <Button
                     onClick={handleAdd}
                     disabled={!processor?.fields.some((f) => formData[f.key]?.trim())}
                   >
-                    Connect {processor?.name}
+                    {isEditing ? `Save Changes` : `Connect ${processor?.name}`}
                   </Button>
                 </div>
               </div>
