@@ -137,14 +137,83 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── check: Always requires 2FA (email-based, no setup needed) ──
+    // ── verify_totp: Verify Google Authenticator TOTP code ──
+    if (action === "verify_totp") {
+      if (!token || token.length !== 6) {
+        return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Check if user has a TOTP factor enrolled via Supabase Auth MFA
+      const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
+      const totpFactor = factorsData?.totp?.[0];
+
+      if (!totpFactor) {
+        // No TOTP enrolled - verify via email OTP as fallback
+        const { data: otpRow } = await supabaseAdmin
+          .from("login_otp_codes")
+          .select("*")
+          .eq("user_id", userId)
+          .eq("code", token)
+          .eq("used", false)
+          .gte("expires_at", new Date().toISOString())
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!otpRow) {
+          return new Response(JSON.stringify({ error: "TOTP nuk është konfiguruar. Përdorni kodin me email." }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        await supabaseAdmin.from("login_otp_codes").update({ used: true }).eq("id", otpRow.id);
+        return new Response(JSON.stringify({ verified: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Verify TOTP challenge
+      const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
+        factorId: totpFactor.id,
+      });
+
+      if (challengeError) {
+        return new Response(JSON.stringify({ error: "Gabim në krijimin e sfidës TOTP" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { error: verifyError } = await supabaseClient.auth.mfa.verify({
+        factorId: totpFactor.id,
+        challengeId: challengeData.id,
+        code: token,
+      });
+
+      if (verifyError) {
+        return new Response(JSON.stringify({ error: "Kodi i gabuar. Provoni përsëri." }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ verified: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── check: Always requires 2FA ──
     if (action === "check") {
       return new Response(JSON.stringify({ requires_2fa: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // ── status: For Require2FASetup - always verified since email-based ──
+    // ── status: For Require2FASetup ──
     if (action === "status") {
       return new Response(JSON.stringify({ enrolled: true, verified: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
