@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, Zap } from "lucide-react";
+import { Mail, Lock, Zap, ShieldCheck, Loader2 } from "lucide-react";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -16,6 +16,11 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  
+  // 2FA state
+  const [needs2FA, setNeeds2FA] = useState(false);
+  const [totpCode, setTotpCode] = useState("");
+  const [verifying2FA, setVerifying2FA] = useState(false);
 
   if (authLoading) {
     return (
@@ -25,7 +30,7 @@ const Login = () => {
     );
   }
 
-  if (user) {
+  if (user && !needs2FA) {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -37,11 +42,104 @@ const Login = () => {
 
     if (error) {
       toast.error(error.message);
-    } else {
-      navigate("/dashboard");
+      setLoading(false);
+      return;
     }
+
+    // Check if user has 2FA enabled
+    try {
+      const { data, error: checkError } = await supabase.functions.invoke("totp-manage", {
+        body: { action: "check" },
+      });
+
+      if (!checkError && data?.requires_2fa) {
+        setNeeds2FA(true);
+        setLoading(false);
+        return;
+      }
+    } catch {
+      // If check fails, proceed without 2FA
+    }
+
+    navigate("/dashboard");
     setLoading(false);
   };
+
+  const handle2FAVerify = async () => {
+    setVerifying2FA(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("totp-manage", {
+        body: { action: "login_verify", token: totpCode },
+      });
+
+      if (error || data?.error) {
+        toast.error(data?.error || "Verifikimi dështoi");
+        setVerifying2FA(false);
+        return;
+      }
+
+      navigate("/dashboard");
+    } catch {
+      toast.error("Gabim gjatë verifikimit");
+    }
+    setVerifying2FA(false);
+  };
+
+  const handleCancel2FA = async () => {
+    await supabase.auth.signOut();
+    setNeeds2FA(false);
+    setTotpCode("");
+  };
+
+  // 2FA verification screen
+  if (needs2FA) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+              <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <CardTitle className="text-2xl">Verifikimi 2FA</CardTitle>
+            <CardDescription>Shkruaj kodin 6-shifror nga aplikacioni i autentikimit</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="totp">Kodi i Autentikimit</Label>
+              <Input
+                id="totp"
+                placeholder="000000"
+                value={totpCode}
+                onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+                className="text-center text-xl font-mono tracking-[0.5em]"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && totpCode.length === 6) handle2FAVerify();
+                }}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-3">
+            <Button
+              className="w-full"
+              onClick={handle2FAVerify}
+              disabled={totpCode.length !== 6 || verifying2FA}
+            >
+              {verifying2FA ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Po verifikon...</>
+              ) : (
+                "Verifiko & Hyr"
+              )}
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={handleCancel2FA}>
+              Anullo
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">

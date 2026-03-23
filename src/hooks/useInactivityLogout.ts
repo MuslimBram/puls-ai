@@ -4,6 +4,9 @@ import { useAuth } from "@/contexts/AuthContext";
 const INACTIVITY_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 const WARNING_BEFORE = 2 * 60 * 1000; // warn 2 min before
 const SESSION_FINGERPRINT_KEY = "pulse_session_fp";
+const MAINTENANCE_START_HOUR = 3; // 03:00
+const MAINTENANCE_END_HOUR = 5;   // 05:00
+const MAINTENANCE_CHECK_INTERVAL = 60 * 1000; // check every 60s
 
 /** Generate a simple browser fingerprint to detect session hijacking */
 function getBrowserFingerprint(): string {
@@ -20,7 +23,6 @@ function getBrowserFingerprint(): string {
     navigator.hardwareConcurrency?.toString() || "",
   ];
 
-  // Simple hash
   const str = components.join("|");
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -31,12 +33,19 @@ function getBrowserFingerprint(): string {
   return hash.toString(36);
 }
 
+function isMaintenanceWindow(): boolean {
+  const now = new Date();
+  const hour = now.getHours();
+  return hour >= MAINTENANCE_START_HOUR && hour < MAINTENANCE_END_HOUR;
+}
+
 export const useInactivityLogout = (onWarning?: () => void) => {
   const { signOut, user } = useAuth();
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
   const warningRef = useRef<ReturnType<typeof setTimeout>>();
+  const maintenanceRef = useRef<ReturnType<typeof setInterval>>();
 
-  // Session fingerprint check — detect if session was stolen
+  // Session fingerprint check
   useEffect(() => {
     if (!user) return;
 
@@ -46,11 +55,34 @@ export const useInactivityLogout = (onWarning?: () => void) => {
     if (!storedFp) {
       sessionStorage.setItem(SESSION_FINGERPRINT_KEY, currentFp);
     } else if (storedFp !== currentFp) {
-      // Fingerprint mismatch — potential session hijacking
       console.warn("Session fingerprint mismatch detected — signing out");
       sessionStorage.removeItem(SESSION_FINGERPRINT_KEY);
       signOut();
     }
+  }, [user, signOut]);
+
+  // Maintenance window auto-logout (03:00 - 05:00)
+  useEffect(() => {
+    if (!user) return;
+
+    // Check immediately
+    if (isMaintenanceWindow()) {
+      console.info("[Security] Maintenance window (03:00-05:00) — auto logout");
+      signOut();
+      return;
+    }
+
+    // Poll every minute
+    maintenanceRef.current = setInterval(() => {
+      if (isMaintenanceWindow()) {
+        console.info("[Security] Maintenance window (03:00-05:00) — auto logout");
+        signOut();
+      }
+    }, MAINTENANCE_CHECK_INTERVAL);
+
+    return () => {
+      if (maintenanceRef.current) clearInterval(maintenanceRef.current);
+    };
   }, [user, signOut]);
 
   const resetTimer = useCallback(() => {

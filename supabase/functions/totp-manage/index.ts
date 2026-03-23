@@ -145,6 +145,53 @@ Deno.serve(async (req) => {
       });
     }
 
+    if (action === "check") {
+      // Check if user has 2FA enabled (no auth required beyond JWT)
+      const { data: totpRow } = await supabaseAdmin
+        .from("totp_secrets")
+        .select("is_verified")
+        .eq("user_id", user.id)
+        .single();
+
+      return new Response(JSON.stringify({
+        requires_2fa: totpRow?.is_verified ?? false,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "login_verify") {
+      // Verify TOTP code during login
+      if (!totpToken || totpToken.length !== 6) {
+        return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const { data: totpRow } = await supabaseAdmin
+        .from("totp_secrets")
+        .select("encrypted_secret, is_verified")
+        .eq("user_id", user.id)
+        .single();
+
+      if (!totpRow?.is_verified) {
+        return new Response(JSON.stringify({ error: "2FA nuk është aktivizuar" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const valid = await verifyTOTP(totpRow.encrypted_secret, totpToken);
+      if (!valid) {
+        return new Response(JSON.stringify({ error: "Kodi i gabuar. Provo përsëri." }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      return new Response(JSON.stringify({ verified: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     if (action === "status") {
       const { data: totpRow } = await supabaseAdmin
         .from("totp_secrets")
