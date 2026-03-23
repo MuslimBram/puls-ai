@@ -131,6 +131,9 @@ const Index = () => {
           </div>
         </section>
 
+        <BusinessCapabilities />
+        <FreelancerCapabilities />
+
         <section className="border-t border-border bg-muted/30">
           <div className="container mx-auto px-4 py-16 text-center">
             <h2 className="mb-2 text-3xl font-bold text-foreground">Live pricing from the product catalog</h2>
