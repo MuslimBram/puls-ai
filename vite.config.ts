@@ -4,6 +4,15 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
+const computeManifestVersion = (): string => {
+  const now = new Date();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  return `1.${mm}.${dd}`;
+};
+
+const APP_MANIFEST_VERSION = computeManifestVersion();
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
@@ -59,7 +68,7 @@ export default defineConfig(({ mode }) => ({
       ],
       manifest: {
         id: "/",
-        name: "Pulse AI v1.26.03.21",
+        name: `Pulse AI v${APP_MANIFEST_VERSION}`,
         short_name: "Pulse AI",
         description: "The intelligent business platform — manage, automate, and grow your business with AI.",
         theme_color: "#0a1628",
