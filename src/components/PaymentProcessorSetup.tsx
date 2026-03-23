@@ -117,7 +117,7 @@ const PROCESSORS: {
 ];
 
 export const PaymentProcessorSetup = () => {
-  const { currentWorkspace } = useWorkspace();
+  const { workspace: currentWorkspace } = useWorkspace();
   const { data, isLoading, updatePaymentAccounts } = useWorkspacePayment(currentWorkspace?.id ?? null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProcessor, setSelectedProcessor] = useState<PaymentProcessorType | null>(null);
