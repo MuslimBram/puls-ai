@@ -6,9 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, Zap, ShieldCheck, Loader2, RefreshCw } from "lucide-react";
+import { Mail, Lock, Zap, ShieldCheck, Loader2, RefreshCw, Smartphone, AlertTriangle } from "lucide-react";
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/contexts/AuthContext";
+
+type TwoFAMethod = "choose" | "authenticator" | "email";
 
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
@@ -19,6 +21,7 @@ const Login = () => {
 
   // 2FA state
   const [needs2FA, setNeeds2FA] = useState(false);
+  const [twoFAMethod, setTwoFAMethod] = useState<TwoFAMethod>("choose");
   const [otpCode, setOtpCode] = useState("");
   const [verifying2FA, setVerifying2FA] = useState(false);
   const [maskedEmail, setMaskedEmail] = useState("");
@@ -58,17 +61,25 @@ const Login = () => {
       return;
     }
 
-    // Send 2FA code via email
+    // Show 2FA method chooser
+    setNeeds2FA(true);
+    setTwoFAMethod("choose");
+    setLoading(false);
+  };
+
+  const handleChooseAuthenticator = () => {
+    setTwoFAMethod("authenticator");
+    setOtpCode("");
+  };
+
+  const handleChooseEmail = async () => {
+    setTwoFAMethod("email");
+    setOtpCode("");
     const result = await sendOTPCode();
     if (result) {
       setMaskedEmail(result.email || email);
-      setNeeds2FA(true);
       toast.success("Kodi u dërgua në email-in tuaj");
-    } else {
-      // If sending fails, still allow login (fallback)
-      navigate("/dashboard");
     }
-    setLoading(false);
   };
 
   const handleResendCode = async () => {
@@ -83,8 +94,9 @@ const Login = () => {
   const handle2FAVerify = async () => {
     setVerifying2FA(true);
     try {
+      const action = twoFAMethod === "authenticator" ? "verify_totp" : "verify_code";
       const { data, error } = await supabase.functions.invoke("totp-manage", {
-        body: { action: "verify_code", token: otpCode },
+        body: { action, token: otpCode },
       });
 
       if (error || data?.error) {
@@ -103,12 +115,77 @@ const Login = () => {
   const handleCancel2FA = async () => {
     await supabase.auth.signOut();
     setNeeds2FA(false);
+    setTwoFAMethod("choose");
     setOtpCode("");
     setMaskedEmail("");
   };
 
-  // 2FA verification screen
-  if (needs2FA) {
+  // 2FA method chooser
+  if (needs2FA && twoFAMethod === "choose") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+              <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <CardTitle className="text-2xl">Verifikimi 2-Faktorësh</CardTitle>
+            <CardDescription>Zgjidhni metodën e verifikimit</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              variant="outline"
+              className="w-full h-auto py-4 flex items-start gap-4 justify-start text-left"
+              onClick={handleChooseAuthenticator}
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
+                <Smartphone className="h-5 w-5 text-primary" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Google Authenticator</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Përdorni aplikacionin Authenticator në telefonin tuaj — më e sigurt
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  <ShieldCheck className="h-3 w-3 text-green-500" />
+                  <span className="text-[10px] text-green-600 font-medium">E rekomanduar</span>
+                </div>
+              </div>
+            </Button>
+
+            <Button
+              variant="outline"
+              className="w-full h-auto py-4 flex items-start gap-4 justify-start text-left"
+              onClick={handleChooseEmail}
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-500/10">
+                <Mail className="h-5 w-5 text-orange-500" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Kod me Email</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Dërgoni një kod 6-shifror në email-in tuaj
+                </p>
+                <div className="flex items-center gap-1 mt-1">
+                  <AlertTriangle className="h-3 w-3 text-orange-500" />
+                  <span className="text-[10px] text-orange-600 font-medium">Më pak e sigurt</span>
+                </div>
+              </div>
+            </Button>
+          </CardContent>
+          <CardFooter>
+            <Button variant="ghost" className="w-full" onClick={handleCancel2FA}>
+              Anullo
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  // 2FA code input (both methods)
+  if (needs2FA && (twoFAMethod === "authenticator" || twoFAMethod === "email")) {
+    const isEmail = twoFAMethod === "email";
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
         <Card className="w-full max-w-md">
@@ -118,12 +195,18 @@ const Login = () => {
             </div>
             <CardTitle className="text-2xl">Verifikimi i Sigurisë</CardTitle>
             <CardDescription>
-              Kemi dërguar një kod 6-shifror te <strong>{maskedEmail}</strong>
+              {isEmail ? (
+                <>Kemi dërguar një kod 6-shifror te <strong>{maskedEmail}</strong></>
+              ) : (
+                <>Futni kodin 6-shifror nga aplikacioni Google Authenticator</>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="otp">Kodi nga Email-i</Label>
+              <Label htmlFor="otp">
+                {isEmail ? "Kodi nga Email-i" : "Kodi nga Authenticator"}
+              </Label>
               <Input
                 id="otp"
                 placeholder="000000"
@@ -137,19 +220,31 @@ const Login = () => {
                 }}
               />
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-muted-foreground"
-              onClick={handleResendCode}
-              disabled={resending}
-            >
-              {resending ? (
-                <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Po dërgohet...</>
-              ) : (
-                <><RefreshCw className="h-3 w-3 mr-1" /> Dërgo kodin përsëri</>
-              )}
-            </Button>
+
+            {isEmail && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-muted-foreground"
+                onClick={handleResendCode}
+                disabled={resending}
+              >
+                {resending ? (
+                  <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Po dërgohet...</>
+                ) : (
+                  <><RefreshCw className="h-3 w-3 mr-1" /> Dërgo kodin përsëri</>
+                )}
+              </Button>
+            )}
+
+            {isEmail && (
+              <div className="rounded-lg bg-orange-500/10 border border-orange-500/20 p-3 flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
+                <p className="text-xs text-orange-700 dark:text-orange-400">
+                  Kodi me email është më pak i sigurt se Google Authenticator. Rekomandojmë të përdorni Authenticator për siguri maksimale.
+                </p>
+              </div>
+            )}
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
             <Button
@@ -162,6 +257,9 @@ const Login = () => {
               ) : (
                 "Verifiko & Hyr"
               )}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setTwoFAMethod("choose")}>
+              ← Kthehu te metodat
             </Button>
             <Button variant="ghost" className="w-full" onClick={handleCancel2FA}>
               Anullo
