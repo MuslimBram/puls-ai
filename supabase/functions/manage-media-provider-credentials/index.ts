@@ -42,15 +42,14 @@ serve(async (req) => {
     const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
     if (authError || !authData.user) throw new Error("Not authenticated");
 
-    const { data: roleRow, error: roleError } = await supabaseAdmin
+    const { data: roleRows, error: roleError } = await supabaseAdmin
       .from("user_roles")
-      .select("id")
+      .select("role")
       .eq("user_id", authData.user.id)
-      .eq("role", "admin")
-      .maybeSingle();
+      .in("role", ["admin", "super_admin", "business_owner"]);
 
     if (roleError) throw roleError;
-    if (!roleRow) {
+    if (!roleRows || roleRows.length === 0) {
       return json({ error: "Admin access required" }, { status: 403 });
     }
 
