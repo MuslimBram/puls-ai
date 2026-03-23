@@ -102,7 +102,7 @@ const Channels = () => {
       <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="channels">Channels</TabsTrigger>
-          <TabsTrigger value="sources">Sources</TabsTrigger>
+          
         </TabsList>
 
         <TabsContent value="channels">
