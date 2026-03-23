@@ -10,7 +10,7 @@ import { useWorkspacePayment, PaymentAccount, PaymentProcessorType } from "@/hoo
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import {
   CreditCard, Plus, Trash2, Star, Globe, CheckCircle2,
-  Wallet, Building2, Smartphone,
+  Wallet, Building2, Smartphone, Pencil,
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 
@@ -122,26 +122,57 @@ export const PaymentProcessorSetup = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProcessor, setSelectedProcessor] = useState<PaymentProcessorType | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
 
   const accounts: PaymentAccount[] = (data?.payment_accounts as PaymentAccount[]) || [];
   const processor = PROCESSORS.find((p) => p.type === selectedProcessor);
+
+  const isEditing = editingIndex !== null;
 
   const handleAdd = () => {
     if (!processor) return;
     const label = formData.email || formData.account_id || formData.iban || formData.business_number || processor.name;
     const value = JSON.stringify(formData);
-    const newAccount: PaymentAccount = {
-      type: processor.type,
-      label: `${processor.name} — ${label}`,
-      value,
-      is_primary: accounts.length === 0,
-      status: "pending",
-    };
-    updatePaymentAccounts.mutate({ accounts: [...accounts, newAccount] });
+
+    if (isEditing) {
+      const updated = accounts.map((acc, i) =>
+        i === editingIndex
+          ? { ...acc, label: `${processor.name} — ${label}`, value, status: acc.status }
+          : acc
+      );
+      updatePaymentAccounts.mutate({ accounts: updated });
+      toast.success(`${processor.name} account updated`);
+    } else {
+      const newAccount: PaymentAccount = {
+        type: processor.type,
+        label: `${processor.name} — ${label}`,
+        value,
+        is_primary: accounts.length === 0,
+        status: "pending",
+      };
+      updatePaymentAccounts.mutate({ accounts: [...accounts, newAccount] });
+      toast.success(`${processor.name} account added`);
+    }
+
     setDialogOpen(false);
     setSelectedProcessor(null);
     setFormData({});
-    toast.success(`${processor.name} account added`);
+    setEditingIndex(null);
+  };
+
+  const handleEdit = (index: number) => {
+    const acc = accounts[index];
+    const proc = PROCESSORS.find((p) => p.type === acc.type);
+    if (!proc) return;
+    try {
+      const parsed = JSON.parse(acc.value);
+      setFormData(parsed);
+    } catch {
+      setFormData({});
+    }
+    setSelectedProcessor(acc.type);
+    setEditingIndex(index);
+    setDialogOpen(true);
   };
 
   const handleRemove = (index: number) => {
@@ -170,20 +201,23 @@ export const PaymentProcessorSetup = () => {
             Connect your bank or payment processor to receive payments from anywhere in the world.
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) { setSelectedProcessor(null); setFormData({}); setEditingIndex(null); }
+        }}>
           <DialogTrigger asChild>
-            <Button size="sm" onClick={() => { setSelectedProcessor(null); setFormData({}); }}>
+            <Button size="sm" onClick={() => { setSelectedProcessor(null); setFormData({}); setEditingIndex(null); }}>
               <Plus className="mr-1 h-4 w-4" /> Add Account
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {selectedProcessor ? `Connect ${processor?.name}` : "Choose Payment Processor"}
+                {isEditing ? `Edit ${processor?.name}` : selectedProcessor ? `Connect ${processor?.name}` : "Choose Payment Processor"}
               </DialogTitle>
             </DialogHeader>
 
-            {!selectedProcessor ? (
+            {!selectedProcessor && !isEditing ? (
               <div className="grid gap-3 sm:grid-cols-2">
                 {PROCESSORS.map((p) => (
                   <button
@@ -225,14 +259,16 @@ export const PaymentProcessorSetup = () => {
                 ))}
 
                 <div className="flex gap-2 pt-2">
-                  <Button variant="outline" onClick={() => setSelectedProcessor(null)}>
-                    Back
-                  </Button>
+                  {!isEditing && (
+                    <Button variant="outline" onClick={() => setSelectedProcessor(null)}>
+                      Back
+                    </Button>
+                  )}
                   <Button
                     onClick={handleAdd}
                     disabled={!processor?.fields.some((f) => formData[f.key]?.trim())}
                   >
-                    Connect {processor?.name}
+                    {isEditing ? `Save Changes` : `Connect ${processor?.name}`}
                   </Button>
                 </div>
               </div>
@@ -283,6 +319,14 @@ export const PaymentProcessorSetup = () => {
                       </Badge>
                     </div>
                     <div className="mt-2 flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => handleEdit(i)}
+                      >
+                        <Pencil className="mr-1 h-3 w-3" /> Edit
+                      </Button>
                       {!acc.is_primary && (
                         <Button
                           variant="ghost"
