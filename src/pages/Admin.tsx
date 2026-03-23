@@ -171,6 +171,10 @@ const Admin = () => {
               <ListChecks className="h-3 w-3 mr-1" />
               Job Queue
             </TabsTrigger>
+            <TabsTrigger value="scanner">
+              <ScanSearch className="h-3 w-3 mr-1" />
+              Web Scanner
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
