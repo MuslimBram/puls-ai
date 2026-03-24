@@ -62,9 +62,9 @@ serve(async (req) => {
       .select("user_id")
       .in("role", ["admin", "owner"]);
 
-    if (admins?.length) {
+    if (adminsAndOwners?.length) {
       await supabase.from("business_notifications").insert(
-        admins.map((admin) => ({
+        adminsAndOwners.map((admin) => ({
           user_id: admin.user_id,
           notification_type: "enterprise_lead",
           category: "billing",
