@@ -8808,6 +8808,12 @@ export type Database = {
       payout_requests: {
         Row: {
           admin_note: string | null
+          ai_fraud_reasons: Json | null
+          ai_fraud_score: number | null
+          ai_reviewed_at: string | null
+          bank_iban: string | null
+          bank_name: string | null
+          beneficiary_name: string | null
           created_at: string
           id: string
           partner_id: string
@@ -8820,6 +8826,12 @@ export type Database = {
         }
         Insert: {
           admin_note?: string | null
+          ai_fraud_reasons?: Json | null
+          ai_fraud_score?: number | null
+          ai_reviewed_at?: string | null
+          bank_iban?: string | null
+          bank_name?: string | null
+          beneficiary_name?: string | null
           created_at?: string
           id?: string
           partner_id: string
@@ -8832,6 +8844,12 @@ export type Database = {
         }
         Update: {
           admin_note?: string | null
+          ai_fraud_reasons?: Json | null
+          ai_fraud_score?: number | null
+          ai_reviewed_at?: string | null
+          bank_iban?: string | null
+          bank_name?: string | null
+          beneficiary_name?: string | null
           created_at?: string
           id?: string
           partner_id?: string
