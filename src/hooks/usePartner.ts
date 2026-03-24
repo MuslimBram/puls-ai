@@ -84,7 +84,7 @@ export const usePartnerReferrals = (partnerId: string | null) => {
           .in("workspace_id", wsIds) as any;
 
         const planPrices: Record<string, number> = {
-          standard: 29, professional: 79, advanced: 149, enterprise: 399,
+          standard: 49, professional: 99, advanced: 199, enterprise: 399,
         };
         totalRevenue = (subs || []).reduce((sum: number, s: any) => {
           return sum + (planPrices[s.plan_key] || 0);
