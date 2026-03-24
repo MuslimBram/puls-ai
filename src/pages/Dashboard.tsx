@@ -18,6 +18,7 @@ import { RevenueOpportunities } from "@/components/RevenueOpportunities";
 import { GrowthProgressIndicator } from "@/components/GrowthProgressIndicator";
 import { SafeRender } from "@/components/SafeRender";
 import { RoleDashboardWidgets } from "@/components/RoleDashboardWidgets";
+import { WithdrawalRequestPanel } from "@/components/WithdrawalRequestPanel";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
