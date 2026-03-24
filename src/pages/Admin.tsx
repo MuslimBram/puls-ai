@@ -176,6 +176,10 @@ const Admin = () => {
               <ScanSearch className="h-3 w-3 mr-1" />
               Web Scanner
             </TabsTrigger>
+            <TabsTrigger value="revenue-split">
+              <Handshake className="h-3 w-3 mr-1" />
+              Revenue Split
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
