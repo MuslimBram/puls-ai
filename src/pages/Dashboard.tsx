@@ -145,10 +145,15 @@ const Dashboard = () => {
           </SafeRender>
         </div>
 
-        {/* Revenue Opportunities */}
-        <SafeRender label="Revenue Opportunities">
-          <RevenueOpportunities />
-        </SafeRender>
+        {/* Revenue Wallet + Opportunities */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <SafeRender label="Revenue Wallet">
+            <RevenueWalletWidget walletType="owner" />
+          </SafeRender>
+          <SafeRender label="Revenue Opportunities">
+            <RevenueOpportunities />
+          </SafeRender>
+        </div>
 
         {/* Usage & Plan */}
         <Card>
