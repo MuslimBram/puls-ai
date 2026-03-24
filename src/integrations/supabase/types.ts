@@ -848,6 +848,53 @@ export type Database = {
           },
         ]
       }
+      asset_deactivation_requests: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          reason: string
+          requested_by: string
+          review_notes: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          reason: string
+          requested_by: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          requested_by?: string
+          review_notes?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_deactivation_requests_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "registered_assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assignment_rules: {
         Row: {
           created_at: string
@@ -5421,6 +5468,59 @@ export type Database = {
           },
         ]
       }
+      freelancer_business_relations: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          business_workspace_id: string
+          commission_rate: number
+          created_at: string
+          deactivated_at: string | null
+          deactivation_reason: string | null
+          freelancer_user_id: string
+          id: string
+          relation_type: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          business_workspace_id: string
+          commission_rate?: number
+          created_at?: string
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
+          freelancer_user_id: string
+          id?: string
+          relation_type: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          business_workspace_id?: string
+          commission_rate?: number
+          created_at?: string
+          deactivated_at?: string | null
+          deactivation_reason?: string | null
+          freelancer_user_id?: string
+          id?: string
+          relation_type?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "freelancer_business_relations_business_workspace_id_fkey"
+            columns: ["business_workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funnel_analytics: {
         Row: {
           campaign_impact_score: number | null
@@ -9862,6 +9962,59 @@ export type Database = {
           },
         ]
       }
+      registered_assets: {
+        Row: {
+          asset_identifier: string
+          asset_name: string | null
+          asset_type: string
+          created_at: string
+          deactivated_at: string | null
+          deactivated_by: string | null
+          deactivation_reason: string | null
+          id: string
+          is_active: boolean
+          registered_by: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          asset_identifier: string
+          asset_name?: string | null
+          asset_type: string
+          created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
+          id?: string
+          is_active?: boolean
+          registered_by: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          asset_identifier?: string
+          asset_name?: string | null
+          asset_type?: string
+          created_at?: string
+          deactivated_at?: string | null
+          deactivated_by?: string | null
+          deactivation_reason?: string | null
+          id?: string
+          is_active?: boolean
+          registered_by?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registered_assets_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reply_drafts: {
         Row: {
           created_at: string
@@ -12446,6 +12599,18 @@ export type Database = {
       bootstrap_user_account_for: {
         Args: { _user_id: string }
         Returns: undefined
+      }
+      check_asset_duplicate: {
+        Args: { _asset_identifier: string; _asset_type: string }
+        Returns: Json
+      }
+      check_freelancer_relation_eligibility: {
+        Args: {
+          _business_workspace_id: string
+          _freelancer_id: string
+          _requested_type: string
+        }
+        Returns: Json
       }
       check_rate_limit: {
         Args: {
