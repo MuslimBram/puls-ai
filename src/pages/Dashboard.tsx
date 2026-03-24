@@ -151,6 +151,11 @@ const Dashboard = () => {
           <RoleDashboardWidgets />
         </SafeRender>
 
+        {/* Portfolio & Withdrawal */}
+        <SafeRender label="Withdrawal Panel">
+          <WithdrawalRequestPanel />
+        </SafeRender>
+
         {/* Revenue Opportunities */}
         <SafeRender label="Revenue Opportunities">
           <RevenueOpportunities />
