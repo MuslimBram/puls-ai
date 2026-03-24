@@ -494,6 +494,10 @@ const Admin = () => {
           <TabsContent value="scanner">
             <AdminWebScanner />
           </TabsContent>
+
+          <TabsContent value="revenue-split">
+            <AdminRevenueSplitConfig />
+          </TabsContent>
         </Tabs>
       </div>
     </DashboardLayout>
