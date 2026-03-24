@@ -176,6 +176,10 @@ const Admin = () => {
               <ScanSearch className="h-3 w-3 mr-1" />
               Web Scanner
             </TabsTrigger>
+            <TabsTrigger value="withdrawals">
+              <Wallet className="h-3 w-3 mr-1" />
+              Tërheqjet
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
