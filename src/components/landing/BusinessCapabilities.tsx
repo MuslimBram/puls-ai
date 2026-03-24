@@ -63,7 +63,7 @@ const CAPABILITIES = [
   },
   {
     icon: BarChart3,
-    title: "Decide with Data",
+    title: "Decide With Data",
     points: [
       "See marketing ROI instantly",
       "Identify top-performing products",
@@ -87,7 +87,7 @@ const CAPABILITIES = [
 export const BusinessCapabilities = () => (
   <section className="border-t border-border bg-muted/30">
     <div className="container mx-auto px-4 py-20">
-      <div className="mb-12 text-center">
+      <div className="mb-12 text-center animate-on-scroll">
         <Badge className="mb-3 text-sm">For Businesses</Badge>
         <h2 className="mb-3 text-3xl font-bold text-foreground md:text-4xl">
           Everything a Business Needs to Grow
@@ -97,11 +97,11 @@ export const BusinessCapabilities = () => (
         </p>
       </div>
 
-      <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      <div className="mx-auto grid max-w-6xl gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 stagger-children">
         {CAPABILITIES.map((cap) => (
-          <Card key={cap.title} className="group transition-all hover:border-primary/40 hover:shadow-lg">
+          <Card key={cap.title} className="group hover-lift card-glow">
             <CardContent className="pt-6">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 transition-colors group-hover:bg-primary/20">
                 <cap.icon className="h-5 w-5 text-primary" />
               </div>
               <h3 className="mb-3 font-semibold text-foreground">{cap.title}</h3>

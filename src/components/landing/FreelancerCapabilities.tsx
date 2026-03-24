@@ -71,7 +71,7 @@ const CAPABILITIES = [
 export const FreelancerCapabilities = () => (
   <section className="border-t border-border">
     <div className="container mx-auto px-4 py-20">
-      <div className="mb-12 text-center">
+      <div className="mb-12 text-center animate-on-scroll">
         <Badge variant="secondary" className="mb-3 text-sm">For Freelancers & Partners</Badge>
         <h2 className="mb-3 text-3xl font-bold text-foreground md:text-4xl">
           Turn the Platform Into Your Business
@@ -81,12 +81,12 @@ export const FreelancerCapabilities = () => (
         </p>
       </div>
 
-      <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children">
         {CAPABILITIES.map((cap) => (
-          <Card key={cap.title} className="group transition-all hover:border-primary/40 hover:shadow-lg">
+          <Card key={cap.title} className="group hover-lift card-glow">
             <CardContent className="pt-6">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary">
-                <cap.icon className="h-5 w-5 text-foreground" />
+              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary transition-colors group-hover:bg-primary/10">
+                <cap.icon className="h-5 w-5 text-foreground group-hover:text-primary transition-colors" />
               </div>
               <h3 className="mb-3 font-semibold text-foreground">{cap.title}</h3>
               <ul className="mb-4 space-y-1.5">
