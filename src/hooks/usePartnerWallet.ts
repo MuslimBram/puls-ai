@@ -118,15 +118,32 @@ export const useRequestPayout = () => {
   const { toast } = useToast();
 
   return useMutation({
-    mutationFn: async ({ partnerId, amount, method }: { partnerId: string; amount: number; method?: string }) => {
-      const { error } = await supabase
+    mutationFn: async ({ partnerId, amount, method, bankName, iban, beneficiary }: {
+      partnerId: string; amount: number; method?: string;
+      bankName?: string; iban?: string; beneficiary?: string;
+    }) => {
+      const { data, error } = await supabase
         .from("payout_requests")
         .insert({
           partner_id: partnerId,
           requested_amount: amount,
           payout_method: method || "manual",
-        } as any);
+          bank_name: bankName || null,
+          bank_iban: iban || null,
+          beneficiary_name: beneficiary || null,
+        } as any)
+        .select()
+        .single();
       if (error) throw error;
+
+      // Trigger AI fraud check
+      try {
+        await supabase.functions.invoke("ai-fraud-check", {
+          body: { payout_request_id: (data as any).id },
+        });
+      } catch {
+        // Non-blocking - admin can manually trigger
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payout-requests"] });

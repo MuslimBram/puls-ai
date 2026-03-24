@@ -25,7 +25,7 @@ import { AdminApiErrorLog } from "@/components/AdminApiErrorLog";
 import { AdminDeadLetterPanel } from "@/components/AdminDeadLetterPanel";
 import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
 import { AdminRoleManager } from "@/components/AdminRoleManager";
-
+import { AdminWithdrawalApproval } from "@/components/AdminWithdrawalApproval";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -175,6 +175,10 @@ const Admin = () => {
             <TabsTrigger value="scanner">
               <ScanSearch className="h-3 w-3 mr-1" />
               Web Scanner
+            </TabsTrigger>
+            <TabsTrigger value="withdrawals">
+              <Wallet className="h-3 w-3 mr-1" />
+              Tërheqjet
             </TabsTrigger>
           </TabsList>
 
@@ -489,6 +493,10 @@ const Admin = () => {
 
           <TabsContent value="scanner">
             <AdminWebScanner />
+          </TabsContent>
+
+          <TabsContent value="withdrawals">
+            <AdminWithdrawalApproval />
           </TabsContent>
 
         </Tabs>
