@@ -25,10 +25,10 @@ export const PACKAGE_VARIANTS = [
 /** Freelancer/Referral partners use the same package discounts as everyone */
 export const FREELANCER_PACKAGE_VARIANTS = PACKAGE_VARIANTS;
 
-/** Freelancer referral commission: 20% lifetime on referred business payments */
-export const FREELANCER_COMMISSION_RATE = 20;
+/** Freelancer referral commission: 35% lifetime on referred business payments */
+export const FREELANCER_COMMISSION_RATE = 35;
 
-/** Business referral commission: 15% lifetime on referred business payments */
+/** Business referral discount: 15% on subscription for referred businesses */
 export const BUSINESS_REFERRAL_COMMISSION_RATE = 15;
 
 /** Minimum active referred businesses for freelancer to stay active */

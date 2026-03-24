@@ -17,7 +17,7 @@ import { RetentionHealthCard } from "@/components/RetentionHealthCard";
 import { RevenueOpportunities } from "@/components/RevenueOpportunities";
 import { GrowthProgressIndicator } from "@/components/GrowthProgressIndicator";
 import { SafeRender } from "@/components/SafeRender";
-import { RevenueWalletWidget } from "@/components/RevenueWalletWidget";
+import { RoleDashboardWidgets } from "@/components/RoleDashboardWidgets";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -145,15 +145,15 @@ const Dashboard = () => {
           </SafeRender>
         </div>
 
-        {/* Revenue Wallet + Opportunities */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          <SafeRender label="Revenue Wallet">
-            <RevenueWalletWidget walletType="owner" />
-          </SafeRender>
-          <SafeRender label="Revenue Opportunities">
-            <RevenueOpportunities />
-          </SafeRender>
-        </div>
+        {/* Role-specific widgets */}
+        <SafeRender label="Role Dashboard">
+          <RoleDashboardWidgets />
+        </SafeRender>
+
+        {/* Revenue Opportunities */}
+        <SafeRender label="Revenue Opportunities">
+          <RevenueOpportunities />
+        </SafeRender>
 
         {/* Usage & Plan */}
         <Card>
