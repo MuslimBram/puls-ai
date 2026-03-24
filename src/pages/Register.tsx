@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, User, Zap } from "lucide-react";
+import { Mail, Lock, User, Zap, Building2, Briefcase } from "lucide-react";
 import { lovable } from "@/integrations/lovable/index";
+
+type AccountType = "business" | "freelancer" | null;
 
 const Register = () => {
   const navigate = useNavigate();
@@ -16,30 +18,68 @@ const Register = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [accountType, setAccountType] = useState<AccountType>(null);
+  const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!accountType) {
+      toast.error("Please select an account type");
+      return;
+    }
     if (password.length < 6) {
       toast.error("Password must be at least 6 characters");
       return;
     }
     setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { full_name: fullName, ...(refCode ? { referral_code: refCode } : {}) },
-        emailRedirectTo: window.location.origin,
-      },
-    });
+    try {
+      // AI fraud analysis before signup
+      const { data: fraudData, error: fraudError } = await supabase.functions.invoke("ai-registration-check", {
+        body: {
+          full_name: fullName,
+          email,
+          account_type: accountType,
+          company_name: companyName || null,
+          referral_code: refCode || null,
+        },
+      });
 
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Check your email to confirm your account");
-      navigate("/login");
+      if (fraudError) {
+        console.error("AI fraud check error:", fraudError);
+        // Continue registration even if fraud check fails
+      }
+
+      if (fraudData?.blocked) {
+        toast.error("Registration could not be completed. Please contact support.");
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName,
+            account_type: accountType,
+            company_name: companyName || null,
+            ...(refCode ? { referral_code: refCode } : {}),
+            ...(fraudData?.risk_score !== undefined ? { ai_risk_score: fraudData.risk_score } : {}),
+          },
+          emailRedirectTo: window.location.origin,
+        },
+      });
+
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Check your email to confirm your account");
+        navigate("/login");
+      }
+    } catch (err) {
+      toast.error("Registration failed. Please try again.");
     }
     setLoading(false);
   };
@@ -56,6 +96,39 @@ const Register = () => {
         </CardHeader>
         <form onSubmit={handleRegister}>
           <CardContent className="space-y-4">
+            {/* Account Type Selection */}
+            <div className="space-y-2">
+              <Label>Account type</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAccountType("business")}
+                  className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                    accountType === "business"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  <Building2 className="h-6 w-6" />
+                  <span className="text-sm font-medium">Business</span>
+                  <span className="text-xs opacity-70">I have a company</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAccountType("freelancer")}
+                  className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition-all ${
+                    accountType === "freelancer"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  <Briefcase className="h-6 w-6" />
+                  <span className="text-sm font-medium">Freelancer</span>
+                  <span className="text-xs opacity-70">I work independently</span>
+                </button>
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Full name</Label>
               <div className="relative">
@@ -70,6 +143,23 @@ const Register = () => {
                 />
               </div>
             </div>
+
+            {accountType === "business" && (
+              <div className="space-y-2">
+                <Label htmlFor="company">Company name</Label>
+                <div className="relative">
+                  <Building2 className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="company"
+                    placeholder="Your company name"
+                    className="pl-9"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">
@@ -103,8 +193,8 @@ const Register = () => {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-3">
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Creating account..." : "Create account"}
+            <Button type="submit" className="w-full" disabled={loading || !accountType}>
+              {loading ? "Analyzing & creating account..." : "Create account"}
             </Button>
             <div className="relative w-full">
               <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
