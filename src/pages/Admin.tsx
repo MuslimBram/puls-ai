@@ -495,6 +495,10 @@ const Admin = () => {
             <AdminWebScanner />
           </TabsContent>
 
+          <TabsContent value="withdrawals">
+            <AdminWithdrawalApproval />
+          </TabsContent>
+
         </Tabs>
       </div>
     </DashboardLayout>
