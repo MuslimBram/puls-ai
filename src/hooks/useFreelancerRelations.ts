@@ -96,7 +96,7 @@ export const useFreelancerRelations = () => {
           status: "rejected",
           deactivation_reason: reason || "Refuzuar nga admini",
         } as any)
-        .eq("id", relationId);
+        .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
