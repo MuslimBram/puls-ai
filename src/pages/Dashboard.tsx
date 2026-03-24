@@ -17,7 +17,7 @@ import { RetentionHealthCard } from "@/components/RetentionHealthCard";
 import { RevenueOpportunities } from "@/components/RevenueOpportunities";
 import { GrowthProgressIndicator } from "@/components/GrowthProgressIndicator";
 import { SafeRender } from "@/components/SafeRender";
-import { RevenueWalletWidget } from "@/components/RevenueWalletWidget";
+
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
