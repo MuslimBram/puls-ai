@@ -82,8 +82,8 @@ export const AdminWithdrawalApproval = () => {
 
   const getFraudBadge = (score: number | null) => {
     if (score === null) return <Badge variant="outline" className="text-[10px]">Pa analizë</Badge>;
-    if (score <= 30) return <Badge variant="default" className="text-[10px] bg-green-600"><ShieldCheck className="h-3 w-3 mr-1" />I sigurt ({score})</Badge>;
-    if (score <= 60) return <Badge variant="secondary" className="text-[10px] bg-amber-500 text-white"><ShieldAlert className="h-3 w-3 mr-1" />Kujdes ({score})</Badge>;
+    if (score <= 30) return <Badge variant="default" className="text-[10px]"><ShieldCheck className="h-3 w-3 mr-1" />I sigurt ({score})</Badge>;
+    if (score <= 60) return <Badge variant="secondary" className="text-[10px]"><ShieldAlert className="h-3 w-3 mr-1" />Kujdes ({score})</Badge>;
     return <Badge variant="destructive" className="text-[10px]"><ShieldX className="h-3 w-3 mr-1" />Rrezik ({score})</Badge>;
   };
 

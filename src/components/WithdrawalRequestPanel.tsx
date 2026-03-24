@@ -138,7 +138,7 @@ export const WithdrawalRequestPanel = () => {
               </div>
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">
-              <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+              <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
               Çdo kërkesë analizohet nga AI para aprovimit për të siguruar legjitimitetin.
             </div>
             <Button onClick={handleSubmit} disabled={submitting} className="w-full">
