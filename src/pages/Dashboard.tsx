@@ -145,12 +145,15 @@ const Dashboard = () => {
           </SafeRender>
         </div>
 
+        {/* Role-specific widgets */}
+        <SafeRender label="Role Dashboard">
+          <RoleDashboardWidgets />
+        </SafeRender>
+
         {/* Revenue Opportunities */}
-        <div className="grid gap-4 lg:grid-cols-1">
-          <SafeRender label="Revenue Opportunities">
-            <RevenueOpportunities />
-          </SafeRender>
-        </div>
+        <SafeRender label="Revenue Opportunities">
+          <RevenueOpportunities />
+        </SafeRender>
 
         {/* Usage & Plan */}
         <Card>
