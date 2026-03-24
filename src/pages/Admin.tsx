@@ -25,7 +25,7 @@ import { AdminApiErrorLog } from "@/components/AdminApiErrorLog";
 import { AdminDeadLetterPanel } from "@/components/AdminDeadLetterPanel";
 import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
 import { AdminRoleManager } from "@/components/AdminRoleManager";
-import { AdminRevenueSplitConfig } from "@/components/AdminRevenueSplitConfig";
+
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
