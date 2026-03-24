@@ -8289,6 +8289,36 @@ export type Database = {
           },
         ]
       }
+      owner_wallets: {
+        Row: {
+          current_balance: number
+          id: string
+          lifetime_earnings: number
+          pending_amount: number
+          updated_at: string
+          user_id: string
+          wallet_type: string
+        }
+        Insert: {
+          current_balance?: number
+          id?: string
+          lifetime_earnings?: number
+          pending_amount?: number
+          updated_at?: string
+          user_id: string
+          wallet_type?: string
+        }
+        Update: {
+          current_balance?: number
+          id?: string
+          lifetime_earnings?: number
+          pending_amount?: number
+          updated_at?: string
+          user_id?: string
+          wallet_type?: string
+        }
+        Relationships: []
+      }
       partner_accounts: {
         Row: {
           billing_model: string
@@ -10380,6 +10410,90 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      revenue_split_config: {
+        Row: {
+          config_key: string
+          created_at: string
+          freelancer_percent: number
+          id: string
+          is_active: boolean
+          owner_percent: number
+          platform_percent: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          config_key?: string
+          created_at?: string
+          freelancer_percent?: number
+          id?: string
+          is_active?: boolean
+          owner_percent?: number
+          platform_percent?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          config_key?: string
+          created_at?: string
+          freelancer_percent?: number
+          id?: string
+          is_active?: boolean
+          owner_percent?: number
+          platform_percent?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      revenue_transactions: {
+        Row: {
+          amount: number
+          balance_after: number
+          commission_percent: number | null
+          created_at: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          reference_id: string | null
+          reference_type: string | null
+          source_payment_amount: number | null
+          transaction_type: string
+          user_id: string
+          wallet_type: string
+        }
+        Insert: {
+          amount: number
+          balance_after?: number
+          commission_percent?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          reference_id?: string | null
+          reference_type?: string | null
+          source_payment_amount?: number | null
+          transaction_type?: string
+          user_id: string
+          wallet_type?: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number
+          commission_percent?: number | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          reference_id?: string | null
+          reference_type?: string | null
+          source_payment_amount?: number | null
+          transaction_type?: string
+          user_id?: string
+          wallet_type?: string
+        }
+        Relationships: []
       }
       revenue_trend_snapshots: {
         Row: {
@@ -12654,6 +12768,15 @@ export type Database = {
         Returns: boolean
       }
       process_escalations: { Args: { _workspace_id: string }; Returns: Json }
+      process_revenue_split: {
+        Args: {
+          _business_workspace_id: string
+          _description?: string
+          _payment_amount: number
+          _payment_reference?: string
+        }
+        Returns: Json
+      }
       reset_daily_ai_replies: { Args: never; Returns: undefined }
       reset_expired_media_daily_usage: { Args: never; Returns: number }
       reset_monthly_usage: { Args: never; Returns: undefined }

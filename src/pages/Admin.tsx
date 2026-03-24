@@ -25,6 +25,7 @@ import { AdminApiErrorLog } from "@/components/AdminApiErrorLog";
 import { AdminDeadLetterPanel } from "@/components/AdminDeadLetterPanel";
 import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
 import { AdminRoleManager } from "@/components/AdminRoleManager";
+import { AdminRevenueSplitConfig } from "@/components/AdminRevenueSplitConfig";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -174,6 +175,10 @@ const Admin = () => {
             <TabsTrigger value="scanner">
               <ScanSearch className="h-3 w-3 mr-1" />
               Web Scanner
+            </TabsTrigger>
+            <TabsTrigger value="revenue-split">
+              <Handshake className="h-3 w-3 mr-1" />
+              Revenue Split
             </TabsTrigger>
           </TabsList>
 
@@ -488,6 +493,10 @@ const Admin = () => {
 
           <TabsContent value="scanner">
             <AdminWebScanner />
+          </TabsContent>
+
+          <TabsContent value="revenue-split">
+            <AdminRevenueSplitConfig />
           </TabsContent>
         </Tabs>
       </div>
