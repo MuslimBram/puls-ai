@@ -57,14 +57,14 @@ serve(async (req) => {
 
     if (leadError) throw leadError;
 
-    const { data: admins } = await supabase
+    const { data: adminsAndOwners } = await supabase
       .from("user_roles")
       .select("user_id")
-      .eq("role", "admin");
+      .in("role", ["admin", "owner"]);
 
-    if (admins?.length) {
+    if (adminsAndOwners?.length) {
       await supabase.from("business_notifications").insert(
-        admins.map((admin) => ({
+        adminsAndOwners.map((admin) => ({
           user_id: admin.user_id,
           notification_type: "enterprise_lead",
           category: "billing",
