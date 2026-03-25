@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AIChatWidget } from "@/components/AIChatWidget";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   Zap, MessageSquare, BarChart3, Bot, ArrowRight, Shield,
   Users, Target, Sparkles, CheckCircle2, Star, Phone,
@@ -33,6 +35,7 @@ const Index = () => {
   const { user, loading } = useAuth();
   const { plans } = useMonetizationCatalog();
   const scrollRef = useScrollAnimation();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
@@ -58,14 +61,15 @@ const Index = () => {
             <span className="text-lg font-bold text-foreground">Pulse AI</span>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             <Link to="/pricing">
-              <Button variant="ghost" size="sm">Pricing</Button>
+              <Button variant="ghost" size="sm">{t("landing.pricing")}</Button>
             </Link>
             <Link to="/login">
-              <Button variant="ghost" size="sm">Sign In</Button>
+              <Button variant="ghost" size="sm">{t("landing.signIn")}</Button>
             </Link>
             <Link to="/register">
-              <Button size="sm">Get Started</Button>
+              <Button size="sm">{t("landing.getStarted")}</Button>
             </Link>
           </div>
         </div>
@@ -74,25 +78,25 @@ const Index = () => {
       <main>
         {/* Hero */}
         <section className="container mx-auto px-4 py-20 text-center">
-          <Badge variant="secondary" className="mb-4 animate-fade-in-up">AI-Powered Lead Discovery</Badge>
+          <Badge variant="secondary" className="mb-4 animate-fade-in-up">{t("landing.aiPowered")}</Badge>
           <h1 className="mx-auto mb-4 max-w-4xl text-4xl font-bold leading-tight text-foreground md:text-5xl lg:text-6xl animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-            Turn Every Conversation Into a Business Opportunity
+            {t("landing.heroTitle")}
           </h1>
           <p className="mx-auto mb-8 max-w-xl text-lg text-muted-foreground animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-            Monitor channels, detect intent with AI, and respond instantly. All from one unified platform.
+            {t("landing.heroDesc")}
           </p>
           <div className="mb-4 flex items-center justify-center gap-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
             <Link to="/register">
               <Button size="lg" className="hover-lift">
-                Start Free Trial <ArrowRight className="ml-1 h-4 w-4" />
+                {t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             </Link>
             <Link to="/pricing">
-              <Button variant="outline" size="lg" className="hover-lift">View Pricing</Button>
+              <Button variant="outline" size="lg" className="hover-lift">{t("landing.viewPricing")}</Button>
             </Link>
           </div>
           <p className="text-xs text-muted-foreground animate-fade-in-up" style={{ animationDelay: "400ms" }}>
-            No credit card required · 7-day free trial
+            {t("landing.noCreditCard")}
           </p>
         </section>
 
@@ -101,27 +105,27 @@ const Index = () => {
           <div className="container mx-auto px-4 py-16">
             <div className="mx-auto grid max-w-5xl items-center gap-12 md:grid-cols-2">
               <div className="animate-on-scroll">
-                <Badge variant="destructive" className="mb-3">The Problem</Badge>
+                <Badge variant="destructive" className="mb-3">{t("landing.problemBadge")}</Badge>
                 <h2 className="mb-3 text-2xl font-bold text-foreground">
-                  Leads Slip Through the Cracks
+                  {t("landing.problemTitle")}
                 </h2>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> Scattered conversations across channels</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> Slow response times lose deals</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> No visibility into lead quality or intent</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> Manual follow-ups don't scale</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.scattered")}</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.slow")}</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.noVisibility")}</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.manual")}</li>
                 </ul>
               </div>
               <div className="animate-on-scroll" style={{ transitionDelay: "150ms" }}>
-                <Badge className="mb-3">The Solution</Badge>
+                <Badge className="mb-3">{t("landing.solutionBadge")}</Badge>
                 <h2 className="mb-3 text-2xl font-bold text-foreground">
-                  One Platform. Full Control.
+                  {t("landing.solutionTitle")}
                 </h2>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> Unified inbox for all channels</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> AI analyzes and scores every lead</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> Automated responses in your brand voice</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> CRM pipeline tracks every deal</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.unified")}</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.aiScores")}</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.automated")}</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.crm")}</li>
                 </ul>
               </div>
             </div>
@@ -131,20 +135,20 @@ const Index = () => {
         {/* Features Grid */}
         <section className="container mx-auto px-4 py-16">
           <div className="mb-12 text-center animate-on-scroll">
-            <h2 className="mb-2 text-3xl font-bold text-foreground">Everything You Need to Grow</h2>
-            <p className="mx-auto max-w-lg text-muted-foreground">Built for businesses that want to capture, qualify, and convert leads faster.</p>
+            <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.featuresTitle")}</h2>
+            <p className="mx-auto max-w-lg text-muted-foreground">{t("landing.featuresDesc")}</p>
           </div>
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children">
             {[
-              { icon: MessageSquare, title: "Unified Inbox", desc: "Telegram, Email, WhatsApp, Website Chat — all in one place." },
-              { icon: Bot, title: "Dedicated AI", desc: "AI that knows your business and responds to customers automatically." },
-              { icon: BarChart3, title: "Smart Analytics", desc: "Track lead quality, response times, and conversion rates." },
-              { icon: Target, title: "Lead Discovery", desc: "AI monitors channels and discovers potential leads for you." },
-              { icon: Users, title: "CRM Pipeline", desc: "Full deal pipeline with stages, tasks, and activity tracking." },
-              { icon: Shield, title: "Competitor Intel", desc: "Monitor competitors and get strategic positioning insights." },
-              { icon: Sparkles, title: "Campaign Builder", desc: "AI-generated marketing campaigns with content strategy." },
-              { icon: Phone, title: "Call Tracking", desc: "Log calls, get AI summaries, and track follow-ups." },
-              { icon: Zap, title: "Automation Engine", desc: "Trigger workflows on lead events, messages, and more." },
+              { icon: MessageSquare, title: t("landing.features.unifiedInbox"), desc: t("landing.features.unifiedInboxDesc") },
+              { icon: Bot, title: t("landing.features.dedicatedAI"), desc: t("landing.features.dedicatedAIDesc") },
+              { icon: BarChart3, title: t("landing.features.smartAnalytics"), desc: t("landing.features.smartAnalyticsDesc") },
+              { icon: Target, title: t("landing.features.leadDiscovery"), desc: t("landing.features.leadDiscoveryDesc") },
+              { icon: Users, title: t("landing.features.crmPipeline"), desc: t("landing.features.crmPipelineDesc") },
+              { icon: Shield, title: t("landing.features.competitorIntel"), desc: t("landing.features.competitorIntelDesc") },
+              { icon: Sparkles, title: t("landing.features.campaignBuilder"), desc: t("landing.features.campaignBuilderDesc") },
+              { icon: Phone, title: t("landing.features.callTracking"), desc: t("landing.features.callTrackingDesc") },
+              { icon: Zap, title: t("landing.features.automationEngine"), desc: t("landing.features.automationEngineDesc") },
             ].map((f) => (
               <div key={f.title} className="rounded-xl border border-border p-6 hover-lift card-glow">
                 <f.icon className="mb-3 h-8 w-8 text-primary" />
@@ -163,23 +167,23 @@ const Index = () => {
         <section className="border-t border-border bg-muted/30">
           <div className="container mx-auto px-4 py-16 text-center">
             <div className="animate-on-scroll">
-              <h2 className="mb-2 text-3xl font-bold text-foreground">Live Pricing From the Product Catalog</h2>
-              <p className="mb-8 text-muted-foreground">Plans, labels, and pricing stay aligned with the backend.</p>
+              <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.pricingTitle")}</h2>
+              <p className="mb-8 text-muted-foreground">{t("landing.pricingDesc")}</p>
             </div>
             <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
               {plans.slice(0, 4).map((plan) => (
                 <Card key={plan.key} className={`hover-lift card-glow ${plan.highlighted ? "border-primary ring-1 ring-primary" : ""}`}>
                   <CardContent className="pt-6 text-center">
-                    {plan.highlighted && <Badge className="mb-2">Recommended</Badge>}
+                    {plan.highlighted && <Badge className="mb-2">{t("landing.recommended")}</Badge>}
                     <h3 className="font-semibold text-foreground">{plan.name}</h3>
-                    <p className="my-1 text-2xl font-bold text-foreground">{plan.key === "enterprise" ? "Custom" : `€${plan.monthlyPrice}`}</p>
+                    <p className="my-1 text-2xl font-bold text-foreground">{plan.key === "enterprise" ? t("landing.custom") : `€${plan.monthlyPrice}`}</p>
                     <p className="mb-3 text-xs text-muted-foreground">{plan.description}</p>
                   </CardContent>
                 </Card>
               ))}
             </div>
             <Link to="/pricing">
-              <Button variant="outline" className="mt-6 hover-lift">Compare Plans <ArrowRight className="ml-1 h-4 w-4" /></Button>
+              <Button variant="outline" className="mt-6 hover-lift">{t("landing.comparePlans")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </Link>
           </div>
         </section>
@@ -189,24 +193,20 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-background to-primary/5" />
           <div className="container relative mx-auto px-4 py-16">
             <div className="mb-10 text-center animate-on-scroll">
-              <h2 className="mb-2 text-3xl font-bold text-foreground">Trusted by Growing Businesses</h2>
-              <p className="text-muted-foreground">See what our customers say.</p>
+              <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.testimonialsTitle")}</h2>
+              <p className="text-muted-foreground">{t("landing.testimonialsDesc")}</p>
             </div>
             <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3 stagger-children">
-              {[
-                { name: "Sarah K.", role: "Marketing Director", quote: "Pulse AI transformed how we handle inbound leads. Response times dropped by 80%." },
-                { name: "Michael R.", role: "Agency Owner", quote: "The AI assistant feels like a team member. It handles initial conversations perfectly." },
-                { name: "Elena T.", role: "Sales Manager", quote: "We discovered 3x more qualified leads within the first month of using the platform." },
-              ].map((t) => (
-                <Card key={t.name} className="hover-lift card-glow">
+              {(t("landing.testimonials", { returnObjects: true }) as Array<{name: string; role: string; quote: string}>).map((tst) => (
+                <Card key={tst.name} className="hover-lift card-glow">
                   <CardContent className="pt-6">
                     <div className="mb-3 flex gap-0.5">
                       {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-primary text-primary" />)}
                     </div>
-                    <p className="mb-4 text-sm italic text-muted-foreground">"{t.quote}"</p>
+                    <p className="mb-4 text-sm italic text-muted-foreground">"{tst.quote}"</p>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}</p>
+                      <p className="text-sm font-medium text-foreground">{tst.name}</p>
+                      <p className="text-xs text-muted-foreground">{tst.role}</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -218,45 +218,26 @@ const Index = () => {
         {/* Community Marquee */}
         <section className="border-t border-border bg-muted/20 py-16">
           <div className="mb-8 text-center animate-on-scroll">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">Join Our Community of Successful Business Owners</h2>
-            <p className="text-muted-foreground">Thousands of businesses and freelancers growing together.</p>
+            <h2 className="mb-2 text-2xl font-bold text-foreground">{t("landing.communityTitle")}</h2>
+            <p className="text-muted-foreground">{t("landing.communityDesc")}</p>
           </div>
-
-          {/* Marquee Row 1 */}
           <div className="marquee-container mb-4">
             <div className="marquee-track animate-marquee">
               {[...COMMUNITY_PHOTOS, ...COMMUNITY_PHOTOS].map((src, i) => (
-                <img
-                  key={`r1-${i}`}
-                  src={src}
-                  alt="Community member"
-                  className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md"
-                  loading="lazy"
-                />
+                <img key={`r1-${i}`} src={src} alt="Community member" className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md" loading="lazy" />
               ))}
             </div>
           </div>
-
-          {/* Marquee Row 2 (reverse) */}
           <div className="marquee-container mb-8">
             <div className="marquee-track animate-marquee-reverse">
               {[...COMMUNITY_PHOTOS.slice().reverse(), ...COMMUNITY_PHOTOS.slice().reverse()].map((src, i) => (
-                <img
-                  key={`r2-${i}`}
-                  src={src}
-                  alt="Community member"
-                  className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md"
-                  loading="lazy"
-                />
+                <img key={`r2-${i}`} src={src} alt="Community member" className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md" loading="lazy" />
               ))}
             </div>
           </div>
-
           <div className="text-center animate-on-scroll">
             <Link to="/register">
-              <Button size="lg" className="hover-lift">
-                Start Free Trial <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
+              <Button size="lg" className="hover-lift">{t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </Link>
           </div>
         </section>
@@ -265,14 +246,10 @@ const Index = () => {
         <section className="border-t border-border relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5" />
           <div className="container relative mx-auto px-4 py-16 text-center animate-on-scroll">
-            <h2 className="mb-3 text-3xl font-bold text-foreground">Ready to Capture More Leads?</h2>
-            <p className="mx-auto mb-6 max-w-md text-muted-foreground">
-              Join businesses using Pulse AI to discover, qualify, and convert leads with AI.
-            </p>
+            <h2 className="mb-3 text-3xl font-bold text-foreground">{t("landing.ctaTitle")}</h2>
+            <p className="mx-auto mb-6 max-w-md text-muted-foreground">{t("landing.ctaDesc")}</p>
             <Link to="/register">
-              <Button size="lg" className="hover-lift">
-                Start Free Trial <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
+              <Button size="lg" className="hover-lift">{t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </Link>
           </div>
         </section>
@@ -286,7 +263,7 @@ const Index = () => {
             </div>
             <span className="font-medium text-foreground">Pulse AI</span>
           </div>
-          <p>© {new Date().getFullYear()} Pulse AI. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Pulse AI. {t("landing.allRightsReserved")}</p>
         </div>
       </footer>
 
