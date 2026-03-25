@@ -78,25 +78,25 @@ const Index = () => {
       <main>
         {/* Hero */}
         <section className="container mx-auto px-4 py-20 text-center">
-          <Badge variant="secondary" className="mb-4 animate-fade-in-up">AI-Powered Lead Discovery</Badge>
+          <Badge variant="secondary" className="mb-4 animate-fade-in-up">{t("landing.aiPowered")}</Badge>
           <h1 className="mx-auto mb-4 max-w-4xl text-4xl font-bold leading-tight text-foreground md:text-5xl lg:text-6xl animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-            Turn Every Conversation Into a Business Opportunity
+            {t("landing.heroTitle")}
           </h1>
           <p className="mx-auto mb-8 max-w-xl text-lg text-muted-foreground animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-            Monitor channels, detect intent with AI, and respond instantly. All from one unified platform.
+            {t("landing.heroDesc")}
           </p>
           <div className="mb-4 flex items-center justify-center gap-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
             <Link to="/register">
               <Button size="lg" className="hover-lift">
-                Start Free Trial <ArrowRight className="ml-1 h-4 w-4" />
+                {t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             </Link>
             <Link to="/pricing">
-              <Button variant="outline" size="lg" className="hover-lift">View Pricing</Button>
+              <Button variant="outline" size="lg" className="hover-lift">{t("landing.viewPricing")}</Button>
             </Link>
           </div>
           <p className="text-xs text-muted-foreground animate-fade-in-up" style={{ animationDelay: "400ms" }}>
-            No credit card required · 7-day free trial
+            {t("landing.noCreditCard")}
           </p>
         </section>
 
