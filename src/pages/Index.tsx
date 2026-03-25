@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AIChatWidget } from "@/components/AIChatWidget";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
   Zap, MessageSquare, BarChart3, Bot, ArrowRight, Shield,
   Users, Target, Sparkles, CheckCircle2, Star, Phone,
@@ -33,6 +35,7 @@ const Index = () => {
   const { user, loading } = useAuth();
   const { plans } = useMonetizationCatalog();
   const scrollRef = useScrollAnimation();
+  const { t } = useTranslation();
 
   if (loading) {
     return (
@@ -58,14 +61,15 @@ const Index = () => {
             <span className="text-lg font-bold text-foreground">Pulse AI</span>
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             <Link to="/pricing">
-              <Button variant="ghost" size="sm">Pricing</Button>
+              <Button variant="ghost" size="sm">{t("landing.pricing")}</Button>
             </Link>
             <Link to="/login">
-              <Button variant="ghost" size="sm">Sign In</Button>
+              <Button variant="ghost" size="sm">{t("landing.signIn")}</Button>
             </Link>
             <Link to="/register">
-              <Button size="sm">Get Started</Button>
+              <Button size="sm">{t("landing.getStarted")}</Button>
             </Link>
           </div>
         </div>
