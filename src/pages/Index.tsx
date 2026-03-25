@@ -218,45 +218,26 @@ const Index = () => {
         {/* Community Marquee */}
         <section className="border-t border-border bg-muted/20 py-16">
           <div className="mb-8 text-center animate-on-scroll">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">Join Our Community of Successful Business Owners</h2>
-            <p className="text-muted-foreground">Thousands of businesses and freelancers growing together.</p>
+            <h2 className="mb-2 text-2xl font-bold text-foreground">{t("landing.communityTitle")}</h2>
+            <p className="text-muted-foreground">{t("landing.communityDesc")}</p>
           </div>
-
-          {/* Marquee Row 1 */}
           <div className="marquee-container mb-4">
             <div className="marquee-track animate-marquee">
               {[...COMMUNITY_PHOTOS, ...COMMUNITY_PHOTOS].map((src, i) => (
-                <img
-                  key={`r1-${i}`}
-                  src={src}
-                  alt="Community member"
-                  className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md"
-                  loading="lazy"
-                />
+                <img key={`r1-${i}`} src={src} alt="Community member" className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md" loading="lazy" />
               ))}
             </div>
           </div>
-
-          {/* Marquee Row 2 (reverse) */}
           <div className="marquee-container mb-8">
             <div className="marquee-track animate-marquee-reverse">
               {[...COMMUNITY_PHOTOS.slice().reverse(), ...COMMUNITY_PHOTOS.slice().reverse()].map((src, i) => (
-                <img
-                  key={`r2-${i}`}
-                  src={src}
-                  alt="Community member"
-                  className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md"
-                  loading="lazy"
-                />
+                <img key={`r2-${i}`} src={src} alt="Community member" className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md" loading="lazy" />
               ))}
             </div>
           </div>
-
           <div className="text-center animate-on-scroll">
             <Link to="/register">
-              <Button size="lg" className="hover-lift">
-                Start Free Trial <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
+              <Button size="lg" className="hover-lift">{t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </Link>
           </div>
         </section>
@@ -265,14 +246,10 @@ const Index = () => {
         <section className="border-t border-border relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5" />
           <div className="container relative mx-auto px-4 py-16 text-center animate-on-scroll">
-            <h2 className="mb-3 text-3xl font-bold text-foreground">Ready to Capture More Leads?</h2>
-            <p className="mx-auto mb-6 max-w-md text-muted-foreground">
-              Join businesses using Pulse AI to discover, qualify, and convert leads with AI.
-            </p>
+            <h2 className="mb-3 text-3xl font-bold text-foreground">{t("landing.ctaTitle")}</h2>
+            <p className="mx-auto mb-6 max-w-md text-muted-foreground">{t("landing.ctaDesc")}</p>
             <Link to="/register">
-              <Button size="lg" className="hover-lift">
-                Start Free Trial <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
+              <Button size="lg" className="hover-lift">{t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </Link>
           </div>
         </section>
@@ -286,7 +263,7 @@ const Index = () => {
             </div>
             <span className="font-medium text-foreground">Pulse AI</span>
           </div>
-          <p>© {new Date().getFullYear()} Pulse AI. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} Pulse AI. {t("landing.allRightsReserved")}</p>
         </div>
       </footer>
 
