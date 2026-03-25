@@ -10,7 +10,7 @@ import { Mail, Lock, Zap, ShieldCheck, Loader2, RefreshCw, Smartphone, AlertTria
 import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/contexts/AuthContext";
 
-type TwoFAMethod = "choose" | "authenticator" | "email";
+type TwoFAMethod = "choose" | "authenticator" | "authenticator_enroll" | "email";
 
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
@@ -26,6 +26,11 @@ const Login = () => {
   const [verifying2FA, setVerifying2FA] = useState(false);
   const [maskedEmail, setMaskedEmail] = useState("");
   const [resending, setResending] = useState(false);
+
+  // TOTP enrollment state
+  const [qrCode, setQrCode] = useState("");
+  const [totpSecret, setTotpSecret] = useState("");
+  const [enrolling, setEnrolling] = useState(false);
 
   if (authLoading) {
     return (
@@ -61,14 +66,43 @@ const Login = () => {
       return;
     }
 
-    // Show 2FA method chooser
     setNeeds2FA(true);
     setTwoFAMethod("choose");
     setLoading(false);
   };
 
-  const handleChooseAuthenticator = () => {
-    setTwoFAMethod("authenticator");
+  const handleChooseAuthenticator = async () => {
+    setEnrolling(true);
+    try {
+      // Check if TOTP is already enrolled
+      const { data: statusData } = await supabase.functions.invoke("totp-manage", {
+        body: { action: "check_totp_status" },
+      });
+
+      if (statusData?.enrolled) {
+        // Already enrolled, go to code input
+        setTwoFAMethod("authenticator");
+        setOtpCode("");
+      } else {
+        // Not enrolled, start enrollment
+        const { data: enrollData, error: enrollError } = await supabase.functions.invoke("totp-manage", {
+          body: { action: "enroll" },
+        });
+
+        if (enrollError || enrollData?.error) {
+          toast.error(enrollData?.error || "Gabim gjatë regjistrimit të Authenticator");
+          setEnrolling(false);
+          return;
+        }
+
+        setQrCode(enrollData.qrCode);
+        setTotpSecret(enrollData.secret);
+        setTwoFAMethod("authenticator_enroll");
+      }
+    } catch {
+      toast.error("Gabim gjatë kontrollit të Authenticator");
+    }
+    setEnrolling(false);
     setOtpCode("");
   };
 
@@ -78,14 +112,18 @@ const Login = () => {
     const result = await sendOTPCode();
     if (result) {
       setMaskedEmail(result.email || email);
-      toast.success("Kodi u dërgua në email-in tuaj");
+      if (result.sent) {
+        toast.success("Kodi u dërgua në email-in tuaj");
+      } else {
+        toast.error("Email nuk u dërgua. Kontrolloni konfigurimin e email-it.");
+      }
     }
   };
 
   const handleResendCode = async () => {
     setResending(true);
     const result = await sendOTPCode();
-    if (result) {
+    if (result?.sent) {
       toast.success("Kodi i ri u dërgua në email");
     }
     setResending(false);
@@ -94,7 +132,15 @@ const Login = () => {
   const handle2FAVerify = async () => {
     setVerifying2FA(true);
     try {
-      const action = twoFAMethod === "authenticator" ? "verify_totp" : "verify_code";
+      let action: string;
+      if (twoFAMethod === "authenticator_enroll") {
+        action = "verify_enroll";
+      } else if (twoFAMethod === "authenticator") {
+        action = "verify_totp";
+      } else {
+        action = "verify_code";
+      }
+
       const { data, error } = await supabase.functions.invoke("totp-manage", {
         body: { action, token: otpCode },
       });
@@ -105,6 +151,7 @@ const Login = () => {
         return;
       }
 
+      toast.success("Verifikimi u krye me sukses!");
       navigate("/dashboard");
     } catch {
       toast.error("Gabim gjatë verifikimit");
@@ -118,6 +165,8 @@ const Login = () => {
     setTwoFAMethod("choose");
     setOtpCode("");
     setMaskedEmail("");
+    setQrCode("");
+    setTotpSecret("");
   };
 
   // 2FA method chooser
@@ -137,18 +186,23 @@ const Login = () => {
               variant="outline"
               className="w-full h-auto py-4 flex items-start gap-4 justify-start text-left"
               onClick={handleChooseAuthenticator}
+              disabled={enrolling}
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                <Smartphone className="h-5 w-5 text-primary" />
+                {enrolling ? (
+                  <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                ) : (
+                  <Smartphone className="h-5 w-5 text-primary" />
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">Google Authenticator</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Përdorni aplikacionin Authenticator në telefonin tuaj — më e sigurt
+                  Përdorni aplikacionin Authenticator në telefonin tuaj
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <ShieldCheck className="h-3 w-3 text-green-500" />
-                  <span className="text-[10px] text-green-600 font-medium">E rekomanduar</span>
+                  <span className="text-[10px] text-green-600 font-medium">E rekomanduar · Më e sigurt</span>
                 </div>
               </div>
             </Button>
@@ -183,7 +237,82 @@ const Login = () => {
     );
   }
 
-  // 2FA code input (both methods)
+  // TOTP enrollment screen - show QR code
+  if (needs2FA && twoFAMethod === "authenticator_enroll") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+              <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <CardTitle className="text-xl">Konfiguro Google Authenticator</CardTitle>
+            <CardDescription>
+              Skanoni kodin QR me aplikacionin Google Authenticator ose futni kodin manual
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* QR Code */}
+            {qrCode && (
+              <div className="flex justify-center">
+                <div className="rounded-xl border border-border bg-white p-4">
+                  <img src={qrCode} alt="QR Code për Authenticator" className="h-48 w-48" />
+                </div>
+              </div>
+            )}
+
+            {/* Manual secret */}
+            {totpSecret && (
+              <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
+                <p className="text-xs text-muted-foreground mb-1">Kodi manual:</p>
+                <p className="font-mono text-sm font-bold text-foreground tracking-wider break-all select-all">
+                  {totpSecret}
+                </p>
+              </div>
+            )}
+
+            {/* Verification code input */}
+            <div className="space-y-2">
+              <Label htmlFor="enroll-otp">Futni kodin 6-shifror nga Authenticator</Label>
+              <Input
+                id="enroll-otp"
+                placeholder="000000"
+                value={otpCode}
+                onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                maxLength={6}
+                className="text-center text-xl font-mono tracking-[0.5em]"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && otpCode.length === 6) handle2FAVerify();
+                }}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-3">
+            <Button
+              className="w-full"
+              onClick={handle2FAVerify}
+              disabled={otpCode.length !== 6 || verifying2FA}
+            >
+              {verifying2FA ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Po verifikon...</>
+              ) : (
+                "Verifiko & Aktivizo"
+              )}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => setTwoFAMethod("choose")}>
+              ← Kthehu te metodat
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={handleCancel2FA}>
+              Anullo
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
+  // 2FA code input (authenticator or email)
   if (needs2FA && (twoFAMethod === "authenticator" || twoFAMethod === "email")) {
     const isEmail = twoFAMethod === "email";
     return (

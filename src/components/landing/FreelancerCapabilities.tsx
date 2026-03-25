@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import {
   DollarSign, Wrench, Megaphone, Headphones,
   Building2, Globe, Zap, TrendingUp,
@@ -68,40 +69,43 @@ const CAPABILITIES = [
   },
 ];
 
-export const FreelancerCapabilities = () => (
-  <section className="border-t border-border">
-    <div className="container mx-auto px-4 py-20">
-      <div className="mb-12 text-center animate-on-scroll">
-        <Badge variant="secondary" className="mb-3 text-sm">For Freelancers & Partners</Badge>
-        <h2 className="mb-3 text-3xl font-bold text-foreground md:text-4xl">
-          Turn the Platform Into Your Business
-        </h2>
-        <p className="mx-auto max-w-2xl text-muted-foreground">
-          Become a sales arm, marketing arm, and support arm — all at once. Scale from freelancer to agency partner.
-        </p>
-      </div>
+export const FreelancerCapabilities = () => {
+  const scrollRef = useScrollAnimation();
+  return (
+    <section className="border-t border-border" ref={scrollRef}>
+      <div className="container mx-auto px-4 py-20">
+        <div className="mb-12 text-center animate-on-scroll">
+          <Badge variant="secondary" className="mb-3 text-sm">For Freelancers & Partners</Badge>
+          <h2 className="mb-3 text-3xl font-bold text-foreground md:text-4xl">
+            Turn the Platform Into Your Business
+          </h2>
+          <p className="mx-auto max-w-2xl text-muted-foreground">
+            Become a sales arm, marketing arm, and support arm — all at once. Scale from freelancer to agency partner.
+          </p>
+        </div>
 
-      <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children">
-        {CAPABILITIES.map((cap) => (
-          <Card key={cap.title} className="group hover-lift card-glow">
-            <CardContent className="pt-6">
-              <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary transition-colors group-hover:bg-primary/10">
-                <cap.icon className="h-5 w-5 text-foreground group-hover:text-primary transition-colors" />
-              </div>
-              <h3 className="mb-3 font-semibold text-foreground">{cap.title}</h3>
-              <ul className="mb-4 space-y-1.5">
-                {cap.points.map((p) => (
-                  <li key={p} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <TrendingUp className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
-                    {p}
-                  </li>
-                ))}
-              </ul>
-              <p className="text-xs font-medium text-primary">{cap.result}</p>
-            </CardContent>
-          </Card>
-        ))}
+        <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children">
+          {CAPABILITIES.map((cap) => (
+            <Card key={cap.title} className="group hover-lift card-glow">
+              <CardContent className="pt-6">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-secondary transition-colors group-hover:bg-primary/10">
+                  <cap.icon className="h-5 w-5 text-foreground group-hover:text-primary transition-colors" />
+                </div>
+                <h3 className="mb-3 font-semibold text-foreground">{cap.title}</h3>
+                <ul className="mb-4 space-y-1.5">
+                  {cap.points.map((p) => (
+                    <li key={p} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <TrendingUp className="mt-0.5 h-3 w-3 shrink-0 text-primary" />
+                      {p}
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs font-medium text-primary">{cap.result}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
