@@ -121,4 +121,5 @@ export const BusinessCapabilities = () => (
       </div>
     </div>
   </section>
-);
+  );
+};

@@ -105,4 +105,5 @@ export const FreelancerCapabilities = () => (
       </div>
     </div>
   </section>
-);
+  );
+};
