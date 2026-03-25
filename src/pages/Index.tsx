@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { BusinessCapabilities } from "@/components/landing/BusinessCapabilities";
 import { FreelancerCapabilities } from "@/components/landing/FreelancerCapabilities";
+import { CompetitorComparison } from "@/components/landing/CompetitorComparison";
 
 const COMMUNITY_PHOTOS = [
   "https://images.unsplash.com/photo-1494790108755-2616b612b786?w=120&h=120&fit=crop&crop=face",
