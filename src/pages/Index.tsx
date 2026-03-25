@@ -105,27 +105,27 @@ const Index = () => {
           <div className="container mx-auto px-4 py-16">
             <div className="mx-auto grid max-w-5xl items-center gap-12 md:grid-cols-2">
               <div className="animate-on-scroll">
-                <Badge variant="destructive" className="mb-3">The Problem</Badge>
+                <Badge variant="destructive" className="mb-3">{t("landing.problemBadge")}</Badge>
                 <h2 className="mb-3 text-2xl font-bold text-foreground">
-                  Leads Slip Through the Cracks
+                  {t("landing.problemTitle")}
                 </h2>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> Scattered conversations across channels</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> Slow response times lose deals</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> No visibility into lead quality or intent</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> Manual follow-ups don't scale</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.scattered")}</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.slow")}</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.noVisibility")}</li>
+                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.manual")}</li>
                 </ul>
               </div>
               <div className="animate-on-scroll" style={{ transitionDelay: "150ms" }}>
-                <Badge className="mb-3">The Solution</Badge>
+                <Badge className="mb-3">{t("landing.solutionBadge")}</Badge>
                 <h2 className="mb-3 text-2xl font-bold text-foreground">
-                  One Platform. Full Control.
+                  {t("landing.solutionTitle")}
                 </h2>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> Unified inbox for all channels</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> AI analyzes and scores every lead</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> Automated responses in your brand voice</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> CRM pipeline tracks every deal</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.unified")}</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.aiScores")}</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.automated")}</li>
+                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.crm")}</li>
                 </ul>
               </div>
             </div>
@@ -135,20 +135,20 @@ const Index = () => {
         {/* Features Grid */}
         <section className="container mx-auto px-4 py-16">
           <div className="mb-12 text-center animate-on-scroll">
-            <h2 className="mb-2 text-3xl font-bold text-foreground">Everything You Need to Grow</h2>
-            <p className="mx-auto max-w-lg text-muted-foreground">Built for businesses that want to capture, qualify, and convert leads faster.</p>
+            <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.featuresTitle")}</h2>
+            <p className="mx-auto max-w-lg text-muted-foreground">{t("landing.featuresDesc")}</p>
           </div>
           <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children">
             {[
-              { icon: MessageSquare, title: "Unified Inbox", desc: "Telegram, Email, WhatsApp, Website Chat — all in one place." },
-              { icon: Bot, title: "Dedicated AI", desc: "AI that knows your business and responds to customers automatically." },
-              { icon: BarChart3, title: "Smart Analytics", desc: "Track lead quality, response times, and conversion rates." },
-              { icon: Target, title: "Lead Discovery", desc: "AI monitors channels and discovers potential leads for you." },
-              { icon: Users, title: "CRM Pipeline", desc: "Full deal pipeline with stages, tasks, and activity tracking." },
-              { icon: Shield, title: "Competitor Intel", desc: "Monitor competitors and get strategic positioning insights." },
-              { icon: Sparkles, title: "Campaign Builder", desc: "AI-generated marketing campaigns with content strategy." },
-              { icon: Phone, title: "Call Tracking", desc: "Log calls, get AI summaries, and track follow-ups." },
-              { icon: Zap, title: "Automation Engine", desc: "Trigger workflows on lead events, messages, and more." },
+              { icon: MessageSquare, title: t("landing.features.unifiedInbox"), desc: t("landing.features.unifiedInboxDesc") },
+              { icon: Bot, title: t("landing.features.dedicatedAI"), desc: t("landing.features.dedicatedAIDesc") },
+              { icon: BarChart3, title: t("landing.features.smartAnalytics"), desc: t("landing.features.smartAnalyticsDesc") },
+              { icon: Target, title: t("landing.features.leadDiscovery"), desc: t("landing.features.leadDiscoveryDesc") },
+              { icon: Users, title: t("landing.features.crmPipeline"), desc: t("landing.features.crmPipelineDesc") },
+              { icon: Shield, title: t("landing.features.competitorIntel"), desc: t("landing.features.competitorIntelDesc") },
+              { icon: Sparkles, title: t("landing.features.campaignBuilder"), desc: t("landing.features.campaignBuilderDesc") },
+              { icon: Phone, title: t("landing.features.callTracking"), desc: t("landing.features.callTrackingDesc") },
+              { icon: Zap, title: t("landing.features.automationEngine"), desc: t("landing.features.automationEngineDesc") },
             ].map((f) => (
               <div key={f.title} className="rounded-xl border border-border p-6 hover-lift card-glow">
                 <f.icon className="mb-3 h-8 w-8 text-primary" />
