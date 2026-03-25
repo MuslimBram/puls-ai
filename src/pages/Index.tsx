@@ -157,6 +157,7 @@ const Index = () => {
 
         <BusinessCapabilities />
         <FreelancerCapabilities />
+        <CompetitorComparison />
 
         {/* Pricing Preview */}
         <section className="border-t border-border bg-muted/30">
