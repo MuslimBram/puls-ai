@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import {
   Target, MessageSquare, BarChart3, Bot, Phone,
   TrendingUp, Globe, Zap, ShieldCheck, Users,
