@@ -167,23 +167,23 @@ const Index = () => {
         <section className="border-t border-border bg-muted/30">
           <div className="container mx-auto px-4 py-16 text-center">
             <div className="animate-on-scroll">
-              <h2 className="mb-2 text-3xl font-bold text-foreground">Live Pricing From the Product Catalog</h2>
-              <p className="mb-8 text-muted-foreground">Plans, labels, and pricing stay aligned with the backend.</p>
+              <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.pricingTitle")}</h2>
+              <p className="mb-8 text-muted-foreground">{t("landing.pricingDesc")}</p>
             </div>
             <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
               {plans.slice(0, 4).map((plan) => (
                 <Card key={plan.key} className={`hover-lift card-glow ${plan.highlighted ? "border-primary ring-1 ring-primary" : ""}`}>
                   <CardContent className="pt-6 text-center">
-                    {plan.highlighted && <Badge className="mb-2">Recommended</Badge>}
+                    {plan.highlighted && <Badge className="mb-2">{t("landing.recommended")}</Badge>}
                     <h3 className="font-semibold text-foreground">{plan.name}</h3>
-                    <p className="my-1 text-2xl font-bold text-foreground">{plan.key === "enterprise" ? "Custom" : `€${plan.monthlyPrice}`}</p>
+                    <p className="my-1 text-2xl font-bold text-foreground">{plan.key === "enterprise" ? t("landing.custom") : `€${plan.monthlyPrice}`}</p>
                     <p className="mb-3 text-xs text-muted-foreground">{plan.description}</p>
                   </CardContent>
                 </Card>
               ))}
             </div>
             <Link to="/pricing">
-              <Button variant="outline" className="mt-6 hover-lift">Compare Plans <ArrowRight className="ml-1 h-4 w-4" /></Button>
+              <Button variant="outline" className="mt-6 hover-lift">{t("landing.comparePlans")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </Link>
           </div>
         </section>
@@ -193,24 +193,20 @@ const Index = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-background to-primary/5" />
           <div className="container relative mx-auto px-4 py-16">
             <div className="mb-10 text-center animate-on-scroll">
-              <h2 className="mb-2 text-3xl font-bold text-foreground">Trusted by Growing Businesses</h2>
-              <p className="text-muted-foreground">See what our customers say.</p>
+              <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.testimonialsTitle")}</h2>
+              <p className="text-muted-foreground">{t("landing.testimonialsDesc")}</p>
             </div>
             <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3 stagger-children">
-              {[
-                { name: "Sarah K.", role: "Marketing Director", quote: "Pulse AI transformed how we handle inbound leads. Response times dropped by 80%." },
-                { name: "Michael R.", role: "Agency Owner", quote: "The AI assistant feels like a team member. It handles initial conversations perfectly." },
-                { name: "Elena T.", role: "Sales Manager", quote: "We discovered 3x more qualified leads within the first month of using the platform." },
-              ].map((t) => (
-                <Card key={t.name} className="hover-lift card-glow">
+              {(t("landing.testimonials", { returnObjects: true }) as Array<{name: string; role: string; quote: string}>).map((tst) => (
+                <Card key={tst.name} className="hover-lift card-glow">
                   <CardContent className="pt-6">
                     <div className="mb-3 flex gap-0.5">
                       {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-primary text-primary" />)}
                     </div>
-                    <p className="mb-4 text-sm italic text-muted-foreground">"{t.quote}"</p>
+                    <p className="mb-4 text-sm italic text-muted-foreground">"{tst.quote}"</p>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{t.name}</p>
-                      <p className="text-xs text-muted-foreground">{t.role}</p>
+                      <p className="text-sm font-medium text-foreground">{tst.name}</p>
+                      <p className="text-xs text-muted-foreground">{tst.role}</p>
                     </div>
                   </CardContent>
                 </Card>
