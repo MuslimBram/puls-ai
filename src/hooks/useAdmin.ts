@@ -5,11 +5,11 @@ import { useAuditLog } from "@/hooks/useAuditLog";
 import { toast } from "@/components/ui/sonner";
 
 export const useIsAdmin = () => {
-  const { isAdmin, isBusinessOwner, isLoading } = useRolePermissions();
+  const { isAdmin, isLoading } = useRolePermissions();
 
   return {
-    // Admin panel duhet të jetë i aksesueshëm nga admin/super_admin dhe business_owner
-    isAdmin: isAdmin || isBusinessOwner,
+    // Vetëm admin/super_admin kanë akses në panelin Admin
+    isAdmin,
     isLoading,
   };
 };
