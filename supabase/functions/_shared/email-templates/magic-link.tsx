@@ -24,19 +24,18 @@ export const MagicLinkEmail = ({
 }: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Your login link for {siteName}</Preview>
+    <Preview>Linku juaj i hyrjes për {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Your login link</Heading>
+        <Heading style={h1}>Linku juaj i hyrjes</Heading>
         <Text style={text}>
-          Click the button below to log in to {siteName}. This link will expire
-          shortly.
+          Klikoni butonin më poshtë për të hyrë në {siteName}. Ky link do të skadojë së shpejti.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Log In
+          Hyr në Llogari
         </Button>
         <Text style={footer}>
-          If you didn't request this link, you can safely ignore this email.
+          Nëse nuk e keni kërkuar këtë link, mund ta injoroni këtë email.
         </Text>
       </Container>
     </Body>
@@ -45,26 +44,27 @@ export const MagicLinkEmail = ({
 
 export default MagicLinkEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
+const main = { backgroundColor: '#ffffff', fontFamily: "'Inter', Arial, sans-serif" }
 const container = { padding: '20px 25px' }
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
-  color: '#000000',
+  color: 'hsl(222, 47%, 8%)',
   margin: '0 0 20px',
 }
 const text = {
   fontSize: '14px',
-  color: '#55575d',
+  color: 'hsl(220, 12%, 42%)',
   lineHeight: '1.5',
   margin: '0 0 25px',
 }
 const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
+  backgroundColor: 'hsl(145, 73%, 49%)',
+  color: 'hsl(222, 47%, 8%)',
   fontSize: '14px',
-  borderRadius: '8px',
+  fontWeight: 'bold' as const,
+  borderRadius: '0.625rem',
   padding: '12px 20px',
   textDecoration: 'none',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: 'hsl(220, 12%, 42%)', margin: '30px 0 0' }
