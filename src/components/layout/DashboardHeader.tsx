@@ -1,5 +1,6 @@
 import { useLocation } from "react-router-dom";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
 import { TrialCountdown } from "@/components/TrialCountdown";
@@ -31,6 +32,7 @@ export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
         <AgentStatusBar />
       </div>
       <div className="ml-auto flex items-center gap-2">
+        <LanguageSwitcher />
         <TrialCountdown />
         <SoftphoneWidget />
         <NotificationBell />
