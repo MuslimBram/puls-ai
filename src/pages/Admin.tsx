@@ -517,6 +517,10 @@ const Admin = () => {
             <AdminWithdrawalApproval />
           </TabsContent>
 
+          <TabsContent value="platform-wallet">
+            <AdminPlatformWallet />
+          </TabsContent>
+
         </Tabs>
       </div>
     </DashboardLayout>
