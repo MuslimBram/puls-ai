@@ -67,11 +67,10 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
         .from("withdrawal_requests")
         .select("*")
         .eq("user_id", user!.id)
-        .eq("request_type", "business_purchase")
         .in("status", ["pending_ai_review", "pending_admin_review"])
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return (data ?? []).filter((d: any) => (d.metadata as any)?.request_type === "business_purchase");
     },
     enabled: !!user?.id && isFreelancer,
   });
@@ -87,7 +86,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
   const totalPrice = Number((finalMonthlyPrice * durationMonths).toFixed(2));
 
   const selectedWallet = wallets.find((w) => w.currency === form.wallet_currency);
-  const hasEnoughBalance = (selectedWallet?.balance ?? 0) >= totalPrice;
+  const hasEnoughBalance = (selectedWallet?.current_balance ?? 0) >= totalPrice;
 
   const purchaseBusiness = useMutation({
     mutationFn: async () => {
@@ -228,7 +227,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                       <SelectItem key={w.id} value={w.currency}>
                         <span className="flex items-center gap-2">
                           <Wallet className="h-3 w-3" />
-                          {w.currency} — Gjëndja: €{Number(w.balance).toFixed(2)}
+                          {w.currency} — Gjëndja: €{Number(w.current_balance).toFixed(2)}
                         </span>
                       </SelectItem>
                     ))}
