@@ -80,6 +80,7 @@ const Benchmarks = lazy(() => import("./pages/Benchmarks"));
 const GrowthLoop = lazy(() => import("./pages/GrowthLoop"));
 const CreditEconomy = lazy(() => import("./pages/CreditEconomy"));
 const OpsStability = lazy(() => import("./pages/OpsStability"));
+const WalletPage = lazy(() => import("./pages/Wallet"));
 const InstallPage = lazy(() => import("./pages/Install"));
 const Sources = lazy(() => import("./pages/Sources"));
 const queryClient = new QueryClient({
@@ -185,6 +186,7 @@ const App = () => (
                 <Route path="/growth-loop" element={<ProtectedPage><GrowthLoop /></ProtectedPage>} />
                 <Route path="/credits" element={<ProtectedPage><CreditEconomy /></ProtectedPage>} />
                 <Route path="/ops-stability" element={<ProtectedPage><OpsStability /></ProtectedPage>} />
+                <Route path="/wallet" element={<ProtectedPage><WalletPage /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
