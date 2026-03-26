@@ -183,7 +183,7 @@ const Register = () => {
                 className={cn(
                   "h-2 rounded-full transition-all",
                   s === step ? "w-8 bg-primary" : "w-2 bg-muted",
-                  (step === "credentials" && accountType === "freelancer" && s === "plan-selection") && "hidden"
+                  (step === "credentials" && (accountType === "freelancer" || accountType === "ambassador") && s === "plan-selection") && "hidden"
                 )}
               />
             ))}
