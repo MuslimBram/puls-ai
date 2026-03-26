@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
 import { CreditCard, Wallet, Zap, Clock, ArrowRight, LogOut } from "lucide-react";
 import { useSubscription } from "@/hooks/useSubscription";
-import { useUserWallet } from "@/hooks/useUserWallet";
+import { useUserWallets } from "@/hooks/useUserWallet";
 
 const CompletePayment = () => {
   const navigate = useNavigate();
