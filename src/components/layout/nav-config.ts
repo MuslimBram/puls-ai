@@ -46,6 +46,7 @@ import {
   Fingerprint,
   Activity,
   Gauge,
+  Wallet,
 } from "lucide-react";
 
 export interface NavItem {
@@ -157,6 +158,7 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
       { href: "/branding", label: "Branding", icon: Paintbrush },
       { href: "/financial-intelligence", label: "Financials", icon: Receipt },
+      { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/subscription", label: "Billing", icon: CreditCard },
       { href: "/credits", label: "Credits", icon: Banknote },
       { href: "/partner", label: "Partners", icon: Handshake },
