@@ -136,7 +136,7 @@ export const useRequestWithdrawal = () => {
           amount: input.amount,
           currency: input.currency,
           payout_method: input.payout_method ?? null,
-          payout_details: (input.payout_details ?? {}) as Record<string, unknown>,
+          payout_details: JSON.parse(JSON.stringify(input.payout_details ?? {})),
           status: "pending_ai_review",
         }])
         .select()
