@@ -193,34 +193,48 @@ const Register = () => {
         {/* STEP 1: Account Type */}
         {step === "account-type" && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <button
                 type="button"
                 onClick={() => setAccountType("business")}
                 className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all",
+                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
                   accountType === "business"
                     ? "border-primary bg-primary/5 text-primary shadow-md"
                     : "border-border text-muted-foreground hover:border-primary/50"
                 )}
               >
-                <Building2 className="h-10 w-10" />
-                <span className="text-lg font-semibold">Biznes</span>
+                <Building2 className="h-9 w-9" />
+                <span className="text-base font-semibold">Biznes</span>
                 <span className="text-xs opacity-70 text-center">Kam një kompani dhe dua të rritem biznesin</span>
               </button>
               <button
                 type="button"
                 onClick={() => setAccountType("freelancer")}
                 className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all",
+                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
                   accountType === "freelancer"
                     ? "border-primary bg-primary/5 text-primary shadow-md"
                     : "border-border text-muted-foreground hover:border-primary/50"
                 )}
               >
-                <Briefcase className="h-10 w-10" />
-                <span className="text-lg font-semibold">Freelancer</span>
+                <Briefcase className="h-9 w-9" />
+                <span className="text-base font-semibold">Freelancer</span>
                 <span className="text-xs opacity-70 text-center">Punoj i pavarur, 7 ditë provë falas</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccountType("ambassador")}
+                className={cn(
+                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
+                  accountType === "ambassador"
+                    ? "border-primary bg-primary/5 text-primary shadow-md"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                )}
+              >
+                <Users className="h-9 w-9" />
+                <span className="text-base font-semibold">Ambasador</span>
+                <span className="text-xs opacity-70 text-center">Vetëm referale, min 3/muaj</span>
               </button>
             </div>
             <Button className="w-full" disabled={!accountType} onClick={handleAccountTypeNext}>
