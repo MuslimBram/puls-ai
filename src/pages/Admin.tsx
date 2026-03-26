@@ -28,6 +28,7 @@ import { AdminDeadLetterPanel } from "@/components/AdminDeadLetterPanel";
 import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
 import { AdminRoleManager } from "@/components/AdminRoleManager";
 import { AdminWithdrawalApproval } from "@/components/AdminWithdrawalApproval";
+import { AdminPlatformWallet } from "@/components/AdminPlatformWallet";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -185,6 +186,10 @@ const Admin = () => {
             <TabsTrigger value="withdrawals">
               <Wallet className="h-3 w-3 mr-1" />
               Tërheqjet
+            </TabsTrigger>
+            <TabsTrigger value="platform-wallet">
+              <Wallet className="h-3 w-3 mr-1" />
+              Portofoli
             </TabsTrigger>
           </TabsList>
 
