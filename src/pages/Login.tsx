@@ -11,6 +11,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/contexts/AuthContext";
 
 type TwoFAMethod = "choose" | "authenticator" | "authenticator_enroll" | "email";
+type LoginStep = "credentials" | "security_code" | "2fa";
 
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
@@ -19,13 +20,15 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 2FA state
   const [needs2FA, setNeeds2FA] = useState(false);
+  const [loginStep, setLoginStep] = useState<LoginStep>("credentials");
   const [twoFAMethod, setTwoFAMethod] = useState<TwoFAMethod>("choose");
   const [otpCode, setOtpCode] = useState("");
   const [verifying2FA, setVerifying2FA] = useState(false);
   const [maskedEmail, setMaskedEmail] = useState("");
   const [resending, setResending] = useState(false);
+  const [securityCode, setSecurityCode] = useState("");
+  const [verifyingSecCode, setVerifyingSecCode] = useState(false);
 
   // TOTP enrollment state
   const [qrCode, setQrCode] = useState("");
@@ -40,7 +43,7 @@ const Login = () => {
     );
   }
 
-  if (user && !needs2FA) {
+  if (user && !needs2FA && loginStep === "credentials") {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -66,9 +69,57 @@ const Login = () => {
       return;
     }
 
+    // Check if user has a security code set
+    try {
+      const { data: codeCheck } = await supabase.functions.invoke("security-code-manage", {
+        body: { action: "has_code" },
+      });
+
+      if (codeCheck?.has_code) {
+        setLoginStep("security_code");
+        setLoading(false);
+        return;
+      }
+
+      // Check if there's a pending security code from registration
+      const pendingCode = localStorage.getItem("pending_security_code");
+      if (pendingCode) {
+        await supabase.functions.invoke("security-code-manage", {
+          body: { action: "set_code", code: pendingCode },
+        });
+        localStorage.removeItem("pending_security_code");
+      }
+    } catch {
+      // If security code check fails, proceed to 2FA
+    }
+
     setNeeds2FA(true);
+    setLoginStep("2fa");
     setTwoFAMethod("choose");
     setLoading(false);
+  };
+
+  const handleSecurityCodeVerify = async () => {
+    setVerifyingSecCode(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("security-code-manage", {
+        body: { action: "verify_code", code: securityCode },
+      });
+
+      if (error || !data?.verified) {
+        toast.error("Kodi i sigurisë i gabuar!");
+        setVerifyingSecCode(false);
+        return;
+      }
+
+      // Security code verified, proceed to 2FA
+      setNeeds2FA(true);
+      setLoginStep("2fa");
+      setTwoFAMethod("choose");
+    } catch {
+      toast.error("Gabim gjatë verifikimit të kodit");
+    }
+    setVerifyingSecCode(false);
   };
 
   const handleChooseAuthenticator = async () => {
@@ -162,11 +213,13 @@ const Login = () => {
   const handleCancel2FA = async () => {
     await supabase.auth.signOut();
     setNeeds2FA(false);
+    setLoginStep("credentials");
     setTwoFAMethod("choose");
     setOtpCode("");
     setMaskedEmail("");
     setQrCode("");
     setTotpSecret("");
+    setSecurityCode("");
   };
 
   // 2FA method chooser
