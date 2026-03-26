@@ -18,6 +18,7 @@ import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+const CompletePayment = lazy(() => import("./pages/CompletePayment"));
 
 // Lazy loaded pages
 const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
