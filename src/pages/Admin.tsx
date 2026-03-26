@@ -1,6 +1,8 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AdminBusinessScanPanel } from "@/components/AdminBusinessScanPanel";
 import { AdminWebScanner } from "@/components/AdminWebScanner";
+import { AdminCreateBusiness } from "@/components/AdminCreateBusiness";
+import { AdminSocialChannelManager } from "@/components/AdminSocialChannelManager";
 import { AdminPricingManager } from "@/components/AdminPricingManager";
 import { AdminEnterpriseLeadPanel } from "@/components/AdminEnterpriseLeadPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch, FileText, Handshake, CheckCircle, XCircle, Ban, RotateCcw, ShieldPlus } from "lucide-react";
+import { Users, Building2, Target, Radio, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch, FileText, Handshake, CheckCircle, XCircle, Ban, RotateCcw, ShieldPlus, Globe } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
@@ -122,6 +124,10 @@ const Admin = () => {
               Enterprise
             </TabsTrigger>
             <TabsTrigger value="channels">Channels</TabsTrigger>
+            <TabsTrigger value="social-channels">
+              <Globe className="h-3 w-3 mr-1" />
+              Sociale
+            </TabsTrigger>
             <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
             <TabsTrigger value="pricing">
               <DollarSign className="h-3 w-3 mr-1" />
@@ -300,7 +306,10 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="businesses">
-            <AdminBusinessScanPanel businesses={businesses as any} />
+            <div className="space-y-4">
+              <AdminCreateBusiness profiles={profiles as any} businesses={businesses as any} />
+              <AdminBusinessScanPanel businesses={businesses as any} />
+            </div>
           </TabsContent>
 
           <TabsContent value="leads">
@@ -347,6 +356,10 @@ const Admin = () => {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="social-channels">
+            <AdminSocialChannelManager businesses={businesses as any} />
           </TabsContent>
 
           <TabsContent value="subscriptions">
