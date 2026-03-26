@@ -1,6 +1,8 @@
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AdminBusinessScanPanel } from "@/components/AdminBusinessScanPanel";
 import { AdminWebScanner } from "@/components/AdminWebScanner";
+import { AdminCreateBusiness } from "@/components/AdminCreateBusiness";
+import { AdminSocialChannelManager } from "@/components/AdminSocialChannelManager";
 import { AdminPricingManager } from "@/components/AdminPricingManager";
 import { AdminEnterpriseLeadPanel } from "@/components/AdminEnterpriseLeadPanel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
