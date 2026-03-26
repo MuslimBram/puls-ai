@@ -14,12 +14,12 @@ const CompletePayment = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const { stripeData, selectedPlan, selectedPlanDetails } = useSubscription();
-  const { wallet } = useUserWallet();
+  const { data: wallets } = useUserWallets();
   const [loading, setLoading] = useState(false);
 
   const planName = selectedPlanDetails?.name ?? selectedPlan ?? "Standard";
   const planPrice = selectedPlanDetails?.monthlyPrice ?? 49;
-  const walletBalance = wallet?.balance ?? 0;
+  const walletBalance = wallets?.[0]?.balance ?? 0;
   const canPayFromWallet = walletBalance >= planPrice;
 
   // Check if user has referral earnings (only then wallet payment is allowed)
