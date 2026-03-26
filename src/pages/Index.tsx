@@ -16,6 +16,21 @@ import { BusinessCapabilities } from "@/components/landing/BusinessCapabilities"
 import { FreelancerCapabilities } from "@/components/landing/FreelancerCapabilities";
 import { CompetitorComparison } from "@/components/landing/CompetitorComparison";
 
+const COMMUNITY_PHOTOS = [
+  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1463453091185-61582044d556?w=120&h=120&fit=crop&crop=face",
+  "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=120&h=120&fit=crop&crop=face",
+];
+
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -201,27 +216,27 @@ const Index = () => {
           </div>
         </section>
 
-        {/* Community Stats */}
+        {/* Community Marquee */}
         <section className="border-t border-border bg-muted/20 py-16">
           <div className="mb-8 text-center animate-on-scroll">
             <h2 className="mb-2 text-2xl font-bold text-foreground">{t("landing.communityTitle")}</h2>
             <p className="text-muted-foreground">{t("landing.communityDesc")}</p>
           </div>
-          <div className="container mx-auto px-4">
-            <div className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-3 stagger-children">
-              {[
-                { value: "2,500+", label: t("landing.communityBusinesses", { defaultValue: "Biznese aktive" }) },
-                { value: "850+", label: t("landing.communityFreelancers", { defaultValue: "Freelancerë" }) },
-                { value: "15M+", label: t("landing.communityMessages", { defaultValue: "Mesazhe të dërguara" }) },
-              ].map((s) => (
-                <div key={s.label} className="rounded-xl border border-border bg-card p-6 text-center hover-lift card-glow">
-                  <p className="text-3xl font-bold text-primary">{s.value}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{s.label}</p>
-                </div>
+          <div className="marquee-container mb-4">
+            <div className="marquee-track animate-marquee">
+              {[...COMMUNITY_PHOTOS, ...COMMUNITY_PHOTOS].map((src, i) => (
+                <img key={`r1-${i}`} src={src} alt="Community member" className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md" loading="lazy" />
               ))}
             </div>
           </div>
-          <div className="mt-8 text-center animate-on-scroll">
+          <div className="marquee-container mb-8">
+            <div className="marquee-track animate-marquee-reverse">
+              {[...COMMUNITY_PHOTOS.slice().reverse(), ...COMMUNITY_PHOTOS.slice().reverse()].map((src, i) => (
+                <img key={`r2-${i}`} src={src} alt="Community member" className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md" loading="lazy" />
+              ))}
+            </div>
+          </div>
+          <div className="text-center animate-on-scroll">
             <Link to="/register">
               <Button size="lg" className="hover-lift">{t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </Link>
