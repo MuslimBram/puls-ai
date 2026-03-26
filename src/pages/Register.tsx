@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown } from "lucide-react";
+import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Users } from "lucide-react";
 import { lovable } from "@/integrations/lovable/index";
 import { cn } from "@/lib/utils";
 
-type AccountType = "business" | "freelancer" | null;
+type AccountType = "business" | "freelancer" | "ambassador" | null;
 type Step = "account-type" | "plan-selection" | "credentials";
 
 interface PlanTier {
@@ -64,14 +64,21 @@ const Register = () => {
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [securityCode, setSecurityCode] = useState("");
+  const [securityCodeError, setSecurityCodeError] = useState("");
+
+  // Security code format validation
+  const validateSecurityCode = (code: string): boolean => {
+    const regex = /^[A-Z][a-zA-Z]{3}[!@#$%^&*+\-=~][.,;:!?'"]{1}\d{3}$/;
+    return regex.test(code);
+  };
 
   const handleAccountTypeNext = () => {
     if (!accountType) {
       toast.error("Zgjidhni llojin e llogarisë");
       return;
     }
-    if (accountType === "freelancer") {
-      // Freelancers get 7-day free trial automatically
+    if (accountType === "freelancer" || accountType === "ambassador") {
       setSelectedTier("standard");
       setSelectedDuration("trial");
       setStep("credentials");
@@ -94,6 +101,11 @@ const Register = () => {
       toast.error("Fjalëkalimi duhet të jetë të paktën 6 karaktere");
       return;
     }
+    if (!securityCode || !validateSecurityCode(securityCode)) {
+      setSecurityCodeError("Formati: 1 gërmë e madhe + 3 gërma + 1 simbol + 1 pikësim + 3 numra (p.sh. Aabc@.123)");
+      return;
+    }
+    setSecurityCodeError("");
     setLoading(true);
 
     try {
