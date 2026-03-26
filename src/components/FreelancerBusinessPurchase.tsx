@@ -240,12 +240,12 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                   <span>Çmimi bazë:</span>
                   <span>€{basePrice}/muaj</span>
                 </div>
-                <div className="flex justify-between text-sm text-green-600">
+                <div className="flex justify-between text-sm text-primary">
                   <span>Zbritje Freelancer ({FREELANCER_DISCOUNT}%):</span>
                   <span>-€{(basePrice * FREELANCER_DISCOUNT / 100).toFixed(2)}</span>
                 </div>
                 {durationDiscount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
+                  <div className="flex justify-between text-sm text-primary">
                     <span>Zbritje kohëzgjatje ({durationDiscount}%):</span>
                     <span>-€{(freelancerMonthlyPrice * durationDiscount / 100).toFixed(2)}/muaj</span>
                   </div>
@@ -281,9 +281,9 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Në pritje verifikimi:</p>
             {pending.map((p: any) => (
-              <div key={p.id} className="flex items-center justify-between rounded-lg border border-yellow-500/30 bg-yellow-50/50 dark:bg-yellow-950/20 p-2">
+              <div key={p.id} className="flex items-center justify-between rounded-lg border border-accent bg-accent/30 p-2">
                 <div className="flex items-center gap-2">
-                  <Clock className="h-3.5 w-3.5 text-yellow-600" />
+                  <Clock className="h-3.5 w-3.5 text-accent-foreground" />
                   <span className="text-sm">{(p.metadata as any)?.business_name}</span>
                 </div>
                 <Badge variant="secondary" className="text-xs">
@@ -304,7 +304,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
               <div key={b.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                 <div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+                    <CheckCircle className="h-3.5 w-3.5 text-primary" />
                     <p className="text-sm font-medium text-foreground">{b.business_name}</p>
                   </div>
                   <p className="text-xs text-muted-foreground">{b.industry || "Pa industri"}</p>
