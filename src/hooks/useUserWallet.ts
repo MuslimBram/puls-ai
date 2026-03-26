@@ -37,6 +37,24 @@ export const useWalletTransactions = (walletId: string | undefined) => {
   });
 };
 
+export const useWithdrawalRequests = () => {
+  const { user } = useAuth();
+  return useQuery({
+    queryKey: ["withdrawal-requests", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("withdrawal_requests")
+        .select("*")
+        .eq("user_id", user!.id)
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+};
+
 export const useCreateWallet = () => {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -58,58 +76,91 @@ export const useCreateWallet = () => {
   });
 };
 
-export const useAddTransaction = () => {
+/** Deposit — goes through immediately */
+export const useDepositToWallet = () => {
   const { user } = useAuth();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: {
-      wallet_id: string;
-      type: string;
-      amount: number;
-      currency: string;
-      description?: string;
-    }) => {
-      const { data, error } = await supabase
+    mutationFn: async (input: { wallet_id: string; amount: number; currency: string; description?: string }) => {
+      // Insert transaction
+      const { error: txError } = await supabase
         .from("user_wallet_transactions")
         .insert({
           wallet_id: input.wallet_id,
           user_id: user!.id,
-          type: input.type,
+          type: "deposit",
           amount: input.amount,
           currency: input.currency,
           description: input.description,
-        })
-        .select()
-        .single();
-      if (error) throw error;
+        });
+      if (txError) throw txError;
 
-      // Update wallet balance
+      // Update balance
       const { data: wallet } = await supabase
         .from("user_wallets")
         .select("*")
         .eq("id", input.wallet_id)
         .single();
-
       if (wallet) {
-        const isCredit = ["deposit", "refund", "commission_credit"].includes(input.type);
-        const balanceChange = isCredit ? input.amount : -input.amount;
         await supabase
           .from("user_wallets")
           .update({
-            current_balance: Number(wallet.current_balance) + balanceChange,
-            ...(isCredit ? { lifetime_deposits: Number(wallet.lifetime_deposits) + input.amount } : {}),
-            ...(!isCredit ? { lifetime_withdrawals: Number(wallet.lifetime_withdrawals) + input.amount } : {}),
+            current_balance: Number(wallet.current_balance) + input.amount,
+            lifetime_deposits: Number(wallet.lifetime_deposits) + input.amount,
             updated_at: new Date().toISOString(),
           })
           .eq("id", input.wallet_id);
       }
-
-      return data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["user-wallets"] });
       qc.invalidateQueries({ queryKey: ["wallet-transactions"] });
-      toast.success("Transaksioni u regjistrua");
+      toast.success("Rimbushja u krye me sukses");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+};
+
+/** Withdrawal — creates a request, triggers AI check, requires admin approval */
+export const useRequestWithdrawal = () => {
+  const { user } = useAuth();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { wallet_id: string; amount: number; currency: string; payout_method?: string; payout_details?: Record<string, unknown> }) => {
+      // Create withdrawal request
+      const { data: wr, error: wrError } = await supabase
+        .from("withdrawal_requests")
+        .insert([{
+          user_id: user!.id,
+          wallet_id: input.wallet_id,
+          amount: input.amount,
+          currency: input.currency,
+          payout_method: input.payout_method ?? null,
+          payout_details: JSON.parse(JSON.stringify(input.payout_details ?? {})),
+          status: "pending_ai_review",
+        }])
+        .select()
+        .single();
+      if (wrError) throw wrError;
+
+      // Trigger AI fraud check
+      const { data: aiResult, error: aiError } = await supabase.functions.invoke("withdrawal-fraud-check", {
+        body: { withdrawal_request_id: wr.id },
+      });
+
+      if (aiError) {
+        console.error("AI fraud check failed:", aiError);
+      }
+
+      return { request: wr, aiResult };
+    },
+    onSuccess: (result) => {
+      qc.invalidateQueries({ queryKey: ["withdrawal-requests"] });
+      if (result.aiResult?.status === "blocked") {
+        toast.error("Kërkesa u bllokua nga verifikimi automatik. Kontaktoni mbështetjen.");
+      } else {
+        toast.success("Kërkesa për tërheqje u dërgua. Në pritje të aprovimit nga Admini.");
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
