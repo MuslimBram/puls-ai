@@ -9329,6 +9329,90 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_wallet: {
+        Row: {
+          balance: number
+          created_at: string
+          currency: string
+          id: string
+          total_revenue: number
+          total_withdrawn: number
+          updated_at: string
+        }
+        Insert: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          total_revenue?: number
+          total_withdrawn?: number
+          updated_at?: string
+        }
+        Update: {
+          balance?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          total_revenue?: number
+          total_withdrawn?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_withdrawal_requests: {
+        Row: {
+          ai_review_notes: string | null
+          ai_reviewed_at: string | null
+          ai_risk_score: number | null
+          amount: number
+          approval_notes: string | null
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          currency: string
+          id: string
+          reason: string | null
+          rejected_reason: string | null
+          requested_by: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          ai_review_notes?: string | null
+          ai_reviewed_at?: string | null
+          ai_risk_score?: number | null
+          amount: number
+          approval_notes?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          reason?: string | null
+          rejected_reason?: string | null
+          requested_by: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          ai_review_notes?: string | null
+          ai_reviewed_at?: string | null
+          ai_risk_score?: number | null
+          amount?: number
+          approval_notes?: string | null
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          currency?: string
+          id?: string
+          reason?: string | null
+          rejected_reason?: string | null
+          requested_by?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       posting_analytics: {
         Row: {
           consistency_score: number | null
@@ -11404,6 +11488,7 @@ export type Database = {
           package_end_at: string | null
           package_start_at: string | null
           package_type: string | null
+          payment_status: string
           plan: string
           qualifying_package_type: string | null
           referral_discount_expires_at: string | null
@@ -11441,6 +11526,7 @@ export type Database = {
           package_end_at?: string | null
           package_start_at?: string | null
           package_type?: string | null
+          payment_status?: string
           plan?: string
           qualifying_package_type?: string | null
           referral_discount_expires_at?: string | null
@@ -11478,6 +11564,7 @@ export type Database = {
           package_end_at?: string | null
           package_start_at?: string | null
           package_type?: string | null
+          payment_status?: string
           plan?: string
           qualifying_package_type?: string | null
           referral_discount_expires_at?: string | null
