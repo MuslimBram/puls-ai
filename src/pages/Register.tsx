@@ -402,6 +402,33 @@ const Register = () => {
                   <Input id="password" type="password" placeholder="Min 6 karaktere" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="security-code">
+                  Kodi i Sigurisë <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="security-code"
+                    placeholder="p.sh. Aabc@.123"
+                    className="pl-9 font-mono"
+                    value={securityCode}
+                    onChange={(e) => {
+                      setSecurityCode(e.target.value);
+                      setSecurityCodeError("");
+                    }}
+                    required
+                    maxLength={9}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Format: 1 gërmë e madhe + 3 gërma + 1 simbol (!@#$) + 1 pikësim (.,;:) + 3 numra
+                </p>
+                {securityCodeError && (
+                  <p className="text-xs text-destructive">{securityCodeError}</p>
+                )}
+              </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
               <div className="flex w-full gap-3">
@@ -409,7 +436,7 @@ const Register = () => {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep(accountType === "freelancer" ? "account-type" : "plan-selection")}
+                  onClick={() => setStep((accountType === "freelancer" || accountType === "ambassador") ? "account-type" : "plan-selection")}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" /> Prapa
                 </Button>
