@@ -11,6 +11,7 @@ import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/contexts/AuthContext";
 
 type TwoFAMethod = "choose" | "authenticator" | "authenticator_enroll" | "email";
+type LoginStep = "credentials" | "security_code" | "2fa";
 
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
@@ -19,13 +20,15 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 2FA state
   const [needs2FA, setNeeds2FA] = useState(false);
+  const [loginStep, setLoginStep] = useState<LoginStep>("credentials");
   const [twoFAMethod, setTwoFAMethod] = useState<TwoFAMethod>("choose");
   const [otpCode, setOtpCode] = useState("");
   const [verifying2FA, setVerifying2FA] = useState(false);
   const [maskedEmail, setMaskedEmail] = useState("");
   const [resending, setResending] = useState(false);
+  const [securityCode, setSecurityCode] = useState("");
+  const [verifyingSecCode, setVerifyingSecCode] = useState(false);
 
   // TOTP enrollment state
   const [qrCode, setQrCode] = useState("");
@@ -40,7 +43,7 @@ const Login = () => {
     );
   }
 
-  if (user && !needs2FA) {
+  if (user && !needs2FA && loginStep === "credentials") {
     return <Navigate to="/dashboard" replace />;
   }
 
@@ -66,9 +69,57 @@ const Login = () => {
       return;
     }
 
+    // Check if user has a security code set
+    try {
+      const { data: codeCheck } = await supabase.functions.invoke("security-code-manage", {
+        body: { action: "has_code" },
+      });
+
+      if (codeCheck?.has_code) {
+        setLoginStep("security_code");
+        setLoading(false);
+        return;
+      }
+
+      // Check if there's a pending security code from registration
+      const pendingCode = localStorage.getItem("pending_security_code");
+      if (pendingCode) {
+        await supabase.functions.invoke("security-code-manage", {
+          body: { action: "set_code", code: pendingCode },
+        });
+        localStorage.removeItem("pending_security_code");
+      }
+    } catch {
+      // If security code check fails, proceed to 2FA
+    }
+
     setNeeds2FA(true);
+    setLoginStep("2fa");
     setTwoFAMethod("choose");
     setLoading(false);
+  };
+
+  const handleSecurityCodeVerify = async () => {
+    setVerifyingSecCode(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("security-code-manage", {
+        body: { action: "verify_code", code: securityCode },
+      });
+
+      if (error || !data?.verified) {
+        toast.error("Kodi i sigurisë i gabuar!");
+        setVerifyingSecCode(false);
+        return;
+      }
+
+      // Security code verified, proceed to 2FA
+      setNeeds2FA(true);
+      setLoginStep("2fa");
+      setTwoFAMethod("choose");
+    } catch {
+      toast.error("Gabim gjatë verifikimit të kodit");
+    }
+    setVerifyingSecCode(false);
   };
 
   const handleChooseAuthenticator = async () => {
@@ -162,12 +213,66 @@ const Login = () => {
   const handleCancel2FA = async () => {
     await supabase.auth.signOut();
     setNeeds2FA(false);
+    setLoginStep("credentials");
     setTwoFAMethod("choose");
     setOtpCode("");
     setMaskedEmail("");
     setQrCode("");
     setTotpSecret("");
+    setSecurityCode("");
   };
+
+  // Security code verification screen
+  if (loginStep === "security_code") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+              <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <CardTitle className="text-2xl">Kodi i Sigurisë</CardTitle>
+            <CardDescription>
+              Futni kodin tuaj personal të sigurisë për të vazhduar
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sec-code">Kodi juaj</Label>
+              <Input
+                id="sec-code"
+                placeholder="p.sh. Aabc@.123"
+                value={securityCode}
+                onChange={(e) => setSecurityCode(e.target.value)}
+                maxLength={9}
+                className="text-center text-xl font-mono tracking-wider"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && securityCode.length >= 9) handleSecurityCodeVerify();
+                }}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-3">
+            <Button
+              className="w-full"
+              onClick={handleSecurityCodeVerify}
+              disabled={securityCode.length < 9 || verifyingSecCode}
+            >
+              {verifyingSecCode ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Po verifikon...</>
+              ) : (
+                "Verifiko"
+              )}
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={handleCancel2FA}>
+              Anullo
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
 
   // 2FA method chooser
   if (needs2FA && twoFAMethod === "choose") {

@@ -7,11 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown } from "lucide-react";
+import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Users } from "lucide-react";
 import { lovable } from "@/integrations/lovable/index";
 import { cn } from "@/lib/utils";
 
-type AccountType = "business" | "freelancer" | null;
+type AccountType = "business" | "freelancer" | "ambassador" | null;
 type Step = "account-type" | "plan-selection" | "credentials";
 
 interface PlanTier {
@@ -64,14 +64,21 @@ const Register = () => {
   const [selectedTier, setSelectedTier] = useState<string | null>(null);
   const [selectedDuration, setSelectedDuration] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [securityCode, setSecurityCode] = useState("");
+  const [securityCodeError, setSecurityCodeError] = useState("");
+
+  // Security code format validation
+  const validateSecurityCode = (code: string): boolean => {
+    const regex = /^[A-Z][a-zA-Z]{3}[!@#$%^&*+\-=~][.,;:!?'"]{1}\d{3}$/;
+    return regex.test(code);
+  };
 
   const handleAccountTypeNext = () => {
     if (!accountType) {
       toast.error("Zgjidhni llojin e llogarisë");
       return;
     }
-    if (accountType === "freelancer") {
-      // Freelancers get 7-day free trial automatically
+    if (accountType === "freelancer" || accountType === "ambassador") {
       setSelectedTier("standard");
       setSelectedDuration("trial");
       setStep("credentials");
@@ -94,6 +101,11 @@ const Register = () => {
       toast.error("Fjalëkalimi duhet të jetë të paktën 6 karaktere");
       return;
     }
+    if (!securityCode || !validateSecurityCode(securityCode)) {
+      setSecurityCodeError("Formati: 1 gërmë e madhe + 3 gërma + 1 simbol + 1 pikësim + 3 numra (p.sh. Aabc@.123)");
+      return;
+    }
+    setSecurityCodeError("");
     setLoading(true);
 
     try {
@@ -135,6 +147,10 @@ const Register = () => {
       if (error) {
         toast.error(error.message);
       } else {
+        // Save security code after successful signup
+        // Note: code will be saved when user first logs in and sets it
+        // Store temporarily in localStorage to set after email verification
+        localStorage.setItem("pending_security_code", securityCode);
         toast.success("Kontrolloni email-in tuaj për të konfirmuar llogarinë");
         navigate("/login");
       }
@@ -167,7 +183,7 @@ const Register = () => {
                 className={cn(
                   "h-2 rounded-full transition-all",
                   s === step ? "w-8 bg-primary" : "w-2 bg-muted",
-                  (step === "credentials" && accountType === "freelancer" && s === "plan-selection") && "hidden"
+                  (step === "credentials" && (accountType === "freelancer" || accountType === "ambassador") && s === "plan-selection") && "hidden"
                 )}
               />
             ))}
@@ -177,34 +193,48 @@ const Register = () => {
         {/* STEP 1: Account Type */}
         {step === "account-type" && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <button
                 type="button"
                 onClick={() => setAccountType("business")}
                 className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all",
+                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
                   accountType === "business"
                     ? "border-primary bg-primary/5 text-primary shadow-md"
                     : "border-border text-muted-foreground hover:border-primary/50"
                 )}
               >
-                <Building2 className="h-10 w-10" />
-                <span className="text-lg font-semibold">Biznes</span>
+                <Building2 className="h-9 w-9" />
+                <span className="text-base font-semibold">Biznes</span>
                 <span className="text-xs opacity-70 text-center">Kam një kompani dhe dua të rritem biznesin</span>
               </button>
               <button
                 type="button"
                 onClick={() => setAccountType("freelancer")}
                 className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl border-2 p-6 transition-all",
+                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
                   accountType === "freelancer"
                     ? "border-primary bg-primary/5 text-primary shadow-md"
                     : "border-border text-muted-foreground hover:border-primary/50"
                 )}
               >
-                <Briefcase className="h-10 w-10" />
-                <span className="text-lg font-semibold">Freelancer</span>
+                <Briefcase className="h-9 w-9" />
+                <span className="text-base font-semibold">Freelancer</span>
                 <span className="text-xs opacity-70 text-center">Punoj i pavarur, 7 ditë provë falas</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccountType("ambassador")}
+                className={cn(
+                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
+                  accountType === "ambassador"
+                    ? "border-primary bg-primary/5 text-primary shadow-md"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                )}
+              >
+                <Users className="h-9 w-9" />
+                <span className="text-base font-semibold">Ambasador</span>
+                <span className="text-xs opacity-70 text-center">Vetëm referale, min 3/muaj</span>
               </button>
             </div>
             <Button className="w-full" disabled={!accountType} onClick={handleAccountTypeNext}>
@@ -372,6 +402,33 @@ const Register = () => {
                   <Input id="password" type="password" placeholder="Min 6 karaktere" className="pl-9" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
                 </div>
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="security-code">
+                  Kodi i Sigurisë <span className="text-destructive">*</span>
+                </Label>
+                <div className="relative">
+                  <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="security-code"
+                    placeholder="p.sh. Aabc@.123"
+                    className="pl-9 font-mono"
+                    value={securityCode}
+                    onChange={(e) => {
+                      setSecurityCode(e.target.value);
+                      setSecurityCodeError("");
+                    }}
+                    required
+                    maxLength={9}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Format: 1 gërmë e madhe + 3 gërma + 1 simbol (!@#$) + 1 pikësim (.,;:) + 3 numra
+                </p>
+                {securityCodeError && (
+                  <p className="text-xs text-destructive">{securityCodeError}</p>
+                )}
+              </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
               <div className="flex w-full gap-3">
@@ -379,7 +436,7 @@ const Register = () => {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep(accountType === "freelancer" ? "account-type" : "plan-selection")}
+                  onClick={() => setStep((accountType === "freelancer" || accountType === "ambassador") ? "account-type" : "plan-selection")}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" /> Prapa
                 </Button>
