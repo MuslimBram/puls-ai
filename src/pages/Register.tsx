@@ -147,6 +147,10 @@ const Register = () => {
       if (error) {
         toast.error(error.message);
       } else {
+        // Save security code after successful signup
+        // Note: code will be saved when user first logs in and sets it
+        // Store temporarily in localStorage to set after email verification
+        localStorage.setItem("pending_security_code", securityCode);
         toast.success("Kontrolloni email-in tuaj për të konfirmuar llogarinë");
         navigate("/login");
       }
