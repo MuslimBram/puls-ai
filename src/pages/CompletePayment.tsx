@@ -19,7 +19,7 @@ const CompletePayment = () => {
 
   const planName = selectedPlanDetails?.name ?? selectedPlan ?? "Standard";
   const planPrice = selectedPlanDetails?.monthlyPrice ?? 49;
-  const walletBalance = wallets?.[0]?.balance ?? 0;
+  const walletBalance = wallets?.[0]?.current_balance ?? 0;
   const canPayFromWallet = walletBalance >= planPrice;
 
   // Check if user has referral earnings (only then wallet payment is allowed)
