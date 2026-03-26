@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -9,10 +9,9 @@ import {
   useWalletTransactions,
   useWithdrawalRequests,
   useCreateWallet,
-  useDepositToWallet,
   useRequestWithdrawal,
 } from "@/hooks/useUserWallet";
-import { Wallet, ArrowUpCircle, ArrowDownCircle, Plus, Clock, TrendingUp, ShieldCheck, AlertTriangle } from "lucide-react";
+import { Wallet, ArrowDownCircle, Plus, Clock, TrendingUp, ShieldCheck, AlertTriangle, CreditCard, Building2, Lock } from "lucide-react";
 import { format } from "date-fns";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "ALL"];
@@ -41,12 +40,9 @@ export const UserWalletPanel = () => {
   const { data: withdrawalRequests } = useWithdrawalRequests();
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
   const [newCurrency, setNewCurrency] = useState("");
-  const [txAmount, setTxAmount] = useState("");
-  const [txType, setTxType] = useState<string>("deposit");
-  const [txDesc, setTxDesc] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
 
   const createWallet = useCreateWallet();
-  const deposit = useDepositToWallet();
   const requestWithdrawal = useRequestWithdrawal();
 
   const selectedWallet = wallets?.find((w) => w.id === selectedWalletId) ?? wallets?.[0];
@@ -55,33 +51,20 @@ export const UserWalletPanel = () => {
   const existingCurrencies = new Set(wallets?.map((w) => w.currency) ?? []);
   const availableCurrencies = CURRENCIES.filter((c) => !existingCurrencies.has(c));
 
-  const handleAction = () => {
-    if (!selectedWallet || !txAmount || Number(txAmount) <= 0) return;
-    const amount = Number(txAmount);
+  // TODO: Check if user has connected a payment method
+  const hasPaymentMethod = false;
 
-    if (txType === "deposit") {
-      deposit.mutate({
-        wallet_id: selectedWallet.id,
-        amount,
-        currency: selectedWallet.currency,
-        description: txDesc || undefined,
-      });
-    } else {
-      // Withdrawal goes through AI + Admin approval
-      if (amount > Number(selectedWallet.current_balance)) {
-        return;
-      }
-      requestWithdrawal.mutate({
-        wallet_id: selectedWallet.id,
-        amount,
-        currency: selectedWallet.currency,
-      });
-    }
-    setTxAmount("");
-    setTxDesc("");
+  const handleWithdrawal = () => {
+    if (!selectedWallet || !withdrawAmount || Number(withdrawAmount) <= 0) return;
+    const amount = Number(withdrawAmount);
+    if (amount > Number(selectedWallet.current_balance)) return;
+    requestWithdrawal.mutate({
+      wallet_id: selectedWallet.id,
+      amount,
+      currency: selectedWallet.currency,
+    });
+    setWithdrawAmount("");
   };
-
-  const isProcessing = deposit.isPending || requestWithdrawal.isPending;
 
   if (isLoading) return <div className="text-muted-foreground text-center py-8">Po ngarkohet...</div>;
 
@@ -142,56 +125,99 @@ export const UserWalletPanel = () => {
         )}
       </div>
 
-      {/* Transaction form */}
-      {selectedWallet && (
+      {/* Top-up: requires payment method */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <CreditCard className="h-5 w-5 text-primary" />
+            Rimbushje portofoli
+          </CardTitle>
+          <CardDescription>
+            Për të rimbushur portofolinduhet të lidhni një metodë pagese (kartë bankare ose transfer bankar).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!hasPaymentMethod ? (
+            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
+              <Lock className="h-10 w-10 mx-auto text-muted-foreground" />
+              <p className="text-sm text-foreground font-medium">
+                Nuk keni lidhur asnjë metodë pagese
+              </p>
+              <p className="text-xs text-muted-foreground max-w-md mx-auto">
+                Për të rimbushur portofolin, duhet të lidhni kartën bankare ose llogarinë bankare. 
+                Fondet depozitohen pas verifikimit.
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button variant="outline" size="sm">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  Lidh kartën
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Transfer bankar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">Metoda e pagesës e lidhur. Mund të rimbushni portofolinë.</p>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Withdrawal */}
+      {selectedWallet && Number(selectedWallet.current_balance) > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Veprim i ri — {selectedWallet.currency}</CardTitle>
+            <CardTitle className="text-lg">Kërko tërheqje — {selectedWallet.currency}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex flex-wrap gap-3">
-              <Select value={txType} onValueChange={setTxType}>
-                <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="deposit">Rimbushje</SelectItem>
-                  <SelectItem value="withdrawal">Tërheqje</SelectItem>
-                </SelectContent>
-              </Select>
               <Input
                 type="number"
                 placeholder="Shuma"
-                className="w-32"
-                value={txAmount}
-                onChange={(e) => setTxAmount(e.target.value)}
+                className="w-40"
+                value={withdrawAmount}
+                onChange={(e) => setWithdrawAmount(e.target.value)}
                 min={0}
                 step="0.01"
-                max={txType === "withdrawal" ? Number(selectedWallet.current_balance) : undefined}
+                max={Number(selectedWallet.current_balance)}
               />
-              {txType === "deposit" && (
-                <Input
-                  placeholder="Përshkrimi (opsionale)"
-                  className="flex-1 min-w-[150px]"
-                  value={txDesc}
-                  onChange={(e) => setTxDesc(e.target.value)}
-                />
-              )}
               <Button
-                onClick={handleAction}
-                disabled={isProcessing || !txAmount || Number(txAmount) <= 0 || (txType === "withdrawal" && Number(txAmount) > Number(selectedWallet.current_balance))}
+                onClick={handleWithdrawal}
+                disabled={requestWithdrawal.isPending || !withdrawAmount || Number(withdrawAmount) <= 0 || Number(withdrawAmount) > Number(selectedWallet.current_balance)}
               >
-                {txType === "deposit" ? <ArrowUpCircle className="mr-2 h-4 w-4" /> : <ArrowDownCircle className="mr-2 h-4 w-4" />}
-                {txType === "deposit" ? "Rimbush" : "Kërko tërheqje"}
+                <ArrowDownCircle className="mr-2 h-4 w-4" />
+                Kërko tërheqje
               </Button>
             </div>
-            {txType === "withdrawal" && (
-              <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
-                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <p>Tërheqjet verifikohen automatikisht nga AI për siguri dhe kërkohet aprovimi i Adminit para ekzekutimit.</p>
-              </div>
-            )}
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <p>Tërheqjet verifikohen automatikisht nga AI për siguri dhe kërkohet aprovimi i Adminit para ekzekutimit.</p>
+            </div>
           </CardContent>
         </Card>
       )}
+
+      {/* Package purchase info */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Wallet className="h-5 w-5 text-primary" />
+            Blerje paketash me portofol
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-start gap-2 rounded-lg border border-border bg-primary/5 p-4 text-sm text-foreground">
+            <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div>
+              <p className="font-medium">Me gjendjen në portofol mund të blini paketat e abonimit.</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Çdo blerje verifikohet nga AI dhe aprovohet nga Adminët para ekzekutimit për sigurinë e transaksionit.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Withdrawal requests */}
       {withdrawalRequests && withdrawalRequests.length > 0 && (
@@ -254,7 +280,7 @@ export const UserWalletPanel = () => {
                   <div key={tx.id} className="flex items-center justify-between rounded-lg border border-border px-4 py-3">
                     <div className="flex items-center gap-3">
                       {isCredit ? (
-                        <ArrowUpCircle className="h-5 w-5 text-primary" />
+                        <TrendingUp className="h-5 w-5 text-primary" />
                       ) : (
                         <ArrowDownCircle className="h-5 w-5 text-destructive" />
                       )}
