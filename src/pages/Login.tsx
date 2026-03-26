@@ -222,6 +222,58 @@ const Login = () => {
     setSecurityCode("");
   };
 
+  // Security code verification screen
+  if (loginStep === "security_code") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
+              <ShieldCheck className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <CardTitle className="text-2xl">Kodi i Sigurisë</CardTitle>
+            <CardDescription>
+              Futni kodin tuaj personal të sigurisë për të vazhduar
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="sec-code">Kodi juaj</Label>
+              <Input
+                id="sec-code"
+                placeholder="p.sh. Aabc@.123"
+                value={securityCode}
+                onChange={(e) => setSecurityCode(e.target.value)}
+                maxLength={9}
+                className="text-center text-xl font-mono tracking-wider"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && securityCode.length >= 9) handleSecurityCodeVerify();
+                }}
+              />
+            </div>
+          </CardContent>
+          <CardFooter className="flex flex-col gap-3">
+            <Button
+              className="w-full"
+              onClick={handleSecurityCodeVerify}
+              disabled={securityCode.length < 9 || verifyingSecCode}
+            >
+              {verifyingSecCode ? (
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Po verifikon...</>
+              ) : (
+                "Verifiko"
+              )}
+            </Button>
+            <Button variant="ghost" className="w-full" onClick={handleCancel2FA}>
+              Anullo
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
   // 2FA method chooser
   if (needs2FA && twoFAMethod === "choose") {
     return (
