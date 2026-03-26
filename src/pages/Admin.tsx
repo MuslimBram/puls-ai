@@ -124,6 +124,10 @@ const Admin = () => {
               Enterprise
             </TabsTrigger>
             <TabsTrigger value="channels">Channels</TabsTrigger>
+            <TabsTrigger value="social-channels">
+              <Globe className="h-3 w-3 mr-1" />
+              Sociale
+            </TabsTrigger>
             <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
             <TabsTrigger value="pricing">
               <DollarSign className="h-3 w-3 mr-1" />
