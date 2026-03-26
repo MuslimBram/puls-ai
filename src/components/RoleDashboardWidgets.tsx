@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { FreelancerBusinessPurchase } from "@/components/FreelancerBusinessPurchase";
 import { Badge } from "@/components/ui/badge";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { usePartnerAccount, usePartnerReferrals } from "@/hooks/usePartner";
@@ -257,6 +258,7 @@ export const RoleDashboardWidgets = () => {
     <div className="space-y-4">
       {isBusinessOwner && <BusinessDashboardWidget />}
       {(isFreelancer || isBusinessOwner) && <FreelancerDashboardWidget />}
+      {isFreelancer && <FreelancerBusinessPurchase isFreelancer={isFreelancer} />}
       {isAdmin && <AdminDashboardWidget />}
     </div>
   );
