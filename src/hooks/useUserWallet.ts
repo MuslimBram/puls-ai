@@ -130,15 +130,15 @@ export const useRequestWithdrawal = () => {
       // Create withdrawal request
       const { data: wr, error: wrError } = await supabase
         .from("withdrawal_requests")
-        .insert({
+        .insert([{
           user_id: user!.id,
           wallet_id: input.wallet_id,
           amount: input.amount,
           currency: input.currency,
           payout_method: input.payout_method ?? null,
-          payout_details: input.payout_details ?? {},
+          payout_details: (input.payout_details ?? {}) as Record<string, unknown>,
           status: "pending_ai_review",
-        })
+        }])
         .select()
         .single();
       if (wrError) throw wrError;
