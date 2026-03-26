@@ -9,21 +9,19 @@ import { format } from "date-fns";
 import { ShieldCheck, ShieldAlert, ShieldX, CheckCircle2, XCircle, Bot, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
-interface PayoutWithFraud {
+interface WithdrawalRow {
   id: string;
-  partner_id: string;
-  requested_amount: number;
-  payout_status: string;
-  payout_method: string;
-  bank_name: string | null;
-  bank_iban: string | null;
-  beneficiary_name: string | null;
-  admin_note: string | null;
-  ai_fraud_score: number | null;
-  ai_fraud_reasons: string[] | null;
-  ai_reviewed_at: string | null;
+  user_id: string;
+  wallet_id: string;
+  currency: string;
+  amount: number;
+  status: string;
+  ai_risk_score: number | null;
+  ai_risk_reason: string | null;
+  admin_notes: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
   created_at: string;
-  processed_at: string | null;
 }
 
 export const AdminWithdrawalApproval = () => {
@@ -31,29 +29,28 @@ export const AdminWithdrawalApproval = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [adminNote, setAdminNote] = useState("");
 
-  const { data: payouts = [], isLoading } = useQuery({
-    queryKey: ["admin-all-payouts"],
+  const { data: requests = [], isLoading } = useQuery({
+    queryKey: ["admin-withdrawal-requests"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("payout_requests")
+        .from("withdrawal_requests")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(100);
       if (error) throw error;
-      return (data || []) as unknown as PayoutWithFraud[];
+      return (data || []) as unknown as WithdrawalRow[];
     },
   });
 
-  const runAiCheck = useMutation({
-    mutationFn: async (payoutId: string) => {
-      const { data, error } = await supabase.functions.invoke("ai-fraud-check", {
-        body: { payout_request_id: payoutId },
+  const rerunAi = useMutation({
+    mutationFn: async (requestId: string) => {
+      const { error } = await supabase.functions.invoke("withdrawal-fraud-check", {
+        body: { withdrawal_request_id: requestId },
       });
       if (error) throw error;
-      return data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-all-payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-withdrawal-requests"] });
       toast.success("Analiza AI përfundoi");
     },
     onError: (e: Error) => toast.error(e.message),
@@ -61,18 +58,49 @@ export const AdminWithdrawalApproval = () => {
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase
-        .from("payout_requests")
+        .from("withdrawal_requests")
         .update({
-          payout_status: status,
-          admin_note: adminNote || null,
-          processed_at: status === "approved" || status === "rejected" ? new Date().toISOString() : null,
+          status,
+          admin_notes: adminNote || null,
+          reviewed_by: user?.id ?? null,
+          reviewed_at: new Date().toISOString(),
         } as any)
         .eq("id", id);
       if (error) throw error;
+
+      // If approved, deduct from wallet
+      if (status === "approved") {
+        const req = requests.find(r => r.id === id);
+        if (req) {
+          // Deduct balance
+          const { data: wallet } = await supabase
+            .from("user_wallets")
+            .select("current_balance")
+            .eq("id", req.wallet_id)
+            .single();
+          if (wallet) {
+            await supabase.from("user_wallets").update({
+              current_balance: (wallet.current_balance as number) - req.amount,
+              lifetime_withdrawn: ((wallet as any).lifetime_withdrawn ?? 0) + req.amount,
+            } as any).eq("id", req.wallet_id);
+
+            await supabase.from("user_wallet_transactions").insert({
+              wallet_id: req.wallet_id,
+              user_id: req.user_id,
+              type: "withdrawal",
+              amount: -req.amount,
+              currency: req.currency,
+              description: "Tërheqje e aprovuar nga Admin",
+            } as any);
+          }
+        }
+      }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-all-payouts"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-withdrawal-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["user-wallets"] });
       setSelectedId(null);
       setAdminNote("");
       toast.success("Statusi u përditësua");
@@ -80,15 +108,16 @@ export const AdminWithdrawalApproval = () => {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const getFraudBadge = (score: number | null) => {
+  const getRiskBadge = (score: number | null, status: string) => {
+    if (status === "pending_ai_review") return <Badge variant="outline" className="text-[10px]">Duke analizuar...</Badge>;
     if (score === null) return <Badge variant="outline" className="text-[10px]">Pa analizë</Badge>;
     if (score <= 30) return <Badge variant="default" className="text-[10px]"><ShieldCheck className="h-3 w-3 mr-1" />I sigurt ({score})</Badge>;
     if (score <= 60) return <Badge variant="secondary" className="text-[10px]"><ShieldAlert className="h-3 w-3 mr-1" />Kujdes ({score})</Badge>;
     return <Badge variant="destructive" className="text-[10px]"><ShieldX className="h-3 w-3 mr-1" />Rrezik ({score})</Badge>;
   };
 
-  const pendingPayouts = payouts.filter((p) => p.payout_status === "pending");
-  const processedPayouts = payouts.filter((p) => p.payout_status !== "pending");
+  const pendingRequests = requests.filter((r) => r.status === "pending_admin_review" || r.status === "pending_ai_review");
+  const processedRequests = requests.filter((r) => !["pending_admin_review", "pending_ai_review"].includes(r.status));
 
   return (
     <div className="space-y-4">
@@ -96,56 +125,37 @@ export const AdminWithdrawalApproval = () => {
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Bot className="h-4 w-4 text-primary" />
-            Kërkesat e tërheqjes — Aprovimi me AI
+            Kërkesat e tërheqjes — Verifikim AI + Admin
           </CardTitle>
           <CardDescription>
-            AI analizon çdo kërkesë para aprovimit për të zbuluar mashtrime potenciale
+            Çdo kërkesë kalon fillimisht nga AI dhe pastaj kërkon aprovimin tuaj
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Duke ngarkuar...</p>
-          ) : pendingPayouts.length === 0 ? (
+          ) : pendingRequests.length === 0 ? (
             <p className="text-sm text-muted-foreground">Asnjë kërkesë në pritje</p>
           ) : (
             <div className="space-y-3">
-              {pendingPayouts.map((p) => (
-                <div key={p.id} className="rounded-lg border border-border p-4 space-y-3">
+              {pendingRequests.map((r) => (
+                <div key={r.id} className="rounded-lg border border-border p-4 space-y-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-bold text-foreground">€{p.requested_amount.toFixed(2)}</p>
+                      <p className="text-sm font-bold text-foreground">
+                        {r.amount.toFixed(2)} {r.currency}
+                      </p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(p.created_at), "dd MMM yyyy, HH:mm")} • {p.payout_method}
+                        {format(new Date(r.created_at), "dd MMM yyyy, HH:mm")} • User: {r.user_id.substring(0, 8)}...
                       </p>
                     </div>
-                    {getFraudBadge(p.ai_fraud_score)}
+                    {getRiskBadge(r.ai_risk_score, r.status)}
                   </div>
 
-                  {/* Bank details */}
-                  {(p.bank_name || p.bank_iban) && (
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div>
-                        <span className="text-muted-foreground">Banka:</span>
-                        <p className="font-medium text-foreground">{p.bank_name || "—"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">IBAN:</span>
-                        <p className="font-medium text-foreground font-mono">{p.bank_iban || "—"}</p>
-                      </div>
-                      <div>
-                        <span className="text-muted-foreground">Përfituesi:</span>
-                        <p className="font-medium text-foreground">{p.beneficiary_name || "—"}</p>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* AI fraud reasons */}
-                  {p.ai_fraud_reasons && (p.ai_fraud_reasons as string[]).length > 0 && (
-                    <div className="rounded bg-muted/50 p-2 space-y-1">
+                  {r.ai_risk_reason && (
+                    <div className="rounded bg-muted/50 p-2">
                       <p className="text-xs font-medium text-foreground">Gjetjet e AI:</p>
-                      {(p.ai_fraud_reasons as string[]).map((r, i) => (
-                        <p key={i} className="text-xs text-muted-foreground">• {r}</p>
-                      ))}
+                      <p className="text-xs text-muted-foreground">{r.ai_risk_reason}</p>
                     </div>
                   )}
 
@@ -153,32 +163,34 @@ export const AdminWithdrawalApproval = () => {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => runAiCheck.mutate(p.id)}
-                      disabled={runAiCheck.isPending}
+                      onClick={() => rerunAi.mutate(r.id)}
+                      disabled={rerunAi.isPending}
                     >
                       <RefreshCw className="h-3 w-3 mr-1" />
-                      {p.ai_reviewed_at ? "Ri-analizo" : "Analizo me AI"}
+                      {r.ai_risk_score !== null ? "Ri-analizo" : "Analizo me AI"}
                     </Button>
 
-                    {selectedId === p.id ? (
-                      <div className="flex-1 flex items-center gap-2">
-                        <Textarea
-                          placeholder="Shënim admini (opsional)..."
-                          value={adminNote}
-                          onChange={(e) => setAdminNote(e.target.value)}
-                          className="text-xs h-8 min-h-0"
-                        />
-                        <Button size="sm" onClick={() => updateStatus.mutate({ id: p.id, status: "approved" })}>
-                          <CheckCircle2 className="h-3 w-3 mr-1" /> Aprovo
+                    {r.status === "pending_admin_review" && (
+                      selectedId === r.id ? (
+                        <div className="flex-1 flex items-center gap-2">
+                          <Textarea
+                            placeholder="Shënim admini (opsional)..."
+                            value={adminNote}
+                            onChange={(e) => setAdminNote(e.target.value)}
+                            className="text-xs h-8 min-h-0"
+                          />
+                          <Button size="sm" onClick={() => updateStatus.mutate({ id: r.id, status: "approved" })}>
+                            <CheckCircle2 className="h-3 w-3 mr-1" /> Aprovo
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => updateStatus.mutate({ id: r.id, status: "rejected" })}>
+                            <XCircle className="h-3 w-3 mr-1" /> Refuzo
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button size="sm" variant="secondary" onClick={() => setSelectedId(r.id)}>
+                          Vendos
                         </Button>
-                        <Button size="sm" variant="destructive" onClick={() => updateStatus.mutate({ id: p.id, status: "rejected" })}>
-                          <XCircle className="h-3 w-3 mr-1" /> Refuzo
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="secondary" onClick={() => setSelectedId(p.id)}>
-                        Vendos
-                      </Button>
+                      )
                     )}
                   </div>
                 </div>
@@ -188,30 +200,29 @@ export const AdminWithdrawalApproval = () => {
         </CardContent>
       </Card>
 
-      {/* Processed history */}
-      {processedPayouts.length > 0 && (
+      {processedRequests.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm">Historiku i vendimeve</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              {processedPayouts.slice(0, 20).map((p) => (
-                <div key={p.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
+              {processedRequests.slice(0, 20).map((r) => (
+                <div key={r.id} className="flex items-center justify-between py-2 border-b border-border last:border-0">
                   <div>
-                    <p className="text-sm font-medium text-foreground">€{p.requested_amount.toFixed(2)}</p>
+                    <p className="text-sm font-medium text-foreground">{r.amount.toFixed(2)} {r.currency}</p>
                     <p className="text-[10px] text-muted-foreground">
-                      {format(new Date(p.created_at), "dd MMM yyyy")}
-                      {p.admin_note && ` • ${p.admin_note}`}
+                      {format(new Date(r.created_at), "dd MMM yyyy")}
+                      {r.admin_notes && ` • ${r.admin_notes}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    {getFraudBadge(p.ai_fraud_score)}
+                    {getRiskBadge(r.ai_risk_score, r.status)}
                     <Badge
-                      variant={p.payout_status === "approved" ? "default" : p.payout_status === "rejected" ? "destructive" : "secondary"}
+                      variant={r.status === "approved" ? "default" : r.status === "rejected" || r.status === "blocked" ? "destructive" : "secondary"}
                       className="text-[10px]"
                     >
-                      {p.payout_status === "approved" ? "Aprovuar" : p.payout_status === "rejected" ? "Refuzuar" : p.payout_status}
+                      {r.status === "approved" ? "Aprovuar" : r.status === "rejected" ? "Refuzuar" : r.status === "blocked" ? "Bllokuar" : r.status}
                     </Badge>
                   </div>
                 </div>
