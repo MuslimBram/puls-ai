@@ -11859,6 +11859,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_security_codes: {
+        Row: {
+          code_hash: string
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          code_hash: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          code_hash?: string
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_sessions: {
         Row: {
           created_at: string
@@ -13244,6 +13268,7 @@ export type Database = {
         | "business_manager"
         | "agent"
         | "freelancer"
+        | "ambassador"
       payment_mode: "declared_payment" | "undeclared_payment"
     }
     CompositeTypes: {
@@ -13386,6 +13411,7 @@ export const Constants = {
         "business_manager",
         "agent",
         "freelancer",
+        "ambassador",
       ],
       payment_mode: ["declared_payment", "undeclared_payment"],
     },

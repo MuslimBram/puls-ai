@@ -13,7 +13,8 @@ export type AppRole =
   | "partner"
   | "business_manager"
   | "agent"
-  | "freelancer";
+  | "freelancer"
+  | "ambassador";
 
 export interface RolePermissions {
   canCreateAdmin: boolean;
@@ -194,6 +195,12 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canConnectChannels: false,
     canManageIntegrations: false,
   },
+  ambassador: {
+    ...BASE_PERMISSIONS,
+    canCreateReferralLinks: true,
+    canViewAnalytics: true,
+    // Ambassador is referral-only, no business management
+  },
   user: {
     ...BASE_PERMISSIONS,
   },
@@ -240,6 +247,7 @@ export const useRolePermissions = () => {
   const isBusinessOwner = hasRole("business_owner");
   const isBusinessManager = hasRole("business_manager");
   const isAgent = hasRole("agent");
+  const isAmbassador = hasRole("ambassador");
   const isSystemRole = isAdmin || isSuperAdmin;
 
   return {
@@ -254,6 +262,7 @@ export const useRolePermissions = () => {
     isBusinessOwner,
     isBusinessManager,
     isAgent,
+    isAmbassador,
     isSystemRole,
     isLoading,
   };
