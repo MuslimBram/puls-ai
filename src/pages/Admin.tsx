@@ -358,6 +358,10 @@ const Admin = () => {
             </Card>
           </TabsContent>
 
+          <TabsContent value="social-channels">
+            <AdminSocialChannelManager businesses={businesses as any} />
+          </TabsContent>
+
           <TabsContent value="subscriptions">
             <Card>
               <CardContent className="pt-4">
