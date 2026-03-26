@@ -12284,6 +12284,71 @@ export type Database = {
           },
         ]
       }
+      withdrawal_requests: {
+        Row: {
+          admin_notes: string | null
+          admin_reviewed_at: string | null
+          admin_reviewer_id: string | null
+          ai_reviewed_at: string | null
+          ai_risk_reason: string | null
+          ai_risk_score: number | null
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          payout_details: Json | null
+          payout_method: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          wallet_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          admin_reviewed_at?: string | null
+          admin_reviewer_id?: string | null
+          ai_reviewed_at?: string | null
+          ai_risk_reason?: string | null
+          ai_risk_score?: number | null
+          amount: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payout_details?: Json | null
+          payout_method?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          wallet_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          admin_reviewed_at?: string | null
+          admin_reviewer_id?: string | null
+          ai_reviewed_at?: string | null
+          ai_risk_reason?: string | null
+          ai_risk_score?: number | null
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          payout_details?: Json | null
+          payout_method?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          wallet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "withdrawal_requests_wallet_id_fkey"
+            columns: ["wallet_id"]
+            isOneToOne: false
+            referencedRelation: "user_wallets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       workforce_analytics: {
         Row: {
           avg_utilization: number | null
