@@ -23,7 +23,22 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     staleTime: 30000,
   });
 
-  if (loading || subLoading) {
+  // Check if user has admin/super_admin/owner role (bypass payment)
+  const { data: userRoles, isLoading: rolesLoading } = useQuery({
+    queryKey: ["user-roles-bypass", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user!.id);
+      if (error) throw error;
+      return (data || []).map((r) => r.role as string);
+    },
+    enabled: !!user,
+    staleTime: 300000,
+  });
+
+  if (loading || subLoading || rolesLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
@@ -35,8 +50,12 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/login" replace />;
   }
 
-  // Check payment status - allow access if paid or in active trial
-  if (subscription && location.pathname !== "/complete-payment") {
+  // Admin, super_admin, and owner bypass payment gate entirely
+  const bypassRoles = ["admin", "super_admin", "business_owner"];
+  const hasBypassRole = userRoles?.some((role) => bypassRoles.includes(role)) ?? false;
+
+  // Check payment status - allow access if paid, in active trial, or has bypass role
+  if (!hasBypassRole && subscription && location.pathname !== "/complete-payment") {
     const isPaid = subscription.payment_status === "paid";
     const isTrialActive =
       subscription.payment_status === "trial" &&
