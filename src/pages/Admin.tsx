@@ -306,7 +306,10 @@ const Admin = () => {
           </TabsContent>
 
           <TabsContent value="businesses">
-            <AdminBusinessScanPanel businesses={businesses as any} />
+            <div className="space-y-4">
+              <AdminCreateBusiness profiles={profiles as any} businesses={businesses as any} />
+              <AdminBusinessScanPanel businesses={businesses as any} />
+            </div>
           </TabsContent>
 
           <TabsContent value="leads">
