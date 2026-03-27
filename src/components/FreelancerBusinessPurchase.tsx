@@ -11,9 +11,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Briefcase, Plus, Wallet, AlertTriangle, CheckCircle, Clock } from "lucide-react";
+import { Briefcase, Plus, Wallet, AlertTriangle, CheckCircle, Clock, Trash2, Globe, DollarSign } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { PACKAGE_VARIANTS } from "@/config/plans";
+import { cn } from "@/lib/utils";
 
 const BASE_PRICES: Record<string, number> = {
   standard: 49,
@@ -22,7 +23,27 @@ const BASE_PRICES: Record<string, number> = {
   enterprise: 399,
 };
 
-const FREELANCER_DISCOUNT = 40; // 40% zbritje për freelancerë
+const FREELANCER_DISCOUNT = 40;
+
+const CHANNEL_TYPES = [
+  { value: "instagram", label: "Instagram" },
+  { value: "facebook", label: "Facebook" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "tiktok", label: "TikTok" },
+  { value: "twitter", label: "X (Twitter)" },
+  { value: "youtube", label: "YouTube" },
+  { value: "website", label: "Website" },
+  { value: "whatsapp", label: "WhatsApp Business" },
+  { value: "telegram", label: "Telegram" },
+  { value: "email", label: "Email" },
+];
+
+interface ChannelEntry {
+  type: string;
+  identifier: string;
+}
+
+type PaymentMethod = "paypal" | "payoneer" | "wallet";
 
 interface FreelancerBusinessPurchaseProps {
   isFreelancer: boolean;
@@ -44,7 +65,13 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
     wallet_currency: "EUR",
   });
 
-  // Get freelancer's existing businesses
+  const [channels, setChannels] = useState<ChannelEntry[]>([
+    { type: "instagram", identifier: "" },
+    { type: "linkedin", identifier: "" },
+  ]);
+
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+
   const businessesQuery = useQuery({
     queryKey: ["freelancer-businesses", user?.id],
     queryFn: async () => {
@@ -59,7 +86,6 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
     enabled: !!user?.id && isFreelancer,
   });
 
-  // Get pending purchase requests
   const pendingPurchases = useQuery({
     queryKey: ["freelancer-business-purchases", user?.id],
     queryFn: async () => {
@@ -80,7 +106,6 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
   const durationMonths = selectedVariant?.durationMonths || 1;
   const durationDiscount = selectedVariant?.discountPercent || 0;
 
-  // Freelancer gets 40% discount on the monthly price, then duration discount applies
   const freelancerMonthlyPrice = basePrice * (1 - FREELANCER_DISCOUNT / 100);
   const finalMonthlyPrice = freelancerMonthlyPrice * (1 - durationDiscount / 100);
   const totalPrice = Number((finalMonthlyPrice * durationMonths).toFixed(2));
@@ -88,18 +113,40 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
   const selectedWallet = wallets.find((w) => w.currency === form.wallet_currency);
   const hasEnoughBalance = (selectedWallet?.current_balance ?? 0) >= totalPrice;
 
+  const validChannels = channels.filter((c) => c.identifier.trim());
+  const hasMinChannels = validChannels.length >= 2;
+
+  const addChannel = () => {
+    const usedTypes = channels.map((c) => c.type);
+    const nextType = CHANNEL_TYPES.find((ct) => !usedTypes.includes(ct.value))?.value || "website";
+    setChannels([...channels, { type: nextType, identifier: "" }]);
+  };
+
+  const removeChannel = (idx: number) => {
+    if (channels.length <= 2) return;
+    setChannels(channels.filter((_, i) => i !== idx));
+  };
+
+  const updateChannel = (idx: number, field: keyof ChannelEntry, value: string) => {
+    setChannels(channels.map((c, i) => (i === idx ? { ...c, [field]: value } : c)));
+  };
+
   const purchaseBusiness = useMutation({
     mutationFn: async () => {
       if (!form.business_name.trim()) throw new Error("Emri i biznesit është i detyrueshëm");
-      if (!selectedWallet) throw new Error("Zgjidhni një portofol me gjëndje të mjaftueshme");
-      if (!hasEnoughBalance) throw new Error("Gjëndja e portofolit nuk mjafton");
+      if (!hasMinChannels) throw new Error("Duhen të paktën 2 kanale të plotësuara");
+      if (!selectedPaymentMethod) throw new Error("Zgjidhni metodën e pagesës");
 
-      // Create withdrawal request for AI + Admin verification
+      if (selectedPaymentMethod === "wallet") {
+        if (!selectedWallet) throw new Error("Zgjidhni një portofol");
+        if (!hasEnoughBalance) throw new Error("Gjëndja e portofolit nuk mjafton");
+      }
+
       const { error } = await supabase
         .from("withdrawal_requests")
         .insert({
           user_id: user!.id,
-          wallet_id: selectedWallet.id,
+          wallet_id: selectedWallet?.id || null,
           amount: totalPrice,
           currency: form.wallet_currency,
           request_type: "business_purchase",
@@ -116,11 +163,12 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
             duration_discount: durationDiscount,
             monthly_price: finalMonthlyPrice,
             total_price: totalPrice,
+            payment_method: selectedPaymentMethod,
+            channels: validChannels,
           },
         } as any);
       if (error) throw error;
 
-      // Trigger AI fraud check
       await supabase.functions.invoke("withdrawal-fraud-check", {
         body: {
           user_id: user!.id,
@@ -138,6 +186,11 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
         business_name: "", short_description: "", industry: "",
         plan: "standard", duration: "monthly", wallet_currency: "EUR",
       });
+      setChannels([
+        { type: "instagram", identifier: "" },
+        { type: "linkedin", identifier: "" },
+      ]);
+      setSelectedPaymentMethod(null);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -160,7 +213,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
               <Plus className="h-3 w-3 mr-1" /> Shto Biznes
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Shto Biznes të Ri (Freelancer)</DialogTitle>
             </DialogHeader>
@@ -188,6 +241,56 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                   onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
                   placeholder="p.sh. Teknologji"
                 />
+              </div>
+
+              {/* Channels - min 2 required */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label>Kanalet e Lidhura (min. 2) *</Label>
+                  <Button type="button" variant="outline" size="sm" onClick={addChannel}>
+                    <Plus className="h-3 w-3 mr-1" /> Shto
+                  </Button>
+                </div>
+                {channels.map((ch, idx) => (
+                  <div key={idx} className="flex gap-2 items-center">
+                    <Select
+                      value={ch.type}
+                      onValueChange={(v) => updateChannel(idx, "type", v)}
+                    >
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CHANNEL_TYPES.map((ct) => (
+                          <SelectItem key={ct.value} value={ct.value}>{ct.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Input
+                      value={ch.identifier}
+                      onChange={(e) => updateChannel(idx, "identifier", e.target.value)}
+                      placeholder={ch.type === "website" ? "https://..." : "@username ose URL"}
+                      className="flex-1"
+                    />
+                    {channels.length > 2 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0"
+                        onClick={() => removeChannel(idx)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {!hasMinChannels && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" />
+                    Plotësoni të paktën 2 kanale për të vazhduar
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -218,23 +321,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 </div>
               </div>
 
-              <div>
-                <Label>Portofoli</Label>
-                <Select value={form.wallet_currency} onValueChange={(v) => setForm((f) => ({ ...f, wallet_currency: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {wallets.map((w) => (
-                      <SelectItem key={w.id} value={w.currency}>
-                        <span className="flex items-center gap-2">
-                          <Wallet className="h-3 w-3" />
-                          {w.currency} — Gjëndja: €{Number(w.current_balance).toFixed(2)}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
+              {/* Price summary */}
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span>Çmimi bazë:</span>
@@ -254,20 +341,100 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                   <span>Total ({durationMonths} muaj):</span>
                   <span>€{totalPrice.toFixed(2)}</span>
                 </div>
-                {!hasEnoughBalance && (
-                  <div className="flex items-center gap-1 text-xs text-destructive mt-1">
-                    <AlertTriangle className="h-3 w-3" />
-                    Gjëndja nuk mjafton. Rimbushni portofolit.
+              </div>
+
+              {/* Payment method selection */}
+              <div className="space-y-2">
+                <Label>Metoda e Pagesës *</Label>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod("paypal")}
+                  className={cn(
+                    "flex items-center gap-3 w-full rounded-lg border-2 px-3 py-2.5 transition-all text-left",
+                    selectedPaymentMethod === "paypal"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <div className={cn(
+                    "flex h-4 w-4 items-center justify-center rounded-full border-2",
+                    selectedPaymentMethod === "paypal" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                  )}>
+                    {selectedPaymentMethod === "paypal" && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
                   </div>
+                  <Globe className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium text-foreground">PayPal</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod("payoneer")}
+                  className={cn(
+                    "flex items-center gap-3 w-full rounded-lg border-2 px-3 py-2.5 transition-all text-left",
+                    selectedPaymentMethod === "payoneer"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50"
+                  )}
+                >
+                  <div className={cn(
+                    "flex h-4 w-4 items-center justify-center rounded-full border-2",
+                    selectedPaymentMethod === "payoneer" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                  )}>
+                    {selectedPaymentMethod === "payoneer" && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
+                  </div>
+                  <DollarSign className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-medium text-foreground">Payoneer</span>
+                </button>
+
+                {wallets.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPaymentMethod("wallet")}
+                    disabled={!hasEnoughBalance}
+                    className={cn(
+                      "flex items-center gap-3 w-full rounded-lg border-2 px-3 py-2.5 transition-all text-left",
+                      selectedPaymentMethod === "wallet"
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-primary/50",
+                      !hasEnoughBalance && "opacity-50"
+                    )}
+                  >
+                    <div className={cn(
+                      "flex h-4 w-4 items-center justify-center rounded-full border-2",
+                      selectedPaymentMethod === "wallet" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                    )}>
+                      {selectedPaymentMethod === "wallet" && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
+                    </div>
+                    <Wallet className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Portofoli</span>
+                    <Badge variant="secondary" className="ml-auto text-xs">
+                      €{(selectedWallet?.current_balance ?? 0).toFixed(2)}
+                    </Badge>
+                  </button>
+                )}
+
+                {selectedPaymentMethod === "wallet" && !hasEnoughBalance && (
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3" /> Gjëndja nuk mjafton
+                  </p>
                 )}
               </div>
 
               <Button
                 className="w-full"
                 onClick={() => purchaseBusiness.mutate()}
-                disabled={purchaseBusiness.isPending || !form.business_name.trim() || !hasEnoughBalance}
+                disabled={
+                  purchaseBusiness.isPending ||
+                  !form.business_name.trim() ||
+                  !hasMinChannels ||
+                  !selectedPaymentMethod ||
+                  (selectedPaymentMethod === "wallet" && !hasEnoughBalance)
+                }
               >
-                {purchaseBusiness.isPending ? "Duke dërguar..." : `Bli Biznes — €${totalPrice.toFixed(2)}`}
+                {purchaseBusiness.isPending
+                  ? "Duke dërguar..."
+                  : `Bli Biznes — €${totalPrice.toFixed(2)}`}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
                 Pagesa verifikohet nga AI dhe aprovohet nga Admini
