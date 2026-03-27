@@ -184,6 +184,50 @@ export default {
     getStarted: "Fillo Tani",
     pricing: "Çmimet",
     allRightsReserved: "Të gjitha të drejtat e rezervuara.",
+    howItWorks: {
+      title: "Si Funksionon",
+      desc: "Filloni me 4 hapa të thjeshtë",
+      steps: {
+        register: { title: "Regjistrohuni", desc: "Krijoni llogarinë — zgjidhni Biznes, Freelancer ose Ambasador" },
+        profile: { title: "Plotësoni Profilin", desc: "Shtoni informacionet e biznesit, logon dhe kontaktet" },
+        channels: { title: "Lidhni Kanalet", desc: "Lidhni WhatsApp, Telegram, Email ose Chat" },
+        aiWorks: { title: "AI Punon për Ju", desc: "AI mëson biznesin tuaj dhe trajton bisedat automatikisht" },
+      },
+    },
+    faq: {
+      title: "Pyetje të Shpeshta",
+      desc: "Gjithçka që duhet të dini para se të filloni",
+      items: {
+        whatIsPulse: {
+          q: "Çfarë është Pulse AI?",
+          a: "Pulse AI është një platformë gjithëpërfshirëse e drejtuar nga AI për menaxhimin e klientëve, marketingut dhe shitjeve. Unifikon inbox-in, CRM-in, telefoninë dhe automatizimin në një panel të vetëm.",
+        },
+        howMuch: {
+          q: "Sa kushton?",
+          a: "Planet fillojnë nga €49/muaj (Start), €99/muaj (Growth), €199/muaj (PRO) dhe €399+/muaj (Enterprise). Merrni zbritje për angazhime më të gjata: 5% për 3 muaj, 10% për 6 muaj, 15% vjetore.",
+        },
+        freeTrial: {
+          q: "A mund ta provoj falas?",
+          a: "Po! Çdo llogari merr provë falas 7-ditore me akses të plotë në të gjitha funksionet. Pa kartë krediti.",
+        },
+        rolesDifference: {
+          q: "Cili është ndryshimi mes Biznesit, Freelancer-it dhe Ambasadorit?",
+          a: "Biznes: Keni një kompani dhe doni ta rritni me mjete AI. Freelancer: Menaxhoni biznese të tjera — fitoni 35% komision referimi + 40% nga menaxhimi. Ambasador: Vetëm referime — fitoni 35% komision jetësor (minimum 3 referime/muaj).",
+        },
+        referralEarnings: {
+          q: "Si fitoj para me referime?",
+          a: "Ndani linkun tuaj unik të referimit. Fitoni komision jetësor për çdo pagesë nga përdoruesit që referoni. Freelancerët fitojnë 35% nga referimet + 40% nga menaxhimi. Ambasadorët fitojnë 35% nga referimet.",
+        },
+        installMobile: {
+          q: "A mund ta instaloj në telefon?",
+          a: "Po! Pulse AI është PWA (Progressive Web App). Mund ta instaloni në iOS, Android, desktop dhe tablet — si një aplikacion, direkt nga shfletuesi.",
+        },
+        afterTrial: {
+          q: "Çfarë ndodh pas provës falas?",
+          a: "Pas 7 ditëve, duhet të zgjidhni një paketë dhe të paguani për të vazhduar. Nëse nuk kryhet pagesë brenda 30 ditëve nga regjistrimi, llogaria fshihet automatikisht. Mund të paguani me PayPal, Payoneer ose balancën e portofolit nga referimet.",
+        },
+      },
+    },
   },
 
   // Billing plans

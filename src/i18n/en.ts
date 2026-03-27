@@ -184,6 +184,50 @@ export default {
     getStarted: "Get Started",
     pricing: "Pricing",
     allRightsReserved: "All rights reserved.",
+    howItWorks: {
+      title: "How It Works",
+      desc: "Get started in 4 simple steps",
+      steps: {
+        register: { title: "Sign Up", desc: "Create your account — choose Business, Freelancer, or Ambassador" },
+        profile: { title: "Set Up Profile", desc: "Add your business info, logo, and contact details" },
+        channels: { title: "Connect Channels", desc: "Link WhatsApp, Telegram, Email or Website Chat" },
+        aiWorks: { title: "AI Works for You", desc: "AI learns your business and handles conversations automatically" },
+      },
+    },
+    faq: {
+      title: "Frequently Asked Questions",
+      desc: "Everything you need to know before getting started",
+      items: {
+        whatIsPulse: {
+          q: "What is Pulse AI?",
+          a: "Pulse AI is an all-in-one AI-powered platform for managing leads, customers, marketing, and sales. It unifies your inbox, CRM, telephony, and automation into one dashboard.",
+        },
+        howMuch: {
+          q: "How much does it cost?",
+          a: "Plans start at €49/month (Start), €99/month (Growth), €199/month (PRO), and €399+/month (Enterprise). You get discounts for longer commitments: 5% for 3 months, 10% for 6 months, 15% yearly.",
+        },
+        freeTrial: {
+          q: "Can I try it for free?",
+          a: "Yes! Every account gets a 7-day free trial with full access to all features. No credit card required.",
+        },
+        rolesDifference: {
+          q: "What's the difference between Business, Freelancer, and Ambassador?",
+          a: "Business: You own a company and want to grow it with AI tools. Freelancer: You manage other businesses — earn 35% referral commission + 40% from management fees. Ambassador: Referral-only — earn 35% lifetime commission (minimum 3 referrals/month required).",
+        },
+        referralEarnings: {
+          q: "How do I earn money with referrals?",
+          a: "Share your unique referral link. You earn a lifetime commission on every payment made by users you refer. Freelancers earn 35% on referrals + 40% on management. Ambassadors earn 35% on referrals.",
+        },
+        installMobile: {
+          q: "Can I install it on my phone?",
+          a: "Yes! Pulse AI is a PWA (Progressive Web App). You can install it on iOS, Android, desktop, and tablet — just like a native app, directly from your browser.",
+        },
+        afterTrial: {
+          q: "What happens after the free trial?",
+          a: "After 7 days, you need to select a plan and pay to continue. If no payment is made within 30 days of registration, your account is automatically deleted. You can pay using PayPal, Payoneer, or your referral earnings wallet balance.",
+        },
+      },
+    },
   },
 
   // Billing plans
