@@ -105,8 +105,8 @@ const BusinessProfile = () => {
   const { data: socialChannelCount = 0 } = useQuery({
     queryKey: ["social-channel-count", currentWorkspace?.id],
     queryFn: async () => {
-      const { count, error } = await supabase
-        .from("channel_registry")
+      const { count, error } = await (supabase
+        .from("channel_registry") as any)
         .select("*", { count: "exact", head: true })
         .eq("workspace_id", currentWorkspace!.id)
         .eq("is_active", true);
