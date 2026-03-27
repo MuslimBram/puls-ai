@@ -110,6 +110,16 @@ const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
+const AdminPage = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <AdminRoute>
+      <ErrorBoundary fallback={<PageErrorFallback />}>
+        <Suspense fallback={<LazyFallback />}>{children}</Suspense>
+      </ErrorBoundary>
+    </AdminRoute>
+  </ProtectedRoute>
+);
+
 const App = () => (
   <ErrorBoundary fallback={<PageErrorFallback />}>
     <QueryClientProvider client={queryClient}>
