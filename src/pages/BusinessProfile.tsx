@@ -106,9 +106,10 @@ const BusinessProfile = () => {
     queryKey: ["social-channel-count", currentWorkspace?.id],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from("channel_credentials")
+        .from("channel_registry")
         .select("*", { count: "exact", head: true })
-        .eq("workspace_id", currentWorkspace!.id);
+        .eq("workspace_id", currentWorkspace!.id)
+        .eq("is_active", true);
       if (error) return 0;
       return count ?? 0;
     },
