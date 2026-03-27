@@ -253,6 +253,7 @@ const Dashboard = () => {
           </SafeRender>
         </div>
       </div>
+      </TrialExpiredGate>
     </DashboardLayout>
   );
 };
