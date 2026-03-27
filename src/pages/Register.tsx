@@ -369,6 +369,29 @@ const Register = () => {
                 )}
               </div>
 
+              {/* Trial warning: 30-day auto-delete notice */}
+              {selectedDuration === "trial" && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                    ⚠️ Pas provës 7-ditore:
+                  </p>
+                  <ul className="text-[11px] text-amber-600 dark:text-amber-300 space-y-0.5 list-disc pl-4">
+                    <li>Aksesi bllokohet — duhet të zgjidhni një paketë për të vazhduar</li>
+                    <li>Nëse nuk kryeni pagesë brenda <strong>30 ditëve</strong> nga regjistrimi, llogaria fshihet automatikisht</li>
+                    <li>Mund të fitoni para nga referimet dhe të paguani nga portofoli</li>
+                  </ul>
+                </div>
+              )}
+
+              {/* Non-trial: direct payment notice */}
+              {selectedDuration && selectedDuration !== "trial" && accountType === "business" && (
+                <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <p className="text-xs text-muted-foreground">
+                    💳 Pas regjistrimit do ridrejtoheni direkt te faqja e pagesës për të aktivizuar llogarinë dhe portofolin tuaj.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="name">Emri i plotë <span className="text-destructive">*</span></Label>
                 <div className="relative">
