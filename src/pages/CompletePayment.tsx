@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { CreditCard, Wallet, Zap, ArrowRight, LogOut, Check, Crown } from "lucide-react";
+import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign } from "lucide-react";
 import { useUserWallets } from "@/hooks/useUserWallet";
 import { cn } from "@/lib/utils";
 import type { PlanKey } from "@/types/monetization";
@@ -43,6 +43,8 @@ const DURATION_OPTIONS: DurationOption[] = [
 const getDiscountedPrice = (base: number, discountPercent: number) =>
   Math.round(base * (1 - discountPercent / 100) * 100) / 100;
 
+type PaymentMethod = "paypal" | "payoneer" | "wallet";
+
 const CompletePayment = () => {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -51,7 +53,7 @@ const CompletePayment = () => {
   const metaPlan = user?.user_metadata?.billing_plan;
   const metaDuration = user?.user_metadata?.billing_duration;
   const accountType = user?.user_metadata?.account_type;
-  const isFreelancerOrAmbassador = accountType === "freelancer" || accountType === "ambassador";
+  const isAmbassador = accountType === "ambassador";
 
   const [selectedPlan, setSelectedPlan] = useState<PlanKey>(
     metaPlan && ["standard", "professional", "advanced", "enterprise"].includes(metaPlan)
@@ -59,8 +61,9 @@ const CompletePayment = () => {
       : "standard"
   );
   const [selectedDuration, setSelectedDuration] = useState<string>(
-    isFreelancerOrAmbassador ? "trial" : (metaDuration || "monthly")
+    isAmbassador ? "trial" : (metaDuration || "monthly")
   );
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(false);
 
   const currentTier = PLAN_TIERS.find((t) => t.key === selectedPlan);
@@ -73,25 +76,45 @@ const CompletePayment = () => {
   const canPayFromWallet = walletBalance >= discountedPrice && discountedPrice > 0;
   const hasReferralEarnings = walletBalance > 0;
 
-  const handleStripeCheckout = async () => {
-    if (isTrial) {
-      // Start trial directly - redirect to dashboard
-      try {
-        setLoading(true);
-        toast.success("Provë 7-ditore e aktivizuar!");
-        navigate("/dashboard");
-      } finally {
-        setLoading(false);
+  const handleTrialStart = async () => {
+    try {
+      setLoading(true);
+      toast.success("Provë 7-ditore e aktivizuar!");
+      navigate("/dashboard");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePayment = async (method: PaymentMethod) => {
+    if (method === "wallet") {
+      if (!canPayFromWallet) {
+        toast.error("Balanca e portofolit nuk mjafton");
+        return;
       }
+      setLoading(true);
+      try {
+        const { error } = await supabase.functions.invoke("wallet-subscribe", {
+          body: { planKey: selectedPlan, packageType: selectedDuration },
+        });
+        if (error) throw error;
+        toast.success("Pagesa u krye me sukses!");
+        navigate("/dashboard");
+      } catch (err: any) {
+        toast.error(err.message || "Gabim gjatë pagesës nga portofoli");
+      }
+      setLoading(false);
       return;
     }
 
+    // PayPal or Payoneer
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
           planKey: selectedPlan,
           packageType: selectedDuration === "monthly" ? "monthly" : selectedDuration,
+          paymentMethod: method,
         },
       });
       if (error) throw error;
@@ -106,27 +129,7 @@ const CompletePayment = () => {
     setLoading(false);
   };
 
-  const handleWalletPayment = async () => {
-    if (!canPayFromWallet) {
-      toast.error("Balanca e portofolit nuk mjafton");
-      return;
-    }
-    setLoading(true);
-    try {
-      const { error } = await supabase.functions.invoke("wallet-subscribe", {
-        body: {
-          planKey: selectedPlan,
-          packageType: selectedDuration,
-        },
-      });
-      if (error) throw error;
-      toast.success("Pagesa u krye me sukses!");
-      navigate("/dashboard");
-    } catch (err: any) {
-      toast.error(err.message || "Gabim gjatë pagesës nga portofoli");
-    }
-    setLoading(false);
-  };
+  const totalPrice = discountedPrice * (currentDuration?.months ?? 1);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
@@ -142,7 +145,7 @@ const CompletePayment = () => {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Plan selection - all 4 tiers */}
+          {/* Plan selection */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Zgjidhni Planin:</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -178,7 +181,7 @@ const CompletePayment = () => {
             </div>
           </div>
 
-          {/* Duration selection - all 5 options */}
+          {/* Duration selection */}
           <div className="space-y-2">
             <p className="text-sm font-medium text-foreground">Zgjidhni Kohëzgjatjen:</p>
             <div className="grid gap-2">
@@ -258,18 +261,18 @@ const CompletePayment = () => {
               <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
                 <span className="text-sm text-muted-foreground">Totali:</span>
                 <span className="font-bold text-foreground">
-                  €{(discountedPrice * (currentDuration?.months ?? 1)).toFixed(0)}
+                  €{totalPrice.toFixed(0)}
                   <span className="text-xs font-normal text-muted-foreground"> për {currentDuration?.months} muaj</span>
                 </span>
               </div>
             )}
           </div>
 
-          {/* Action buttons */}
+          {/* Payment methods */}
           {isTrial ? (
             <Button
               className="w-full h-14 text-base"
-              onClick={handleStripeCheckout}
+              onClick={handleTrialStart}
               disabled={loading}
             >
               <Zap className="mr-2 h-5 w-5" />
@@ -277,46 +280,107 @@ const CompletePayment = () => {
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
           ) : (
-            <>
-              <Button
-                className="w-full h-14 text-base"
-                onClick={handleStripeCheckout}
-                disabled={loading}
-              >
-                <CreditCard className="mr-2 h-5 w-5" />
-                Paguaj me Kartë / Bankë
-                <ArrowRight className="ml-auto h-4 w-4" />
-              </Button>
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-foreground">Zgjidhni Metodën e Pagesës:</p>
 
+              {/* PayPal */}
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("paypal")}
+                className={cn(
+                  "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
+                  selectedPaymentMethod === "paypal"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                )}
+              >
+                <div className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                  selectedPaymentMethod === "paypal" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                )}>
+                  {selectedPaymentMethod === "paypal" && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <Globe className="h-5 w-5 text-blue-600" />
+                <span className="text-sm font-medium text-foreground">PayPal</span>
+              </button>
+
+              {/* Payoneer */}
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("payoneer")}
+                className={cn(
+                  "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
+                  selectedPaymentMethod === "payoneer"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50"
+                )}
+              >
+                <div className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                  selectedPaymentMethod === "payoneer" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                )}>
+                  {selectedPaymentMethod === "payoneer" && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <DollarSign className="h-5 w-5 text-orange-500" />
+                <span className="text-sm font-medium text-foreground">Payoneer</span>
+              </button>
+
+              {/* Wallet (only if has earnings) */}
               {hasReferralEarnings && (
-                <Button
-                  variant="outline"
-                  className="w-full h-14 text-base"
-                  onClick={handleWalletPayment}
-                  disabled={loading || !canPayFromWallet}
+                <button
+                  type="button"
+                  onClick={() => setSelectedPaymentMethod("wallet")}
+                  className={cn(
+                    "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
+                    selectedPaymentMethod === "wallet"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:border-primary/50",
+                    !canPayFromWallet && "opacity-50"
+                  )}
+                  disabled={!canPayFromWallet}
                 >
-                  <Wallet className="mr-2 h-5 w-5" />
-                  Paguaj nga Portofoli
-                  <Badge variant="secondary" className="ml-2">
-                    €{walletBalance.toFixed(2)}
-                  </Badge>
-                </Button>
+                  <div className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                    selectedPaymentMethod === "wallet" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                  )}>
+                    {selectedPaymentMethod === "wallet" && <Check className="h-3 w-3 text-primary-foreground" />}
+                  </div>
+                  <Wallet className="h-5 w-5 text-emerald-500" />
+                  <span className="text-sm font-medium text-foreground">Portofoli</span>
+                  <Badge variant="secondary" className="ml-auto">€{walletBalance.toFixed(2)}</Badge>
+                </button>
               )}
 
-              {hasReferralEarnings && !canPayFromWallet && (
-                <p className="text-xs text-muted-foreground text-center">
-                  Balanca e portofolit nuk mjafton për këtë plan. Përdorni kartë/bankë ose PayPal/Payoneer.
+              {hasReferralEarnings && !canPayFromWallet && selectedPaymentMethod === "wallet" && (
+                <p className="text-xs text-destructive text-center">
+                  Balanca e portofolit nuk mjafton. Zgjidhni PayPal ose Payoneer.
                 </p>
               )}
+
+              {/* Pay button */}
+              <Button
+                className="w-full h-14 text-base"
+                onClick={() => selectedPaymentMethod && handlePayment(selectedPaymentMethod)}
+                disabled={loading || !selectedPaymentMethod}
+              >
+                {selectedPaymentMethod === "paypal" && <Globe className="mr-2 h-5 w-5" />}
+                {selectedPaymentMethod === "payoneer" && <DollarSign className="mr-2 h-5 w-5" />}
+                {selectedPaymentMethod === "wallet" && <Wallet className="mr-2 h-5 w-5" />}
+                {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
+                {selectedPaymentMethod
+                  ? `Paguaj €${totalPrice.toFixed(0)} me ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Portofol"}`
+                  : "Zgjidhni metodën e pagesës"
+                }
+                <ArrowRight className="ml-auto h-4 w-4" />
+              </Button>
 
               {!hasReferralEarnings && (
                 <p className="text-xs text-muted-foreground text-center">
                   <Wallet className="inline h-3 w-3 mr-1" />
                   Pagesa nga portofoli disponohet vetëm nëse keni fituar nga referalet (komisione).
-                  Nuk nevojitet rimbushje nga banka.
                 </p>
               )}
-            </>
+            </div>
           )}
 
           <p className="text-xs text-muted-foreground text-center">
