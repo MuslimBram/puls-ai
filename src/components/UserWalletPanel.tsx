@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -11,7 +12,7 @@ import {
   useCreateWallet,
   useRequestWithdrawal,
 } from "@/hooks/useUserWallet";
-import { Wallet, ArrowDownCircle, Plus, Clock, TrendingUp, ShieldCheck, AlertTriangle, CreditCard, Building2, Lock } from "lucide-react";
+import { Wallet, ArrowDownCircle, Plus, Clock, TrendingUp, ShieldCheck, AlertTriangle, Info } from "lucide-react";
 import { format } from "date-fns";
 
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "ALL"];
@@ -35,12 +36,19 @@ const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secon
   completed: { label: "Përfunduar", variant: "default" },
 };
 
+const PAYOUT_METHODS = [
+  { value: "paypal", label: "PayPal" },
+  { value: "payoneer", label: "Payoneer" },
+];
+
 export const UserWalletPanel = () => {
   const { data: wallets, isLoading } = useUserWallets();
   const { data: withdrawalRequests } = useWithdrawalRequests();
   const [selectedWalletId, setSelectedWalletId] = useState<string | null>(null);
   const [newCurrency, setNewCurrency] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [payoutMethod, setPayoutMethod] = useState("");
+  const [payoutEmail, setPayoutEmail] = useState("");
 
   const createWallet = useCreateWallet();
   const requestWithdrawal = useRequestWithdrawal();
@@ -51,19 +59,20 @@ export const UserWalletPanel = () => {
   const existingCurrencies = new Set(wallets?.map((w) => w.currency) ?? []);
   const availableCurrencies = CURRENCIES.filter((c) => !existingCurrencies.has(c));
 
-  // TODO: Check if user has connected a payment method
-  const hasPaymentMethod = false;
-
   const handleWithdrawal = () => {
     if (!selectedWallet || !withdrawAmount || Number(withdrawAmount) <= 0) return;
+    if (!payoutMethod || !payoutEmail.trim()) return;
     const amount = Number(withdrawAmount);
     if (amount > Number(selectedWallet.current_balance)) return;
     requestWithdrawal.mutate({
       wallet_id: selectedWallet.id,
       amount,
       currency: selectedWallet.currency,
+      payout_method: payoutMethod,
+      payout_details: { email: payoutEmail.trim(), method: payoutMethod },
     });
     setWithdrawAmount("");
+    setPayoutEmail("");
   };
 
   if (isLoading) return <div className="text-muted-foreground text-center py-8">Po ngarkohet...</div>;
@@ -125,71 +134,86 @@ export const UserWalletPanel = () => {
         )}
       </div>
 
-      {/* Top-up: requires payment method */}
+      {/* How wallet works - referral only */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
-            <CreditCard className="h-5 w-5 text-primary" />
-            Rimbushje portofoli
+            <Info className="h-5 w-5 text-primary" />
+            Si funksionon portofoli
           </CardTitle>
-          <CardDescription>
-            Për të rimbushur portofolinduhet të lidhni një metodë pagese (kartë bankare ose transfer bankar).
-          </CardDescription>
         </CardHeader>
         <CardContent>
-          {!hasPaymentMethod ? (
-            <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center space-y-3">
-              <Lock className="h-10 w-10 mx-auto text-muted-foreground" />
-              <p className="text-sm text-foreground font-medium">
-                Nuk keni lidhur asnjë metodë pagese
-              </p>
-              <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                Për të rimbushur portofolin, duhet të lidhni kartën bankare ose llogarinë bankare. 
-                Fondet depozitohen pas verifikimit.
-              </p>
-              <div className="flex gap-2 justify-center">
-                <Button variant="outline" size="sm">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  Lidh kartën
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Transfer bankar
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">Metoda e pagesës e lidhur. Mund të rimbushni portofolinë.</p>
-          )}
+          <div className="rounded-lg border border-border bg-primary/5 p-4 text-sm text-foreground space-y-2">
+            <p className="font-medium">Portofoli mbushet automatikisht nga fitimet e referaleve.</p>
+            <p className="text-xs text-muted-foreground">
+              Kur ju referoni biznese ose klientë, komisioni kreditohet direkt në portofolin tuaj.
+              Me këto fonde mund të blini paketat e abonimit ose të kërkoni tërheqje përmes PayPal ose Payoneer.
+            </p>
+          </div>
         </CardContent>
       </Card>
 
-      {/* Withdrawal */}
+      {/* Withdrawal with PayPal/Payoneer */}
       {selectedWallet && Number(selectedWallet.current_balance) > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Kërko tërheqje — {selectedWallet.currency}</CardTitle>
+            <CardDescription>Zgjidhni PayPal ose Payoneer për tërheqje</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="flex flex-wrap gap-3">
-              <Input
-                type="number"
-                placeholder="Shuma"
-                className="w-40"
-                value={withdrawAmount}
-                onChange={(e) => setWithdrawAmount(e.target.value)}
-                min={0}
-                step="0.01"
-                max={Number(selectedWallet.current_balance)}
-              />
-              <Button
-                onClick={handleWithdrawal}
-                disabled={requestWithdrawal.isPending || !withdrawAmount || Number(withdrawAmount) <= 0 || Number(withdrawAmount) > Number(selectedWallet.current_balance)}
-              >
-                <ArrowDownCircle className="mr-2 h-4 w-4" />
-                Kërko tërheqje
-              </Button>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Shuma</Label>
+                <Input
+                  type="number"
+                  placeholder="0.00"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  min={0}
+                  step="0.01"
+                  max={Number(selectedWallet.current_balance)}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Metoda e pagesës</Label>
+                <Select value={payoutMethod} onValueChange={setPayoutMethod}>
+                  <SelectTrigger><SelectValue placeholder="Zgjidhni metodën" /></SelectTrigger>
+                  <SelectContent>
+                    {PAYOUT_METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+            {payoutMethod && (
+              <div>
+                <Label className="text-xs">
+                  Email {payoutMethod === "paypal" ? "PayPal" : "Payoneer"}
+                </Label>
+                <Input
+                  type="email"
+                  placeholder={`Email ${payoutMethod === "paypal" ? "PayPal" : "Payoneer"}`}
+                  value={payoutEmail}
+                  onChange={(e) => setPayoutEmail(e.target.value)}
+                />
+              </div>
+            )}
+            <Button
+              onClick={handleWithdrawal}
+              disabled={
+                requestWithdrawal.isPending ||
+                !withdrawAmount ||
+                Number(withdrawAmount) <= 0 ||
+                Number(withdrawAmount) > Number(selectedWallet.current_balance) ||
+                !payoutMethod ||
+                !payoutEmail.trim()
+              }
+              className="w-full"
+            >
+              <ArrowDownCircle className="mr-2 h-4 w-4" />
+              Kërko tërheqje
+            </Button>
             <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <p>Tërheqjet verifikohen automatikisht nga AI për siguri dhe kërkohet aprovimi i Adminit para ekzekutimit.</p>
@@ -212,7 +236,7 @@ export const UserWalletPanel = () => {
             <div>
               <p className="font-medium">Me gjendjen në portofol mund të blini paketat e abonimit.</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Çdo blerje verifikohet nga AI dhe aprovohet nga Adminët para ekzekutimit për sigurinë e transaksionit.
+                Fondet vijnë vetëm nga fitimet e referaleve. Çdo blerje verifikohet nga AI dhe aprovohet nga Adminët.
               </p>
             </div>
           </div>

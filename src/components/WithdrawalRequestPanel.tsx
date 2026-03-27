@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Wallet, ArrowDownCircle, ArrowUpCircle, Send, Clock, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Wallet, ArrowDownCircle, Send, Clock, CheckCircle2, XCircle, AlertTriangle, Info } from "lucide-react";
 import { usePartnerAccount } from "@/hooks/usePartner";
 import { usePartnerWallet, usePayoutRequests, useRequestPayout } from "@/hooks/usePartnerWallet";
 import { format } from "date-fns";
@@ -17,6 +18,11 @@ const statusConfig: Record<string, { label: string; variant: "default" | "second
   processed: { label: "Përfunduar", variant: "default", icon: CheckCircle2 },
 };
 
+const PAYOUT_METHODS = [
+  { value: "paypal", label: "PayPal" },
+  { value: "payoneer", label: "Payoneer" },
+];
+
 export const WithdrawalRequestPanel = () => {
   const { data: partner } = usePartnerAccount();
   const { data: wallet } = usePartnerWallet(partner?.id ?? null);
@@ -24,9 +30,8 @@ export const WithdrawalRequestPanel = () => {
   const requestPayout = useRequestPayout();
 
   const [amount, setAmount] = useState("");
-  const [bankName, setBankName] = useState("");
-  const [iban, setIban] = useState("");
-  const [beneficiary, setBeneficiary] = useState("");
+  const [payoutMethod, setPayoutMethod] = useState("");
+  const [payoutEmail, setPayoutEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (!partner || !wallet) return null;
@@ -41,8 +46,8 @@ export const WithdrawalRequestPanel = () => {
       toast.error("Shuma tejkalon balancën tuaj");
       return;
     }
-    if (!bankName.trim() || !iban.trim() || !beneficiary.trim()) {
-      toast.error("Plotësoni të gjitha fushat bankare");
+    if (!payoutMethod || !payoutEmail.trim()) {
+      toast.error("Plotësoni metodën dhe email-in");
       return;
     }
 
@@ -51,15 +56,14 @@ export const WithdrawalRequestPanel = () => {
       await requestPayout.mutateAsync({
         partnerId: partner.id,
         amount: numAmount,
-        method: "bank_transfer",
-        bankName: bankName.trim(),
-        iban: iban.trim(),
-        beneficiary: beneficiary.trim(),
+        method: payoutMethod,
+        bankName: payoutMethod,
+        iban: payoutEmail.trim(),
+        beneficiary: payoutEmail.trim(),
       });
       setAmount("");
-      setBankName("");
-      setIban("");
-      setBeneficiary("");
+      setPayoutEmail("");
+      setPayoutMethod("");
       toast.success("Kërkesa u dërgua! AI po e analizon para aprovimit.");
     } catch {
       // handled by hook
@@ -95,6 +99,12 @@ export const WithdrawalRequestPanel = () => {
             </div>
           </div>
 
+          {/* How it works */}
+          <div className="rounded-lg border border-border bg-primary/5 p-3 text-xs text-muted-foreground mb-4 flex items-start gap-2">
+            <Info className="h-4 w-4 shrink-0 text-primary mt-0.5" />
+            <p>Portofoli mbushet automatikisht nga fitimet e referaleve. Tërheqjet bëhen vetëm përmes PayPal ose Payoneer.</p>
+          </div>
+
           {/* Withdrawal form */}
           <div className="space-y-3 rounded-lg border border-border p-4">
             <p className="text-sm font-medium text-foreground">Kërko tërheqje</p>
@@ -111,37 +121,33 @@ export const WithdrawalRequestPanel = () => {
                 />
               </div>
               <div>
-                <Label className="text-xs">Emri i përfituesit</Label>
-                <Input
-                  placeholder="Emri i plotë"
-                  value={beneficiary}
-                  onChange={(e) => setBeneficiary(e.target.value)}
-                />
+                <Label className="text-xs">Metoda</Label>
+                <Select value={payoutMethod} onValueChange={setPayoutMethod}>
+                  <SelectTrigger><SelectValue placeholder="Zgjidhni" /></SelectTrigger>
+                  <SelectContent>
+                    {PAYOUT_METHODS.map((m) => (
+                      <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            {payoutMethod && (
               <div>
-                <Label className="text-xs">Banka</Label>
+                <Label className="text-xs">Email {payoutMethod === "paypal" ? "PayPal" : "Payoneer"}</Label>
                 <Input
-                  placeholder="Emri i bankës"
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
+                  type="email"
+                  placeholder={`Email ${payoutMethod === "paypal" ? "PayPal" : "Payoneer"}`}
+                  value={payoutEmail}
+                  onChange={(e) => setPayoutEmail(e.target.value)}
                 />
               </div>
-              <div>
-                <Label className="text-xs">IBAN</Label>
-                <Input
-                  placeholder="AL..."
-                  value={iban}
-                  onChange={(e) => setIban(e.target.value)}
-                />
-              </div>
-            </div>
+            )}
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">
               <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
               Çdo kërkesë analizohet nga AI para aprovimit për të siguruar legjitimitetin.
             </div>
-            <Button onClick={handleSubmit} disabled={submitting} className="w-full">
+            <Button onClick={handleSubmit} disabled={submitting || !payoutMethod || !payoutEmail.trim()} className="w-full">
               <Send className="h-4 w-4 mr-2" />
               {submitting ? "Duke dërguar..." : "Dërgo kërkesën"}
             </Button>
