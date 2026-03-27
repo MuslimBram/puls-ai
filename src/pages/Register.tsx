@@ -193,7 +193,7 @@ const Register = () => {
         {/* STEP 1: Account Type */}
         {step === "account-type" && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setAccountType("business")}
@@ -206,7 +206,13 @@ const Register = () => {
               >
                 <Building2 className="h-9 w-9" />
                 <span className="text-base font-semibold">Biznes</span>
-                <span className="text-xs opacity-70 text-center">Kam një kompani dhe dua të rritem biznesin</span>
+                <span className="text-xs opacity-70 text-center">Menaxhoni biznesin tuaj — inbox, CRM, marketing, AI, telefoni dhe analitikë në një platformë</span>
+                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
+                  <li>✓ Inbox i unifikuar</li>
+                  <li>✓ CRM & Pipeline</li>
+                  <li>✓ AI Asistent personal</li>
+                  <li>✓ Marketing automatik</li>
+                </ul>
               </button>
               <button
                 type="button"
@@ -220,7 +226,13 @@ const Register = () => {
               >
                 <Briefcase className="h-9 w-9" />
                 <span className="text-base font-semibold">Freelancer</span>
-                <span className="text-xs opacity-70 text-center">Punoj i pavarur, 7 ditë provë falas</span>
+                <span className="text-xs opacity-70 text-center">Menaxhoni biznese të klientëve — fitoni nga referimet dhe menaxhimi</span>
+                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
+                  <li>✓ 35% komision nga referimet</li>
+                  <li>✓ 40% nga tarifa e menaxhimit</li>
+                  <li>✓ Blen paketë për çdo biznes</li>
+                  <li>✓ 7-ditë provë falas</li>
+                </ul>
               </button>
               <button
                 type="button"
@@ -234,7 +246,13 @@ const Register = () => {
               >
                 <Users className="h-9 w-9" />
                 <span className="text-base font-semibold">Ambasador</span>
-                <span className="text-xs opacity-70 text-center">Vetëm referale, min 3/muaj</span>
+                <span className="text-xs opacity-70 text-center">Vetëm referime — fitoni komision jetësor pa menaxhuar biznese</span>
+                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
+                  <li>✓ 35% komision jetësor</li>
+                  <li>✓ Min. 3 referime/muaj</li>
+                  <li>✓ Pa blerje paketash</li>
+                  <li>✓ 7-ditë provë falas</li>
+                </ul>
               </button>
             </div>
             <Button className="w-full" disabled={!accountType} onClick={handleAccountTypeNext}>
@@ -369,17 +387,27 @@ const Register = () => {
                 )}
               </div>
 
-              {/* Trial warning: 30-day auto-delete notice */}
+              {/* Trial: what's included + warning */}
               {selectedDuration === "trial" && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
-                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                    ⚠️ Pas provës 7-ditore:
-                  </p>
-                  <ul className="text-[11px] text-amber-600 dark:text-amber-300 space-y-0.5 list-disc pl-4">
-                    <li>Aksesi bllokohet — duhet të zgjidhni një paketë për të vazhduar</li>
-                    <li>Nëse nuk kryeni pagesë brenda <strong>30 ditëve</strong> nga regjistrimi, llogaria fshihet automatikisht</li>
-                    <li>Mund të fitoni para nga referimet dhe të paguani nga portofoli</li>
-                  </ul>
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+                    <p className="text-xs font-medium text-foreground">✅ Çfarë përfshihet në provën 7-ditore:</p>
+                    <ul className="text-[11px] text-muted-foreground space-y-0.5 list-none pl-1">
+                      <li>✓ Akses i plotë në të gjitha funksionet</li>
+                      <li>✓ AI asistent personal i dedikuar</li>
+                      <li>✓ Inbox i unifikuar — email, WhatsApp, Telegram</li>
+                      <li>✓ CRM, pipeline dhe analitikë</li>
+                      <li>✓ Mundësi për të fituar para me referime gjatë provës</li>
+                    </ul>
+                  </div>
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                    <p className="text-xs font-medium text-destructive">⚠️ Pas provës 7-ditore:</p>
+                    <ul className="text-[11px] text-destructive/80 space-y-0.5 list-none pl-1">
+                      <li>⚠ Aksesi bllokohet — duhet të zgjidhni një paketë</li>
+                      <li>⚠ Nëse nuk kryeni pagesë brenda <strong>30 ditëve</strong> — llogaria fshihet automatikisht</li>
+                      <li>💡 Mund të paguani me PayPal, Payoneer ose balancë portofoli</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
