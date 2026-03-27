@@ -19,6 +19,7 @@ import { GrowthProgressIndicator } from "@/components/GrowthProgressIndicator";
 import { SafeRender } from "@/components/SafeRender";
 import { RoleDashboardWidgets } from "@/components/RoleDashboardWidgets";
 import { WithdrawalRequestPanel } from "@/components/WithdrawalRequestPanel";
+import { TrialExpiredGate } from "@/components/TrialExpiredGate";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -61,6 +62,7 @@ const Dashboard = () => {
 
   return (
     <DashboardLayout>
+      <TrialExpiredGate>
       <div className="space-y-6">
         {!isLoading && (
           <>
@@ -251,6 +253,7 @@ const Dashboard = () => {
           </SafeRender>
         </div>
       </div>
+      </TrialExpiredGate>
     </DashboardLayout>
   );
 };
