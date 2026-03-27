@@ -13004,6 +13004,7 @@ export type Database = {
         Returns: boolean
       }
       cleanup_expired_locks: { Args: never; Returns: undefined }
+      cleanup_expired_unpaid_accounts: { Args: never; Returns: Json }
       compute_agent_performance: {
         Args: { _end_date: string; _start_date: string; _user_id: string }
         Returns: Json
