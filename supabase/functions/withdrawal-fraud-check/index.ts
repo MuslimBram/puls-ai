@@ -74,7 +74,7 @@ Risk factors to check:
 Return ONLY valid JSON: {"risk_score": number, "reason": "explanation"}`;
 
     // Call AI
-    const aiResponse = await fetch("https://ai.lovable.dev/api/chat/completions", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
