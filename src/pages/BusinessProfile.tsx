@@ -170,7 +170,33 @@ const BusinessProfile = () => {
     );
   }
 
-  // Gate for freelancers/ambassadors without paid subscription
+  // Ambassadors are referral-only — they cannot manage business profiles
+  if (isAmbassador && !isAdmin) {
+    return (
+      <DashboardLayout>
+        <div className="mx-auto max-w-lg py-12">
+          <Card className="border-muted">
+            <CardContent className="flex flex-col items-center gap-4 py-8">
+              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                <Handshake className="h-7 w-7 text-muted-foreground" />
+              </div>
+              <h2 className="text-xl font-bold text-foreground text-center">
+                Vetëm për Referime
+              </h2>
+              <p className="text-sm text-muted-foreground text-center max-w-sm">
+                Llogaria juaj është e tipit Ambasador — ju fitoni komision nga referimet e bizneseve. Profili i biznesit nuk është i disponueshëm për këtë lloj llogarie.
+              </p>
+              <Button variant="outline" onClick={() => window.location.href = "/dashboard"} className="mt-2">
+                Kthehu në Dashboard
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  // Gate for freelancers without paid subscription
   if (!freelancerCanAccessProfile) {
     return (
       <DashboardLayout>
@@ -389,8 +415,10 @@ const BusinessProfile = () => {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full" disabled={upsert.isPending}>
-              {upsert.isPending ? "Duke ruajtur..." : profile ? "Përditëso Profilin" : "Krijo Profilin"}
+            <Button type="submit" className="w-full" disabled={upsert.isPending || socialChannelCount < 2}>
+              {socialChannelCount < 2
+                ? "Lidhni të paktën 2 kanale për të ruajtur"
+                : upsert.isPending ? "Duke ruajtur..." : profile ? "Përditëso Profilin" : "Krijo Profilin"}
             </Button>
           </form>
         </Form>
