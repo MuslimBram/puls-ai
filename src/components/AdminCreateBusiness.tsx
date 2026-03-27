@@ -40,14 +40,14 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
     main_services: "",
     ai_tone: "professional",
     language: "sq",
-    assign_to_user: "",
+    assign_to_user: "__self__",
   });
 
   const createBusiness = useMutation({
     mutationFn: async () => {
       if (!form.business_name.trim()) throw new Error("Emri i biznesit është i detyrueshëm");
 
-      const targetUserId = form.assign_to_user || user!.id;
+      const targetUserId = form.assign_to_user === "__self__" ? user!.id : form.assign_to_user;
 
       // Get or create workspace for the target user
       const { data: workspace } = await supabase
@@ -81,7 +81,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
     onSuccess: async (businessId) => {
       await log("admin_create_business", "business", businessId, {
         business_name: form.business_name,
-        assigned_to: form.assign_to_user || user!.id,
+        assigned_to: form.assign_to_user === "__self__" ? user!.id : form.assign_to_user,
       });
       queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
       toast.success("Biznesi u krijua me sukses");
@@ -89,7 +89,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
       setForm({
         business_name: "", short_description: "", industry: "",
         target_audience: "", main_services: "", ai_tone: "professional",
-        language: "sq", assign_to_user: "",
+        language: "sq", assign_to_user: "__self__",
       });
     },
     onError: (e) => toast.error(e.message),
@@ -156,7 +156,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
                 <Select value={form.assign_to_user} onValueChange={(v) => setForm((f) => ({ ...f, assign_to_user: v }))}>
                   <SelectTrigger><SelectValue placeholder="Vetë (Admin)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Vetë (Admin)</SelectItem>
+                    <SelectItem value="__self__">Vetë (Admin)</SelectItem>
                     {profiles.map((p) => (
                       <SelectItem key={p.user_id} value={p.user_id}>
                         {p.full_name || p.user_id.substring(0, 8)}
