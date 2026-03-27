@@ -77,7 +77,8 @@ const BusinessProfile = () => {
   const isInActiveTrial = subscription?.payment_status === "trial" && 
     subscription?.trial_end && new Date(subscription.trial_end) > new Date();
   
-  // Freelancers/Ambassadors need to have paid or be in active trial
+  // Ambassadors are referral-only — they don't manage businesses and don't buy packages
+  // Freelancers need to have paid or be in active trial
   const freelancerCanAccessProfile = isAdmin || (!isFreelancer && !isAmbassador) || hasPaidSubscription || isInActiveTrial;
 
   // Fetch partner ownership info
