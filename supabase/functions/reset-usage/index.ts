@@ -40,6 +40,11 @@ serve(async (req) => {
     if (monthlyMediaError) console.error("[RESET-USAGE] Media monthly reset error:", monthlyMediaError);
     else console.log("[RESET-USAGE] Monthly media counters reset complete");
 
+    // Auto-delete unpaid accounts after 30 days
+    const { data: cleanupResult, error: cleanupError } = await supabase.rpc("cleanup_expired_unpaid_accounts");
+    if (cleanupError) console.error("[RESET-USAGE] Account cleanup error:", cleanupError);
+    else console.log("[RESET-USAGE] Account cleanup:", cleanupResult);
+
     return new Response(JSON.stringify({ ok: true, timestamp: new Date().toISOString() }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
