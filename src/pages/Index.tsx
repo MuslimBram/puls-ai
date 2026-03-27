@@ -15,6 +15,9 @@ import {
 import { BusinessCapabilities } from "@/components/landing/BusinessCapabilities";
 import { FreelancerCapabilities } from "@/components/landing/FreelancerCapabilities";
 import { CompetitorComparison } from "@/components/landing/CompetitorComparison";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { FAQSection } from "@/components/landing/FAQSection";
+import { FloatingAIBot } from "@/components/FloatingAIBot";
 
 const COMMUNITY_PHOTOS = [
   "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
@@ -132,6 +135,8 @@ const Index = () => {
             </div>
           </div>
         </section>
+
+        <HowItWorks />
 
         {/* Features Grid */}
         <section className="container mx-auto px-4 py-16">
@@ -268,7 +273,7 @@ const Index = () => {
         </div>
       </footer>
 
-      <AIChatWidget />
+      <FloatingAIBot />
     </div>
   );
 };
