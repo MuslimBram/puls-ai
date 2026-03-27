@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
+import { AdminRoute } from "@/components/AdminRoute";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 // Eagerly loaded (critical path)
@@ -109,6 +110,16 @@ const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
+const AdminPage = ({ children }: { children: React.ReactNode }) => (
+  <ProtectedRoute>
+    <AdminRoute>
+      <ErrorBoundary fallback={<PageErrorFallback />}>
+        <Suspense fallback={<LazyFallback />}>{children}</Suspense>
+      </ErrorBoundary>
+    </AdminRoute>
+  </ProtectedRoute>
+);
+
 const App = () => (
   <ErrorBoundary fallback={<PageErrorFallback />}>
     <QueryClientProvider client={queryClient}>
@@ -150,16 +161,16 @@ const App = () => (
                 <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
                 <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
                 <Route path="/branding" element={<ProtectedPage><Branding /></ProtectedPage>} />
-                <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
-                <Route path="/admin/businesses/:businessId/scan-insights" element={<ProtectedPage><AdminBusinessScanInsights /></ProtectedPage>} />
-                <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
+                <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
+                <Route path="/admin/businesses/:businessId/scan-insights" element={<AdminPage><AdminBusinessScanInsights /></AdminPage>} />
+                <Route path="/deep-analytics" element={<AdminPage><DeepAnalytics /></AdminPage>} />
                 <Route path="/public-api" element={<ProtectedPage><PublicApi /></ProtectedPage>} />
                 <Route path="/marketplace" element={<ProtectedPage><Marketplace /></ProtectedPage>} />
                 <Route path="/developer" element={<ProtectedPage><DeveloperPortal /></ProtectedPage>} />
                 <Route path="/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
                 <Route path="/sales-engine" element={<ProtectedPage><SalesEngine /></ProtectedPage>} />
                 <Route path="/financial-intelligence" element={<ProtectedPage><FinancialIntelligence /></ProtectedPage>} />
-                <Route path="/saas-health" element={<ProtectedPage><SaaSHealth /></ProtectedPage>} />
+                <Route path="/saas-health" element={<AdminPage><SaaSHealth /></AdminPage>} />
                 <Route path="/reseller" element={<ProtectedPage><ResellerDashboard /></ProtectedPage>} />
                 <Route path="/marketing-automation" element={<ProtectedPage><MarketingAutomation /></ProtectedPage>} />
                 <Route path="/autonomous-ops" element={<ProtectedPage><AutonomousOps /></ProtectedPage>} />
@@ -194,7 +205,7 @@ const App = () => (
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
                 <Route path="/call-history" element={<Navigate to="/crm?tab=calls" replace />} />
                 <Route path="/content-calendar" element={<Navigate to="/campaigns?tab=calendar" replace />} />
-                <Route path="/sources" element={<ProtectedPage><Sources /></ProtectedPage>} />
+                <Route path="/sources" element={<AdminPage><Sources /></AdminPage>} />
                 <Route path="/reply-workspace" element={<Navigate to="/inbox" replace />} />
                 <Route path="/dedicated-ai" element={<Navigate to="/knowledge-base" replace />} />
                 <Route path="/visitor-intelligence" element={<Navigate to="/helpdesk" replace />} />
