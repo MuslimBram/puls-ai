@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
+import { AdminRoute } from "@/components/AdminRoute";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 // Eagerly loaded (critical path)
