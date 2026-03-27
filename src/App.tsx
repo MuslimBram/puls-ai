@@ -161,8 +161,8 @@ const App = () => (
                 <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
                 <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
                 <Route path="/branding" element={<ProtectedPage><Branding /></ProtectedPage>} />
-                <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
-                <Route path="/admin/businesses/:businessId/scan-insights" element={<ProtectedPage><AdminBusinessScanInsights /></ProtectedPage>} />
+                <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
+                <Route path="/admin/businesses/:businessId/scan-insights" element={<AdminPage><AdminBusinessScanInsights /></AdminPage>} />
                 <Route path="/deep-analytics" element={<ProtectedPage><DeepAnalytics /></ProtectedPage>} />
                 <Route path="/public-api" element={<ProtectedPage><PublicApi /></ProtectedPage>} />
                 <Route path="/marketplace" element={<ProtectedPage><Marketplace /></ProtectedPage>} />
@@ -170,7 +170,7 @@ const App = () => (
                 <Route path="/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
                 <Route path="/sales-engine" element={<ProtectedPage><SalesEngine /></ProtectedPage>} />
                 <Route path="/financial-intelligence" element={<ProtectedPage><FinancialIntelligence /></ProtectedPage>} />
-                <Route path="/saas-health" element={<ProtectedPage><SaaSHealth /></ProtectedPage>} />
+                <Route path="/saas-health" element={<AdminPage><SaaSHealth /></AdminPage>} />
                 <Route path="/reseller" element={<ProtectedPage><ResellerDashboard /></ProtectedPage>} />
                 <Route path="/marketing-automation" element={<ProtectedPage><MarketingAutomation /></ProtectedPage>} />
                 <Route path="/autonomous-ops" element={<ProtectedPage><AutonomousOps /></ProtectedPage>} />
@@ -205,7 +205,7 @@ const App = () => (
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
                 <Route path="/call-history" element={<Navigate to="/crm?tab=calls" replace />} />
                 <Route path="/content-calendar" element={<Navigate to="/campaigns?tab=calendar" replace />} />
-                <Route path="/sources" element={<ProtectedPage><Sources /></ProtectedPage>} />
+                <Route path="/sources" element={<AdminPage><Sources /></AdminPage>} />
                 <Route path="/reply-workspace" element={<Navigate to="/inbox" replace />} />
                 <Route path="/dedicated-ai" element={<Navigate to="/knowledge-base" replace />} />
                 <Route path="/visitor-intelligence" element={<Navigate to="/helpdesk" replace />} />
