@@ -3,7 +3,7 @@ import { Navigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { AIChatWidget } from "@/components/AIChatWidget";
+
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { useTranslation } from "react-i18next";
@@ -15,6 +15,9 @@ import {
 import { BusinessCapabilities } from "@/components/landing/BusinessCapabilities";
 import { FreelancerCapabilities } from "@/components/landing/FreelancerCapabilities";
 import { CompetitorComparison } from "@/components/landing/CompetitorComparison";
+import { HowItWorks } from "@/components/landing/HowItWorks";
+import { FAQSection } from "@/components/landing/FAQSection";
+import { FloatingAIBot } from "@/components/FloatingAIBot";
 
 const COMMUNITY_PHOTOS = [
   "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
@@ -133,6 +136,8 @@ const Index = () => {
           </div>
         </section>
 
+        <HowItWorks />
+
         {/* Features Grid */}
         <section className="container mx-auto px-4 py-16">
           <div className="mb-12 text-center animate-on-scroll">
@@ -243,6 +248,8 @@ const Index = () => {
           </div>
         </section>
 
+        <FAQSection />
+
         {/* Final CTA */}
         <section className="border-t border-border relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5" />
@@ -268,7 +275,7 @@ const Index = () => {
         </div>
       </footer>
 
-      <AIChatWidget />
+      <FloatingAIBot />
     </div>
   );
 };

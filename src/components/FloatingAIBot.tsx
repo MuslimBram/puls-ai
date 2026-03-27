@@ -27,7 +27,7 @@ export const FloatingAIBot = () => {
   }, [messages]);
 
   const notifyAdmin = async (reason: string) => {
-    if (adminNotified) return;
+    if (adminNotified || !user?.id) return;
     try {
       await supabase.from("business_notifications" as any).insert({
         user_id: user?.id,
