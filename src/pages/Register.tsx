@@ -387,17 +387,27 @@ const Register = () => {
                 )}
               </div>
 
-              {/* Trial warning: 30-day auto-delete notice */}
+              {/* Trial: what's included + warning */}
               {selectedDuration === "trial" && (
-                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
-                  <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
-                    ⚠️ Pas provës 7-ditore:
-                  </p>
-                  <ul className="text-[11px] text-amber-600 dark:text-amber-300 space-y-0.5 list-disc pl-4">
-                    <li>Aksesi bllokohet — duhet të zgjidhni një paketë për të vazhduar</li>
-                    <li>Nëse nuk kryeni pagesë brenda <strong>30 ditëve</strong> nga regjistrimi, llogaria fshihet automatikisht</li>
-                    <li>Mund të fitoni para nga referimet dhe të paguani nga portofoli</li>
-                  </ul>
+                <div className="space-y-2">
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+                    <p className="text-xs font-medium text-foreground">✅ Çfarë përfshihet në provën 7-ditore:</p>
+                    <ul className="text-[11px] text-muted-foreground space-y-0.5 list-none pl-1">
+                      <li>✓ Akses i plotë në të gjitha funksionet</li>
+                      <li>✓ AI asistent personal i dedikuar</li>
+                      <li>✓ Inbox i unifikuar — email, WhatsApp, Telegram</li>
+                      <li>✓ CRM, pipeline dhe analitikë</li>
+                      <li>✓ Mundësi për të fituar para me referime gjatë provës</li>
+                    </ul>
+                  </div>
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                    <p className="text-xs font-medium text-destructive">⚠️ Pas provës 7-ditore:</p>
+                    <ul className="text-[11px] text-destructive/80 space-y-0.5 list-none pl-1">
+                      <li>⚠ Aksesi bllokohet — duhet të zgjidhni një paketë</li>
+                      <li>⚠ Nëse nuk kryeni pagesë brenda <strong>30 ditëve</strong> — llogaria fshihet automatikisht</li>
+                      <li>💡 Mund të paguani me PayPal, Payoneer ose balancë portofoli</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
