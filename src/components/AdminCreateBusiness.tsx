@@ -156,7 +156,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
                 <Select value={form.assign_to_user} onValueChange={(v) => setForm((f) => ({ ...f, assign_to_user: v }))}>
                   <SelectTrigger><SelectValue placeholder="Vetë (Admin)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Vetë (Admin)</SelectItem>
+                    <SelectItem value="__self__">Vetë (Admin)</SelectItem>
                     {profiles.map((p) => (
                       <SelectItem key={p.user_id} value={p.user_id}>
                         {p.full_name || p.user_id.substring(0, 8)}
