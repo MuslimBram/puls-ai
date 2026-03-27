@@ -193,7 +193,7 @@ const Register = () => {
         {/* STEP 1: Account Type */}
         {step === "account-type" && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => setAccountType("business")}
@@ -206,7 +206,13 @@ const Register = () => {
               >
                 <Building2 className="h-9 w-9" />
                 <span className="text-base font-semibold">Biznes</span>
-                <span className="text-xs opacity-70 text-center">Kam një kompani dhe dua të rritem biznesin</span>
+                <span className="text-xs opacity-70 text-center">Menaxhoni biznesin tuaj — inbox, CRM, marketing, AI, telefoni dhe analitikë në një platformë</span>
+                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
+                  <li>✓ Inbox i unifikuar</li>
+                  <li>✓ CRM & Pipeline</li>
+                  <li>✓ AI Asistent personal</li>
+                  <li>✓ Marketing automatik</li>
+                </ul>
               </button>
               <button
                 type="button"
@@ -220,7 +226,13 @@ const Register = () => {
               >
                 <Briefcase className="h-9 w-9" />
                 <span className="text-base font-semibold">Freelancer</span>
-                <span className="text-xs opacity-70 text-center">Punoj i pavarur, 7 ditë provë falas</span>
+                <span className="text-xs opacity-70 text-center">Menaxhoni biznese të klientëve — fitoni nga referimet dhe menaxhimi</span>
+                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
+                  <li>✓ 35% komision nga referimet</li>
+                  <li>✓ 40% nga tarifa e menaxhimit</li>
+                  <li>✓ Blen paketë për çdo biznes</li>
+                  <li>✓ 7-ditë provë falas</li>
+                </ul>
               </button>
               <button
                 type="button"
@@ -234,7 +246,13 @@ const Register = () => {
               >
                 <Users className="h-9 w-9" />
                 <span className="text-base font-semibold">Ambasador</span>
-                <span className="text-xs opacity-70 text-center">Vetëm referale, min 3/muaj</span>
+                <span className="text-xs opacity-70 text-center">Vetëm referime — fitoni komision jetësor pa menaxhuar biznese</span>
+                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
+                  <li>✓ 35% komision jetësor</li>
+                  <li>✓ Min. 3 referime/muaj</li>
+                  <li>✓ Pa blerje paketash</li>
+                  <li>✓ 7-ditë provë falas</li>
+                </ul>
               </button>
             </div>
             <Button className="w-full" disabled={!accountType} onClick={handleAccountTypeNext}>

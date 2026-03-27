@@ -3,7 +3,7 @@ import { Navigate, Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { AIChatWidget } from "@/components/AIChatWidget";
+
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { useTranslation } from "react-i18next";
@@ -247,6 +247,8 @@ const Index = () => {
             </Link>
           </div>
         </section>
+
+        <FAQSection />
 
         {/* Final CTA */}
         <section className="border-t border-border relative overflow-hidden">
