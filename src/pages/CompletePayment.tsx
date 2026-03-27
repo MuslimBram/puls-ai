@@ -305,14 +305,15 @@ const CompletePayment = () => {
 
               {hasReferralEarnings && !canPayFromWallet && (
                 <p className="text-xs text-muted-foreground text-center">
-                  Balanca e portofolit nuk mjafton për këtë plan. Përdorni kartë/bankë.
+                  Balanca e portofolit nuk mjafton për këtë plan. Përdorni kartë/bankë ose PayPal/Payoneer.
                 </p>
               )}
 
               {!hasReferralEarnings && (
                 <p className="text-xs text-muted-foreground text-center">
                   <Wallet className="inline h-3 w-3 mr-1" />
-                  Pagesa nga portofoli disponohet vetëm nëse keni fituar nga referalet.
+                  Pagesa nga portofoli disponohet vetëm nëse keni fituar nga referalet (komisione).
+                  Nuk nevojitet rimbushje nga banka.
                 </p>
               )}
             </>
