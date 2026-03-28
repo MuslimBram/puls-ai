@@ -12,40 +12,6 @@ import { useAuth } from "@/contexts/AuthContext";
 type TwoFAMethod = "choose" | "authenticator" | "authenticator_enroll" | "email";
 type LoginStep = "credentials" | "security_code" | "2fa";
 
-onClick={async () => {
-  try {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: "https://alfis.re/dashboard"
-      }
-    });
-
-    if (error) {
-      toast.error("Login me Google dështoi: " + error.message);
-    }
-  } catch (err) {
-    toast.error("Gabim gjatë lidhjes me Google");
-  }
-}}
-
-onClick={async () => {
-  try {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: {
-        redirectTo: "https://alfis.re/dashboard"
-      }
-    });
-
-    if (error) {
-      toast.error("Login me Apple dështoi: " + error.message);
-    }
-  } catch (err) {
-      toast.error("Gabim gjatë lidhjes me Apple");
-  }
-}}
-
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
