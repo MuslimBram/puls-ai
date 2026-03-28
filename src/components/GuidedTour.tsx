@@ -16,26 +16,26 @@ interface TourStep {
 const STEPS: TourStep[] = [
   {
     icon: LayoutDashboard,
-    title: "Mirësevini! Ja ku filloni",
-    desc: "Ky është paneli juaj kryesor ku shikoni statistikat, mesazhet e reja dhe detyrat e ardhshme.",
+    title: "Welcome! Here's where you start",
+    desc: "This is your main dashboard where you can see stats, new messages and upcoming tasks.",
     path: "/dashboard",
   },
   {
     icon: FileText,
-    title: "Plotësoni Profilin e Biznesit",
-    desc: "Shtoni emrin, logon, përshkrimin dhe informacionet e kontaktit për biznesin tuaj.",
+    title: "Complete Your Business Profile",
+    desc: "Add your name, logo, description and contact information for your business.",
     path: "/business-profile",
   },
   {
     icon: Link2,
-    title: "Lidhni Kanalet Tuaja",
-    desc: "Lidhni WhatsApp, Telegram, Email ose Chat për të marrë mesazhe në Inbox.",
+    title: "Connect Your Channels",
+    desc: "Connect WhatsApp, Telegram, Email or Chat to receive messages in your Inbox.",
     path: "/channels",
   },
   {
     icon: Bot,
-    title: "AI Juaj Është Gati!",
-    desc: "AI do të mësojë nga biznesi juaj dhe do t'u përgjigjet klientëve automatikisht.",
+    title: "Your AI Is Ready!",
+    desc: "AI will learn from your business and respond to customers automatically.",
     path: "/inbox",
   },
 ];
@@ -106,10 +106,10 @@ export const GuidedTour = () => {
 
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={goToStep} className="flex-1">
-              Shko atje
+              Go there
             </Button>
             <Button size="sm" onClick={next} className="flex-1">
-              {currentStep < STEPS.length - 1 ? "Tjetri" : "Përfundo"}
+              {currentStep < STEPS.length - 1 ? "Next" : "Finish"}
               <ArrowRight className="ml-1 h-3 w-3" />
             </Button>
           </div>
@@ -118,7 +118,7 @@ export const GuidedTour = () => {
             onClick={dismiss}
             className="mt-3 w-full text-center text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            Kalo udhëzuesin
+            Skip tour
           </button>
         </CardContent>
       </Card>
