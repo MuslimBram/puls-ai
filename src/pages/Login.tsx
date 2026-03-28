@@ -565,21 +565,13 @@ const Login = () => {
               className="w-full"
               disabled={loading}
              onClick={async () => {
-        try {
-          const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: "google",
-            options: {
-              redirectTo: "https://alfis.re/dashboard",
-            },
-          });
+  try {
+    const { error } = await supabase.auth.signInWithOAuth("google", {
+      redirectTo: "https://alfis.re/dashboard",
+    });
 
     if (error) {
       toast.error("Login me Google dështoi: " + error.message);
-      return;
-    }
-
-    if (!data?.url) {
-      toast.error("Nuk u gjenerua URL e login-it me Google.");
     }
   } catch (err) {
     console.error("Google OAuth error:", err);
@@ -596,21 +588,13 @@ const Login = () => {
               className="w-full"
               disabled={loading}
             onClick={async () => {
-          try {
-          const { data, error } = await supabase.auth.signInWithOAuth({
-            provider: "apple",
-            options: {
-            redirectTo: "https://alfis.re/dashboard",
-          },
-        });
+  try {
+    const { error } = await supabase.auth.signInWithOAuth("apple", {
+      redirectTo: "https://alfis.re/dashboard",
+    });
 
     if (error) {
       toast.error("Login me Apple dështoi: " + error.message);
-      return;
-    }
-
-    if (!data?.url) {
-      toast.error("Nuk u gjenerua URL e login-it me Apple.");
     }
   } catch (err) {
     console.error("Apple OAuth error:", err);
