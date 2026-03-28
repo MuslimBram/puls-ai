@@ -1,46 +1,72 @@
 
 
-# Rregullimi i OAuth Login (Google/Apple) në alfis.re
+# Fix Build Errors + Convert All Albanian Text to English
 
-## Problemi
-OAuth login me Google dhe Apple përdor `@lovable.dev/cloud-auth-js` i cili kalon përmes proxy-s së Lovable. Kur aplikacioni hapet nga `alfis.re` (Vercel), redirect URI (`window.location.origin = https://alfis.re`) nuk pranohet nga proxy-ja e Lovable sepse nuk është domen `*.lovable.app`.
+## Problem
+1. **Build-breaking error in Login.tsx** (lines 625-628): Duplicate Apple button code + stray `>` character + JS comments (`//`) inside JSX
+2. **Hardcoded Albanian text** across 10+ files — the app should be **English by default**, with translations only via i18n
 
-## Zgjidhja
+## Plan
 
-### Hapi 1: Shto alfis.re si redirect URL i lejuar
-Përdor `cloud--configure_auth` për të shtuar këto URL në listën e redirect-eve të lejuara:
-- `https://alfis.re`
-- `https://alfis.re/login`
-- `https://alfis.re/dashboard`
-- `https://alfis.re/reset-password`
-- `https://www.alfis.re`
+### Step 1: Fix Login.tsx build errors + convert to English
+- Remove duplicate Apple button (lines 625-628) and stray `>`
+- Remove JS comments (`//`) on lines 563, 596 — not valid in JSX
+- Use `lovable.auth.signInWithOAuth` instead of `supabase.auth.signInWithOAuth`
+- Convert ALL Albanian strings to English:
+  - "Hyr në Llogari" → "Sign In"
+  - "Fut kredencialet..." → "Enter your credentials to sign in"
+  - "Fjalëkalimi" → "Password"
+  - "Harrove fjalëkalimin?" → "Forgot password?"
+  - "Po hyn..." → "Signing in..."
+  - "Vazhdo me Google/Apple" → "Continue with Google/Apple"
+  - "Nuk ke llogari? Regjistrohu" → "Don't have an account? Sign up"
+  - All 2FA strings (Verifikimi, Kodi i Sigurisë, etc.) → English equivalents
+  - All toast messages → English
 
-### Hapi 2: Përditëso Login.tsx — error handling
-Shto error handling më të qartë në butonat OAuth për të shfaqur mesazhe specifike:
-```typescript
-onClick={async () => {
-  try {
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (error) toast.error("Login me Google dështoi: " + String(error));
-  } catch (err) {
-    toast.error("Nuk u arrit të lidhet me Google. Provoni përsëri.");
-  }
-}}
-```
+### Step 2: Fix Register.tsx — convert to English
+- "Krijo Llogari" → "Create Account"
+- "Zgjidhni llojin..." → "Choose account type"
+- Account type descriptions → English
+- Plan selection labels → English
+- Trial info box → English
+- Form labels → English
+- All toast messages → English
+- "Vazhdo me Google/Apple" → "Continue with Google/Apple"
 
-### Hapi 3: Trajto PASSWORD_RECOVERY në AuthContext (nga plani i mëparshëm)
-Shto listener për `PASSWORD_RECOVERY` event në `AuthContext.tsx` për të ridrejtuar automatikisht tek `/reset-password`.
+### Step 3: Fix GuidedTour.tsx — convert to English
+- All 4 step titles and descriptions → English
+- Button text: "Shko atje" → "Go there", "Tjetri" → "Next", "Përfundo" → "Finish"
+- "Kalo udhëzuesin" → "Skip tour"
 
-### Hapi 4: Përditëso ResetPassword.tsx
-Kontrollo sesionin aktiv si alternativë ndaj hash-it `type=recovery`.
+### Step 4: Fix CompletePayment.tsx — convert to English
+- "Përfundoni Pagesën" → "Complete Payment"
+- "Zgjidhni planin..." → "Select plan and duration..."
+- "/muaj" → "/mo"
+- "Kurseni" → "Save"
 
-## Skedarët që preken
-| Skedar | Ndryshim |
-|--------|----------|
-| Auth config | Shto alfis.re redirect URLs |
-| `src/pages/Login.tsx` | Përmirëso error handling në OAuth buttons |
-| `src/contexts/AuthContext.tsx` | Trajto PASSWORD_RECOVERY event |
-| `src/pages/ResetPassword.tsx` | Kontrollo sesion aktiv |
+### Step 5: Fix TrialExpiredGate.tsx — convert to English
+- "Vazhdo me Pagesën" → "Continue to Payment"
+- "Çmimi mujor" → "Monthly price"
+- Other Albanian strings → English
+
+### Step 6: Fix other files with Albanian text
+- `FreelancerBusinessPurchase.tsx` — convert labels and errors to English
+- `RoleDashboardWidgets.tsx` — convert to English
+- `UserWalletPanel.tsx` — convert to English
+- `AdminSocialChannelManager.tsx` — convert to English
+- `BrandingSettingsPanel.tsx` — convert to English
+
+## Files affected
+| File | Change |
+|------|--------|
+| `src/pages/Login.tsx` | Fix build errors + all Albanian → English |
+| `src/pages/Register.tsx` | All Albanian → English |
+| `src/components/GuidedTour.tsx` | All Albanian → English |
+| `src/pages/CompletePayment.tsx` | All Albanian → English |
+| `src/components/TrialExpiredGate.tsx` | All Albanian → English |
+| `src/components/FreelancerBusinessPurchase.tsx` | All Albanian → English |
+| `src/components/RoleDashboardWidgets.tsx` | All Albanian → English |
+| `src/components/UserWalletPanel.tsx` | All Albanian → English |
+| `src/components/AdminSocialChannelManager.tsx` | All Albanian → English |
+| `src/components/BrandingSettingsPanel.tsx` | All Albanian → English |
 
