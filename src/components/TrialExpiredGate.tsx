@@ -24,7 +24,6 @@ export const TrialExpiredGate = ({ children }: { children: React.ReactNode }) =>
   const [selectedPlan, setSelectedPlan] = useState("standard");
   const [selectedDuration, setSelectedDuration] = useState("monthly");
 
-  // Admins and ambassadors bypass
   if (isLoading) return <>{children}</>;
   if (hasRole("admin") || hasRole("super_admin") || hasRole("ambassador")) return <>{children}</>;
 
@@ -33,7 +32,6 @@ export const TrialExpiredGate = ({ children }: { children: React.ReactNode }) =>
 
   if (!isBlocked) return <>{children}</>;
 
-  // Calculate days remaining before auto-deletion
   const createdAt = subscription?.created_at ? new Date(subscription.created_at) : new Date();
   const deletionDate = new Date(createdAt);
   deletionDate.setDate(deletionDate.getDate() + 30);
@@ -52,9 +50,9 @@ export const TrialExpiredGate = ({ children }: { children: React.ReactNode }) =>
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
             <ShieldAlert className="h-7 w-7 text-destructive" />
           </div>
-          <CardTitle className="text-xl">Prova juaj ka përfunduar</CardTitle>
+          <CardTitle className="text-xl">Your trial has expired</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Për të vazhduar përdorimin e platformës, zgjidhni një paketë abonimi.
+            To continue using the platform, choose a subscription plan.
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -64,11 +62,11 @@ export const TrialExpiredGate = ({ children }: { children: React.ReactNode }) =>
             <div>
               <p className="text-sm font-medium text-destructive">
                 {daysRemaining > 0
-                  ? `${daysRemaining} ditë të mbetura para fshirjes automatike`
-                  : "Llogaria juaj do fshihet së shpejti!"}
+                  ? `${daysRemaining} days remaining before automatic deletion`
+                  : "Your account will be deleted soon!"}
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Nëse nuk kryeni pagesë brenda 30 ditëve nga regjistrimi, llogaria fshihet automatikisht.
+                If you don't complete payment within 30 days of registration, your account is automatically deleted.
               </p>
             </div>
           </div>
@@ -76,20 +74,20 @@ export const TrialExpiredGate = ({ children }: { children: React.ReactNode }) =>
           {/* Plan selection */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Paketa</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Plan</label>
               <Select value={selectedPlan} onValueChange={setSelectedPlan}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {PLAN_TIERS.map((t) => (
                     <SelectItem key={t.key} value={t.key}>
-                      {t.name} — €{t.basePrice}/muaj
+                      {t.name} — €{t.basePrice}/mo
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <label className="text-sm font-medium text-foreground mb-1.5 block">Kohëzgjatja</label>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">Duration</label>
               <Select value={selectedDuration} onValueChange={setSelectedDuration}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -105,8 +103,8 @@ export const TrialExpiredGate = ({ children }: { children: React.ReactNode }) =>
 
           {/* Price summary */}
           <div className="rounded-lg border border-border bg-muted/30 p-3 flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Çmimi mujor:</span>
-            <span className="text-lg font-bold text-primary">€{discountedPrice}/muaj</span>
+            <span className="text-sm text-muted-foreground">Monthly price:</span>
+            <span className="text-lg font-bold text-primary">€{discountedPrice}/mo</span>
           </div>
 
           <Button
@@ -115,13 +113,13 @@ export const TrialExpiredGate = ({ children }: { children: React.ReactNode }) =>
             onClick={() => navigate(`/complete-payment?plan=${selectedPlan}&duration=${selectedDuration}`)}
           >
             <Zap className="h-4 w-4 mr-2" />
-            Vazhdo me Pagesën
+            Continue to Payment
           </Button>
 
           {/* Referral earnings hint */}
           <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-center">
             <p className="text-xs text-muted-foreground">
-              💰 Mund të fitoni para nga referimet dhe të paguani nga portofoli juaj
+              💰 You can earn money from referrals and pay from your wallet
             </p>
           </div>
         </CardContent>

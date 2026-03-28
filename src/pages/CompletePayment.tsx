@@ -33,11 +33,11 @@ interface DurationOption {
 }
 
 const DURATION_OPTIONS: DurationOption[] = [
-  { key: "trial", label: "7-ditore Provë", months: 0, discountPercent: 0 },
-  { key: "monthly", label: "Mujore", months: 1, discountPercent: 0 },
-  { key: "3-month", label: "3 Muaj", months: 3, discountPercent: 5 },
-  { key: "6-month", label: "6 Muaj", months: 6, discountPercent: 10 },
-  { key: "yearly", label: "Vjetore", months: 12, discountPercent: 15 },
+  { key: "trial", label: "7-Day Trial", months: 0, discountPercent: 0 },
+  { key: "monthly", label: "Monthly", months: 1, discountPercent: 0 },
+  { key: "3-month", label: "3 Months", months: 3, discountPercent: 5 },
+  { key: "6-month", label: "6 Months", months: 6, discountPercent: 10 },
+  { key: "yearly", label: "Yearly", months: 12, discountPercent: 15 },
 ];
 
 const getDiscountedPrice = (base: number, discountPercent: number) =>
@@ -79,7 +79,7 @@ const CompletePayment = () => {
   const handleTrialStart = async () => {
     try {
       setLoading(true);
-      toast.success("Provë 7-ditore e aktivizuar!");
+      toast.success("7-day trial activated!");
       navigate("/dashboard");
     } finally {
       setLoading(false);
@@ -89,7 +89,7 @@ const CompletePayment = () => {
   const handlePayment = async (method: PaymentMethod) => {
     if (method === "wallet") {
       if (!canPayFromWallet) {
-        toast.error("Balanca e portofolit nuk mjafton");
+        toast.error("Wallet balance insufficient");
         return;
       }
       setLoading(true);
@@ -98,16 +98,15 @@ const CompletePayment = () => {
           body: { planKey: selectedPlan, packageType: selectedDuration },
         });
         if (error) throw error;
-        toast.success("Pagesa u krye me sukses!");
+        toast.success("Payment completed successfully!");
         navigate("/dashboard");
       } catch (err: any) {
-        toast.error(err.message || "Gabim gjatë pagesës nga portofoli");
+        toast.error(err.message || "Error processing wallet payment");
       }
       setLoading(false);
       return;
     }
 
-    // PayPal or Payoneer
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout", {
@@ -121,10 +120,10 @@ const CompletePayment = () => {
       if (data?.url) {
         window.location.href = data.url;
       } else {
-        toast.error("Nuk u krijua lidhja e pagesës");
+        toast.error("Payment link could not be created");
       }
     } catch (err: any) {
-      toast.error(err.message || "Gabim gjatë krijimit të pagesës");
+      toast.error(err.message || "Error creating payment");
     }
     setLoading(false);
   };
@@ -138,16 +137,16 @@ const CompletePayment = () => {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <Zap className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl">Përfundoni Pagesën</CardTitle>
+          <CardTitle className="text-2xl">Complete Payment</CardTitle>
           <CardDescription>
-            Zgjidhni planin dhe kohëzgjatjen, pastaj kryeni pagesën.
+            Choose your plan and duration, then complete payment.
           </CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-6">
           {/* Plan selection */}
           <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">Zgjidhni Planin:</p>
+            <p className="text-sm font-medium text-foreground">Choose Plan:</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {PLAN_TIERS.map((tier) => {
                 const isSelected = selectedPlan === tier.key;
@@ -174,7 +173,7 @@ const CompletePayment = () => {
                     )}
                     <span className="text-sm font-bold text-foreground">{tier.name}</span>
                     <span className="text-lg font-semibold text-primary">€{tier.basePrice}</span>
-                    <span className="text-[10px] text-muted-foreground">/muaj</span>
+                    <span className="text-[10px] text-muted-foreground">/mo</span>
                   </button>
                 );
               })}
@@ -183,7 +182,7 @@ const CompletePayment = () => {
 
           {/* Duration selection */}
           <div className="space-y-2">
-            <p className="text-sm font-medium text-foreground">Zgjidhni Kohëzgjatjen:</p>
+            <p className="text-sm font-medium text-foreground">Choose Duration:</p>
             <div className="grid gap-2">
               {DURATION_OPTIONS.map((dur) => {
                 const price = dur.key === "trial" ? 0 : getDiscountedPrice(basePrice, dur.discountPercent);
@@ -211,7 +210,7 @@ const CompletePayment = () => {
                         <span className="text-sm font-medium text-foreground">{dur.label}</span>
                         {dur.discountPercent > 0 && (
                           <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">
-                            Kurseni {dur.discountPercent}%
+                            Save {dur.discountPercent}%
                           </Badge>
                         )}
                       </div>
@@ -220,10 +219,10 @@ const CompletePayment = () => {
                       {isTrialOpt ? (
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-foreground">€0</span>
-                          <Badge className="text-[10px] px-1.5 py-0">Falas</Badge>
+                          <Badge className="text-[10px] px-1.5 py-0">Free</Badge>
                         </div>
                       ) : (
-                        <span className="text-sm font-semibold text-foreground">€{price}/muaj</span>
+                        <span className="text-sm font-semibold text-foreground">€{price}/mo</span>
                       )}
                     </div>
                   </button>
@@ -235,34 +234,34 @@ const CompletePayment = () => {
           {/* Price summary */}
           <div className="rounded-lg border border-border bg-muted/30 p-4 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Plani:</span>
+              <span className="text-sm text-muted-foreground">Plan:</span>
               <span className="font-semibold text-foreground">{currentTier?.name ?? "Start"}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Kohëzgjatja:</span>
-              <span className="font-semibold text-foreground">{currentDuration?.label ?? "Mujore"}</span>
+              <span className="text-sm text-muted-foreground">Duration:</span>
+              <span className="font-semibold text-foreground">{currentDuration?.label ?? "Monthly"}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Çmimi:</span>
+              <span className="text-sm text-muted-foreground">Price:</span>
               <div className="flex items-center gap-2">
                 {!isTrial && (currentDuration?.discountPercent ?? 0) > 0 && (
                   <span className="text-sm text-muted-foreground line-through">€{basePrice}</span>
                 )}
                 <span className="font-bold text-lg text-foreground">
                   {isTrial ? (
-                    <><span>€0</span> <Badge className="ml-1 text-[10px]">Falas 7 ditë</Badge></>
+                    <><span>€0</span> <Badge className="ml-1 text-[10px]">Free 7 days</Badge></>
                   ) : (
-                    <>€{discountedPrice.toFixed(0)}<span className="text-xs font-normal">/muaj</span></>
+                    <>€{discountedPrice.toFixed(0)}<span className="text-xs font-normal">/mo</span></>
                   )}
                 </span>
               </div>
             </div>
             {!isTrial && (currentDuration?.months ?? 0) > 1 && (
               <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
-                <span className="text-sm text-muted-foreground">Totali:</span>
+                <span className="text-sm text-muted-foreground">Total:</span>
                 <span className="font-bold text-foreground">
                   €{totalPrice.toFixed(0)}
-                  <span className="text-xs font-normal text-muted-foreground"> për {currentDuration?.months} muaj</span>
+                  <span className="text-xs font-normal text-muted-foreground"> for {currentDuration?.months} months</span>
                 </span>
               </div>
             )}
@@ -276,14 +275,13 @@ const CompletePayment = () => {
               disabled={loading}
             >
               <Zap className="mr-2 h-5 w-5" />
-              Fillo Provën 7-Ditore Falas
+              Start 7-Day Free Trial
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm font-medium text-foreground">Zgjidhni Metodën e Pagesës:</p>
+              <p className="text-sm font-medium text-foreground">Choose Payment Method:</p>
 
-              {/* PayPal */}
               <button
                 type="button"
                 onClick={() => setSelectedPaymentMethod("paypal")}
@@ -304,7 +302,6 @@ const CompletePayment = () => {
                 <span className="text-sm font-medium text-foreground">PayPal</span>
               </button>
 
-              {/* Payoneer */}
               <button
                 type="button"
                 onClick={() => setSelectedPaymentMethod("payoneer")}
@@ -325,7 +322,6 @@ const CompletePayment = () => {
                 <span className="text-sm font-medium text-foreground">Payoneer</span>
               </button>
 
-              {/* Wallet (only if has earnings) */}
               {hasReferralEarnings && (
                 <button
                   type="button"
@@ -346,18 +342,17 @@ const CompletePayment = () => {
                     {selectedPaymentMethod === "wallet" && <Check className="h-3 w-3 text-primary-foreground" />}
                   </div>
                   <Wallet className="h-5 w-5 text-emerald-500" />
-                  <span className="text-sm font-medium text-foreground">Portofoli</span>
+                  <span className="text-sm font-medium text-foreground">Wallet</span>
                   <Badge variant="secondary" className="ml-auto">€{walletBalance.toFixed(2)}</Badge>
                 </button>
               )}
 
               {hasReferralEarnings && !canPayFromWallet && selectedPaymentMethod === "wallet" && (
                 <p className="text-xs text-destructive text-center">
-                  Balanca e portofolit nuk mjafton. Zgjidhni PayPal ose Payoneer.
+                  Wallet balance insufficient. Choose PayPal or Payoneer.
                 </p>
               )}
 
-              {/* Pay button */}
               <Button
                 className="w-full h-14 text-base"
                 onClick={() => selectedPaymentMethod && handlePayment(selectedPaymentMethod)}
@@ -368,8 +363,8 @@ const CompletePayment = () => {
                 {selectedPaymentMethod === "wallet" && <Wallet className="mr-2 h-5 w-5" />}
                 {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod
-                  ? `Paguaj €${totalPrice.toFixed(0)} me ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Portofol"}`
-                  : "Zgjidhni metodën e pagesës"
+                  ? `Pay €${totalPrice.toFixed(0)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
+                  : "Choose payment method"
                 }
                 <ArrowRight className="ml-auto h-4 w-4" />
               </Button>
@@ -377,14 +372,14 @@ const CompletePayment = () => {
               {!hasReferralEarnings && (
                 <p className="text-xs text-muted-foreground text-center">
                   <Wallet className="inline h-3 w-3 mr-1" />
-                  Pagesa nga portofoli disponohet vetëm nëse keni fituar nga referalet (komisione).
+                  Wallet payment is available only if you have referral earnings (commissions).
                 </p>
               )}
             </div>
           )}
 
           <p className="text-xs text-muted-foreground text-center">
-            Secili plan përfshin një portofol personal për tërheqje dhe rimbushje.
+            Every plan includes a personal wallet for withdrawals and top-ups.
           </p>
 
           <div className="pt-2">
@@ -395,7 +390,7 @@ const CompletePayment = () => {
               onClick={() => signOut()}
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Dil nga llogaria
+              Sign out
             </Button>
           </div>
         </CardContent>
