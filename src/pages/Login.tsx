@@ -566,8 +566,10 @@ const Login = () => {
               disabled={loading}
              onClick={async () => {
   try {
-    const { error } = await supabase.auth.signInWithOAuth("google", {
-      redirectTo: "https://alfis.re/dashboard",
+    const { data, error } = await supabase.auth.signInWithOAuth({
+  provider: "google",
+  options: {
+    redirectTo: "https://alfis.re/dashboard",
     });
 
     if (error) {
@@ -589,8 +591,10 @@ const Login = () => {
               disabled={loading}
             onClick={async () => {
   try {
-    const { error } = await supabase.auth.signInWithOAuth("apple", {
-      redirectTo: "https://alfis.re/dashboard",
+    const { data, error } = await supabase.auth.signInWithOAuth({
+  provider: "apple",
+  options: {
+    redirectTo: "https://alfis.re/dashboard",
     });
 
     if (error) {
