@@ -61,7 +61,7 @@ serve(async (req) => {
 
     const { data: leads, error: leadsErr } = await supabase
       .from("leads")
-      .select("id, user_id, sender_name, message_content, message_date, source_type, status, detected_keyword, intent_score, workspace_id, intent_type, urgency_level")
+      .select("id, user_id, source_name, message_content, message_date, source_type, status, detected_keyword, intent_score, workspace_id, intent_type, urgency_level")
       .eq("workspace_id", workspace_id)
       .order("message_date", { ascending: false })
       .limit(100);
@@ -81,7 +81,7 @@ serve(async (req) => {
 
     const leadSummaries = leads.slice(0, 50).map((lead) => ({
       id: lead.id,
-      name: lead.sender_name,
+      name: lead.source_name,
       message: (lead.message_content || "").slice(0, 300),
       channel: lead.source_type,
       keyword: lead.detected_keyword,
@@ -89,7 +89,7 @@ serve(async (req) => {
       intent_type: lead.intent_type,
       urgency: lead.urgency_level,
       date: lead.message_date,
-      interactions: memoryMap.get(lead.sender_name || "")?.interaction_count || 0,
+      interactions: memoryMap.get(lead.source_name || "")?.interaction_count || 0,
     }));
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
