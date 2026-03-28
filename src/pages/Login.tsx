@@ -7,11 +7,44 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "@/components/ui/sonner";
 import { Mail, Lock, Zap, ShieldCheck, Loader2, RefreshCw, Smartphone, AlertTriangle } from "lucide-react";
-import { lovable } from "@/integrations/lovable/index";
 import { useAuth } from "@/contexts/AuthContext";
 
 type TwoFAMethod = "choose" | "authenticator" | "authenticator_enroll" | "email";
 type LoginStep = "credentials" | "security_code" | "2fa";
+
+onClick={async () => {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: "https://alfis.re/dashboard"
+      }
+    });
+
+    if (error) {
+      toast.error("Login me Google dështoi: " + error.message);
+    }
+  } catch (err) {
+    toast.error("Gabim gjatë lidhjes me Google");
+  }
+}}
+
+onClick={async () => {
+  try {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "apple",
+      options: {
+        redirectTo: "https://alfis.re/dashboard"
+      }
+    });
+
+    if (error) {
+      toast.error("Login me Apple dështoi: " + error.message);
+    }
+  } catch (err) {
+      toast.error("Gabim gjatë lidhjes me Apple");
+  }
+}}
 
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
