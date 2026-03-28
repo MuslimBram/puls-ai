@@ -18,6 +18,11 @@ const ResetPassword = () => {
     const hash = window.location.hash;
     if (hash && hash.includes("type=recovery")) {
       setValid(true);
+    } else {
+      // Check if user has an active session (redirected via PASSWORD_RECOVERY event)
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session) setValid(true);
+      });
     }
   }, []);
 
