@@ -133,13 +133,13 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
 
   const purchaseBusiness = useMutation({
     mutationFn: async () => {
-      if (!form.business_name.trim()) throw new Error("Emri i biznesit është i detyrueshëm");
-      if (!hasMinChannels) throw new Error("Duhen të paktën 2 kanale të plotësuara");
-      if (!selectedPaymentMethod) throw new Error("Zgjidhni metodën e pagesës");
+      if (!form.business_name.trim()) throw new Error("Business name is required");
+      if (!hasMinChannels) throw new Error("At least 2 channels must be filled");
+      if (!selectedPaymentMethod) throw new Error("Select a payment method");
 
       if (selectedPaymentMethod === "wallet") {
-        if (!selectedWallet) throw new Error("Zgjidhni një portofol");
-        if (!hasEnoughBalance) throw new Error("Gjëndja e portofolit nuk mjafton");
+        if (!selectedWallet) throw new Error("Select a wallet");
+        if (!hasEnoughBalance) throw new Error("Wallet balance insufficient");
       }
 
       const { error } = await supabase
@@ -180,7 +180,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["freelancer-business-purchases"] });
-      toast.success("Kërkesa u dërgua për verifikim (AI + Admin)");
+      toast.success("Request sent for verification (AI + Admin)");
       setOpen(false);
       setForm({
         business_name: "", short_description: "", industry: "",
@@ -205,29 +205,29 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base flex items-center gap-2">
           <Briefcase className="h-4 w-4" />
-          Bizneset e Mia ({businesses.length})
+          My Businesses ({businesses.length})
         </CardTitle>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="h-3 w-3 mr-1" /> Shto Biznes
+              <Plus className="h-3 w-3 mr-1" /> Add Business
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Shto Biznes të Ri (Freelancer)</DialogTitle>
+              <DialogTitle>Add New Business (Freelancer)</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label>Emri i Biznesit *</Label>
+                <Label>Business Name *</Label>
                 <Input
                   value={form.business_name}
                   onChange={(e) => setForm((f) => ({ ...f, business_name: e.target.value }))}
-                  placeholder="Emri i biznesit"
+                  placeholder="Business name"
                 />
               </div>
               <div>
-                <Label>Përshkrim i Shkurtër</Label>
+                <Label>Short Description</Label>
                 <Textarea
                   value={form.short_description}
                   onChange={(e) => setForm((f) => ({ ...f, short_description: e.target.value }))}
@@ -235,20 +235,20 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 />
               </div>
               <div>
-                <Label>Industria</Label>
+                <Label>Industry</Label>
                 <Input
                   value={form.industry}
                   onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
-                  placeholder="p.sh. Teknologji"
+                  placeholder="e.g. Technology"
                 />
               </div>
 
               {/* Channels - min 2 required */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Kanalet e Lidhura (min. 2) *</Label>
+                  <Label>Connected Channels (min. 2) *</Label>
                   <Button type="button" variant="outline" size="sm" onClick={addChannel}>
-                    <Plus className="h-3 w-3 mr-1" /> Shto
+                    <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>
                 {channels.map((ch, idx) => (
@@ -269,7 +269,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                     <Input
                       value={ch.identifier}
                       onChange={(e) => updateChannel(idx, "identifier", e.target.value)}
-                      placeholder={ch.type === "website" ? "https://..." : "@username ose URL"}
+                      placeholder={ch.type === "website" ? "https://..." : "@username or URL"}
                       className="flex-1"
                     />
                     {channels.length > 2 && (
@@ -288,26 +288,26 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 {!hasMinChannels && (
                   <p className="text-xs text-destructive flex items-center gap-1">
                     <AlertTriangle className="h-3 w-3" />
-                    Plotësoni të paktën 2 kanale për të vazhduar
+                    Fill at least 2 channels to continue
                   </p>
                 )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Paketa</Label>
+                  <Label>Plan</Label>
                   <Select value={form.plan} onValueChange={(v) => setForm((f) => ({ ...f, plan: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard">Start - €{BASE_PRICES.standard}/muaj</SelectItem>
-                      <SelectItem value="professional">Growth - €{BASE_PRICES.professional}/muaj</SelectItem>
-                      <SelectItem value="advanced">Pro - €{BASE_PRICES.advanced}/muaj</SelectItem>
-                      <SelectItem value="enterprise">Enterprise - €{BASE_PRICES.enterprise}/muaj</SelectItem>
+                      <SelectItem value="standard">Start - €{BASE_PRICES.standard}/mo</SelectItem>
+                      <SelectItem value="professional">Growth - €{BASE_PRICES.professional}/mo</SelectItem>
+                      <SelectItem value="advanced">Pro - €{BASE_PRICES.advanced}/mo</SelectItem>
+                      <SelectItem value="enterprise">Enterprise - €{BASE_PRICES.enterprise}/mo</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>Kohëzgjatja</Label>
+                  <Label>Duration</Label>
                   <Select value={form.duration} onValueChange={(v) => setForm((f) => ({ ...f, duration: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -324,28 +324,28 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
               {/* Price summary */}
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
                 <div className="flex justify-between text-sm">
-                  <span>Çmimi bazë:</span>
-                  <span>€{basePrice}/muaj</span>
+                  <span>Base price:</span>
+                  <span>€{basePrice}/mo</span>
                 </div>
                 <div className="flex justify-between text-sm text-primary">
-                  <span>Zbritje Freelancer ({FREELANCER_DISCOUNT}%):</span>
+                  <span>Freelancer discount ({FREELANCER_DISCOUNT}%):</span>
                   <span>-€{(basePrice * FREELANCER_DISCOUNT / 100).toFixed(2)}</span>
                 </div>
                 {durationDiscount > 0 && (
                   <div className="flex justify-between text-sm text-primary">
-                    <span>Zbritje kohëzgjatje ({durationDiscount}%):</span>
-                    <span>-€{(freelancerMonthlyPrice * durationDiscount / 100).toFixed(2)}/muaj</span>
+                    <span>Duration discount ({durationDiscount}%):</span>
+                    <span>-€{(freelancerMonthlyPrice * durationDiscount / 100).toFixed(2)}/mo</span>
                   </div>
                 )}
                 <div className="border-t border-border pt-1 flex justify-between font-semibold">
-                  <span>Total ({durationMonths} muaj):</span>
+                  <span>Total ({durationMonths} months):</span>
                   <span>€{totalPrice.toFixed(2)}</span>
                 </div>
               </div>
 
               {/* Payment method selection */}
               <div className="space-y-2">
-                <Label>Metoda e Pagesës *</Label>
+                <Label>Payment Method *</Label>
 
                 <button
                   type="button"
@@ -407,7 +407,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                       {selectedPaymentMethod === "wallet" && <CheckCircle className="h-3 w-3 text-primary-foreground" />}
                     </div>
                     <Wallet className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium text-foreground">Portofoli</span>
+                    <span className="text-sm font-medium text-foreground">Wallet</span>
                     <Badge variant="secondary" className="ml-auto text-xs">
                       €{(selectedWallet?.current_balance ?? 0).toFixed(2)}
                     </Badge>
@@ -416,7 +416,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
 
                 {selectedPaymentMethod === "wallet" && !hasEnoughBalance && (
                   <p className="text-xs text-destructive flex items-center gap-1">
-                    <AlertTriangle className="h-3 w-3" /> Gjëndja nuk mjafton
+                    <AlertTriangle className="h-3 w-3" /> Balance insufficient
                   </p>
                 )}
               </div>
@@ -433,11 +433,11 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 }
               >
                 {purchaseBusiness.isPending
-                  ? "Duke dërguar..."
-                  : `Bli Biznes — €${totalPrice.toFixed(2)}`}
+                  ? "Submitting..."
+                  : `Purchase Business — €${totalPrice.toFixed(2)}`}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Pagesa verifikohet nga AI dhe aprovohet nga Admini
+                Payment is verified by AI and approved by Admin
               </p>
             </div>
           </DialogContent>
@@ -446,7 +446,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
       <CardContent className="space-y-3">
         {pending.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Në pritje verifikimi:</p>
+            <p className="text-xs font-medium text-muted-foreground">Pending verification:</p>
             {pending.map((p: any) => (
               <div key={p.id} className="flex items-center justify-between rounded-lg border border-accent bg-accent/30 p-2">
                 <div className="flex items-center gap-2">
@@ -463,7 +463,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
 
         {businesses.length === 0 && pending.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Shtoni biznesin tuaj të parë duke zgjedhur paketën përkatëse
+            Add your first business by selecting the appropriate plan
           </p>
         ) : (
           <div className="space-y-2">
@@ -474,18 +474,18 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                     <CheckCircle className="h-3.5 w-3.5 text-primary" />
                     <p className="text-sm font-medium text-foreground">{b.business_name}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground">{b.industry || "Pa industri"}</p>
+                  <p className="text-xs text-muted-foreground">{b.industry || "No industry"}</p>
                 </div>
-                <Badge variant="outline" className="text-xs">Aktiv</Badge>
+                <Badge variant="outline" className="text-xs">Active</Badge>
               </div>
             ))}
           </div>
         )}
 
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 mt-2">
-          <p className="text-xs font-medium text-primary">💰 Përqindja juaj</p>
+          <p className="text-xs font-medium text-primary">💰 Your earnings</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Referim: 35% komision jetësor · Menaxhim: 40% tarifë për biznes
+            Referral: 35% lifetime commission · Management: 40% fee per business
           </p>
         </div>
       </CardContent>

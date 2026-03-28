@@ -72,7 +72,7 @@ export const BrandingSettingsPanel = () => {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-foreground">Brand & White-Label</h2>
-          <p className="text-xs text-muted-foreground">Personalizo pamjen e platformës për biznesin tënd</p>
+          <p className="text-xs text-muted-foreground">Customize the platform appearance for your business</p>
         </div>
         {hasDraftChanges && (
           <Button size="sm" onClick={handleSave} disabled={upsertBranding.isPending}>
@@ -85,28 +85,28 @@ export const BrandingSettingsPanel = () => {
 
       <Tabs defaultValue="identity" className="space-y-3">
         <TabsList className="h-8 flex-wrap">
-          <TabsTrigger value="identity" className="text-xs h-6"><Image className="h-3 w-3 mr-1" />Identiteti</TabsTrigger>
-          <TabsTrigger value="colors" className="text-xs h-6"><Palette className="h-3 w-3 mr-1" />Ngjyrat</TabsTrigger>
-          <TabsTrigger value="typography" className="text-xs h-6"><Type className="h-3 w-3 mr-1" />Tipografia</TabsTrigger>
+          <TabsTrigger value="identity" className="text-xs h-6"><Image className="h-3 w-3 mr-1" />Identity</TabsTrigger>
+          <TabsTrigger value="colors" className="text-xs h-6"><Palette className="h-3 w-3 mr-1" />Colors</TabsTrigger>
+          <TabsTrigger value="typography" className="text-xs h-6"><Type className="h-3 w-3 mr-1" />Typography</TabsTrigger>
           <TabsTrigger value="widget" className="text-xs h-6"><MessageCircle className="h-3 w-3 mr-1" />Chat Widget</TabsTrigger>
           <TabsTrigger value="email" className="text-xs h-6"><Mail className="h-3 w-3 mr-1" />Email</TabsTrigger>
-          <TabsTrigger value="advanced" className="text-xs h-6"><Shield className="h-3 w-3 mr-1" />Avancuar</TabsTrigger>
+          <TabsTrigger value="advanced" className="text-xs h-6"><Shield className="h-3 w-3 mr-1" />Advanced</TabsTrigger>
           <TabsTrigger value="preview" className="text-xs h-6"><Eye className="h-3 w-3 mr-1" />Preview</TabsTrigger>
         </TabsList>
 
         {/* Identity */}
         <TabsContent value="identity">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Identiteti i Biznesit</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Business Identity</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-xs">Emri i Biznesit</Label>
-                  <Input value={val("business_name")} onChange={(e) => update("business_name", e.target.value)} placeholder="Emri i biznesit tënd" className="h-8 text-sm" />
+                  <Label className="text-xs">Business Name</Label>
+                  <Input value={val("business_name")} onChange={(e) => update("business_name", e.target.value)} placeholder="Your business name" className="h-8 text-sm" />
                 </div>
                 <div className="space-y-2">
                   <Label className="text-xs">Tagline</Label>
-                  <Input value={val("tagline")} onChange={(e) => update("tagline", e.target.value)} placeholder="Slogani i shkurtër" className="h-8 text-sm" />
+                  <Input value={val("tagline")} onChange={(e) => update("tagline", e.target.value)} placeholder="Short slogan" className="h-8 text-sm" />
                 </div>
               </div>
 
@@ -116,7 +116,7 @@ export const BrandingSettingsPanel = () => {
                   <div className="flex items-center gap-2">
                     {val("logo_url") && <img src={val("logo_url")} alt="Logo" className="h-8 w-8 object-contain rounded" />}
                     <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleFileUpload("logo")}>
-                      <Upload className="h-3 w-3 mr-1" /> Ngarko
+                      <Upload className="h-3 w-3 mr-1" /> Upload
                     </Button>
                   </div>
                 </div>
@@ -125,7 +125,7 @@ export const BrandingSettingsPanel = () => {
                   <div className="flex items-center gap-2">
                     {val("logo_dark_url") && <img src={val("logo_dark_url")} alt="Logo Dark" className="h-8 w-8 object-contain rounded" />}
                     <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleFileUpload("logo_dark")}>
-                      <Upload className="h-3 w-3 mr-1" /> Ngarko
+                      <Upload className="h-3 w-3 mr-1" /> Upload
                     </Button>
                   </div>
                 </div>
@@ -134,7 +134,7 @@ export const BrandingSettingsPanel = () => {
                   <div className="flex items-center gap-2">
                     {val("favicon_url") && <img src={val("favicon_url")} alt="Favicon" className="h-6 w-6 object-contain rounded" />}
                     <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleFileUpload("favicon")}>
-                      <Upload className="h-3 w-3 mr-1" /> Ngarko
+                      <Upload className="h-3 w-3 mr-1" /> Upload
                     </Button>
                   </div>
                 </div>
@@ -146,11 +146,11 @@ export const BrandingSettingsPanel = () => {
         {/* Colors */}
         <TabsContent value="colors">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Skema e Ngjyrave</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Color Scheme</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-xs">Ngjyra Primare (HSL)</Label>
+                  <Label className="text-xs">Primary Color (HSL)</Label>
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {HSL_PRESETS.map((p) => (
                       <button
@@ -165,29 +165,28 @@ export const BrandingSettingsPanel = () => {
                   <Input value={val("primary_color")} onChange={(e) => update("primary_color", e.target.value)} placeholder="222 47% 11%" className="h-8 text-xs font-mono" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Ngjyra Accent (HSL)</Label>
+                  <Label className="text-xs">Accent Color (HSL)</Label>
                   <Input value={val("accent_color")} onChange={(e) => update("accent_color", e.target.value)} placeholder="210 40% 96.1%" className="h-8 text-xs font-mono" />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-xs">Gradient Fillim (HSL)</Label>
-                  <Input value={val("brand_gradient_from")} onChange={(e) => update("brand_gradient_from", e.target.value)} placeholder="p.sh. 221 83% 53%" className="h-8 text-xs font-mono" />
+                  <Label className="text-xs">Gradient Start (HSL)</Label>
+                  <Input value={val("brand_gradient_from")} onChange={(e) => update("brand_gradient_from", e.target.value)} placeholder="e.g. 221 83% 53%" className="h-8 text-xs font-mono" />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Gradient Mbarim (HSL)</Label>
-                  <Input value={val("brand_gradient_to")} onChange={(e) => update("brand_gradient_to", e.target.value)} placeholder="p.sh. 263 70% 50%" className="h-8 text-xs font-mono" />
+                  <Label className="text-xs">Gradient End (HSL)</Label>
+                  <Input value={val("brand_gradient_to")} onChange={(e) => update("brand_gradient_to", e.target.value)} placeholder="e.g. 263 70% 50%" className="h-8 text-xs font-mono" />
                 </div>
               </div>
 
-              {/* Live preview swatch */}
               <div className="flex items-center gap-3 p-3 rounded-lg border border-border">
                 <div className="h-10 w-10 rounded-lg" style={{ backgroundColor: `hsl(${val("primary_color") || "222 47% 11%"})` }} />
                 <div className="h-10 w-10 rounded-lg" style={{ backgroundColor: `hsl(${val("accent_color") || "210 40% 96.1%"})` }} />
                 {val("brand_gradient_from") && val("brand_gradient_to") && (
                   <div className="h-10 w-20 rounded-lg" style={{ background: `linear-gradient(135deg, hsl(${val("brand_gradient_from")}), hsl(${val("brand_gradient_to")}))` }} />
                 )}
-                <span className="text-xs text-muted-foreground">Preview i ngjyrave</span>
+                <span className="text-xs text-muted-foreground">Color preview</span>
               </div>
             </CardContent>
           </Card>
@@ -196,11 +195,11 @@ export const BrandingSettingsPanel = () => {
         {/* Typography */}
         <TabsContent value="typography">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Tipografia</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Typography</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-xs">Fonti i Titujve</Label>
+                  <Label className="text-xs">Heading Font</Label>
                   <Select value={val("heading_font") || "Inter"} onValueChange={(v) => update("heading_font", v)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -211,7 +210,7 @@ export const BrandingSettingsPanel = () => {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Fonti i Tekstit</Label>
+                  <Label className="text-xs">Body Font</Label>
                   <Select value={val("body_font") || "Inter"} onValueChange={(v) => update("body_font", v)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -223,9 +222,9 @@ export const BrandingSettingsPanel = () => {
                 </div>
               </div>
               <div className="rounded-lg border border-border p-4">
-                <h3 className="text-lg font-bold" style={{ fontFamily: val("heading_font") || "Inter" }}>Preview Titulli</h3>
+                <h3 className="text-lg font-bold" style={{ fontFamily: val("heading_font") || "Inter" }}>Heading Preview</h3>
                 <p className="text-sm text-muted-foreground mt-1" style={{ fontFamily: val("body_font") || "Inter" }}>
-                  Ky është një paragraf shembull me fontin e zgjedhur të trupit.
+                  This is a sample paragraph with the selected body font.
                 </p>
               </div>
             </CardContent>
@@ -238,31 +237,31 @@ export const BrandingSettingsPanel = () => {
             <CardHeader><CardTitle className="text-sm">Chat Widget</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs">Mesazhi i Përshëndetjes</Label>
-                <Textarea value={val("chat_widget_greeting")} onChange={(e) => update("chat_widget_greeting", e.target.value)} placeholder="Përshëndetje! Si mund t'ju ndihmojmë?" className="text-sm min-h-[60px]" />
+                <Label className="text-xs">Greeting Message</Label>
+                <Textarea value={val("chat_widget_greeting")} onChange={(e) => update("chat_widget_greeting", e.target.value)} placeholder="Hello! How can we help you?" className="text-sm min-h-[60px]" />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label className="text-xs">Pozicioni</Label>
+                  <Label className="text-xs">Position</Label>
                   <Select value={val("chat_widget_position") || "bottom-right"} onValueChange={(v) => update("chat_widget_position", v)}>
                     <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="bottom-right" className="text-xs">Poshtë-Djathtas</SelectItem>
-                      <SelectItem value="bottom-left" className="text-xs">Poshtë-Majtas</SelectItem>
+                      <SelectItem value="bottom-right" className="text-xs">Bottom Right</SelectItem>
+                      <SelectItem value="bottom-left" className="text-xs">Bottom Left</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-xs">Ngjyra e Bubble</Label>
-                  <Input value={val("chat_widget_bubble_color")} onChange={(e) => update("chat_widget_bubble_color", e.target.value)} placeholder="HSL p.sh. 221 83% 53%" className="h-8 text-xs font-mono" />
+                  <Label className="text-xs">Bubble Color</Label>
+                  <Input value={val("chat_widget_bubble_color")} onChange={(e) => update("chat_widget_bubble_color", e.target.value)} placeholder="HSL e.g. 221 83% 53%" className="h-8 text-xs font-mono" />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Avatar i Chat Widget</Label>
+                <Label className="text-xs">Chat Widget Avatar</Label>
                 <div className="flex items-center gap-2">
                   {val("chat_widget_avatar_url") && <img src={val("chat_widget_avatar_url")} alt="Chat Avatar" className="h-8 w-8 rounded-full object-cover" />}
                   <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleFileUpload("chat_avatar")}>
-                    <Upload className="h-3 w-3 mr-1" /> Ngarko Avatar
+                    <Upload className="h-3 w-3 mr-1" /> Upload Avatar
                   </Button>
                 </div>
               </div>
@@ -276,8 +275,8 @@ export const BrandingSettingsPanel = () => {
             <CardHeader><CardTitle className="text-sm">Email Branding</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label className="text-xs">Emri i dërguesit</Label>
-                <Input value={val("email_from_name")} onChange={(e) => update("email_from_name", e.target.value)} placeholder="Emri i biznesit" className="h-8 text-sm" />
+                <Label className="text-xs">Sender Name</Label>
+                <Input value={val("email_from_name")} onChange={(e) => update("email_from_name", e.target.value)} placeholder="Business name" className="h-8 text-sm" />
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Header HTML (Email)</Label>
@@ -285,7 +284,7 @@ export const BrandingSettingsPanel = () => {
               </div>
               <div className="space-y-2">
                 <Label className="text-xs">Footer HTML (Email)</Label>
-                <Textarea value={val("email_footer_html")} onChange={(e) => update("email_footer_html", e.target.value)} placeholder="<p style='font-size:12px;color:#888'>© 2026 Biznesi Juaj</p>" className="text-xs font-mono min-h-[80px]" />
+                <Textarea value={val("email_footer_html")} onChange={(e) => update("email_footer_html", e.target.value)} placeholder="<p style='font-size:12px;color:#888'>© 2026 Your Business</p>" className="text-xs font-mono min-h-[80px]" />
               </div>
             </CardContent>
           </Card>
@@ -294,30 +293,30 @@ export const BrandingSettingsPanel = () => {
         {/* Advanced */}
         <TabsContent value="advanced">
           <Card>
-            <CardHeader><CardTitle className="text-sm">Opsione të Avancuara</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-sm">Advanced Options</CardTitle></CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <Label className="text-xs font-medium">Trego "Powered by"</Label>
-                  <p className="text-[10px] text-muted-foreground">Shfaq ose fshih etiketën "Powered by" në widget</p>
+                  <Label className="text-xs font-medium">Show "Powered by"</Label>
+                  <p className="text-[10px] text-muted-foreground">Show or hide the "Powered by" label in widget</p>
                 </div>
                 <Switch checked={boolVal("powered_by_visible")} onCheckedChange={(v) => update("powered_by_visible", v)} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Teksti i Mirëseardhjes (Login)</Label>
-                <Input value={val("login_welcome_text")} onChange={(e) => update("login_welcome_text", e.target.value)} placeholder="Mirësevini në platformën tonë" className="h-8 text-sm" />
+                <Label className="text-xs">Welcome Text (Login)</Label>
+                <Input value={val("login_welcome_text")} onChange={(e) => update("login_welcome_text", e.target.value)} placeholder="Welcome to our platform" className="h-8 text-sm" />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">Background i Login Page</Label>
+                <Label className="text-xs">Login Page Background</Label>
                 <div className="flex items-center gap-2">
                   {val("login_background_url") && <img src={val("login_background_url")} alt="Login BG" className="h-12 w-20 object-cover rounded" />}
                   <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => handleFileUpload("login_bg")}>
-                    <Upload className="h-3 w-3 mr-1" /> Ngarko
+                    <Upload className="h-3 w-3 mr-1" /> Upload
                   </Button>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs">CSS Custom (Avancuar)</Label>
+                <Label className="text-xs">Custom CSS (Advanced)</Label>
                 <Textarea value={val("custom_css")} onChange={(e) => update("custom_css", e.target.value)} placeholder=":root { --radius: 0.75rem; }" className="text-xs font-mono min-h-[100px]" />
               </div>
             </CardContent>
@@ -340,7 +339,7 @@ export const BrandingSettingsPanel = () => {
                   {val("logo_url") && <img src={val("logo_url")} alt="" className="h-8" />}
                   <div>
                     <h3 className="font-bold" style={{ fontFamily: val("heading_font") || "Inter", color: `hsl(${val("primary_color") || "222 47% 11%"})` }}>
-                      {val("business_name") || "Emri i Biznesit"}
+                      {val("business_name") || "Business Name"}
                     </h3>
                     {val("tagline") && <p className="text-xs text-muted-foreground">{val("tagline")}</p>}
                   </div>
@@ -351,13 +350,13 @@ export const BrandingSettingsPanel = () => {
                     className="px-4 py-2 rounded-lg text-xs font-medium text-white"
                     style={{ backgroundColor: `hsl(${val("primary_color") || "222 47% 11%"})` }}
                   >
-                    Buton Primar
+                    Primary Button
                   </button>
                   <button
                     className="px-4 py-2 rounded-lg text-xs font-medium"
                     style={{ backgroundColor: `hsl(${val("accent_color") || "210 40% 96.1%"})`, color: `hsl(${val("accent_foreground") || "222.2 47.4% 11.2%"})` }}
                   >
-                    Buton Sekondar
+                    Secondary Button
                   </button>
                 </div>
 
@@ -370,7 +369,6 @@ export const BrandingSettingsPanel = () => {
                   </div>
                 )}
 
-                {/* Mini chat widget preview */}
                 <div className="flex justify-end">
                   <div className="w-64 rounded-xl shadow-lg border border-border overflow-hidden">
                     <div className="p-3 text-white text-xs font-medium" style={{ backgroundColor: `hsl(${val("chat_widget_bubble_color") || val("primary_color") || "222 47% 11%"})` }}>
@@ -380,7 +378,7 @@ export const BrandingSettingsPanel = () => {
                       </div>
                     </div>
                     <div className="p-3 bg-background">
-                      <p className="text-xs text-muted-foreground">{val("chat_widget_greeting") || "Përshëndetje!"}</p>
+                      <p className="text-xs text-muted-foreground">{val("chat_widget_greeting") || "Hello!"}</p>
                     </div>
                   </div>
                 </div>

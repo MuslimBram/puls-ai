@@ -19,8 +19,8 @@ const SOCIAL_PLATFORMS = [
   { value: "twitter", label: "X (Twitter)", icon: "🐦" },
   { value: "linkedin", label: "LinkedIn", icon: "💼" },
   { value: "youtube", label: "YouTube", icon: "▶️" },
-  { value: "telegram_group", label: "Telegram Grup", icon: "✈️" },
-  { value: "whatsapp_group", label: "WhatsApp Grup", icon: "💬" },
+  { value: "telegram_group", label: "Telegram Group", icon: "✈️" },
+  { value: "whatsapp_group", label: "WhatsApp Group", icon: "💬" },
 ];
 
 interface AdminSocialChannelManagerProps {
@@ -41,7 +41,6 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
     notes: "",
   });
 
-  // Fetch social channel assignments
   const channelsQuery = useQuery({
     queryKey: ["admin-social-channels"],
     queryFn: async () => {
@@ -58,11 +57,11 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
   const addChannel = useMutation({
     mutationFn: async () => {
       if (!form.business_id || !form.platform || !form.account_name) {
-        throw new Error("Plotësoni fushat e detyrueshme");
+        throw new Error("Fill in required fields");
       }
 
       const business = businesses.find((b: any) => b.id === form.business_id);
-      if (!business) throw new Error("Biznesi nuk u gjet");
+      if (!business) throw new Error("Business not found");
 
       const { error } = await supabase
         .from("channels")
@@ -84,7 +83,7 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-social-channels"] });
-      toast.success("Kanali social u shtua me sukses");
+      toast.success("Social channel added successfully");
       setOpen(false);
       setForm({ business_id: "", platform: "", account_name: "", account_url: "", login_email: "", notes: "" });
     },
@@ -98,7 +97,7 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-social-channels"] });
-      toast.success("Kanali u hoq");
+      toast.success("Channel removed");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -110,23 +109,23 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base flex items-center gap-2">
           <Globe className="h-4 w-4" />
-          Kanalet Sociale ({channels.length})
+          Social Channels ({channels.length})
         </CardTitle>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="h-3 w-3 mr-1" /> Lidh Kanal
+              <Plus className="h-3 w-3 mr-1" /> Connect Channel
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Lidh Kanal Social me Biznes</DialogTitle>
+              <DialogTitle>Connect Social Channel to Business</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label>Biznesi *</Label>
+                <Label>Business *</Label>
                 <Select value={form.business_id} onValueChange={(v) => setForm((f) => ({ ...f, business_id: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Zgjidhni biznesin" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select business" /></SelectTrigger>
                   <SelectContent>
                     {businesses.map((b: any) => (
                       <SelectItem key={b.id} value={b.id}>{b.business_name}</SelectItem>
@@ -135,9 +134,9 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
                 </Select>
               </div>
               <div>
-                <Label>Platforma *</Label>
+                <Label>Platform *</Label>
                 <Select value={form.platform} onValueChange={(v) => setForm((f) => ({ ...f, platform: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Zgjidhni platformën" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select platform" /></SelectTrigger>
                   <SelectContent>
                     {SOCIAL_PLATFORMS.map((p) => (
                       <SelectItem key={p.value} value={p.value}>
@@ -148,15 +147,15 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
                 </Select>
               </div>
               <div>
-                <Label>Emri i Llogarisë *</Label>
+                <Label>Account Name *</Label>
                 <Input
                   value={form.account_name}
                   onChange={(e) => setForm((f) => ({ ...f, account_name: e.target.value }))}
-                  placeholder="p.sh. @biznesi_yt"
+                  placeholder="e.g. @your_business"
                 />
               </div>
               <div>
-                <Label>URL e Llogarisë</Label>
+                <Label>Account URL</Label>
                 <Input
                   value={form.account_url}
                   onChange={(e) => setForm((f) => ({ ...f, account_url: e.target.value }))}
@@ -164,7 +163,7 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
                 />
               </div>
               <div>
-                <Label>Email i Login-it</Label>
+                <Label>Login Email</Label>
                 <Input
                   value={form.login_email}
                   onChange={(e) => setForm((f) => ({ ...f, login_email: e.target.value }))}
@@ -172,11 +171,11 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
                 />
               </div>
               <div>
-                <Label>Shënime</Label>
+                <Label>Notes</Label>
                 <Input
                   value={form.notes}
                   onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                  placeholder="Shënime shtesë..."
+                  placeholder="Additional notes..."
                 />
               </div>
               <Button
@@ -185,7 +184,7 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
                 disabled={addChannel.isPending}
               >
                 <LogIn className="h-3 w-3 mr-1" />
-                {addChannel.isPending ? "Duke shtuar..." : "Lidh Kanalin"}
+                {addChannel.isPending ? "Adding..." : "Connect Channel"}
               </Button>
             </div>
           </DialogContent>
@@ -194,7 +193,7 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
       <CardContent>
         {channels.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Asnjë kanal social i lidhur. Shtoni kanale për bizneset.
+            No social channels connected. Add channels for businesses.
           </p>
         ) : (
           <div className="space-y-2">
@@ -208,7 +207,7 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
                       <span>{platform?.icon || "🔗"}</span>
                       <p className="text-sm font-medium text-foreground">{ch.channel_name}</p>
                       <Badge variant={ch.is_enabled ? "default" : "outline"} className="text-xs">
-                        {ch.is_enabled ? "Aktiv" : "Joaktiv"}
+                        {ch.is_enabled ? "Active" : "Inactive"}
                       </Badge>
                     </div>
                     {creds?.account_url && (
