@@ -12,56 +12,6 @@ import { useAuth } from "@/contexts/AuthContext";
 type TwoFAMethod = "choose" | "authenticator" | "authenticator_enroll" | "email";
 type LoginStep = "credentials" | "security_code" | "2fa";
 
-<Button
-  type="button"
-  variant="outline"
-  className="w-full"
-  disabled={loading}
-  onClick={async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: "https://alfis.re/dashboard",
-        },
-      });
-
-      if (error) {
-        toast.error("Login me Google dështoi: " + error.message);
-      }
-    } catch {
-      toast.error("Gabim gjatë lidhjes me Google");
-    }
-  }}
->
-  Vazhdo me Google
-</Button>
-
-<Button
-  type="button"
-  variant="outline"
-  className="w-full"
-  disabled={loading}
-  onClick={async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "apple",
-        options: {
-          redirectTo: "https://alfis.re/dashboard",
-        },
-      });
-
-      if (error) {
-        toast.error("Login me Apple dështoi: " + error.message);
-      }
-    } catch {
-      toast.error("Gabim gjatë lidhjes me Apple");
-    }
-  }}
->
-  Vazhdo me Apple
-</Button>
-
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -616,7 +566,7 @@ const Login = () => {
               disabled={loading}
               onClick={async () => {
                 try {
-                  const { error } = await lovable.auth.signInWithOAuth("google", {
+                  const { error } = await supabase.auth.signInWithOAuth("google", {
                     redirect_uri: window.location.origin,
                   });
                   if (error) toast.error("Login me Google dështoi: " + String(error));
@@ -635,7 +585,7 @@ const Login = () => {
               disabled={loading}
               onClick={async () => {
                 try {
-                  const { error } = await lovable.auth.signInWithOAuth("apple", {
+                  const { error } = await supabase.auth.signInWithOAuth("apple", {
                     redirect_uri: window.location.origin,
                   });
                   if (error) toast.error("Login me Apple dështoi: " + String(error));
