@@ -18,22 +18,22 @@ import { format } from "date-fns";
 const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "ALL"];
 
 const TYPE_LABELS: Record<string, string> = {
-  deposit: "Rimbushje",
-  withdrawal: "Tërheqje",
-  subscription_payment: "Pagesë plani",
-  refund: "Rimbursim",
-  commission_credit: "Komision",
+  deposit: "Deposit",
+  withdrawal: "Withdrawal",
+  subscription_payment: "Plan Payment",
+  refund: "Refund",
+  commission_credit: "Commission",
   transfer: "Transfer",
-  adjustment: "Korrigjim",
+  adjustment: "Adjustment",
 };
 
 const STATUS_LABELS: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline" }> = {
-  pending_ai_review: { label: "Në verifikim AI", variant: "secondary" },
-  pending_admin_review: { label: "Në pritje Admini", variant: "outline" },
-  approved: { label: "Aprovuar", variant: "default" },
-  blocked: { label: "Bllokuar", variant: "destructive" },
-  rejected: { label: "Refuzuar", variant: "destructive" },
-  completed: { label: "Përfunduar", variant: "default" },
+  pending_ai_review: { label: "AI Review", variant: "secondary" },
+  pending_admin_review: { label: "Pending Admin", variant: "outline" },
+  approved: { label: "Approved", variant: "default" },
+  blocked: { label: "Blocked", variant: "destructive" },
+  rejected: { label: "Rejected", variant: "destructive" },
+  completed: { label: "Completed", variant: "default" },
 };
 
 const PAYOUT_METHODS = [
@@ -75,7 +75,7 @@ export const UserWalletPanel = () => {
     setPayoutEmail("");
   };
 
-  if (isLoading) return <div className="text-muted-foreground text-center py-8">Po ngarkohet...</div>;
+  if (isLoading) return <div className="text-muted-foreground text-center py-8">Loading...</div>;
 
   return (
     <div className="space-y-6">
@@ -95,7 +95,7 @@ export const UserWalletPanel = () => {
                     <p className="text-2xl font-bold text-foreground">
                       {Number(wallet.current_balance).toFixed(2)} {wallet.currency}
                     </p>
-                    <p className="text-xs text-muted-foreground">Balancë aktuale</p>
+                    <p className="text-xs text-muted-foreground">Current balance</p>
                   </div>
                 </div>
                 <Badge variant={wallet.is_active ? "default" : "secondary"}>{wallet.currency}</Badge>
@@ -103,11 +103,11 @@ export const UserWalletPanel = () => {
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <TrendingUp className="h-3 w-3 text-primary" />
-                  Depozita: {Number(wallet.lifetime_deposits).toFixed(2)}
+                  Deposits: {Number(wallet.lifetime_deposits).toFixed(2)}
                 </div>
                 <div className="flex items-center gap-1">
                   <ArrowDownCircle className="h-3 w-3 text-destructive" />
-                  Tërheqje: {Number(wallet.lifetime_withdrawals).toFixed(2)}
+                  Withdrawals: {Number(wallet.lifetime_withdrawals).toFixed(2)}
                 </div>
               </div>
             </CardContent>
@@ -120,13 +120,13 @@ export const UserWalletPanel = () => {
               <Plus className="h-8 w-8 text-muted-foreground" />
               <div className="flex gap-2">
                 <Select value={newCurrency} onValueChange={setNewCurrency}>
-                  <SelectTrigger className="w-24"><SelectValue placeholder="Monedha" /></SelectTrigger>
+                  <SelectTrigger className="w-24"><SelectValue placeholder="Currency" /></SelectTrigger>
                   <SelectContent>
                     {availableCurrencies.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Button size="sm" disabled={!newCurrency || createWallet.isPending} onClick={() => { createWallet.mutate(newCurrency); setNewCurrency(""); }}>
-                  Shto
+                  Add
                 </Button>
               </div>
             </CardContent>
@@ -134,36 +134,36 @@ export const UserWalletPanel = () => {
         )}
       </div>
 
-      {/* How wallet works - referral only */}
+      {/* How wallet works */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Info className="h-5 w-5 text-primary" />
-            Si funksionon portofoli
+            How the wallet works
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="rounded-lg border border-border bg-primary/5 p-4 text-sm text-foreground space-y-2">
-            <p className="font-medium">Portofoli mbushet automatikisht nga fitimet e referaleve.</p>
+            <p className="font-medium">Your wallet is automatically funded from referral earnings.</p>
             <p className="text-xs text-muted-foreground">
-              Kur ju referoni biznese ose klientë, komisioni kreditohet direkt në portofolin tuaj.
-              Me këto fonde mund të blini paketat e abonimit ose të kërkoni tërheqje përmes PayPal ose Payoneer.
+              When you refer businesses or clients, the commission is credited directly to your wallet.
+              With these funds you can purchase subscription plans or request withdrawals via PayPal or Payoneer.
             </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Withdrawal with PayPal/Payoneer */}
+      {/* Withdrawal */}
       {selectedWallet && Number(selectedWallet.current_balance) > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Kërko tërheqje — {selectedWallet.currency}</CardTitle>
-            <CardDescription>Zgjidhni PayPal ose Payoneer për tërheqje</CardDescription>
+            <CardTitle className="text-lg">Request Withdrawal — {selectedWallet.currency}</CardTitle>
+            <CardDescription>Choose PayPal or Payoneer for withdrawal</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Shuma</Label>
+                <Label className="text-xs">Amount</Label>
                 <Input
                   type="number"
                   placeholder="0.00"
@@ -175,9 +175,9 @@ export const UserWalletPanel = () => {
                 />
               </div>
               <div>
-                <Label className="text-xs">Metoda e pagesës</Label>
+                <Label className="text-xs">Payout method</Label>
                 <Select value={payoutMethod} onValueChange={setPayoutMethod}>
-                  <SelectTrigger><SelectValue placeholder="Zgjidhni metodën" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Choose method" /></SelectTrigger>
                   <SelectContent>
                     {PAYOUT_METHODS.map((m) => (
                       <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
@@ -189,11 +189,11 @@ export const UserWalletPanel = () => {
             {payoutMethod && (
               <div>
                 <Label className="text-xs">
-                  Email {payoutMethod === "paypal" ? "PayPal" : "Payoneer"}
+                  {payoutMethod === "paypal" ? "PayPal" : "Payoneer"} Email
                 </Label>
                 <Input
                   type="email"
-                  placeholder={`Email ${payoutMethod === "paypal" ? "PayPal" : "Payoneer"}`}
+                  placeholder={`${payoutMethod === "paypal" ? "PayPal" : "Payoneer"} email`}
                   value={payoutEmail}
                   onChange={(e) => setPayoutEmail(e.target.value)}
                 />
@@ -212,11 +212,11 @@ export const UserWalletPanel = () => {
               className="w-full"
             >
               <ArrowDownCircle className="mr-2 h-4 w-4" />
-              Kërko tërheqje
+              Request Withdrawal
             </Button>
             <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/30 p-3 text-xs text-muted-foreground">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-              <p>Tërheqjet verifikohen automatikisht nga AI për siguri dhe kërkohet aprovimi i Adminit para ekzekutimit.</p>
+              <p>Withdrawals are automatically verified by AI for security and require Admin approval before execution.</p>
             </div>
           </CardContent>
         </Card>
@@ -227,16 +227,16 @@ export const UserWalletPanel = () => {
         <CardHeader>
           <CardTitle className="text-lg flex items-center gap-2">
             <Wallet className="h-5 w-5 text-primary" />
-            Blerje paketash me portofol
+            Purchase plans with wallet
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-start gap-2 rounded-lg border border-border bg-primary/5 p-4 text-sm text-foreground">
             <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <div>
-              <p className="font-medium">Me gjendjen në portofol mund të blini paketat e abonimit.</p>
+              <p className="font-medium">You can purchase subscription plans with your wallet balance.</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Fondet vijnë vetëm nga fitimet e referaleve. Çdo blerje verifikohet nga AI dhe aprovohet nga Adminët.
+                Funds come only from referral earnings. Every purchase is verified by AI and approved by Admins.
               </p>
             </div>
           </div>
@@ -247,7 +247,7 @@ export const UserWalletPanel = () => {
       {withdrawalRequests && withdrawalRequests.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Kërkesat për tërheqje</CardTitle>
+            <CardTitle className="text-lg">Withdrawal Requests</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -294,7 +294,7 @@ export const UserWalletPanel = () => {
       {selectedWallet && transactions && transactions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Historiku i transaksioneve</CardTitle>
+            <CardTitle className="text-lg">Transaction History</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
