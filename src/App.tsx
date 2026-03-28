@@ -85,6 +85,7 @@ const OpsStability = lazy(() => import("./pages/OpsStability"));
 const WalletPage = lazy(() => import("./pages/Wallet"));
 const InstallPage = lazy(() => import("./pages/Install"));
 const Sources = lazy(() => import("./pages/Sources"));
+const SEOAudit = lazy(() => import("./pages/SEOAudit"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -148,6 +149,7 @@ const App = () => (
                 <Route path="/keywords" element={<ProtectedPage><Keywords /></ProtectedPage>} />
                 <Route path="/automations" element={<ProtectedPage><Automations /></ProtectedPage>} />
                 <Route path="/competitor-intelligence" element={<ProtectedPage><CompetitorIntelligence /></ProtectedPage>} />
+                <Route path="/seo-audit" element={<ProtectedPage><SEOAudit /></ProtectedPage>} />
                 <Route path="/knowledge-base" element={<ProtectedPage><KnowledgeBase /></ProtectedPage>} />
                 <Route path="/media-studio" element={<ProtectedPage><MediaStudio /></ProtectedPage>} />
                 <Route path="/broadcast" element={<ProtectedPage><BroadcastMessaging /></ProtectedPage>} />

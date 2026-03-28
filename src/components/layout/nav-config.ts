@@ -118,6 +118,7 @@ export const businessNavGroups: NavGroup[] = [
     icon: Radar,
     items: [
       { href: "/competitor-intelligence", label: "Competitor Intel", icon: Radar },
+      { href: "/seo-audit", label: "SEO Audit", icon: Search },
       { href: "/brand-reputation", label: "Brand & Reputation", icon: Heart },
       { href: "/customer-experience", label: "Customer Experience", icon: Smile },
       { href: "/retention", label: "Retention", icon: ShieldCheckIcon },
