@@ -336,7 +336,50 @@ serve(async (req) => {
 
   try {
     const sb = supabaseAdmin();
+    const body = await req.json();
 
+    // ===== TECH ANALYSIS: branding/tech detection via Firecrawl =====
+    if (body.action === "tech_analysis") {
+      const { url } = body;
+      if (!url) throw new Error("URL is required");
+
+      const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
+      if (!FIRECRAWL_API_KEY) throw new Error("Firecrawl connector not configured");
+
+      let formattedUrl = url.trim();
+      if (!formattedUrl.startsWith("http")) formattedUrl = `https://${formattedUrl}`;
+
+      const scrapeRes = await fetch("https://api.firecrawl.dev/v1/scrape", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: formattedUrl,
+          formats: ["branding"],
+        }),
+      });
+
+      if (!scrapeRes.ok) {
+        const errText = await scrapeRes.text();
+        throw new Error(`Scrape failed: ${scrapeRes.status} - ${errText}`);
+      }
+
+      const scrapeData = await scrapeRes.json();
+      const branding = scrapeData?.data?.branding || scrapeData?.branding || null;
+      const metadata = scrapeData?.data?.metadata || scrapeData?.metadata || null;
+
+      return new Response(JSON.stringify({
+        url: formattedUrl,
+        branding,
+        metadata,
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // ===== STANDARD SCAN FLOW =====
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
     const token = authHeader.replace("Bearer ", "");
@@ -344,7 +387,7 @@ serve(async (req) => {
     if (userError || !userData.user) throw new Error("Not authenticated");
     const userId = userData.user.id;
 
-    const { source_id, scan_id, workspace_id, business_id } = await req.json();
+    const { source_id, scan_id, workspace_id, business_id } = body;
     if (!source_id || !scan_id || !workspace_id) throw new Error("source_id, scan_id, workspace_id required");
 
     const startTime = Date.now();
