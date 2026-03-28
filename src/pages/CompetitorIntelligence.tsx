@@ -16,7 +16,7 @@ import {
   useScheduledCompetitorScan,
   Competitor,
 } from "@/hooks/useCompetitors";
-import { Plus, Loader2, Radar } from "lucide-react";
+import { Plus, Loader2, Radar, Code } from "lucide-react";
 import { getDueStatus } from "@/components/competitor-intelligence/constants";
 import { CompetitorStatsGrid } from "@/components/competitor-intelligence/CompetitorStatsGrid";
 import { ScanProgressBanner } from "@/components/competitor-intelligence/ScanProgressBanner";
@@ -27,6 +27,8 @@ import { CompetitorOpportunitiesTab } from "@/components/competitor-intelligence
 import { CompetitorSuggestionsTab } from "@/components/competitor-intelligence/CompetitorSuggestionsTab";
 import { AddCompetitorDialog } from "@/components/competitor-intelligence/AddCompetitorDialog";
 import { CompetitorDetailDialog } from "@/components/competitor-intelligence/CompetitorDetailDialog";
+import { CompetitorExport } from "@/components/competitor-intelligence/CompetitorExport";
+import { TechAnalysisTab } from "@/components/competitor-intelligence/TechAnalysisTab";
 
 const CompetitorIntelligence = () => {
   const { data: competitors, isLoading } = useCompetitors();
@@ -73,6 +75,7 @@ const CompetitorIntelligence = () => {
             <p className="text-sm text-muted-foreground">Track scans, pricing signals, alerts, and opportunities in one workflow.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            <CompetitorExport competitors={competitors} alerts={alerts} />
             <Button variant="outline" onClick={() => scheduledScanMutation.mutate()} disabled={scheduledScanMutation.isPending}>
               {scheduledScanMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Radar className="mr-2 h-4 w-4" />}
               Run due scans
@@ -101,6 +104,7 @@ const CompetitorIntelligence = () => {
             <TabsTrigger value="trends">Market Trends ({keywordTrends.length})</TabsTrigger>
             <TabsTrigger value="opportunities">Opportunities</TabsTrigger>
             <TabsTrigger value="suggestions">AI Suggestions</TabsTrigger>
+            <TabsTrigger value="tech">Tech Analysis</TabsTrigger>
           </TabsList>
 
           <TabsContent value="competitors" className="space-y-4">
@@ -131,6 +135,10 @@ const CompetitorIntelligence = () => {
 
           <TabsContent value="suggestions" className="space-y-4">
             <CompetitorSuggestionsTab suggestedKeywords={suggestedKeywords} />
+          </TabsContent>
+
+          <TabsContent value="tech" className="space-y-4">
+            <TechAnalysisTab />
           </TabsContent>
         </Tabs>
 
