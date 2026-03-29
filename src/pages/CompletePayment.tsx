@@ -67,6 +67,7 @@ const CompletePayment = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(false);
   const [paypalCapturing, setPaypalCapturing] = useState(false);
+  const [paypalResult, setPaypalResult] = useState<"success" | "failed" | null>(null);
 
   // Handle PayPal redirect capture
   useEffect(() => {
@@ -86,13 +87,18 @@ const CompletePayment = () => {
           });
           if (error) throw error;
           if (data?.status === "COMPLETED") {
+            setPaypalResult("success");
             toast.success("Payment completed successfully!");
-            navigate(type === "donation" ? "/pricing?checkout=success&type=donation" : "/dashboard");
+            setTimeout(() => {
+              navigate(type === "donation" ? "/pricing?checkout=success&type=donation" : "/dashboard");
+            }, 2000);
           } else {
+            setPaypalResult("failed");
             toast.error("Payment was not completed. Please try again.");
           }
         } catch (err: any) {
           console.error("PayPal capture error:", err);
+          setPaypalResult("failed");
           toast.error(err.message || "Failed to complete PayPal payment");
         } finally {
           setPaypalCapturing(false);
@@ -185,6 +191,46 @@ const CompletePayment = () => {
   };
 
   const totalPrice = discountedPrice * (currentDuration?.months ?? 1);
+
+  // Show PayPal processing/result overlay
+  if (paypalCapturing || paypalResult) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+        <Card className="w-full max-w-md text-center">
+          <CardContent className="py-12 space-y-4">
+            {paypalCapturing && (
+              <>
+                <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+                <CardTitle>Processing Payment...</CardTitle>
+                <CardDescription>Verifying your PayPal payment. Please wait.</CardDescription>
+              </>
+            )}
+            {paypalResult === "success" && (
+              <>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+                  <Check className="h-8 w-8 text-emerald-600" />
+                </div>
+                <CardTitle>Payment Successful!</CardTitle>
+                <CardDescription>Redirecting to your dashboard...</CardDescription>
+              </>
+            )}
+            {paypalResult === "failed" && (
+              <>
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-destructive/10">
+                  <Zap className="h-8 w-8 text-destructive" />
+                </div>
+                <CardTitle>Payment Failed</CardTitle>
+                <CardDescription>Your payment could not be completed. Please try again.</CardDescription>
+                <Button onClick={() => { setPaypalResult(null); navigate("/complete-payment"); }}>
+                  Try Again
+                </Button>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
