@@ -3,29 +3,29 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
   try {
     const url = new URL(req.url);
     const adapterKey = url.searchParams.get("adapter");
 
-    if (!adapterKey) {
-      return new Response(
-        JSON.stringify({ error: "Missing 'adapter' query parameter" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    if (!adapterKey) return json({ error: "Missing 'adapter' query parameter" }, 400);
 
     // Look up adapter
     const { data: adapter, error: adapterErr } = await supabaseAdmin
@@ -35,16 +35,39 @@ serve(async (req) => {
       .eq("is_active", true)
       .single();
 
-    if (adapterErr || !adapter) {
-      return new Response(
-        JSON.stringify({ error: "Adapter not found or inactive" }),
-        { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (adapterErr || !adapter) return json({ error: "Adapter not found or inactive" }, 404);
+
+    // Parse body with size guard
+    const rawBody = await req.text();
+    if (rawBody.length > 256_000) return json({ error: "Payload too large" }, 413);
+
+    let body: Record<string, unknown>;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return json({ error: "Invalid JSON body" }, 400);
     }
 
-    // Parse body
-    const body = await req.json().catch(() => ({}));
-    console.log(`[integration-webhook] adapter=${adapterKey}`, JSON.stringify(body).slice(0, 500));
+    console.log(`[integration-webhook] adapter=${adapterKey}`, rawBody.slice(0, 500));
+
+    // --- Idempotency check ---
+    // Use provider-sent ID or hash of body to prevent duplicate processing
+    const providerId = String(
+      body.message_id || body.id || body.event_id || body.webhook_id || "",
+    );
+    const idempotencyKey = providerId
+      ? `inbound:${adapterKey}:${providerId}`
+      : `inbound:${adapterKey}:${hashBody(rawBody)}`;
+
+    const { data: existingLog } = await supabaseAdmin
+      .from("integration_event_logs")
+      .select("id")
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+
+    if (existingLog) {
+      return json({ success: true, duplicate: true, message: "Already processed" }, 200);
+    }
 
     // Apply inbound_mapping: maps provider fields → Pulse fields
     const mapping = adapter.inbound_mapping || {};
@@ -56,17 +79,12 @@ serve(async (req) => {
       }
     }
 
-    const senderName = normalized.sender_name || body.sender_name || body.from || "Unknown";
-    const messageContent = normalized.message_content || body.message_content || body.text || body.message || "";
-    const senderIdentifier = normalized.sender_identifier || body.sender_identifier || body.sender_id || body.from || "unknown";
-    const channelType = normalized.channel_type || body.channel_type || "custom";
+    const senderName = normalized.sender_name || String(body.sender_name || body.from || "Unknown");
+    const messageContent = normalized.message_content || String(body.message_content || body.text || body.message || "");
+    const senderIdentifier = normalized.sender_identifier || String(body.sender_identifier || body.sender_id || body.from || "unknown");
+    const channelType = normalized.channel_type || String(body.channel_type || "custom");
 
-    if (!messageContent) {
-      return new Response(
-        JSON.stringify({ error: "No message content found after mapping" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    if (!messageContent) return json({ error: "No message content found after mapping" }, 400);
 
     // Get workspace owner as user_id
     const { data: workspace } = await supabaseAdmin
@@ -75,12 +93,7 @@ serve(async (req) => {
       .eq("id", adapter.workspace_id)
       .single();
 
-    if (!workspace) {
-      return new Response(
-        JSON.stringify({ error: "Workspace not found for adapter" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
+    if (!workspace) return json({ error: "Workspace not found for adapter" }, 500);
 
     const userId = workspace.owner_id;
 
@@ -113,36 +126,57 @@ serve(async (req) => {
 
     if (msgErr) {
       console.error("[integration-webhook] Insert error:", msgErr);
-      return new Response(
-        JSON.stringify({ error: "Failed to store message", detail: msgErr.message }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      // Log failure
+      await logEvent(supabaseAdmin, adapter.id, adapterKey, "inbound_message", body, "failed", idempotencyKey, { error: msgErr.message });
+      return json({ error: "Failed to store message", detail: msgErr.message }, 500);
     }
 
-    // Log event
-    await supabaseAdmin.from("integration_event_logs").insert({
-      integration_id: adapter.id,
-      event_type: "inbound_message",
-      payload: body,
-      status: "success",
-      metadata: { adapter_key: adapterKey, message_id: msg?.id },
-    }).catch(() => {});
+    // Log success
+    await logEvent(supabaseAdmin, adapter.id, adapterKey, "inbound_message", body, "success", idempotencyKey, { message_id: msg?.id, thread_id: threadId });
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        adapter: adapterKey,
-        message_id: msg?.id,
-        thread_id: threadId,
-        timestamp: new Date().toISOString(),
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({
+      success: true,
+      adapter: adapterKey,
+      message_id: msg?.id,
+      thread_id: threadId,
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     console.error("[integration-webhook] Error:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
+
+async function logEvent(
+  client: ReturnType<typeof createClient>,
+  integrationId: string,
+  adapterKey: string,
+  eventType: string,
+  payload: unknown,
+  status: string,
+  idempotencyKey: string,
+  metadata: Record<string, unknown>,
+) {
+  try {
+    await client.from("integration_event_logs").insert({
+      integration_id: integrationId,
+      adapter_key: adapterKey,
+      event_type: eventType,
+      event_message: `${eventType} via ${adapterKey}: ${status}`,
+      payload,
+      status,
+      idempotency_key: idempotencyKey,
+      metadata,
+    });
+  } catch (e) {
+    console.error("[integration-webhook] Log error:", e);
+  }
+}
+
+function hashBody(raw: string): string {
+  let hash = 0;
+  for (let i = 0; i < Math.min(raw.length, 2000); i++) {
+    hash = ((hash << 5) - hash + raw.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash).toString(36);
+}
