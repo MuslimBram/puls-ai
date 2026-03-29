@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { PayPalCheckoutButton } from "@/components/PayPalCheckoutButton";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PricingPlanCard } from "@/components/pricing/PricingPlanCard";
