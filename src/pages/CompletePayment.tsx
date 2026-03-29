@@ -144,6 +144,27 @@ const CompletePayment = () => {
 
     setLoading(true);
     try {
+      if (method === "paypal") {
+        const { data, error } = await supabase.functions.invoke("create-paypal-order", {
+          body: {
+            amount: totalPrice,
+            currency: "EUR",
+            paymentType: "one_time",
+            planKey: selectedPlan,
+            description: `${currentTier?.name} plan - ${currentDuration?.label}`,
+          },
+        });
+        if (error) throw error;
+        if (data?.approveUrl) {
+          sessionStorage.setItem("paypal_order_id", data.orderId);
+          sessionStorage.setItem("paypal_payment_type", "one_time");
+          window.location.href = data.approveUrl;
+          return;
+        }
+        throw new Error("PayPal checkout URL not received");
+      }
+
+      // Fallback to Stripe for other methods
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
           planKey: selectedPlan,
