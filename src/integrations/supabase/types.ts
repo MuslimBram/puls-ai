@@ -6574,30 +6574,42 @@ export type Database = {
       }
       integration_event_logs: {
         Row: {
+          adapter_key: string | null
           created_at: string
           event_message: string
           event_type: string
           id: string
+          idempotency_key: string | null
           integration_id: string
           metadata: Json | null
+          payload: Json | null
+          status: string | null
           user_id: string
         }
         Insert: {
+          adapter_key?: string | null
           created_at?: string
           event_message: string
           event_type?: string
           id?: string
+          idempotency_key?: string | null
           integration_id: string
           metadata?: Json | null
+          payload?: Json | null
+          status?: string | null
           user_id: string
         }
         Update: {
+          adapter_key?: string | null
           created_at?: string
           event_message?: string
           event_type?: string
           id?: string
+          idempotency_key?: string | null
           integration_id?: string
           metadata?: Json | null
+          payload?: Json | null
+          status?: string | null
           user_id?: string
         }
         Relationships: [
