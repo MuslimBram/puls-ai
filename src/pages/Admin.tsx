@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useIsAdmin, useAdminData, useAdminActions } from "@/hooks/useAdmin";
 import { useAdminPartners } from "@/hooks/useAdminPartners";
 import { Navigate } from "react-router-dom";
-import { Users, Building2, Target, Radio, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch, FileText, Handshake, CheckCircle, XCircle, Ban, RotateCcw, ShieldPlus, Globe } from "lucide-react";
+import { Users, Building2, Target, Radio, DollarSign, Save, Activity, Rocket, Shield, Briefcase, Wallet, AlertTriangle, Server, ListChecks, Skull, ScanSearch, FileText, Handshake, CheckCircle, XCircle, Ban, RotateCcw, ShieldPlus, Globe, Plug } from "lucide-react";
 import { format } from "date-fns";
 import { AdminSystemHealth } from "@/components/AdminSystemHealth";
 import { AdminLaunchControls } from "@/components/AdminLaunchControls";
@@ -29,6 +29,7 @@ import { AdminJobQueuePanel } from "@/components/AdminJobQueuePanel";
 import { AdminRoleManager } from "@/components/AdminRoleManager";
 import { AdminWithdrawalApproval } from "@/components/AdminWithdrawalApproval";
 import { AdminPlatformWallet } from "@/components/AdminPlatformWallet";
+import { AdminCustomChannelPanel } from "@/components/AdminCustomChannelPanel";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -190,6 +191,10 @@ const Admin = () => {
             <TabsTrigger value="platform-wallet">
               <Wallet className="h-3 w-3 mr-1" />
               Portofoli
+            </TabsTrigger>
+            <TabsTrigger value="custom-channels">
+              <Plug className="h-3 w-3 mr-1" />
+              Custom Channels
             </TabsTrigger>
           </TabsList>
 
@@ -519,6 +524,10 @@ const Admin = () => {
 
           <TabsContent value="platform-wallet">
             <AdminPlatformWallet />
+          </TabsContent>
+
+          <TabsContent value="custom-channels">
+            <AdminCustomChannelPanel />
           </TabsContent>
 
         </Tabs>

@@ -4231,6 +4231,62 @@ export type Database = {
           },
         ]
       }
+      custom_channel_adapters: {
+        Row: {
+          adapter_key: string
+          adapter_name: string
+          auth_credentials: Json
+          auth_type: string
+          created_at: string
+          created_by: string | null
+          id: string
+          inbound_mapping: Json
+          is_active: boolean
+          outbound_mapping: Json
+          provider_api_url: string | null
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          adapter_key: string
+          adapter_name: string
+          auth_credentials?: Json
+          auth_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inbound_mapping?: Json
+          is_active?: boolean
+          outbound_mapping?: Json
+          provider_api_url?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          adapter_key?: string
+          adapter_name?: string
+          auth_credentials?: Json
+          auth_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          inbound_mapping?: Json
+          is_active?: boolean
+          outbound_mapping?: Json
+          provider_api_url?: string | null
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_channel_adapters_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_value_signals: {
         Row: {
           contact_identifier: string
