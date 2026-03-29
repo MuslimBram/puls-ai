@@ -299,6 +299,25 @@ const Pricing = () => {
                 ))}
               </div>
 
+              <div className="grid gap-3 sm:grid-cols-2">
+                <PayPalCheckoutButton
+                  amount={5}
+                  currency="EUR"
+                  paymentType="donation"
+                  description="Pulse AI One-time Support"
+                  label="Donate €5 via PayPal"
+                  variant="outline"
+                />
+                <PayPalCheckoutButton
+                  amount={10}
+                  currency="EUR"
+                  paymentType="donation"
+                  description="Pulse AI Monthly Support"
+                  label="Donate €10 via PayPal"
+                  variant="outline"
+                />
+              </div>
+
               <div className="rounded-2xl border border-border/50 bg-background/70 p-4 text-sm text-muted-foreground">
                 Donation flows use their own checkout path and do not modify the active plan badge or subscription logic.
               </div>
