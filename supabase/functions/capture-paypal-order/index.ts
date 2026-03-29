@@ -60,9 +60,76 @@ serve(async (req) => {
 
     if (!orderId) throw new Error("orderId is required");
 
+    console.log(`[capture-paypal] Starting capture for order: ${orderId}, user: ${user.id}`);
+
+    // IDEMPOTENCY: Check if already captured
+    const { data: existingTxn } = await supabase
+      .from("paypal_transactions")
+      .select("status, paypal_capture_id")
+      .eq("paypal_order_id", orderId)
+      .maybeSingle();
+
+    if (existingTxn?.status === "completed" && existingTxn?.paypal_capture_id) {
+      console.log(`[capture-paypal] Order ${orderId} already captured, returning existing`);
+      return json({
+        status: "COMPLETED",
+        captureId: existingTxn.paypal_capture_id,
+        alreadyCaptured: true,
+      });
+    }
+
     const { token: ppToken, base } = await getPayPalAccessToken(clientId, clientSecret, sandbox);
 
+    // SERVER-SIDE VERIFICATION: Check order status before capture
+    const orderCheckRes = await fetch(`${base}/v2/checkout/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${ppToken}` },
+    });
+
+    if (!orderCheckRes.ok) {
+      const errText = await orderCheckRes.text();
+      console.error(`[capture-paypal] Order check failed: ${errText}`);
+      throw new Error("Failed to verify order with PayPal");
+    }
+
+    const orderCheck = await orderCheckRes.json();
+    console.log(`[capture-paypal] Order ${orderId} status: ${orderCheck.status}`);
+
+    // If already captured, sync the status
+    if (orderCheck.status === "COMPLETED") {
+      const captureId = orderCheck.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+      const payer = orderCheck.payer;
+
+      await supabase.from("paypal_transactions")
+        .update({
+          status: "completed",
+          paypal_capture_id: captureId ?? null,
+          paypal_payer_id: payer?.payer_id ?? null,
+          payer_email: payer?.email_address ?? null,
+          payer_name: payer?.name
+            ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
+            : null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("paypal_order_id", orderId);
+
+      return json({ status: "COMPLETED", captureId, alreadyCaptured: true });
+    }
+
+    if (orderCheck.status !== "APPROVED") {
+      console.error(`[capture-paypal] Order not in APPROVED state: ${orderCheck.status}`);
+
+      // Mark as failed if not approved
+      if (orderCheck.status === "VOIDED" || orderCheck.status === "EXPIRED") {
+        await supabase.from("paypal_transactions")
+          .update({ status: "failed", updated_at: new Date().toISOString() })
+          .eq("paypal_order_id", orderId);
+      }
+
+      throw new Error(`Order not approved (status: ${orderCheck.status})`);
+    }
+
     // Capture the order
+    console.log(`[capture-paypal] Capturing order ${orderId}...`);
     const captureRes = await fetch(`${base}/v2/checkout/orders/${orderId}/capture`, {
       method: "POST",
       headers: {
@@ -73,18 +140,51 @@ serve(async (req) => {
 
     if (!captureRes.ok) {
       const errText = await captureRes.text();
+      console.error(`[capture-paypal] Capture failed: ${errText}`);
+
+      // Handle "already captured" 422 error
+      if (captureRes.status === 422) {
+        console.log("[capture-paypal] Order already captured (422), verifying...");
+        // Re-fetch order to get capture details
+        const recheck = await fetch(`${base}/v2/checkout/orders/${orderId}`, {
+          headers: { Authorization: `Bearer ${ppToken}` },
+        });
+        if (recheck.ok) {
+          const recheckData = await recheck.json();
+          if (recheckData.status === "COMPLETED") {
+            const cId = recheckData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
+            await supabase.from("paypal_transactions")
+              .update({
+                status: "completed",
+                paypal_capture_id: cId ?? null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("paypal_order_id", orderId);
+            return json({ status: "COMPLETED", captureId: cId, alreadyCaptured: true });
+          }
+        }
+      }
+
+      // Mark as failed
+      await supabase.from("paypal_transactions")
+        .update({ status: "failed", updated_at: new Date().toISOString() })
+        .eq("paypal_order_id", orderId);
+
       throw new Error(`PayPal capture failed: ${errText}`);
     }
 
     const capture = await captureRes.json();
     const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
     const payer = capture.payer;
+    const finalStatus = capture.status === "COMPLETED" ? "completed" : "failed";
+
+    console.log(`[capture-paypal] Capture result: ${capture.status}, captureId: ${captureId}`);
 
     // Update transaction
     await supabase
       .from("paypal_transactions")
       .update({
-        status: capture.status === "COMPLETED" ? "completed" : "failed",
+        status: finalStatus,
         paypal_capture_id: captureId ?? null,
         paypal_payer_id: payer?.payer_id ?? null,
         payer_email: payer?.email_address ?? null,
@@ -95,29 +195,39 @@ serve(async (req) => {
       })
       .eq("paypal_order_id", orderId);
 
-    // Also log in billing_history
-    if (capture.status === "COMPLETED") {
+    // Log in billing_history (with idempotency check)
+    if (capture.status === "COMPLETED" && captureId) {
       const pu = capture.purchase_units?.[0];
       const amt = Number(pu?.payments?.captures?.[0]?.amount?.value ?? 0);
 
-      // Get the transaction to know the type
       const { data: txn } = await supabase
         .from("paypal_transactions")
         .select("payment_type, plan_key")
         .eq("paypal_order_id", orderId)
         .maybeSingle();
 
-      await supabase.from("billing_history").insert({
-        user_id: user.id,
-        amount: amt,
-        currency: pu?.payments?.captures?.[0]?.amount?.currency_code ?? "USD",
-        status: "paid",
-        description: txn?.payment_type === "donation"
-          ? "PayPal Donation"
-          : `PayPal Payment${txn?.plan_key ? ` - ${txn.plan_key}` : ""}`,
-        plan_name: txn?.plan_key ?? null,
-        stripe_invoice_id: `paypal_${captureId}`,
-      });
+      // Check billing_history doesn't already have this
+      const { data: existingBill } = await supabase
+        .from("billing_history")
+        .select("id")
+        .eq("stripe_invoice_id", `paypal_${captureId}`)
+        .maybeSingle();
+
+      if (!existingBill) {
+        await supabase.from("billing_history").insert({
+          user_id: user.id,
+          amount: amt,
+          currency: pu?.payments?.captures?.[0]?.amount?.currency_code ?? "USD",
+          status: "paid",
+          description: txn?.payment_type === "donation"
+            ? "PayPal Donation"
+            : `PayPal Payment${txn?.plan_key ? ` - ${txn.plan_key}` : ""}`,
+          plan_name: txn?.plan_key ?? null,
+          stripe_invoice_id: `paypal_${captureId}`,
+        });
+      }
+
+      console.log(`[capture-paypal] Billing record created for ${captureId}`);
     }
 
     return json({
@@ -126,7 +236,7 @@ serve(async (req) => {
       payerEmail: payer?.email_address,
     });
   } catch (error) {
-    console.error("capture-paypal-order error:", error);
+    console.error("[capture-paypal] Error:", error);
     return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
