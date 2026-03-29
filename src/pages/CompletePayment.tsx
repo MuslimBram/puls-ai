@@ -67,6 +67,7 @@ const CompletePayment = () => {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(false);
   const [paypalCapturing, setPaypalCapturing] = useState(false);
+  const [paypalResult, setPaypalResult] = useState<"success" | "failed" | null>(null);
 
   // Handle PayPal redirect capture
   useEffect(() => {
@@ -86,13 +87,18 @@ const CompletePayment = () => {
           });
           if (error) throw error;
           if (data?.status === "COMPLETED") {
+            setPaypalResult("success");
             toast.success("Payment completed successfully!");
-            navigate(type === "donation" ? "/pricing?checkout=success&type=donation" : "/dashboard");
+            setTimeout(() => {
+              navigate(type === "donation" ? "/pricing?checkout=success&type=donation" : "/dashboard");
+            }, 2000);
           } else {
+            setPaypalResult("failed");
             toast.error("Payment was not completed. Please try again.");
           }
         } catch (err: any) {
           console.error("PayPal capture error:", err);
+          setPaypalResult("failed");
           toast.error(err.message || "Failed to complete PayPal payment");
         } finally {
           setPaypalCapturing(false);
