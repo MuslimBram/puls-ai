@@ -9190,6 +9190,42 @@ export type Database = {
           },
         ]
       }
+      paypal_webhook_events: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          event_id: string | null
+          event_type: string
+          id: string
+          payload: Json | null
+          processed_at: string | null
+          resource_id: string | null
+          status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          event_type: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          resource_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          event_id?: string | null
+          event_type?: string
+          id?: string
+          payload?: Json | null
+          processed_at?: string | null
+          resource_id?: string | null
+          status?: string | null
+        }
+        Relationships: []
+      }
       personalization_analytics: {
         Row: {
           conversion_change: number | null
