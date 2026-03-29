@@ -47,6 +47,7 @@ type PaymentMethod = "paypal" | "payoneer" | "wallet";
 
 const CompletePayment = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, signOut } = useAuth();
   const { data: wallets } = useUserWallets();
 
@@ -65,6 +66,40 @@ const CompletePayment = () => {
   );
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const [loading, setLoading] = useState(false);
+  const [paypalCapturing, setPaypalCapturing] = useState(false);
+
+  // Handle PayPal redirect capture
+  useEffect(() => {
+    const provider = searchParams.get("provider");
+    const type = searchParams.get("type");
+    const storedOrderId = sessionStorage.getItem("paypal_order_id");
+
+    if (provider === "paypal" && storedOrderId && !paypalCapturing) {
+      setPaypalCapturing(true);
+      sessionStorage.removeItem("paypal_order_id");
+      sessionStorage.removeItem("paypal_payment_type");
+
+      (async () => {
+        try {
+          const { data, error } = await supabase.functions.invoke("capture-paypal-order", {
+            body: { orderId: storedOrderId },
+          });
+          if (error) throw error;
+          if (data?.status === "COMPLETED") {
+            toast.success("Payment completed successfully!");
+            navigate(type === "donation" ? "/pricing?checkout=success&type=donation" : "/dashboard");
+          } else {
+            toast.error("Payment was not completed. Please try again.");
+          }
+        } catch (err: any) {
+          console.error("PayPal capture error:", err);
+          toast.error(err.message || "Failed to complete PayPal payment");
+        } finally {
+          setPaypalCapturing(false);
+        }
+      })();
+    }
+  }, [searchParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const currentTier = PLAN_TIERS.find((t) => t.key === selectedPlan);
   const currentDuration = DURATION_OPTIONS.find((d) => d.key === selectedDuration);
