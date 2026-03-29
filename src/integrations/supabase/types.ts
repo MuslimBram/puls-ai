@@ -9125,6 +9125,71 @@ export type Database = {
           },
         ]
       }
+      paypal_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json | null
+          payer_email: string | null
+          payer_name: string | null
+          payment_type: string
+          paypal_capture_id: string | null
+          paypal_order_id: string
+          paypal_payer_id: string | null
+          plan_key: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          payer_email?: string | null
+          payer_name?: string | null
+          payment_type?: string
+          paypal_capture_id?: string | null
+          paypal_order_id: string
+          paypal_payer_id?: string | null
+          plan_key?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json | null
+          payer_email?: string | null
+          payer_name?: string | null
+          payment_type?: string
+          paypal_capture_id?: string | null
+          paypal_order_id?: string
+          paypal_payer_id?: string | null
+          plan_key?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paypal_transactions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       personalization_analytics: {
         Row: {
           conversion_change: number | null
