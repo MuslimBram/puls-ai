@@ -192,6 +192,10 @@ const Admin = () => {
               <Wallet className="h-3 w-3 mr-1" />
               Portofoli
             </TabsTrigger>
+            <TabsTrigger value="custom-channels">
+              <Plug className="h-3 w-3 mr-1" />
+              Custom Channels
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="users">
