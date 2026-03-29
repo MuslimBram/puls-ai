@@ -526,6 +526,10 @@ const Admin = () => {
             <AdminPlatformWallet />
           </TabsContent>
 
+          <TabsContent value="custom-channels">
+            <AdminCustomChannelPanel />
+          </TabsContent>
+
         </Tabs>
       </div>
     </DashboardLayout>
