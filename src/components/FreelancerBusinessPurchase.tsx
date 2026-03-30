@@ -23,6 +23,8 @@ const BASE_PRICES: Record<string, number> = {
   enterprise: 399,
 };
 
+import { useFreelancerPricing } from "@/hooks/useFreelancerPricing";
+
 const FREELANCER_DISCOUNT = 40;
 
 const CHANNEL_TYPES = [
