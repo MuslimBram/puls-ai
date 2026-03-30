@@ -31,8 +31,8 @@ export const FREELANCER_COMMISSION_RATE = 35;
 /** Business referral discount: 15% on subscription for referred businesses */
 export const BUSINESS_REFERRAL_COMMISSION_RATE = 15;
 
-/** Minimum active referred businesses for freelancer to stay active */
-export const FREELANCER_MIN_ACTIVE_REFERRALS = 1;
+/** Minimum active paid referred businesses for freelancer 40% discount */
+export const FREELANCER_MIN_ACTIVE_REFERRALS = 3;
 
 export const formatLimit = (value: number): string => {
   if (value === -1) return "Pa limit";
