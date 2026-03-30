@@ -57,6 +57,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
   const walletsQuery = useUserWallets();
   const wallets = walletsQuery.data ?? [];
   const [open, setOpen] = useState(false);
+  const freelancerPricing = useFreelancerPricing();
 
   const [form, setForm] = useState({
     business_name: "",
@@ -108,7 +109,9 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
   const durationMonths = selectedVariant?.durationMonths || 1;
   const durationDiscount = selectedVariant?.discountPercent || 0;
 
-  const freelancerMonthlyPrice = basePrice * (1 - FREELANCER_DISCOUNT / 100);
+  // Apply 40% discount ONLY if freelancer has 3+ active paid referrals
+  const effectiveFreelancerDiscount = freelancerPricing.isEligibleForDiscount ? FREELANCER_DISCOUNT : 0;
+  const freelancerMonthlyPrice = basePrice * (1 - effectiveFreelancerDiscount / 100);
   const finalMonthlyPrice = freelancerMonthlyPrice * (1 - durationDiscount / 100);
   const totalPrice = Number((finalMonthlyPrice * durationMonths).toFixed(2));
 
