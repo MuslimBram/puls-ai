@@ -23,6 +23,8 @@ const BASE_PRICES: Record<string, number> = {
   enterprise: 399,
 };
 
+import { useFreelancerPricing } from "@/hooks/useFreelancerPricing";
+
 const FREELANCER_DISCOUNT = 40;
 
 const CHANNEL_TYPES = [
@@ -55,6 +57,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
   const walletsQuery = useUserWallets();
   const wallets = walletsQuery.data ?? [];
   const [open, setOpen] = useState(false);
+  const freelancerPricing = useFreelancerPricing();
 
   const [form, setForm] = useState({
     business_name: "",
@@ -106,7 +109,9 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
   const durationMonths = selectedVariant?.durationMonths || 1;
   const durationDiscount = selectedVariant?.discountPercent || 0;
 
-  const freelancerMonthlyPrice = basePrice * (1 - FREELANCER_DISCOUNT / 100);
+  // Apply 40% discount ONLY if freelancer has 3+ active paid referrals
+  const effectiveFreelancerDiscount = freelancerPricing.isEligibleForDiscount ? FREELANCER_DISCOUNT : 0;
+  const freelancerMonthlyPrice = basePrice * (1 - effectiveFreelancerDiscount / 100);
   const finalMonthlyPrice = freelancerMonthlyPrice * (1 - durationDiscount / 100);
   const totalPrice = Number((finalMonthlyPrice * durationMonths).toFixed(2));
 
@@ -321,16 +326,36 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 </div>
               </div>
 
+              {/* Eligibility warning */}
+              {!freelancerPricing.isEligibleForDiscount && (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    Zbritja 40% nuk është aktive
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {freelancerPricing.eligibilityMessage || `Nevojiten ${freelancerPricing.requiredReferrals} biznese referale aktive të paguara. Aktualisht keni ${freelancerPricing.activePaidReferrals}.`}
+                  </p>
+                </div>
+              )}
+
               {/* Price summary */}
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span>Base price:</span>
                   <span>€{basePrice}/mo</span>
                 </div>
-                <div className="flex justify-between text-sm text-primary">
-                  <span>Freelancer discount ({FREELANCER_DISCOUNT}%):</span>
-                  <span>-€{(basePrice * FREELANCER_DISCOUNT / 100).toFixed(2)}</span>
-                </div>
+                {effectiveFreelancerDiscount > 0 ? (
+                  <div className="flex justify-between text-sm text-primary">
+                    <span>Freelancer discount ({effectiveFreelancerDiscount}%):</span>
+                    <span>-€{(basePrice * effectiveFreelancerDiscount / 100).toFixed(2)}</span>
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Freelancer discount:</span>
+                    <span>0% (nevojiten 3 referale aktive)</span>
+                  </div>
+                )}
                 {durationDiscount > 0 && (
                   <div className="flex justify-between text-sm text-primary">
                     <span>Duration discount ({durationDiscount}%):</span>
