@@ -13149,6 +13149,10 @@ export type Database = {
         Args: { _asset_identifier: string; _asset_type: string }
         Returns: Json
       }
+      check_freelancer_discount_eligibility: {
+        Args: { _freelancer_user_id: string }
+        Returns: Json
+      }
       check_freelancer_relation_eligibility: {
         Args: {
           _business_workspace_id: string
