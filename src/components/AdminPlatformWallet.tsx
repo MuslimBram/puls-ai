@@ -13,11 +13,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
-  pending_ai_review: { label: "Në pritje AI", variant: "secondary", icon: Clock },
-  pending_admin_review: { label: "Në pritje Admini", variant: "outline", icon: ShieldCheck },
-  approved: { label: "Aprovuar", variant: "default", icon: CheckCircle2 },
-  rejected: { label: "Refuzuar", variant: "destructive", icon: XCircle },
-  blocked: { label: "Bllokuar", variant: "destructive", icon: AlertTriangle },
+  pending_ai_review: { label: "Pending AI", variant: "secondary", icon: Clock },
+  pending_admin_review: { label: "Pending Admin", variant: "outline", icon: ShieldCheck },
+  approved: { label: "Approved", variant: "default", icon: CheckCircle2 },
+  rejected: { label: "Rejected", variant: "destructive", icon: XCircle },
+  blocked: { label: "Blocked", variant: "destructive", icon: AlertTriangle },
 };
 
 export const AdminPlatformWallet = () => {
@@ -56,8 +56,8 @@ export const AdminPlatformWallet = () => {
   const requestWithdrawal = useMutation({
     mutationFn: async () => {
       const amount = parseFloat(withdrawAmount);
-      if (!amount || amount <= 0) throw new Error("Shuma e pavlefshme");
-      if (wallet && amount > (wallet as any).balance) throw new Error("Balanca nuk mjafton");
+      if (!amount || amount <= 0) throw new Error("Invalid amount");
+      if (wallet && amount > (wallet as any).balance) throw new Error("Insufficient balance");
 
       const { error } = await supabase
         .from("platform_withdrawal_requests" as any)
@@ -70,7 +70,7 @@ export const AdminPlatformWallet = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Kërkesa për tërheqje u dërgua për verifikim AI");
+      toast.success("Withdrawal request sent for AI verification");
       queryClient.invalidateQueries({ queryKey: ["platform-withdrawals"] });
       setWithdrawAmount("");
       setWithdrawReason("");
@@ -93,7 +93,7 @@ export const AdminPlatformWallet = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Tërheqja u aprovua");
+      toast.success("Withdrawal approved");
       queryClient.invalidateQueries({ queryKey: ["platform-withdrawals"] });
       queryClient.invalidateQueries({ queryKey: ["platform-wallet"] });
     },
@@ -113,7 +113,7 @@ export const AdminPlatformWallet = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Tërheqja u refuzua");
+      toast.success("Withdrawal rejected");
       queryClient.invalidateQueries({ queryKey: ["platform-withdrawals"] });
     },
     onError: (err: any) => toast.error(err.message),
@@ -121,30 +121,29 @@ export const AdminPlatformWallet = () => {
 
   return (
     <div className="space-y-6">
-      {/* Wallet Balance */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
               <Wallet className="h-5 w-5 text-primary" />
-              Portofoli i Platformës
+              Platform Wallet
             </CardTitle>
-            <CardDescription>Të ardhurat e grumbulluara nga pagesat e bizneseve</CardDescription>
+            <CardDescription>Revenue collected from business payments</CardDescription>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm">
                 <ArrowDownToLine className="mr-2 h-4 w-4" />
-                Kërko Tërheqje
+                Request Withdrawal
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Kërko Tërheqje nga Platforma</DialogTitle>
+                <DialogTitle>Request Platform Withdrawal</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 pt-2">
                 <div>
-                  <Label>Shuma (EUR)</Label>
+                  <Label>Amount (EUR)</Label>
                   <Input
                     type="number"
                     placeholder="0.00"
@@ -153,22 +152,22 @@ export const AdminPlatformWallet = () => {
                   />
                 </div>
                 <div>
-                  <Label>Arsyeja</Label>
+                  <Label>Reason</Label>
                   <Textarea
-                    placeholder="Pse po tërhiqni këto fonde..."
+                    placeholder="Why are you withdrawing these funds..."
                     value={withdrawReason}
                     onChange={(e) => setWithdrawReason(e.target.value)}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Tërheqja do të kalojë përmes verifikimit AI dhe aprovimit nga një Admin tjetër.
+                  The withdrawal will go through AI verification and approval from another Admin.
                 </p>
                 <Button
                   className="w-full"
                   onClick={() => requestWithdrawal.mutate()}
                   disabled={requestWithdrawal.isPending}
                 >
-                  Dërgo Kërkesën
+                  Submit Request
                 </Button>
               </div>
             </DialogContent>
@@ -177,19 +176,19 @@ export const AdminPlatformWallet = () => {
         <CardContent>
           <div className="grid grid-cols-3 gap-4">
             <div className="rounded-lg bg-muted/50 p-4 text-center">
-              <p className="text-sm text-muted-foreground">Balanca</p>
+              <p className="text-sm text-muted-foreground">Balance</p>
               <p className="text-2xl font-bold text-foreground">
                 €{((wallet as any)?.balance ?? 0).toFixed(2)}
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-center">
-              <p className="text-sm text-muted-foreground">Totali i të ardhurave</p>
+              <p className="text-sm text-muted-foreground">Total Revenue</p>
               <p className="text-2xl font-bold text-primary">
                 €{((wallet as any)?.total_revenue ?? 0).toFixed(2)}
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-center">
-              <p className="text-sm text-muted-foreground">Totali i tërheqjeve</p>
+              <p className="text-sm text-muted-foreground">Total Withdrawn</p>
               <p className="text-2xl font-bold text-foreground">
                 €{((wallet as any)?.total_withdrawn ?? 0).toFixed(2)}
               </p>
@@ -198,15 +197,14 @@ export const AdminPlatformWallet = () => {
         </CardContent>
       </Card>
 
-      {/* Withdrawal Requests */}
       <Card>
         <CardHeader>
-          <CardTitle>Kërkesat për Tërheqje</CardTitle>
-          <CardDescription>AI + Admin aprovim i dyfishtë</CardDescription>
+          <CardTitle>Withdrawal Requests</CardTitle>
+          <CardDescription>AI + Admin dual approval</CardDescription>
         </CardHeader>
         <CardContent>
           {!withdrawals?.length ? (
-            <p className="text-sm text-muted-foreground text-center py-6">Nuk ka kërkesa ende.</p>
+            <p className="text-sm text-muted-foreground text-center py-6">No requests yet.</p>
           ) : (
             <div className="space-y-3">
               {withdrawals.map((w: any) => {
@@ -223,7 +221,7 @@ export const AdminPlatformWallet = () => {
                         <p className="text-sm font-medium">€{Number(w.amount).toFixed(2)}</p>
                         {w.reason && <p className="text-xs text-muted-foreground">{w.reason}</p>}
                         <p className="text-xs text-muted-foreground">
-                          {new Date(w.created_at).toLocaleDateString("sq")}
+                          {new Date(w.created_at).toLocaleDateString("en")}
                         </p>
                       </div>
                     </div>
@@ -236,14 +234,14 @@ export const AdminPlatformWallet = () => {
                             variant="outline"
                             onClick={() => approveWithdrawal.mutate({ id: w.id })}
                           >
-                            Aprovo
+                            Approve
                           </Button>
                           <Button
                             size="sm"
                             variant="destructive"
-                            onClick={() => rejectWithdrawal.mutate({ id: w.id, reason: "Refuzuar nga admini" })}
+                            onClick={() => rejectWithdrawal.mutate({ id: w.id, reason: "Rejected by admin" })}
                           >
-                            Refuzo
+                            Reject
                           </Button>
                         </div>
                       )}

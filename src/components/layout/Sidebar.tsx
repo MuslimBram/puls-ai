@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { X, LogOut, ChevronDown } from "lucide-react";
-import { businessNavGroups, adminNavGroups, type NavGroup } from "./nav-config";
+import { businessNavGroups, adminNavGroups, type NavGroup, type NavItem } from "./nav-config";
 import { APP_VERSION } from "@/config/version";
 
 interface SidebarProps {
@@ -18,10 +18,52 @@ interface SidebarProps {
 export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const { signOut, user } = useAuth();
   const { workspace, workspaces, switchWorkspace } = useWorkspace();
-  const { isAdmin, isBusinessOwner } = useRolePermissions();
+  const { isAdmin, isAmbassador, isAgent, permissions, roles } = useRolePermissions();
   const location = useLocation();
 
-  const allGroups: NavGroup[] = isAdmin ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
+  // Filter items based on permissions
+  const filterItems = (items: NavItem[]): NavItem[] =>
+    items.filter((item) => {
+      if (item.requiredPermission && !permissions[item.requiredPermission]) return false;
+      if (item.allowedRoles && !item.allowedRoles.some((r) => roles.includes(r as any))) return false;
+      return true;
+    });
+
+  // Filter groups based on permissions
+  const filterGroups = (groups: NavGroup[]): NavGroup[] =>
+    groups
+      .map((group) => {
+        if (group.requiredPermission && !permissions[group.requiredPermission]) return null;
+        if (group.allowedRoles && !group.allowedRoles.some((r) => roles.includes(r as any))) return null;
+        const filteredItems = filterItems(group.items);
+        if (filteredItems.length === 0) return null;
+        return { ...group, items: filteredItems };
+      })
+      .filter(Boolean) as NavGroup[];
+
+  // Ambassador: only sees Partner, Wallet, Security, Dashboard
+  const ambassadorGroups: NavGroup[] = [
+    {
+      label: "Main",
+      icon: businessNavGroups[0].icon,
+      defaultOpen: true,
+      items: [
+        { href: "/dashboard", label: "Dashboard", icon: businessNavGroups[0].items[0].icon },
+        { href: "/partner", label: "Referral Dashboard", icon: businessNavGroups[0].items[0].icon },
+        { href: "/wallet", label: "Wallet", icon: businessNavGroups[0].items[0].icon },
+        { href: "/security", label: "Security", icon: businessNavGroups[0].items[0].icon },
+      ],
+    },
+  ];
+
+  let allGroups: NavGroup[];
+  if (isAdmin) {
+    allGroups = [...adminNavGroups, ...filterGroups(businessNavGroups)];
+  } else if (isAmbassador && !roles.includes("business_owner") && !roles.includes("freelancer")) {
+    allGroups = ambassadorGroups;
+  } else {
+    allGroups = filterGroups(businessNavGroups);
+  }
 
   return (
     <aside
