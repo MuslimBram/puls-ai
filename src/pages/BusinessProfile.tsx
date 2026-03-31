@@ -348,7 +348,7 @@ const BusinessProfile = () => {
                 <FormField control={form.control} name="main_services" render={({ field }) => (
                   <FormItem>
                     <FieldLabelWithGuide
-                      label="Shërbimet Kryesore"
+                      label="Main Services"
                       guide={getFieldGuide(businessProfileFieldGuides, "main_services")!}
                       onAiSuggest={() => aiSuggest("main_services", `List 3-5 main services for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return a comma-separated list.`, (v) => form.setValue("main_services", v))}
                       isAiLoading={aiField === "main_services"}
