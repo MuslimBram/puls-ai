@@ -312,7 +312,7 @@ const BusinessProfile = () => {
                       onAiSuggest={() => aiSuggest("short_description", `Write a 1-2 sentence business description for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return only the description.`, (v) => form.setValue("short_description", v))}
                       isAiLoading={aiField === "short_description"}
                     />
-                    <FormControl><Textarea placeholder="Përshkrim i shkurtër i biznesit tuaj" rows={2} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder="Brief description of your business" rows={2} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
