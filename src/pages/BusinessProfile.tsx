@@ -232,8 +232,8 @@ const BusinessProfile = () => {
             <Building2 className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Profili i Biznesit</h1>
-            <p className="text-sm text-muted-foreground">Konfiguroni detajet e biznesit tuaj që AI të sugjerojë postime, konkurrentë dhe audiencë</p>
+            <h1 className="text-2xl font-bold text-foreground">Business Profile</h1>
+            <p className="text-sm text-muted-foreground">Configure your business details so AI can suggest posts, competitors and audience</p>
           </div>
         </div>
 
