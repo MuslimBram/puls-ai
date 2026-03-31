@@ -14,7 +14,7 @@ interface ComparisonRow {
 
 const ROWS: ComparisonRow[] = [
   {
-    category: "Fokus Kryesor",
+    category: "Core Focus",
     crisp: { status: "text", text: "Customer support chat" },
     respondio: { status: "text", text: "Omnichannel messaging & automation" },
     hubspot: { status: "text", text: "CRM & marketing suite" },
@@ -22,50 +22,50 @@ const ROWS: ComparisonRow[] = [
   },
   {
     category: "Lead Generation",
-    crisp: { status: "no", text: "Shumë bazik" },
+    crisp: { status: "no", text: "Very basic" },
     respondio: { status: "partial", text: "Manual / automation" },
     hubspot: { status: "yes", text: "Marketing tools" },
     pulse: { status: "yes", text: "AI scan + market intel + keyword engine" },
   },
   {
     category: "Unified Inbox",
-    crisp: { status: "yes", text: "I fortë" },
-    respondio: { status: "yes", text: "I fortë" },
-    hubspot: { status: "partial", text: "Mesatar" },
+    crisp: { status: "yes", text: "Strong" },
+    respondio: { status: "yes", text: "Strong" },
+    hubspot: { status: "partial", text: "Average" },
     pulse: { status: "yes", text: "Omnichannel + AI classification" },
   },
   {
     category: "CRM",
-    crisp: { status: "partial", text: "Bazik" },
-    respondio: { status: "partial", text: "Mesatar" },
-    hubspot: { status: "yes", text: "Shumë i fortë" },
+    crisp: { status: "partial", text: "Basic" },
+    respondio: { status: "partial", text: "Average" },
+    hubspot: { status: "yes", text: "Very strong" },
     pulse: { status: "yes", text: "AI-driven CRM + sales probability" },
   },
   {
     category: "Marketing Automation",
-    crisp: { status: "partial", text: "Bazik" },
-    respondio: { status: "yes", text: "I fortë" },
+    crisp: { status: "partial", text: "Basic" },
+    respondio: { status: "yes", text: "Strong" },
     hubspot: { status: "yes", text: "Enterprise level" },
     pulse: { status: "yes", text: "AI growth + campaign engine" },
   },
   {
     category: "Call Center",
-    crisp: { status: "no", text: "Jo" },
+    crisp: { status: "no", text: "No" },
     respondio: { status: "partial", text: "Integrations" },
     hubspot: { status: "partial", text: "Integrations" },
     pulse: { status: "yes", text: "Dialer + IVR + agent monitoring" },
   },
   {
     category: "AI Strategy",
-    crisp: { status: "no", text: "Jo" },
-    respondio: { status: "no", text: "Shumë pak" },
+    crisp: { status: "no", text: "No" },
+    respondio: { status: "no", text: "Very limited" },
     hubspot: { status: "partial", text: "Predictive analytics" },
-    pulse: { status: "yes", text: "AI vendime biznesi" },
+    pulse: { status: "yes", text: "AI business decisions" },
   },
   {
     category: "Revenue Optimization",
-    crisp: { status: "no", text: "Jo" },
-    respondio: { status: "no", text: "Jo" },
+    crisp: { status: "no", text: "No" },
+    respondio: { status: "no", text: "No" },
     hubspot: { status: "partial", text: "Reports" },
     pulse: { status: "yes", text: "Revenue Engine + pricing AI" },
   },
@@ -78,20 +78,20 @@ const ROWS: ComparisonRow[] = [
   },
   {
     category: "Growth Strategy",
-    crisp: { status: "no", text: "Jo" },
-    respondio: { status: "no", text: "Jo" },
+    crisp: { status: "no", text: "No" },
+    respondio: { status: "no", text: "No" },
     hubspot: { status: "partial", text: "Consulting needed" },
-    pulse: { status: "yes", text: "AI sugjeron strategji" },
+    pulse: { status: "yes", text: "AI suggests strategy" },
   },
   {
     category: "Partner / Reseller",
-    crisp: { status: "no", text: "Shumë limit" },
-    respondio: { status: "partial", text: "Limit" },
+    crisp: { status: "no", text: "Very limited" },
+    respondio: { status: "partial", text: "Limited" },
     hubspot: { status: "partial", text: "Enterprise" },
     pulse: { status: "yes", text: "Affiliate + reseller built-in" },
   },
   {
-    category: "Çmimi",
+    category: "Pricing",
     crisp: { status: "text", text: "€45–295" },
     respondio: { status: "text", text: "$79–279" },
     hubspot: { status: "text", text: "€800–3000+" },
@@ -112,12 +112,12 @@ export const CompetitorComparison = () => {
     <section className="border-t border-border bg-muted/20" ref={scrollRef}>
       <div className="container mx-auto px-4 py-16">
         <div className="mb-10 text-center animate-on-scroll">
-          <Badge variant="secondary" className="mb-3">Krahasimi</Badge>
+          <Badge variant="secondary" className="mb-3">Comparison</Badge>
           <h2 className="mb-2 text-3xl font-bold text-foreground">
-            Pulse AI vs Konkurentët
+            Pulse AI vs Competitors
           </h2>
           <p className="mx-auto max-w-lg text-muted-foreground">
-            Shiko pse bizneset zgjedhin Pulse AI mbi platformat e tjera.
+            See why businesses choose Pulse AI over other platforms.
           </p>
         </div>
 
@@ -125,7 +125,7 @@ export const CompetitorComparison = () => {
           <table className="w-full min-w-[700px] text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="py-3 px-4 text-left font-semibold text-foreground w-[160px]">Kategoria</th>
+                <th className="py-3 px-4 text-left font-semibold text-foreground w-[160px]">Category</th>
                 <th className="py-3 px-4 text-left font-semibold text-muted-foreground">
                   <span className="flex items-center gap-1.5">💬 Crisp</span>
                 </th>

@@ -35,6 +35,6 @@ export const BUSINESS_REFERRAL_COMMISSION_RATE = 15;
 export const FREELANCER_MIN_ACTIVE_REFERRALS = 3;
 
 export const formatLimit = (value: number): string => {
-  if (value === -1) return "Pa limit";
+  if (value === -1) return "Unlimited";
   return value.toString();
 };

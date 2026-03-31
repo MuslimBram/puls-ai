@@ -51,7 +51,7 @@ export const AdminWithdrawalApproval = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-withdrawal-requests"] });
-      toast.success("Analiza AI përfundoi");
+      toast.success("AI analysis completed");
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -70,11 +70,9 @@ export const AdminWithdrawalApproval = () => {
         .eq("id", id);
       if (error) throw error;
 
-      // If approved, deduct from wallet
       if (status === "approved") {
         const req = requests.find(r => r.id === id);
         if (req) {
-          // Deduct balance
           const { data: wallet } = await supabase
             .from("user_wallets")
             .select("current_balance")
@@ -92,7 +90,7 @@ export const AdminWithdrawalApproval = () => {
               type: "withdrawal",
               amount: -req.amount,
               currency: req.currency,
-              description: "Tërheqje e aprovuar nga Admin",
+              description: "Withdrawal approved by Admin",
             } as any);
           }
         }
@@ -103,17 +101,17 @@ export const AdminWithdrawalApproval = () => {
       queryClient.invalidateQueries({ queryKey: ["user-wallets"] });
       setSelectedId(null);
       setAdminNote("");
-      toast.success("Statusi u përditësua");
+      toast.success("Status updated");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const getRiskBadge = (score: number | null, status: string) => {
-    if (status === "pending_ai_review") return <Badge variant="outline" className="text-[10px]">Duke analizuar...</Badge>;
-    if (score === null) return <Badge variant="outline" className="text-[10px]">Pa analizë</Badge>;
-    if (score <= 30) return <Badge variant="default" className="text-[10px]"><ShieldCheck className="h-3 w-3 mr-1" />I sigurt ({score})</Badge>;
-    if (score <= 60) return <Badge variant="secondary" className="text-[10px]"><ShieldAlert className="h-3 w-3 mr-1" />Kujdes ({score})</Badge>;
-    return <Badge variant="destructive" className="text-[10px]"><ShieldX className="h-3 w-3 mr-1" />Rrezik ({score})</Badge>;
+    if (status === "pending_ai_review") return <Badge variant="outline" className="text-[10px]">Analyzing...</Badge>;
+    if (score === null) return <Badge variant="outline" className="text-[10px]">No analysis</Badge>;
+    if (score <= 30) return <Badge variant="default" className="text-[10px]"><ShieldCheck className="h-3 w-3 mr-1" />Safe ({score})</Badge>;
+    if (score <= 60) return <Badge variant="secondary" className="text-[10px]"><ShieldAlert className="h-3 w-3 mr-1" />Caution ({score})</Badge>;
+    return <Badge variant="destructive" className="text-[10px]"><ShieldX className="h-3 w-3 mr-1" />Risk ({score})</Badge>;
   };
 
   const pendingRequests = requests.filter((r) => r.status === "pending_admin_review" || r.status === "pending_ai_review");
@@ -125,17 +123,17 @@ export const AdminWithdrawalApproval = () => {
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Bot className="h-4 w-4 text-primary" />
-            Kërkesat e tërheqjes — Verifikim AI + Admin
+            Withdrawal Requests — AI + Admin Verification
           </CardTitle>
           <CardDescription>
-            Çdo kërkesë kalon fillimisht nga AI dhe pastaj kërkon aprovimin tuaj
+            Each request goes through AI first, then requires your approval
           </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Duke ngarkuar...</p>
+            <p className="text-sm text-muted-foreground">Loading...</p>
           ) : pendingRequests.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Asnjë kërkesë në pritje</p>
+            <p className="text-sm text-muted-foreground">No pending requests</p>
           ) : (
             <div className="space-y-3">
               {pendingRequests.map((r) => (
@@ -154,7 +152,7 @@ export const AdminWithdrawalApproval = () => {
 
                   {r.ai_risk_reason && (
                     <div className="rounded bg-muted/50 p-2">
-                      <p className="text-xs font-medium text-foreground">Gjetjet e AI:</p>
+                      <p className="text-xs font-medium text-foreground">AI Findings:</p>
                       <p className="text-xs text-muted-foreground">{r.ai_risk_reason}</p>
                     </div>
                   )}
@@ -167,28 +165,28 @@ export const AdminWithdrawalApproval = () => {
                       disabled={rerunAi.isPending}
                     >
                       <RefreshCw className="h-3 w-3 mr-1" />
-                      {r.ai_risk_score !== null ? "Ri-analizo" : "Analizo me AI"}
+                      {r.ai_risk_score !== null ? "Re-analyze" : "Analyze with AI"}
                     </Button>
 
                     {r.status === "pending_admin_review" && (
                       selectedId === r.id ? (
                         <div className="flex-1 flex items-center gap-2">
                           <Textarea
-                            placeholder="Shënim admini (opsional)..."
+                            placeholder="Admin note (optional)..."
                             value={adminNote}
                             onChange={(e) => setAdminNote(e.target.value)}
                             className="text-xs h-8 min-h-0"
                           />
                           <Button size="sm" onClick={() => updateStatus.mutate({ id: r.id, status: "approved" })}>
-                            <CheckCircle2 className="h-3 w-3 mr-1" /> Aprovo
+                            <CheckCircle2 className="h-3 w-3 mr-1" /> Approve
                           </Button>
                           <Button size="sm" variant="destructive" onClick={() => updateStatus.mutate({ id: r.id, status: "rejected" })}>
-                            <XCircle className="h-3 w-3 mr-1" /> Refuzo
+                            <XCircle className="h-3 w-3 mr-1" /> Reject
                           </Button>
                         </div>
                       ) : (
                         <Button size="sm" variant="secondary" onClick={() => setSelectedId(r.id)}>
-                          Vendos
+                          Decide
                         </Button>
                       )
                     )}
@@ -203,7 +201,7 @@ export const AdminWithdrawalApproval = () => {
       {processedRequests.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Historiku i vendimeve</CardTitle>
+            <CardTitle className="text-sm">Decision History</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -222,7 +220,7 @@ export const AdminWithdrawalApproval = () => {
                       variant={r.status === "approved" ? "default" : r.status === "rejected" || r.status === "blocked" ? "destructive" : "secondary"}
                       className="text-[10px]"
                     >
-                      {r.status === "approved" ? "Aprovuar" : r.status === "rejected" ? "Refuzuar" : r.status === "blocked" ? "Bllokuar" : r.status}
+                      {r.status === "approved" ? "Approved" : r.status === "rejected" ? "Rejected" : r.status === "blocked" ? "Blocked" : r.status}
                     </Badge>
                   </div>
                 </div>

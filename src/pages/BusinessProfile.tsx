@@ -417,8 +417,8 @@ const BusinessProfile = () => {
 
             <Button type="submit" className="w-full" disabled={upsert.isPending || socialChannelCount < 2}>
               {socialChannelCount < 2
-                ? "Lidhni të paktën 2 kanale për të ruajtur"
-                : upsert.isPending ? "Duke ruajtur..." : profile ? "Përditëso Profilin" : "Krijo Profilin"}
+                ? "Connect at least 2 channels to save"
+                : upsert.isPending ? "Saving..." : profile ? "Update Profile" : "Create Profile"}
             </Button>
           </form>
         </Form>

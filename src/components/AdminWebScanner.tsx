@@ -14,13 +14,13 @@ import { Globe, Search, Loader2, Save, Trash2, Eye, ExternalLink, Clock, FileTex
 import { format } from "date-fns";
 
 const SCAN_TYPES = [
-  { value: "general", label: "Të përgjithshme" },
-  { value: "products", label: "Produkte" },
-  { value: "services", label: "Shërbime" },
-  { value: "posts", label: "Postime / Artikuj" },
-  { value: "news", label: "Lajme" },
-  { value: "latest", label: "Më të rejat" },
-  { value: "other", label: "Tjetër" },
+  { value: "general", label: "General" },
+  { value: "products", label: "Products" },
+  { value: "services", label: "Services" },
+  { value: "posts", label: "Posts / Articles" },
+  { value: "news", label: "News" },
+  { value: "latest", label: "Latest" },
+  { value: "other", label: "Other" },
 ];
 
 interface SavedScan {
@@ -65,20 +65,19 @@ export const AdminWebScanner = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-saved-scans"] });
-      toast.success("Skanimi u fshi");
+      toast.success("Scan deleted");
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
   const handleScan = async () => {
     if (!url.trim() || !scanName.trim()) {
-      toast.error("Fut URL-në dhe emrin e skanimit");
+      toast.error("Enter the URL and scan name");
       return;
     }
 
     setScanning(true);
     try {
-      // Use Firecrawl via the ingest-website or a direct scrape
       const { data, error } = await supabase.functions.invoke("scan-and-save", {
         body: {
           url: url.trim(),
@@ -90,13 +89,13 @@ export const AdminWebScanner = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      toast.success(`"${scanName}" u skanua dhe u ruajt me sukses!`);
+      toast.success(`"${scanName}" scanned and saved successfully!`);
       queryClient.invalidateQueries({ queryKey: ["admin-saved-scans"] });
       setUrl("");
       setScanName("");
       setScanType("general");
     } catch (e: any) {
-      toast.error(e.message || "Skanimi dështoi");
+      toast.error(e.message || "Scan failed");
     }
     setScanning(false);
   };
@@ -114,26 +113,25 @@ export const AdminWebScanner = () => {
 
   return (
     <div className="space-y-4">
-      {/* Scanner Form */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Globe className="h-4 w-4 text-primary" />
-            Skano Faqe Web
+            Scan Web Page
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Emri i skanimit</Label>
+              <Label>Scan Name</Label>
               <Input
-                placeholder="p.sh. Produktet e SmileShop"
+                placeholder="e.g. SmileShop Products"
                 value={scanName}
                 onChange={(e) => setScanName(e.target.value)}
               />
             </div>
             <div className="space-y-2">
-              <Label>Tipi</Label>
+              <Label>Type</Label>
               <Select value={scanType} onValueChange={setScanType}>
                 <SelectTrigger>
                   <SelectValue />
@@ -161,21 +159,20 @@ export const AdminWebScanner = () => {
             </div>
             <Button onClick={handleScan} disabled={scanning || !url.trim() || !scanName.trim()}>
               {scanning ? (
-                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Po skanon...</>
+                <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Scanning...</>
               ) : (
-                <><Search className="h-4 w-4 mr-2" /> Skano & Ruaj</>
+                <><Search className="h-4 w-4 mr-2" /> Scan & Save</>
               )}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Saved Scans */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Save className="h-4 w-4 text-primary" />
-            Skanimet e Ruajtura ({savedScans.length})
+            Saved Scans ({savedScans.length})
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -185,7 +182,7 @@ export const AdminWebScanner = () => {
             </div>
           ) : savedScans.length === 0 ? (
             <p className="text-center text-sm text-muted-foreground py-8">
-              Nuk ka skanime të ruajtura. Skano një faqe web për të filluar.
+              No saved scans. Scan a web page to get started.
             </p>
           ) : (
             <div className="space-y-2">
@@ -232,7 +229,6 @@ export const AdminWebScanner = () => {
         </CardContent>
       </Card>
 
-      {/* View Scan Dialog */}
       <Dialog open={!!viewingScan} onOpenChange={() => setViewingScan(null)}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
@@ -252,7 +248,7 @@ export const AdminWebScanner = () => {
 
               {viewingScan.content_markdown && (
                 <div className="rounded-lg border border-border p-4 bg-muted/30">
-                  <h4 className="text-sm font-medium mb-2">Përmbajtja</h4>
+                  <h4 className="text-sm font-medium mb-2">Content</h4>
                   <pre className="whitespace-pre-wrap text-xs text-foreground max-h-96 overflow-y-auto">
                     {viewingScan.content_markdown}
                   </pre>
@@ -261,7 +257,7 @@ export const AdminWebScanner = () => {
 
               {Array.isArray(viewingScan.extracted_items) && viewingScan.extracted_items.length > 0 && (
                 <div className="rounded-lg border border-border p-4">
-                  <h4 className="text-sm font-medium mb-2">Elementet e nxjerra ({viewingScan.extracted_items.length})</h4>
+                  <h4 className="text-sm font-medium mb-2">Extracted Items ({viewingScan.extracted_items.length})</h4>
                   <div className="space-y-2 max-h-60 overflow-y-auto">
                     {viewingScan.extracted_items.map((item: any, i: number) => (
                       <div key={i} className="rounded border border-border p-2 text-xs">
@@ -283,7 +279,7 @@ export const AdminWebScanner = () => {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setViewingScan(null)}>Mbyll</Button>
+            <Button variant="outline" onClick={() => setViewingScan(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
