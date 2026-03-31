@@ -397,7 +397,7 @@ const BusinessProfile = () => {
                   )} />
                   <FormField control={form.control} name="language" render={({ field }) => (
                     <FormItem>
-                      <FieldLabelWithGuide label="Gjuha" guide={getFieldGuide(businessProfileFieldGuides, "language")!} />
+                      <FieldLabelWithGuide label="Language" guide={getFieldGuide(businessProfileFieldGuides, "language")!} />
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue /></SelectTrigger>
