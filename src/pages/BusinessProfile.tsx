@@ -353,7 +353,7 @@ const BusinessProfile = () => {
                       onAiSuggest={() => aiSuggest("main_services", `List 3-5 main services for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return a comma-separated list.`, (v) => form.setValue("main_services", v))}
                       isAiLoading={aiField === "main_services"}
                     />
-                    <FormControl><Textarea placeholder="Listoni shërbimet tuaja kryesore" rows={3} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder="List your main services" rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
