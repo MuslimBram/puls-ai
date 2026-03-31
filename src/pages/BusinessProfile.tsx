@@ -319,8 +319,8 @@ const BusinessProfile = () => {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={form.control} name="industry" render={({ field }) => (
                     <FormItem>
-                      <FieldLabelWithGuide label="Industria" guide={getFieldGuide(businessProfileFieldGuides, "industry")!} />
-                      <FormControl><Input placeholder="p.sh. Teknologji, Marketing" {...field} /></FormControl>
+                      <FieldLabelWithGuide label="Industry" guide={getFieldGuide(businessProfileFieldGuides, "industry")!} />
+                      <FormControl><Input placeholder="e.g. Technology, Marketing" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
