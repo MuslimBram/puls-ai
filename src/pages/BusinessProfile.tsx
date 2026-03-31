@@ -342,7 +342,7 @@ const BusinessProfile = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Shërbimet & Vlerat</CardTitle>
+                <CardTitle className="text-lg">Services & Values</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="main_services" render={({ field }) => (
