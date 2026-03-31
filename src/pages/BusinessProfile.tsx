@@ -307,7 +307,7 @@ const BusinessProfile = () => {
                 <FormField control={form.control} name="short_description" render={({ field }) => (
                   <FormItem>
                     <FieldLabelWithGuide
-                      label="Përshkrim i Shkurtër"
+                      label="Short Description"
                       guide={getFieldGuide(businessProfileFieldGuides, "short_description")!}
                       onAiSuggest={() => aiSuggest("short_description", `Write a 1-2 sentence business description for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return only the description.`, (v) => form.setValue("short_description", v))}
                       isAiLoading={aiField === "short_description"}
