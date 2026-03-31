@@ -327,7 +327,7 @@ const BusinessProfile = () => {
                   <FormField control={form.control} name="target_audience" render={({ field }) => (
                     <FormItem>
                       <FieldLabelWithGuide
-                        label="Audienca e Synuar"
+                        label="Target Audience"
                         guide={getFieldGuide(businessProfileFieldGuides, "target_audience")!}
                         onAiSuggest={() => aiSuggest("target_audience", `Suggest a target audience for a ${form.getValues("industry") || "general"} business offering ${form.getValues("main_services") || "services"}. Return 1 sentence.`, (v) => form.setValue("target_audience", v))}
                         isAiLoading={aiField === "target_audience"}
