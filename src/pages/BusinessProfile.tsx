@@ -293,8 +293,8 @@ const BusinessProfile = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Informacione Bazë</CardTitle>
-                <CardDescription>Tregoni për biznesin tuaj — sa më shumë detaje, aq më mirë sugjerimet e AI</CardDescription>
+                <CardTitle className="text-lg">Basic Information</CardTitle>
+                <CardDescription>Tell us about your business — more details mean better AI suggestions</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="business_name" render={({ field }) => (
