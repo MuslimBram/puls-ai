@@ -353,7 +353,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 ) : (
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Freelancer discount:</span>
-                    <span>0% (nevojiten 3 referale aktive)</span>
+                    <span>0% (requires 3 active referrals)</span>
                   </div>
                 )}
                 {durationDiscount > 0 && (

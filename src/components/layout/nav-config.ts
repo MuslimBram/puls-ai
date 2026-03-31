@@ -48,11 +48,16 @@ import {
   Gauge,
   Wallet,
 } from "lucide-react";
+import type { RolePermissions } from "@/hooks/useRolePermissions";
 
 export interface NavItem {
   href: string;
   label: string;
   icon: any;
+  /** If set, user must have this permission to see the item */
+  requiredPermission?: keyof RolePermissions;
+  /** If set, only these roles can see the item */
+  allowedRoles?: string[];
 }
 
 export interface NavGroup {
@@ -61,6 +66,10 @@ export interface NavGroup {
   items: NavItem[];
   defaultOpen?: boolean;
   adminOnly?: boolean;
+  /** If set, user must have this permission to see the whole group */
+  requiredPermission?: keyof RolePermissions;
+  /** If set, only these roles see the group */
+  allowedRoles?: string[];
 }
 
 export const businessNavGroups: NavGroup[] = [
@@ -70,18 +79,19 @@ export const businessNavGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/inbox", label: "Inbox", icon: Inbox },
-      { href: "/leads", label: "Leads", icon: Target },
-      { href: "/crm", label: "CRM", icon: Briefcase },
-      { href: "/sales-engine", label: "Sales Engine", icon: Rocket },
-      { href: "/revenue-engine", label: "Revenue Engine", icon: Banknote },
-      { href: "/campaigns", label: "Campaigns", icon: Megaphone },
-      { href: "/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/inbox", label: "Inbox", icon: Inbox, requiredPermission: "canRespondInbox" },
+      { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
+      { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
+      { href: "/sales-engine", label: "Sales Engine", icon: Rocket, requiredPermission: "canViewCRM" },
+      { href: "/revenue-engine", label: "Revenue Engine", icon: Banknote, requiredPermission: "canViewAnalytics" },
+      { href: "/campaigns", label: "Campaigns", icon: Megaphone, requiredPermission: "canManageCampaigns" },
+      { href: "/analytics", label: "Analytics", icon: BarChart3, requiredPermission: "canViewAnalytics" },
     ],
   },
   {
     label: "Contact Center",
     icon: Headphones,
+    requiredPermission: "canRespondInbox",
     items: [
       { href: "/telephony", label: "Telephony", icon: Phone },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
@@ -90,6 +100,7 @@ export const businessNavGroups: NavGroup[] = [
   {
     label: "Growth & AI Core",
     icon: Sparkles,
+    requiredPermission: "canConfigureAutomations",
     items: [
       { href: "/automations", label: "Automations", icon: Workflow },
       { href: "/autonomous-ops", label: "Autonomous OS", icon: Cpu },
@@ -103,6 +114,7 @@ export const businessNavGroups: NavGroup[] = [
   {
     label: "Optimization AI",
     icon: Gauge,
+    requiredPermission: "canViewAnalytics",
     items: [
       { href: "/pricing-optimization", label: "Pricing & Offers", icon: Banknote },
       { href: "/personalization", label: "Personalization", icon: Fingerprint },
@@ -116,6 +128,7 @@ export const businessNavGroups: NavGroup[] = [
   {
     label: "Intelligence",
     icon: Radar,
+    requiredPermission: "canViewAnalytics",
     items: [
       { href: "/competitor-intelligence", label: "Competitor Intel", icon: Radar },
       { href: "/seo-audit", label: "SEO Audit", icon: Search },
@@ -129,6 +142,7 @@ export const businessNavGroups: NavGroup[] = [
   {
     label: "Engagement",
     icon: Users,
+    requiredPermission: "canManageCampaigns",
     items: [
       { href: "/partnership-ecosystem", label: "Partnerships", icon: Handshake },
       { href: "/reengagement", label: "Re-Engagement", icon: RefreshCw },
@@ -143,6 +157,7 @@ export const businessNavGroups: NavGroup[] = [
   {
     label: "Integrations",
     icon: Plug,
+    requiredPermission: "canConnectChannels",
     items: [
       { href: "/connections", label: "Connections Hub", icon: Plug },
       { href: "/channels", label: "Channels", icon: Radio },
@@ -157,14 +172,14 @@ export const businessNavGroups: NavGroup[] = [
     icon: Receipt,
     items: [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
-      { href: "/branding", label: "Branding", icon: Paintbrush },
-      { href: "/financial-intelligence", label: "Financials", icon: Receipt },
+      { href: "/branding", label: "Branding", icon: Paintbrush, requiredPermission: "canAccessBilling" },
+      { href: "/financial-intelligence", label: "Financials", icon: Receipt, requiredPermission: "canAccessBilling" },
       { href: "/wallet", label: "Wallet", icon: Wallet },
-      { href: "/subscription", label: "Billing", icon: CreditCard },
-      { href: "/credits", label: "Credits", icon: Banknote },
+      { href: "/subscription", label: "Billing", icon: CreditCard, requiredPermission: "canAccessBilling" },
+      { href: "/credits", label: "Credits", icon: Banknote, requiredPermission: "canAccessBilling" },
       { href: "/partner", label: "Partners", icon: Handshake },
-      { href: "/reseller", label: "Reseller", icon: Store },
-      { href: "/ops-stability", label: "Ops Health", icon: Activity },
+      { href: "/reseller", label: "Reseller", icon: Store, requiredPermission: "canAccessBilling" },
+      { href: "/ops-stability", label: "Ops Health", icon: Activity, requiredPermission: "canViewAnalytics" },
       { href: "/security", label: "Security", icon: Shield },
     ],
   },
