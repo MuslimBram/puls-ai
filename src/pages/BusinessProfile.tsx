@@ -365,7 +365,7 @@ const BusinessProfile = () => {
                       onAiSuggest={() => aiSuggest("mission_values", `Write a short mission statement for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return 1-2 sentences.`, (v) => form.setValue("mission_values", v))}
                       isAiLoading={aiField === "mission_values"}
                     />
-                    <FormControl><Textarea placeholder="Misioni dhe vlerat thelbësore të kompanisë" rows={3} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder="Your company's mission and core values" rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
