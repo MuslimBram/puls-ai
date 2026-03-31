@@ -360,7 +360,7 @@ const BusinessProfile = () => {
                 <FormField control={form.control} name="mission_values" render={({ field }) => (
                   <FormItem>
                     <FieldLabelWithGuide
-                      label="Misioni & Vlerat"
+                      label="Mission & Values"
                       guide={getFieldGuide(businessProfileFieldGuides, "mission_values")!}
                       onAiSuggest={() => aiSuggest("mission_values", `Write a short mission statement for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return 1-2 sentences.`, (v) => form.setValue("mission_values", v))}
                       isAiLoading={aiField === "mission_values"}
