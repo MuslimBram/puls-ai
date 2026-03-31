@@ -251,7 +251,7 @@ const BusinessProfile = () => {
                   You currently have {socialChannelCount} channel{socialChannelCount !== 1 ? "s" : ""}.
                 </p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.href = "/channels"}>
-                  <Link2 className="h-3 w-3 mr-1" /> Lidh Kanale
+                  <Link2 className="h-3 w-3 mr-1" /> Connect Channels
                 </Button>
               </div>
             </CardContent>
