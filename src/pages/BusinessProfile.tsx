@@ -262,7 +262,7 @@ const BusinessProfile = () => {
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-4">
             <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground">💡 Plotësoni sa më shumë informacione</strong> — AI përdor këto të dhëna për t'ju sugjeruar çfarë të postoni, për të analizuar konkurrentët, dhe për të përzgjedhur audiencën e duhur.
+              <strong className="text-foreground">💡 Fill in as much information as possible</strong> — AI uses this data to suggest what to post, analyze competitors, and select the right audience.
             </p>
           </CardContent>
         </Card>
