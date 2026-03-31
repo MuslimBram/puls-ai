@@ -374,8 +374,8 @@ const BusinessProfile = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Konfigurimi i AI</CardTitle>
-                <CardDescription>Si duhet të komunikojë AI në emrin tuaj?</CardDescription>
+                <CardTitle className="text-lg">AI Configuration</CardTitle>
+                <CardDescription>How should AI communicate on your behalf?</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
