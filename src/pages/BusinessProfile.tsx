@@ -207,15 +207,15 @@ const BusinessProfile = () => {
                 <Lock className="h-7 w-7 text-destructive" />
               </div>
               <h2 className="text-xl font-bold text-foreground text-center">
-                Profili i Biznesit i Bllokuar
+                Business Profile Locked
               </h2>
               <p className="text-sm text-muted-foreground text-center max-w-sm">
-                Për të plotësuar profilin e biznesit, duhet të blini një nga paketat (Start, Growth, PRO, ose Enterprise) me zbritjen që ju takon.
+                To complete the business profile, you need to purchase one of the plans (Start, Growth, PRO, or Enterprise) with your applicable discount.
                 <br /><br />
-                Sa biznese regjistroni, aq paketa do t'ju duhet — secili biznes kërkon paketën e vet.
+                Each business you register requires its own plan.
               </p>
               <Button onClick={() => window.location.href = "/complete-payment"} className="mt-2">
-                Blij Paketën
+                Buy Plan
               </Button>
             </CardContent>
           </Card>
