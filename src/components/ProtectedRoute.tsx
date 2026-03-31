@@ -58,7 +58,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   // Admin, super_admin, and owner bypass payment gate entirely
-  const bypassRoles = ["admin", "super_admin", "business_owner"];
+  const bypassRoles = ["admin", "super_admin"];
   const hasBypassRole = userRoles?.some((role) => bypassRoles.includes(role)) ?? false;
 
   // Check payment status
