@@ -244,11 +244,11 @@ const BusinessProfile = () => {
               <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Lidhni të paktën 2 kanale sociale
+                  Connect at least 2 social channels
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Për të mundësuar sugjerimet e AI-t për postime, konkurrentë dhe audiencë, lidhni të paktën 2 rrjete sociale (p.sh. Instagram & LinkedIn).
-                  Aktualisht keni {socialChannelCount} kanal{socialChannelCount !== 1 ? "e" : ""}.
+                  To enable AI suggestions for posts, competitors and audience, connect at least 2 social networks (e.g. Instagram & LinkedIn).
+                  You currently have {socialChannelCount} channel{socialChannelCount !== 1 ? "s" : ""}.
                 </p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.href = "/channels"}>
                   <Link2 className="h-3 w-3 mr-1" /> Lidh Kanale
