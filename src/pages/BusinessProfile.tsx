@@ -299,8 +299,8 @@ const BusinessProfile = () => {
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="business_name" render={({ field }) => (
                   <FormItem>
-                    <FieldLabelWithGuide label="Emri i Biznesit *" guide={getFieldGuide(businessProfileFieldGuides, "business_name")!} />
-                    <FormControl><Input placeholder="Emri i kompanisë tuaj" {...field} /></FormControl>
+                    <FieldLabelWithGuide label="Business Name *" guide={getFieldGuide(businessProfileFieldGuides, "business_name")!} />
+                    <FormControl><Input placeholder="Your company name" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
