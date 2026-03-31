@@ -331,10 +331,10 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 space-y-1">
                   <div className="flex items-center gap-2 text-sm font-medium text-destructive">
                     <AlertTriangle className="h-4 w-4" />
-                    Zbritja 40% nuk është aktive
+                    40% Discount Not Active
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {freelancerPricing.eligibilityMessage || `Nevojiten ${freelancerPricing.requiredReferrals} biznese referale aktive të paguara. Aktualisht keni ${freelancerPricing.activePaidReferrals}.`}
+                    {freelancerPricing.eligibilityMessage || `You need ${freelancerPricing.requiredReferrals} active paid referral businesses. You currently have ${freelancerPricing.activePaidReferrals}.`}
                   </p>
                 </div>
               )}
@@ -353,7 +353,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 ) : (
                   <div className="flex justify-between text-sm text-muted-foreground">
                     <span>Freelancer discount:</span>
-                    <span>0% (nevojiten 3 referale aktive)</span>
+                    <span>0% (requires 3 active referrals)</span>
                   </div>
                 )}
                 {durationDiscount > 0 && (

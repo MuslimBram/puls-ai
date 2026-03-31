@@ -58,7 +58,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   // Admin, super_admin, and owner bypass payment gate entirely
-  const bypassRoles = ["admin", "super_admin", "business_owner"];
+  const bypassRoles = ["admin", "super_admin"];
   const hasBypassRole = userRoles?.some((role) => bypassRoles.includes(role)) ?? false;
 
   // Check payment status
@@ -85,19 +85,19 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2 text-lg">
                     <AlertTriangle className="h-5 w-5 text-amber-500" />
-                    Prova Juaj ka Skaduar
+                    Your Trial Has Expired
                   </DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">
-                    Provë 7-ditore ka përfunduar. Zgjidhni një paketë për të vazhduar përdorimin e platformës.
+                    Your 7-day trial has ended. Select a plan to continue using the platform.
                   </p>
 
                   {daysUntilDeletion > 0 && (
                     <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
                       <Clock className="h-4 w-4 text-destructive shrink-0" />
                       <p className="text-xs text-destructive">
-                        Llogaria juaj do fshihet automatikisht pas <strong>{daysUntilDeletion} ditëve</strong> nëse nuk kryeni pagesë.
+                        Your account will be automatically deleted in <strong>{daysUntilDeletion} days</strong> if no payment is made.
                       </p>
                     </div>
                   )}
@@ -106,7 +106,7 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                     <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2">
                       <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
                       <p className="text-xs text-destructive font-medium">
-                        Afati ka kaluar! Llogaria juaj mund të fshihet në çdo moment.
+                        Deadline passed! Your account may be deleted at any moment.
                       </p>
                     </div>
                   )}
@@ -119,11 +119,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                     }}
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Zgjidhni Paketën
+                    Select a Plan
                   </Button>
 
                   <p className="text-[11px] text-muted-foreground text-center">
-                    Mund të fitoni para nga referimet dhe të paguani nga portofoli.
+                    You can earn from referrals and pay from your wallet.
                   </p>
                 </div>
               </DialogContent>

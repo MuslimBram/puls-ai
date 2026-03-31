@@ -181,13 +181,13 @@ const BusinessProfile = () => {
                 <Handshake className="h-7 w-7 text-muted-foreground" />
               </div>
               <h2 className="text-xl font-bold text-foreground text-center">
-                Vetëm për Referime
+                Referrals Only
               </h2>
               <p className="text-sm text-muted-foreground text-center max-w-sm">
-                Llogaria juaj është e tipit Ambasador — ju fitoni komision nga referimet e bizneseve. Profili i biznesit nuk është i disponueshëm për këtë lloj llogarie.
+                Your account is Ambassador type — you earn commission from business referrals. Business profile is not available for this account type.
               </p>
               <Button variant="outline" onClick={() => window.location.href = "/dashboard"} className="mt-2">
-                Kthehu në Dashboard
+                Back to Dashboard
               </Button>
             </CardContent>
           </Card>
@@ -207,15 +207,15 @@ const BusinessProfile = () => {
                 <Lock className="h-7 w-7 text-destructive" />
               </div>
               <h2 className="text-xl font-bold text-foreground text-center">
-                Profili i Biznesit i Bllokuar
+                Business Profile Locked
               </h2>
               <p className="text-sm text-muted-foreground text-center max-w-sm">
-                Për të plotësuar profilin e biznesit, duhet të blini një nga paketat (Start, Growth, PRO, ose Enterprise) me zbritjen që ju takon.
+                To complete the business profile, you need to purchase one of the plans (Start, Growth, PRO, or Enterprise) with your applicable discount.
                 <br /><br />
-                Sa biznese regjistroni, aq paketa do t'ju duhet — secili biznes kërkon paketën e vet.
+                Each business you register requires its own plan.
               </p>
               <Button onClick={() => window.location.href = "/complete-payment"} className="mt-2">
-                Blij Paketën
+                Buy Plan
               </Button>
             </CardContent>
           </Card>
@@ -232,8 +232,8 @@ const BusinessProfile = () => {
             <Building2 className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Profili i Biznesit</h1>
-            <p className="text-sm text-muted-foreground">Konfiguroni detajet e biznesit tuaj që AI të sugjerojë postime, konkurrentë dhe audiencë</p>
+            <h1 className="text-2xl font-bold text-foreground">Business Profile</h1>
+            <p className="text-sm text-muted-foreground">Configure your business details so AI can suggest posts, competitors and audience</p>
           </div>
         </div>
 
@@ -244,14 +244,14 @@ const BusinessProfile = () => {
               <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
               <div>
                 <p className="text-sm font-medium text-foreground">
-                  Lidhni të paktën 2 kanale sociale
+                  Connect at least 2 social channels
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Për të mundësuar sugjerimet e AI-t për postime, konkurrentë dhe audiencë, lidhni të paktën 2 rrjete sociale (p.sh. Instagram & LinkedIn).
-                  Aktualisht keni {socialChannelCount} kanal{socialChannelCount !== 1 ? "e" : ""}.
+                  To enable AI suggestions for posts, competitors and audience, connect at least 2 social networks (e.g. Instagram & LinkedIn).
+                  You currently have {socialChannelCount} channel{socialChannelCount !== 1 ? "s" : ""}.
                 </p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.href = "/channels"}>
-                  <Link2 className="h-3 w-3 mr-1" /> Lidh Kanale
+                  <Link2 className="h-3 w-3 mr-1" /> Connect Channels
                 </Button>
               </div>
             </CardContent>
@@ -262,7 +262,7 @@ const BusinessProfile = () => {
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-4">
             <p className="text-xs text-muted-foreground">
-              <strong className="text-foreground">💡 Plotësoni sa më shumë informacione</strong> — AI përdor këto të dhëna për t'ju sugjeruar çfarë të postoni, për të analizuar konkurrentët, dhe për të përzgjedhur audiencën e duhur.
+              <strong className="text-foreground">💡 Fill in as much information as possible</strong> — AI uses this data to suggest what to post, analyze competitors, and select the right audience.
             </p>
           </CardContent>
         </Card>
@@ -293,46 +293,46 @@ const BusinessProfile = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Informacione Bazë</CardTitle>
-                <CardDescription>Tregoni për biznesin tuaj — sa më shumë detaje, aq më mirë sugjerimet e AI</CardDescription>
+                <CardTitle className="text-lg">Basic Information</CardTitle>
+                <CardDescription>Tell us about your business — more details mean better AI suggestions</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="business_name" render={({ field }) => (
                   <FormItem>
-                    <FieldLabelWithGuide label="Emri i Biznesit *" guide={getFieldGuide(businessProfileFieldGuides, "business_name")!} />
-                    <FormControl><Input placeholder="Emri i kompanisë tuaj" {...field} /></FormControl>
+                    <FieldLabelWithGuide label="Business Name *" guide={getFieldGuide(businessProfileFieldGuides, "business_name")!} />
+                    <FormControl><Input placeholder="Your company name" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="short_description" render={({ field }) => (
                   <FormItem>
                     <FieldLabelWithGuide
-                      label="Përshkrim i Shkurtër"
+                      label="Short Description"
                       guide={getFieldGuide(businessProfileFieldGuides, "short_description")!}
                       onAiSuggest={() => aiSuggest("short_description", `Write a 1-2 sentence business description for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return only the description.`, (v) => form.setValue("short_description", v))}
                       isAiLoading={aiField === "short_description"}
                     />
-                    <FormControl><Textarea placeholder="Përshkrim i shkurtër i biznesit tuaj" rows={2} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder="Brief description of your business" rows={2} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={form.control} name="industry" render={({ field }) => (
                     <FormItem>
-                      <FieldLabelWithGuide label="Industria" guide={getFieldGuide(businessProfileFieldGuides, "industry")!} />
-                      <FormControl><Input placeholder="p.sh. Teknologji, Marketing" {...field} /></FormControl>
+                      <FieldLabelWithGuide label="Industry" guide={getFieldGuide(businessProfileFieldGuides, "industry")!} />
+                      <FormControl><Input placeholder="e.g. Technology, Marketing" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="target_audience" render={({ field }) => (
                     <FormItem>
                       <FieldLabelWithGuide
-                        label="Audienca e Synuar"
+                        label="Target Audience"
                         guide={getFieldGuide(businessProfileFieldGuides, "target_audience")!}
                         onAiSuggest={() => aiSuggest("target_audience", `Suggest a target audience for a ${form.getValues("industry") || "general"} business offering ${form.getValues("main_services") || "services"}. Return 1 sentence.`, (v) => form.setValue("target_audience", v))}
                         isAiLoading={aiField === "target_audience"}
                       />
-                      <FormControl><Input placeholder="p.sh. Biznese të vogla, Startup-e" {...field} /></FormControl>
+                      <FormControl><Input placeholder="e.g. Small businesses, Startups" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -342,30 +342,30 @@ const BusinessProfile = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Shërbimet & Vlerat</CardTitle>
+                <CardTitle className="text-lg">Services & Values</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="main_services" render={({ field }) => (
                   <FormItem>
                     <FieldLabelWithGuide
-                      label="Shërbimet Kryesore"
+                      label="Main Services"
                       guide={getFieldGuide(businessProfileFieldGuides, "main_services")!}
                       onAiSuggest={() => aiSuggest("main_services", `List 3-5 main services for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return a comma-separated list.`, (v) => form.setValue("main_services", v))}
                       isAiLoading={aiField === "main_services"}
                     />
-                    <FormControl><Textarea placeholder="Listoni shërbimet tuaja kryesore" rows={3} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder="List your main services" rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="mission_values" render={({ field }) => (
                   <FormItem>
                     <FieldLabelWithGuide
-                      label="Misioni & Vlerat"
+                      label="Mission & Values"
                       guide={getFieldGuide(businessProfileFieldGuides, "mission_values")!}
                       onAiSuggest={() => aiSuggest("mission_values", `Write a short mission statement for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return 1-2 sentences.`, (v) => form.setValue("mission_values", v))}
                       isAiLoading={aiField === "mission_values"}
                     />
-                    <FormControl><Textarea placeholder="Misioni dhe vlerat thelbësore të kompanisë" rows={3} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder="Your company's mission and core values" rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -374,14 +374,14 @@ const BusinessProfile = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Konfigurimi i AI</CardTitle>
-                <CardDescription>Si duhet të komunikojë AI në emrin tuaj?</CardDescription>
+                <CardTitle className="text-lg">AI Configuration</CardTitle>
+                <CardDescription>How should AI communicate on your behalf?</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={form.control} name="ai_tone" render={({ field }) => (
                     <FormItem>
-                      <FieldLabelWithGuide label="Toni i AI" guide={getFieldGuide(businessProfileFieldGuides, "ai_tone")!} />
+                      <FieldLabelWithGuide label="AI Tone" guide={getFieldGuide(businessProfileFieldGuides, "ai_tone")!} />
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue /></SelectTrigger>
@@ -397,7 +397,7 @@ const BusinessProfile = () => {
                   )} />
                   <FormField control={form.control} name="language" render={({ field }) => (
                     <FormItem>
-                      <FieldLabelWithGuide label="Gjuha" guide={getFieldGuide(businessProfileFieldGuides, "language")!} />
+                      <FieldLabelWithGuide label="Language" guide={getFieldGuide(businessProfileFieldGuides, "language")!} />
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue /></SelectTrigger>
@@ -417,8 +417,8 @@ const BusinessProfile = () => {
 
             <Button type="submit" className="w-full" disabled={upsert.isPending || socialChannelCount < 2}>
               {socialChannelCount < 2
-                ? "Lidhni të paktën 2 kanale për të ruajtur"
-                : upsert.isPending ? "Duke ruajtur..." : profile ? "Përditëso Profilin" : "Krijo Profilin"}
+                ? "Connect at least 2 channels to save"
+                : upsert.isPending ? "Saving..." : profile ? "Update Profile" : "Create Profile"}
             </Button>
           </form>
         </Form>

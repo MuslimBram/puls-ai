@@ -12,10 +12,10 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ElementType }> = {
-  pending: { label: "Në pritje", variant: "secondary", icon: Clock },
-  approved: { label: "Aprovuar", variant: "default", icon: CheckCircle2 },
-  rejected: { label: "Refuzuar", variant: "destructive", icon: XCircle },
-  processed: { label: "Përfunduar", variant: "default", icon: CheckCircle2 },
+  pending: { label: "Pending", variant: "secondary", icon: Clock },
+  approved: { label: "Approved", variant: "default", icon: CheckCircle2 },
+  rejected: { label: "Rejected", variant: "destructive", icon: XCircle },
+  processed: { label: "Completed", variant: "default", icon: CheckCircle2 },
 };
 
 const PAYOUT_METHODS = [
@@ -39,15 +39,15 @@ export const WithdrawalRequestPanel = () => {
   const handleSubmit = async () => {
     const numAmount = parseFloat(amount);
     if (!numAmount || numAmount <= 0) {
-      toast.error("Vendosni një shumë të vlefshme");
+      toast.error("Enter a valid amount");
       return;
     }
     if (numAmount > (wallet.current_balance ?? 0)) {
-      toast.error("Shuma tejkalon balancën tuaj");
+      toast.error("Amount exceeds your balance");
       return;
     }
     if (!payoutMethod || !payoutEmail.trim()) {
-      toast.error("Plotësoni metodën dhe email-in");
+      toast.error("Fill in the method and email");
       return;
     }
 
@@ -64,7 +64,7 @@ export const WithdrawalRequestPanel = () => {
       setAmount("");
       setPayoutEmail("");
       setPayoutMethod("");
-      toast.success("Kërkesa u dërgua! AI po e analizon para aprovimit.");
+      toast.success("Request sent! AI is analyzing before approval.");
     } catch {
       // handled by hook
     } finally {
@@ -74,43 +74,40 @@ export const WithdrawalRequestPanel = () => {
 
   return (
     <div className="space-y-4">
-      {/* Balance card */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Wallet className="h-4 w-4 text-primary" />
-            Portofoli im
+            My Wallet
           </CardTitle>
-          <CardDescription>Balanca dhe tërheqjet</CardDescription>
+          <CardDescription>Balance and withdrawals</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="rounded-lg border border-border p-3 text-center">
               <p className="text-lg font-bold text-foreground">€{wallet.current_balance?.toFixed(2) ?? "0.00"}</p>
-              <p className="text-xs text-muted-foreground">E disponueshme</p>
+              <p className="text-xs text-muted-foreground">Available</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <p className="text-lg font-bold text-primary">€{wallet.lifetime_earnings?.toFixed(2) ?? "0.00"}</p>
-              <p className="text-xs text-muted-foreground">Gjithsej fituar</p>
+              <p className="text-xs text-muted-foreground">Total Earned</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <p className="text-lg font-bold text-muted-foreground">€{wallet.pending_amount?.toFixed(2) ?? "0.00"}</p>
-              <p className="text-xs text-muted-foreground">Në pritje</p>
+              <p className="text-xs text-muted-foreground">Pending</p>
             </div>
           </div>
 
-          {/* How it works */}
           <div className="rounded-lg border border-border bg-primary/5 p-3 text-xs text-muted-foreground mb-4 flex items-start gap-2">
             <Info className="h-4 w-4 shrink-0 text-primary mt-0.5" />
-            <p>Portofoli mbushet automatikisht nga fitimet e referaleve. Tërheqjet bëhen vetëm përmes PayPal ose Payoneer.</p>
+            <p>Wallet is automatically funded from referral earnings. Withdrawals are processed via PayPal or Payoneer only.</p>
           </div>
 
-          {/* Withdrawal form */}
           <div className="space-y-3 rounded-lg border border-border p-4">
-            <p className="text-sm font-medium text-foreground">Kërko tërheqje</p>
+            <p className="text-sm font-medium text-foreground">Request Withdrawal</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Shuma (€)</Label>
+                <Label className="text-xs">Amount (€)</Label>
                 <Input
                   type="number"
                   placeholder="0.00"
@@ -121,9 +118,9 @@ export const WithdrawalRequestPanel = () => {
                 />
               </div>
               <div>
-                <Label className="text-xs">Metoda</Label>
+                <Label className="text-xs">Method</Label>
                 <Select value={payoutMethod} onValueChange={setPayoutMethod}>
-                  <SelectTrigger><SelectValue placeholder="Zgjidhni" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
                   <SelectContent>
                     {PAYOUT_METHODS.map((m) => (
                       <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
@@ -145,21 +142,20 @@ export const WithdrawalRequestPanel = () => {
             )}
             <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/50 rounded p-2">
               <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
-              Çdo kërkesë analizohet nga AI para aprovimit për të siguruar legjitimitetin.
+              Each request is analyzed by AI before approval to ensure legitimacy.
             </div>
             <Button onClick={handleSubmit} disabled={submitting || !payoutMethod || !payoutEmail.trim()} className="w-full">
               <Send className="h-4 w-4 mr-2" />
-              {submitting ? "Duke dërguar..." : "Dërgo kërkesën"}
+              {submitting ? "Submitting..." : "Submit Request"}
             </Button>
           </div>
         </CardContent>
       </Card>
 
-      {/* Payout history */}
       {payouts.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Historiku i tërheqjeve</CardTitle>
+            <CardTitle className="text-sm">Withdrawal History</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
