@@ -181,13 +181,13 @@ const BusinessProfile = () => {
                 <Handshake className="h-7 w-7 text-muted-foreground" />
               </div>
               <h2 className="text-xl font-bold text-foreground text-center">
-                Vetëm për Referime
+                Referrals Only
               </h2>
               <p className="text-sm text-muted-foreground text-center max-w-sm">
-                Llogaria juaj është e tipit Ambasador — ju fitoni komision nga referimet e bizneseve. Profili i biznesit nuk është i disponueshëm për këtë lloj llogarie.
+                Your account is Ambassador type — you earn commission from business referrals. Business profile is not available for this account type.
               </p>
               <Button variant="outline" onClick={() => window.location.href = "/dashboard"} className="mt-2">
-                Kthehu në Dashboard
+                Back to Dashboard
               </Button>
             </CardContent>
           </Card>
