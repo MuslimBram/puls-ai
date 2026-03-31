@@ -381,7 +381,7 @@ const BusinessProfile = () => {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <FormField control={form.control} name="ai_tone" render={({ field }) => (
                     <FormItem>
-                      <FieldLabelWithGuide label="Toni i AI" guide={getFieldGuide(businessProfileFieldGuides, "ai_tone")!} />
+                      <FieldLabelWithGuide label="AI Tone" guide={getFieldGuide(businessProfileFieldGuides, "ai_tone")!} />
                       <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue /></SelectTrigger>
