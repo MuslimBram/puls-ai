@@ -2206,6 +2206,72 @@ export type Database = {
           },
         ]
       }
+      business_scan_submissions: {
+        Row: {
+          answers_json: Json | null
+          budget: string | null
+          business_name: string
+          created_at: string
+          current_state: Json | null
+          email: string | null
+          goals: string[] | null
+          id: string
+          industry: string | null
+          ip_address: string | null
+          level: string | null
+          location: string | null
+          phone: string | null
+          problems: string[] | null
+          route: string | null
+          score: number | null
+          social_profiles: Json | null
+          user_agent: string | null
+          website: string | null
+        }
+        Insert: {
+          answers_json?: Json | null
+          budget?: string | null
+          business_name: string
+          created_at?: string
+          current_state?: Json | null
+          email?: string | null
+          goals?: string[] | null
+          id?: string
+          industry?: string | null
+          ip_address?: string | null
+          level?: string | null
+          location?: string | null
+          phone?: string | null
+          problems?: string[] | null
+          route?: string | null
+          score?: number | null
+          social_profiles?: Json | null
+          user_agent?: string | null
+          website?: string | null
+        }
+        Update: {
+          answers_json?: Json | null
+          budget?: string | null
+          business_name?: string
+          created_at?: string
+          current_state?: Json | null
+          email?: string | null
+          goals?: string[] | null
+          id?: string
+          industry?: string | null
+          ip_address?: string | null
+          level?: string | null
+          location?: string | null
+          phone?: string | null
+          problems?: string[] | null
+          route?: string | null
+          score?: number | null
+          social_profiles?: Json | null
+          user_agent?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
       call_notes: {
         Row: {
           call_record_id: string
