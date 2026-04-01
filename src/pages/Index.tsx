@@ -171,7 +171,13 @@ const Index = () => {
 
         <BusinessCapabilities />
         <FreelancerCapabilities />
+        <AIToolsSection />
+        <IndustriesSection />
+        <IntelligenceToolsSection />
         <CompetitorComparison />
+
+        {/* Business Qualification Engine */}
+        <BusinessScanWidget />
 
         {/* Pricing Preview */}
         <section className="border-t border-border bg-muted/30">
