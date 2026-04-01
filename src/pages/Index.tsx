@@ -18,6 +18,10 @@ import { CompetitorComparison } from "@/components/landing/CompetitorComparison"
 import { HowItWorks } from "@/components/landing/HowItWorks";
 import { FAQSection } from "@/components/landing/FAQSection";
 import { FloatingAIBot } from "@/components/FloatingAIBot";
+import { AIToolsSection } from "@/components/landing/AIToolsSection";
+import { IndustriesSection } from "@/components/landing/IndustriesSection";
+import { IntelligenceToolsSection } from "@/components/landing/IntelligenceToolsSection";
+import { BusinessScanWidget } from "@/components/landing/BusinessScanWidget";
 
 const COMMUNITY_PHOTOS = [
   "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
