@@ -239,7 +239,7 @@ export const BusinessScanWidget = () => {
                 )}
 
                 <div className="flex items-start gap-2">
-                  <TrendingUp className="mt-0.5 h-5 w-5 text-green-500 shrink-0" />
+                  <TrendingUp className="mt-0.5 h-5 w-5 text-primary shrink-0" />
                   <div>
                     <p className="text-sm font-semibold">Growth Potential</p>
                     <p className="text-xs text-muted-foreground">
