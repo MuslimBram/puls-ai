@@ -228,7 +228,7 @@ export const BusinessScanWidget = () => {
 
                 {answers.problems.length > 0 && (
                   <div className="flex items-start gap-2">
-                    <AlertTriangle className="mt-0.5 h-5 w-5 text-orange-500 shrink-0" />
+                    <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive shrink-0" />
                     <div>
                       <p className="text-sm font-semibold">Key Issues</p>
                       <ul className="text-xs text-muted-foreground space-y-0.5">
