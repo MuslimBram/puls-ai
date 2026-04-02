@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/sonner";
 import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Users } from "lucide-react";
 import { lovable } from "@/integrations/lovable/index";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 type AccountType = "business" | "freelancer" | "ambassador" | null;
 type Step = "account-type" | "plan-selection" | "credentials";
@@ -20,13 +21,6 @@ interface PlanTier {
   basePrice: number;
   highlighted?: boolean;
 }
-
-const PLAN_TIERS: PlanTier[] = [
-  { key: "standard", name: "Start", basePrice: 49 },
-  { key: "professional", name: "Growth", basePrice: 99, highlighted: true },
-  { key: "advanced", name: "PRO", basePrice: 199 },
-  { key: "enterprise", name: "Enterprise", basePrice: 399 },
-];
 
 interface DurationOption {
   key: string;
