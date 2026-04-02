@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/sonner";
 import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Users } from "lucide-react";
 import { lovable } from "@/integrations/lovable/index";
 import { cn } from "@/lib/utils";
+import { useQuery } from "@tanstack/react-query";
 
 type AccountType = "business" | "freelancer" | "ambassador" | null;
 type Step = "account-type" | "plan-selection" | "credentials";
@@ -20,13 +21,6 @@ interface PlanTier {
   basePrice: number;
   highlighted?: boolean;
 }
-
-const PLAN_TIERS: PlanTier[] = [
-  { key: "standard", name: "Start", basePrice: 49 },
-  { key: "professional", name: "Growth", basePrice: 99, highlighted: true },
-  { key: "advanced", name: "PRO", basePrice: 199 },
-  { key: "enterprise", name: "Enterprise", basePrice: 399 },
-];
 
 interface DurationOption {
   key: string;
@@ -56,6 +50,28 @@ const Register = () => {
   const [searchParams] = useSearchParams();
   const refCode = searchParams.get("ref") || "";
   const [step, setStep] = useState<Step>("account-type");
+
+  // Fetch pricing from DB (single source of truth)
+  const { data: dbPlans } = useQuery({
+    queryKey: ["pricing-settings-register"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pricing_settings" as any)
+        .select("plan_key, plan_label, monthly_price, is_donation")
+        .eq("is_donation", false)
+        .order("monthly_price");
+      if (error) throw error;
+      return (data || []) as unknown as { plan_key: string; plan_label: string | null; monthly_price: number }[];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const PLAN_TIERS: PlanTier[] = (dbPlans || []).map((p, i) => ({
+    key: p.plan_key,
+    name: p.plan_label || p.plan_key,
+    basePrice: Number(p.monthly_price),
+    highlighted: i === 1,
+  }));
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
