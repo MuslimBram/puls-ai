@@ -7,14 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-/**
- * Send Telegram message via Bot API
- * 
- * Body:
- *   { chat_id: string|number, message: string, parse_mode?: "HTML"|"Markdown", reply_to_message_id?: number }
- * 
- * Uses bot_token from user's Telegram channel settings.
- */
+const GATEWAY_URL = "https://connector-gateway.lovable.dev/telegram";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -31,44 +25,43 @@ serve(async (req) => {
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
     if (authErr || !user) throw new Error("Unauthorized");
 
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+    const TELEGRAM_API_KEY = Deno.env.get("TELEGRAM_API_KEY");
+    if (!TELEGRAM_API_KEY) throw new Error("TELEGRAM_API_KEY not configured. Connect Telegram in settings.");
+
     const { chat_id, message, parse_mode, reply_to_message_id } = await req.json();
     if (!chat_id || !message) throw new Error("'chat_id' and 'message' are required");
 
-    // Get Telegram channel credentials
+    // Get channel record for workspace context
     const { data: channels } = await supabase
       .from("channels")
-      .select("id, settings, workspace_id")
+      .select("id, workspace_id")
       .eq("user_id", user.id)
       .eq("channel_type", "telegram")
       .eq("is_enabled", true)
       .limit(1);
-
     const channel = channels?.[0];
-    const settings = channel?.settings as Record<string, any> | null;
-    const botToken = settings?.bot_token;
 
-    if (!botToken) {
-      throw new Error("Telegram not configured. Add your Bot Token in channel settings.");
-    }
-
-    // Send via Telegram Bot API
-    const tgPayload: any = {
-      chat_id,
-      text: message,
-    };
+    // Send via connector gateway
+    const tgPayload: any = { chat_id, text: message };
     if (parse_mode) tgPayload.parse_mode = parse_mode;
     if (reply_to_message_id) tgPayload.reply_to_message_id = reply_to_message_id;
 
-    const tgRes = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+    const tgRes = await fetch(`${GATEWAY_URL}/sendMessage`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "X-Connection-Api-Key": TELEGRAM_API_KEY,
+        "Content-Type": "application/json",
+      },
       body: JSON.stringify(tgPayload),
     });
 
     const tgData = await tgRes.json();
-    if (!tgData.ok) {
-      console.error("[SEND-TG] Error:", tgData);
-      throw new Error(tgData.description || "Telegram API error");
+    if (!tgRes.ok || !tgData.ok) {
+      console.error("[SEND-TG] Gateway error:", tgData);
+      throw new Error(tgData.description || `Telegram API error [${tgRes.status}]`);
     }
 
     const providerMessageId = tgData.result?.message_id?.toString();
