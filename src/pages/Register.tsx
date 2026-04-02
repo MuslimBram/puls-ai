@@ -61,7 +61,7 @@ const Register = () => {
         .eq("is_donation", false)
         .order("monthly_price");
       if (error) throw error;
-      return (data || []) as { plan_key: string; plan_label: string | null; monthly_price: number }[];
+      return (data || []) as unknown as { plan_key: string; plan_label: string | null; monthly_price: number }[];
     },
     staleTime: 5 * 60 * 1000,
   });
