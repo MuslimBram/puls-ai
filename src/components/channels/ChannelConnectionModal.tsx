@@ -328,8 +328,8 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
         {/* Step 3: Done */}
         {step === "done" && (
           <div className="text-center py-6 space-y-4">
-            <div className="mx-auto w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
-              <Check className="h-6 w-6 text-green-600" />
+            <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <Check className="h-6 w-6 text-primary" />
             </div>
             <div>
               <h3 className="font-semibold text-lg">{channel.name} Connected!</h3>
