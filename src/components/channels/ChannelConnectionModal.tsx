@@ -219,7 +219,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                           </div>
                           <div className="w-24 text-center">
                             {inPersonal ? (
-                              <Check className="h-4 w-4 text-green-500 mx-auto" />
+                              <Check className="h-4 w-4 text-primary mx-auto" />
                             ) : (
                               <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
                             )}
@@ -229,7 +229,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                       {!hasBothModes && (
                         <div className="w-24 text-center">
                           {(supportsMode(channel, "professional") ? inPro : inPersonal) ? (
-                            <Check className="h-4 w-4 text-green-500 mx-auto" />
+                            <Check className="h-4 w-4 text-primary mx-auto" />
                           ) : (
                             <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
                           )}
