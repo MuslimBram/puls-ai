@@ -2914,7 +2914,10 @@ export type Database = {
           is_available: boolean
           min_plan: string
           name: string
+          personal_capabilities: Json
+          professional_capabilities: Json
           setup_instructions: string | null
+          supported_modes: Json
         }
         Insert: {
           category: string
@@ -2928,7 +2931,10 @@ export type Database = {
           is_available?: boolean
           min_plan?: string
           name: string
+          personal_capabilities?: Json
+          professional_capabilities?: Json
           setup_instructions?: string | null
+          supported_modes?: Json
         }
         Update: {
           category?: string
@@ -2942,45 +2948,60 @@ export type Database = {
           is_available?: boolean
           min_plan?: string
           name?: string
+          personal_capabilities?: Json
+          professional_capabilities?: Json
           setup_instructions?: string | null
+          supported_modes?: Json
         }
         Relationships: []
       }
       channels: {
         Row: {
+          account_type: string
+          capabilities: Json
           category: string
           channel_name: string
           channel_type: string
+          connection_mode: string
           connection_status: string
           created_at: string
           id: string
           is_enabled: boolean
+          provider_metadata: Json
           settings: Json | null
           updated_at: string
           user_id: string
           workspace_id: string | null
         }
         Insert: {
+          account_type?: string
+          capabilities?: Json
           category?: string
           channel_name: string
           channel_type: string
+          connection_mode?: string
           connection_status?: string
           created_at?: string
           id?: string
           is_enabled?: boolean
+          provider_metadata?: Json
           settings?: Json | null
           updated_at?: string
           user_id: string
           workspace_id?: string | null
         }
         Update: {
+          account_type?: string
+          capabilities?: Json
           category?: string
           channel_name?: string
           channel_type?: string
+          connection_mode?: string
           connection_status?: string
           created_at?: string
           id?: string
           is_enabled?: boolean
+          provider_metadata?: Json
           settings?: Json | null
           updated_at?: string
           user_id?: string
