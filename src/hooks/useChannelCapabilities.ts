@@ -11,7 +11,9 @@ export type ChannelCapability =
   | "comments"
   | "analytics"
   | "notifications"
-  | "inbox";
+  | "inbox"
+  | "scheduling"
+  | "publishing";
 
 export interface ChannelRegistryWithModes {
   id: string;
@@ -26,6 +28,8 @@ export interface ChannelRegistryWithModes {
   credential_fields: any[];
   min_plan: string;
   help_url: string | null;
+  integration_status: string;
+  setup_instructions: string | null;
 }
 
 export interface ConnectedChannel {
@@ -37,6 +41,8 @@ export interface ConnectedChannel {
   capabilities: ChannelCapability[];
   connection_status: string;
   is_enabled: boolean;
+  is_primary: boolean;
+  reconnect_required: boolean;
   provider_metadata: Record<string, unknown>;
 }
 
@@ -112,9 +118,25 @@ export const useConnectedChannels = () => {
         capabilities: Array.isArray(ch.capabilities) ? ch.capabilities : [],
         connection_status: ch.connection_status || "disconnected",
         is_enabled: ch.is_enabled,
+        is_primary: ch.is_primary || false,
+        reconnect_required: ch.reconnect_required || false,
         provider_metadata: ch.provider_metadata || {},
       })) as ConnectedChannel[];
     },
     enabled: !!user,
   });
+};
+
+/** Check if a connected channel is in professional mode */
+export const isProfessionalMode = (channel: ConnectedChannel | null | undefined): boolean => {
+  return channel?.connection_mode === "professional";
+};
+
+/** Check if a channel can be upgraded from personal to professional */
+export const canUpgrade = (
+  channel: ConnectedChannel | null | undefined,
+  registry: ChannelRegistryWithModes | undefined
+): boolean => {
+  if (!channel || !registry) return false;
+  return channel.connection_mode === "personal" && supportsMode(registry, "professional");
 };

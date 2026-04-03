@@ -1,10 +1,6 @@
 import React, { useState } from "react";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,21 +8,11 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
-  Check,
-  X,
-  Briefcase,
-  User,
-  Wifi,
-  ArrowRight,
-  Shield,
-  Zap,
+  Check, X, Briefcase, User, Wifi, ArrowRight, ArrowUp, Shield, Zap,
 } from "lucide-react";
 import {
-  type ConnectionMode,
-  type ChannelCapability,
-  type ChannelRegistryWithModes,
-  getCapabilitiesForMode,
-  supportsMode,
+  type ConnectionMode, type ChannelCapability, type ChannelRegistryWithModes,
+  getCapabilitiesForMode, supportsMode,
 } from "@/hooks/useChannelCapabilities";
 import { useChannels } from "@/hooks/useChannels";
 import { cn } from "@/lib/utils";
@@ -35,6 +21,9 @@ interface ChannelConnectionModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   channel: ChannelRegistryWithModes | null;
+  /** If set, we're upgrading an existing channel */
+  existingChannelId?: string;
+  existingMode?: ConnectionMode;
   onConnected?: () => void;
 }
 
@@ -46,34 +35,32 @@ const CAPABILITY_LABELS: Record<ChannelCapability, { label: string; description:
   analytics: { label: "Analytics", description: "Performance metrics & insights" },
   notifications: { label: "Notifications", description: "Receive alerts & reminders" },
   inbox: { label: "Unified Inbox", description: "Messages in central inbox" },
+  scheduling: { label: "Scheduling", description: "Schedule posts ahead of time" },
+  publishing: { label: "Publishing", description: "Publish directly from platform" },
 };
 
 const ALL_CAPABILITIES: ChannelCapability[] = [
-  "auto_post",
-  "manual_post",
-  "messaging",
-  "comments",
-  "analytics",
-  "notifications",
-  "inbox",
+  "auto_post", "manual_post", "messaging", "comments", "analytics",
+  "notifications", "inbox", "scheduling", "publishing",
 ];
 
 export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
-  open,
-  onOpenChange,
-  channel,
-  onConnected,
+  open, onOpenChange, channel, existingChannelId, existingMode, onConnected,
 }) => {
-  const [step, setStep] = useState<"mode" | "credentials" | "done">("mode");
-  const [selectedMode, setSelectedMode] = useState<ConnectionMode>("professional");
+  const isUpgrade = !!existingChannelId;
+  const [step, setStep] = useState<"mode" | "credentials" | "done">(
+    isUpgrade ? "credentials" : "mode"
+  );
+  const [selectedMode, setSelectedMode] = useState<ConnectionMode>(
+    isUpgrade ? "professional" : "professional"
+  );
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   const [isConnecting, setIsConnecting] = useState(false);
-  const { addChannel } = useChannels();
+  const { addChannel, updateChannel } = useChannels();
 
   if (!channel) return null;
 
-  const hasBothModes =
-    supportsMode(channel, "professional") && supportsMode(channel, "personal");
+  const hasBothModes = supportsMode(channel, "professional") && supportsMode(channel, "personal");
   const professionalCaps = getCapabilitiesForMode(channel, "professional");
   const personalCaps = getCapabilitiesForMode(channel, "personal");
 
@@ -81,17 +68,26 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
     setIsConnecting(true);
     try {
       const capabilities = getCapabilitiesForMode(channel, selectedMode);
-      await addChannel.mutateAsync({
-        channel_type: channel.id,
-        channel_name: channel.name,
-        settings: {
+      const accountType = selectedMode === "professional" ? "business" : "personal";
+
+      if (isUpgrade && existingChannelId) {
+        await updateChannel.mutateAsync({
+          id: existingChannelId,
           connection_mode: selectedMode,
-          account_type: selectedMode === "professional" ? "business" : "personal",
+          account_type: accountType,
           capabilities,
-          credentials,
+        });
+      } else {
+        await addChannel.mutateAsync({
+          channel_type: channel.id,
+          channel_name: channel.name,
+          connection_mode: selectedMode,
+          account_type: accountType,
+          capabilities,
           provider_metadata: {},
-        },
-      });
+          settings: credentials,
+        });
+      }
       setStep("done");
       onConnected?.();
     } catch {
@@ -102,7 +98,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
   };
 
   const handleClose = () => {
-    setStep("mode");
+    setStep(isUpgrade ? "credentials" : "mode");
     setSelectedMode("professional");
     setCredentials({});
     onOpenChange(false);
@@ -113,13 +109,15 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
       <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-lg">
-            <Wifi className="h-5 w-5 text-primary" />
-            Connect {channel.name}
+            {isUpgrade ? <ArrowUp className="h-5 w-5 text-primary" /> : <Wifi className="h-5 w-5 text-primary" />}
+            {isUpgrade ? `Upgrade ${channel.name}` : `Connect ${channel.name}`}
           </DialogTitle>
           <DialogDescription>
             {step === "mode" && "Choose how you want to connect this channel."}
-            {step === "credentials" && "Enter your credentials to complete the connection."}
-            {step === "done" && "Channel connected successfully!"}
+            {step === "credentials" && (isUpgrade
+              ? "Enter credentials to upgrade to Professional mode."
+              : "Enter your credentials to complete the connection.")}
+            {step === "done" && (isUpgrade ? "Channel upgraded!" : "Channel connected!")}
           </DialogDescription>
         </DialogHeader>
 
@@ -132,15 +130,10 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                 onValueChange={(v) => setSelectedMode(v as ConnectionMode)}
                 className="grid gap-4"
               >
-                {/* Professional Mode Card */}
-                <label
-                  className={cn(
-                    "flex cursor-pointer rounded-lg border-2 p-4 transition-all",
-                    selectedMode === "professional"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-muted-foreground/30"
-                  )}
-                >
+                <label className={cn(
+                  "flex cursor-pointer rounded-lg border-2 p-4 transition-all",
+                  selectedMode === "professional" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30"
+                )}>
                   <RadioGroupItem value="professional" className="mt-1 mr-3" />
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
@@ -154,20 +147,15 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                   </div>
                 </label>
 
-                {/* Personal Mode Card */}
-                <label
-                  className={cn(
-                    "flex cursor-pointer rounded-lg border-2 p-4 transition-all",
-                    selectedMode === "personal"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-muted-foreground/30"
-                  )}
-                >
+                <label className={cn(
+                  "flex cursor-pointer rounded-lg border-2 p-4 transition-all",
+                  selectedMode === "personal" ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/30"
+                )}>
                   <RadioGroupItem value="personal" className="mt-1 mr-3" />
                   <div className="flex-1 space-y-2">
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-semibold">Personal / Notification-Only</span>
+                      <span className="font-semibold">Limited / Personal</span>
                     </div>
                     <p className="text-sm text-muted-foreground">
                       Notification reminders with manual posting in the native app. Limited capabilities.
@@ -180,20 +168,27 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                 <div className="flex items-center gap-2 mb-2">
                   <Shield className="h-4 w-4 text-primary" />
                   <span className="font-semibold">
-                    {supportsMode(channel, "professional") ? "Professional" : "Personal"} Mode Only
+                    {supportsMode(channel, "professional") ? "Professional" : "Limited"} Mode Only
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  This channel supports only {supportsMode(channel, "professional") ? "professional" : "personal"} connections.
+                  This channel supports only {supportsMode(channel, "professional") ? "professional" : "limited"} connections.
                 </p>
               </div>
             )}
 
-            {/* Capability Comparison Table */}
+            {/* Capability Comparison */}
             <div className="rounded-lg border overflow-hidden">
               <div className="bg-muted/50 px-4 py-2 border-b">
                 <span className="text-sm font-medium">Feature Comparison</span>
               </div>
+              {hasBothModes && (
+                <div className="flex items-center px-4 py-1.5 bg-muted/30 text-xs text-muted-foreground border-b">
+                  <div className="flex-1" />
+                  <div className="w-24 text-center font-medium">Professional</div>
+                  <div className="w-24 text-center font-medium">Limited</div>
+                </div>
+              )}
               <div className="divide-y">
                 {ALL_CAPABILITIES.map((cap) => {
                   const inPro = professionalCaps.includes(cap);
@@ -204,48 +199,28 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                     <div key={cap} className="flex items-center px-4 py-2.5 text-sm">
                       <div className="flex-1">
                         <span className="font-medium">{info.label}</span>
-                        <span className="text-muted-foreground ml-2 text-xs hidden sm:inline">
-                          {info.description}
-                        </span>
+                        <span className="text-muted-foreground ml-2 text-xs hidden sm:inline">{info.description}</span>
                       </div>
-                      {hasBothModes && (
+                      {hasBothModes ? (
                         <>
                           <div className="w-24 text-center">
-                            {inPro ? (
-                              <Check className="h-4 w-4 text-primary mx-auto" />
-                            ) : (
-                              <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
-                            )}
+                            {inPro ? <Check className="h-4 w-4 text-primary mx-auto" /> : <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />}
                           </div>
                           <div className="w-24 text-center">
-                            {inPersonal ? (
-                              <Check className="h-4 w-4 text-primary mx-auto" />
-                            ) : (
-                              <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
-                            )}
+                            {inPersonal ? <Check className="h-4 w-4 text-primary mx-auto" /> : <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />}
                           </div>
                         </>
-                      )}
-                      {!hasBothModes && (
+                      ) : (
                         <div className="w-24 text-center">
-                          {(supportsMode(channel, "professional") ? inPro : inPersonal) ? (
-                            <Check className="h-4 w-4 text-primary mx-auto" />
-                          ) : (
-                            <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
-                          )}
+                          {(supportsMode(channel, "professional") ? inPro : inPersonal)
+                            ? <Check className="h-4 w-4 text-primary mx-auto" />
+                            : <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />}
                         </div>
                       )}
                     </div>
                   );
                 })}
               </div>
-              {hasBothModes && (
-                <div className="flex items-center px-4 py-1.5 bg-muted/30 text-xs text-muted-foreground border-t">
-                  <div className="flex-1" />
-                  <div className="w-24 text-center font-medium">Professional</div>
-                  <div className="w-24 text-center font-medium">Personal</div>
-                </div>
-              )}
             </div>
 
             <Button
@@ -261,7 +236,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
             >
               {isConnecting ? "Connecting..." : (
                 <>
-                  Continue with {selectedMode === "professional" ? "Professional" : "Personal"} Mode
+                  Continue with {selectedMode === "professional" ? "Professional" : "Limited"} Mode
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </>
               )}
@@ -275,7 +250,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
             <div className="rounded-lg border p-3 bg-muted/30 flex items-center gap-2">
               <Zap className="h-4 w-4 text-primary" />
               <span className="text-sm">
-                Connecting as <strong>{selectedMode}</strong> — {getCapabilitiesForMode(channel, selectedMode).length} features enabled
+                {isUpgrade ? "Upgrading to" : "Connecting as"} <strong>{selectedMode}</strong> — {getCapabilitiesForMode(channel, selectedMode).length} features enabled
               </span>
             </div>
 
@@ -290,36 +265,27 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                   type={field.type === "password" ? "password" : "text"}
                   placeholder={field.placeholder}
                   value={credentials[field.key] || ""}
-                  onChange={(e) =>
-                    setCredentials((prev) => ({ ...prev, [field.key]: e.target.value }))
-                  }
+                  onChange={(e) => setCredentials((prev) => ({ ...prev, [field.key]: e.target.value }))}
                 />
               </div>
             ))}
 
             {channel.help_url && (
-              <a
-                href={channel.help_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-primary underline"
-              >
+              <a href={channel.help_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">
                 Where do I find these credentials?
               </a>
             )}
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep("mode")} className="flex-1">
-                Back
-              </Button>
+              {!isUpgrade && (
+                <Button variant="outline" onClick={() => setStep("mode")} className="flex-1">Back</Button>
+              )}
               <Button
                 onClick={handleConnect}
                 className="flex-1"
-                disabled={isConnecting || channel.credential_fields.some(
-                  (f: any) => f.required && !credentials[f.key]
-                )}
+                disabled={isConnecting || channel.credential_fields.some((f: any) => f.required && !credentials[f.key])}
               >
-                {isConnecting ? "Connecting..." : "Connect Channel"}
+                {isConnecting ? "Connecting..." : (isUpgrade ? "Upgrade Channel" : "Connect Channel")}
               </Button>
             </div>
           </div>
@@ -332,9 +298,11 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
               <Check className="h-6 w-6 text-primary" />
             </div>
             <div>
-              <h3 className="font-semibold text-lg">{channel.name} Connected!</h3>
+              <h3 className="font-semibold text-lg">
+                {channel.name} {isUpgrade ? "Upgraded" : "Connected"}!
+              </h3>
               <p className="text-sm text-muted-foreground mt-1">
-                Connected in <strong>{selectedMode}</strong> mode with{" "}
+                {isUpgrade ? "Upgraded to" : "Connected in"} <strong>{selectedMode}</strong> mode with{" "}
                 {getCapabilitiesForMode(channel, selectedMode).length} features enabled.
               </p>
             </div>
@@ -343,9 +311,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                 💡 You can upgrade to Professional mode later for full automation and analytics.
               </div>
             )}
-            <Button onClick={handleClose} className="w-full">
-              Done
-            </Button>
+            <Button onClick={handleClose} className="w-full">Done</Button>
           </div>
         )}
       </DialogContent>
