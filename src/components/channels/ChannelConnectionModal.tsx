@@ -212,7 +212,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
                         <>
                           <div className="w-24 text-center">
                             {inPro ? (
-                              <Check className="h-4 w-4 text-green-500 mx-auto" />
+                              <Check className="h-4 w-4 text-primary mx-auto" />
                             ) : (
                               <X className="h-4 w-4 text-muted-foreground/40 mx-auto" />
                             )}
