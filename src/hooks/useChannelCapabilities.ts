@@ -28,6 +28,8 @@ export interface ChannelRegistryWithModes {
   credential_fields: any[];
   min_plan: string;
   help_url: string | null;
+  integration_status: string;
+  setup_instructions: string | null;
 }
 
 export interface ConnectedChannel {
