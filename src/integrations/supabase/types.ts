@@ -2967,7 +2967,9 @@ export type Database = {
           created_at: string
           id: string
           is_enabled: boolean
+          is_primary: boolean
           provider_metadata: Json
+          reconnect_required: boolean
           settings: Json | null
           updated_at: string
           user_id: string
@@ -2984,7 +2986,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_enabled?: boolean
+          is_primary?: boolean
           provider_metadata?: Json
+          reconnect_required?: boolean
           settings?: Json | null
           updated_at?: string
           user_id: string
@@ -3001,7 +3005,9 @@ export type Database = {
           created_at?: string
           id?: string
           is_enabled?: boolean
+          is_primary?: boolean
           provider_metadata?: Json
+          reconnect_required?: boolean
           settings?: Json | null
           updated_at?: string
           user_id?: string
