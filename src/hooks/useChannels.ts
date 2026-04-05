@@ -50,6 +50,7 @@ export const useChannels = () => {
         capabilities: (channel.capabilities || []) as any,
         provider_metadata: (channel.provider_metadata || {}) as any,
         settings: (channel.settings ?? {}) as any,
+        credentials_encrypted: {} as any,
         user_id: user!.id,
       };
       const { error } = await supabase.from("channels").insert([row]);
