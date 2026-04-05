@@ -2958,6 +2958,7 @@ export type Database = {
       channels: {
         Row: {
           account_type: string
+          business_id: string | null
           capabilities: Json
           category: string
           channel_name: string
@@ -2965,6 +2966,7 @@ export type Database = {
           connection_mode: string
           connection_status: string
           created_at: string
+          credentials_encrypted: Json
           id: string
           is_enabled: boolean
           is_primary: boolean
@@ -2977,6 +2979,7 @@ export type Database = {
         }
         Insert: {
           account_type?: string
+          business_id?: string | null
           capabilities?: Json
           category?: string
           channel_name: string
@@ -2984,6 +2987,7 @@ export type Database = {
           connection_mode?: string
           connection_status?: string
           created_at?: string
+          credentials_encrypted?: Json
           id?: string
           is_enabled?: boolean
           is_primary?: boolean
@@ -2996,6 +3000,7 @@ export type Database = {
         }
         Update: {
           account_type?: string
+          business_id?: string | null
           capabilities?: Json
           category?: string
           channel_name?: string
@@ -3003,6 +3008,7 @@ export type Database = {
           connection_mode?: string
           connection_status?: string
           created_at?: string
+          credentials_encrypted?: Json
           id?: string
           is_enabled?: boolean
           is_primary?: boolean
@@ -3014,6 +3020,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "channels_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "channels_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -4330,6 +4343,7 @@ export type Database = {
           adapter_name: string
           auth_credentials: Json
           auth_type: string
+          business_id: string | null
           created_at: string
           created_by: string | null
           id: string
@@ -4345,6 +4359,7 @@ export type Database = {
           adapter_name: string
           auth_credentials?: Json
           auth_type?: string
+          business_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -4360,6 +4375,7 @@ export type Database = {
           adapter_name?: string
           auth_credentials?: Json
           auth_type?: string
+          business_id?: string | null
           created_at?: string
           created_by?: string | null
           id?: string
@@ -4371,6 +4387,13 @@ export type Database = {
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "custom_channel_adapters_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "custom_channel_adapters_workspace_id_fkey"
             columns: ["workspace_id"]
@@ -13283,6 +13306,14 @@ export type Database = {
       check_asset_duplicate: {
         Args: { _asset_identifier: string; _asset_type: string }
         Returns: Json
+      }
+      check_business_creation_limit: {
+        Args: { _user_id: string }
+        Returns: Json
+      }
+      check_channel_business_ownership: {
+        Args: { _business_id: string; _user_id: string }
+        Returns: boolean
       }
       check_freelancer_discount_eligibility: {
         Args: { _freelancer_user_id: string }
