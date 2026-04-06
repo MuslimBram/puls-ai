@@ -30,6 +30,7 @@ export interface ChannelRegistryWithModes {
   help_url: string | null;
   integration_status: string;
   setup_instructions: string | null;
+  account_type_label: string;
 }
 
 export interface ConnectedChannel {
@@ -62,6 +63,7 @@ export const useChannelRegistryWithModes = () => {
         professional_capabilities: Array.isArray(r.professional_capabilities) ? r.professional_capabilities : [],
         personal_capabilities: Array.isArray(r.personal_capabilities) ? r.personal_capabilities : [],
         credential_fields: Array.isArray(r.credential_fields) ? r.credential_fields : [],
+        account_type_label: r.account_type_label || "Profile",
       })) as ChannelRegistryWithModes[];
     },
   });

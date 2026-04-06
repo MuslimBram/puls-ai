@@ -2903,6 +2903,7 @@ export type Database = {
       }
       channel_registry: {
         Row: {
+          account_type_label: string | null
           category: string
           config_schema: Json | null
           credential_fields: Json | null
@@ -2920,6 +2921,7 @@ export type Database = {
           supported_modes: Json
         }
         Insert: {
+          account_type_label?: string | null
           category: string
           config_schema?: Json | null
           credential_fields?: Json | null
@@ -2937,6 +2939,7 @@ export type Database = {
           supported_modes?: Json
         }
         Update: {
+          account_type_label?: string | null
           category?: string
           config_schema?: Json | null
           credential_fields?: Json | null
