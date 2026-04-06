@@ -30,6 +30,7 @@ export interface ChannelRegistryWithModes {
   help_url: string | null;
   integration_status: string;
   setup_instructions: string | null;
+  account_type_label: string;
 }
 
 export interface ConnectedChannel {
