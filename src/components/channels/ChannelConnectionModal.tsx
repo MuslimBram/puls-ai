@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Check, X, Briefcase, User, Wifi, ArrowRight, ArrowUp, Shield, Zap, LogIn,
+  Check, X, Briefcase, User, Wifi, ArrowRight, ArrowUp, Shield, Zap, LogIn, ExternalLink,
 } from "lucide-react";
 import {
   type ConnectionMode, type ChannelCapability, type ChannelRegistryWithModes,
@@ -17,6 +17,8 @@ import {
 } from "@/hooks/useChannelCapabilities";
 import { useChannels } from "@/hooks/useChannels";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ChannelConnectionModalProps {
   open: boolean;
