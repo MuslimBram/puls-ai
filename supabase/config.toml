@@ -9,3 +9,7 @@ project_id = "wllvvzzjhnmbydpbvump"
     verify_jwt = false
   [functions.paypal-webhook]
     verify_jwt = false
+  [functions.meta-webhook]
+    verify_jwt = false
+  [functions.meta-webhook-test]
+    verify_jwt = false
