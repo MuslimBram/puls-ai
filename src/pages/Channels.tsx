@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { WebhookActivityLogs } from "@/components/webhooks/WebhookActivityLogs";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
