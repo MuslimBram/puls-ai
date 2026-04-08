@@ -26,6 +26,7 @@ const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
 const Leads = lazy(() => import("./pages/Leads"));
 const Keywords = lazy(() => import("./pages/Keywords"));
 const Channels = lazy(() => import("./pages/Channels"));
+const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));
 const ConnectionsHub = lazy(() => import("./pages/ConnectionsHub"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Subscription = lazy(() => import("./pages/Subscription"));
@@ -156,6 +157,7 @@ const App = () => (
                 <Route path="/helpdesk" element={<ProtectedPage><Helpdesk /></ProtectedPage>} />
                 <Route path="/telephony" element={<ProtectedPage><Telephony /></ProtectedPage>} />
                 <Route path="/channels" element={<ProtectedPage><Channels /></ProtectedPage>} />
+                <Route path="/oauth/callback" element={<Suspense fallback={<LazyFallback />}><OAuthCallback /></Suspense>} />
                 <Route path="/connections" element={<ProtectedPage><ConnectionsHub /></ProtectedPage>} />
                 <Route path="/connected-accounts" element={<ProtectedPage><ConnectedAccounts /></ProtectedPage>} />
                 <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
