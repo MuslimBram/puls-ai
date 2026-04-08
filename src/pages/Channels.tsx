@@ -69,6 +69,7 @@ const Channels = () => {
       <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="webhook-logs">Webhook Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="channels">
