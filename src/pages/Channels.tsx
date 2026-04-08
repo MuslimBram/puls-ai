@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { WebhookActivityLogs } from "@/components/webhooks/WebhookActivityLogs";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -69,6 +70,7 @@ const Channels = () => {
       <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="channels">Channels</TabsTrigger>
+          <TabsTrigger value="webhook-logs">Webhook Logs</TabsTrigger>
         </TabsList>
 
         <TabsContent value="channels">
@@ -161,6 +163,10 @@ const Channels = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="webhook-logs">
+          <WebhookActivityLogs />
         </TabsContent>
       </Tabs>
 
