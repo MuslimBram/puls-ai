@@ -163,6 +163,10 @@ const Channels = () => {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="webhook-logs">
+          <WebhookActivityLogs />
+        </TabsContent>
       </Tabs>
 
       <ChannelConnectionModal
