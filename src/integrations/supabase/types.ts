@@ -8292,6 +8292,36 @@ export type Database = {
           },
         ]
       }
+      oauth_states: {
+        Row: {
+          channel_type: string
+          created_at: string
+          expires_at: string
+          id: string
+          redirect_uri: string
+          state: string
+          user_id: string
+        }
+        Insert: {
+          channel_type?: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          redirect_uri: string
+          state: string
+          user_id: string
+        }
+        Update: {
+          channel_type?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          redirect_uri?: string
+          state?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       offer_analysis: {
         Row: {
           analysis_date: string

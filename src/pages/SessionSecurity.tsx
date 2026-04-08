@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FeatureOSWidget } from "@/components/FeatureOSWidget";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -312,6 +313,7 @@ const SessionSecurity = () => {
           </TabsContent>
         </Tabs>
       </div>
+      <FeatureOSWidget />
     </DashboardLayout>
   );
 };
