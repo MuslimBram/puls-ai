@@ -70,6 +70,7 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
+    const startTime = Date.now();
     const objectType = body?.object; // "instagram" or "page" (Facebook Messenger)
     const entries = body?.entry || [];
     let processed = 0;
@@ -150,7 +151,22 @@ serve(async (req) => {
       }
     }
 
-    console.log(`[META-WEBHOOK] ${objectType} — Processed: ${processed}, Errors: ${errors}`);
+    const processingTime = Date.now() - startTime;
+    console.log(`[META-WEBHOOK] ${objectType} — Processed: ${processed}, Errors: ${errors}, Time: ${processingTime}ms`);
+
+    // Log activity
+    await supabase.from("webhook_activity_logs").insert({
+      event_type: "incoming_message",
+      source: objectType === "instagram" ? "instagram" : "facebook",
+      method: "POST",
+      endpoint: "/meta-webhook",
+      payload_preview: JSON.stringify(body).slice(0, 500),
+      status: errors > 0 ? "failed" : "processed",
+      processing_time_ms: processingTime,
+      ip_address: clientIp,
+      metadata: { object_type: objectType, entries: entries.length, processed, errors },
+    }).then(() => {}).catch((e: any) => console.error("[META-WEBHOOK] Log insert error:", e));
+
     return new Response(
       JSON.stringify({ ok: true, object: objectType, processed, errors }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
