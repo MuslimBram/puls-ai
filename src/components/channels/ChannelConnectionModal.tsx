@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Check, X, Briefcase, User, Wifi, ArrowRight, ArrowUp, Shield, Zap, LogIn,
+  Check, X, Briefcase, User, Wifi, ArrowRight, ArrowUp, Shield, Zap, LogIn, ExternalLink,
 } from "lucide-react";
 import {
   type ConnectionMode, type ChannelCapability, type ChannelRegistryWithModes,
@@ -17,6 +17,8 @@ import {
 } from "@/hooks/useChannelCapabilities";
 import { useChannels } from "@/hooks/useChannels";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface ChannelConnectionModalProps {
   open: boolean;
@@ -123,9 +125,32 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
     onOpenChange(false);
   };
 
+  // Channels that use OAuth flow instead of manual credentials
+  const OAUTH_CHANNELS = ["instagram", "facebook"];
+
+  const handleOAuthConnect = async () => {
+    if (!channel) return;
+    setIsConnecting(true);
+    try {
+      const redirectUri = `${window.location.origin}/oauth/callback`;
+      const { data, error } = await supabase.functions.invoke("instagram-oauth-start", {
+        body: { channel_type: channel.id, redirect_uri: redirectUri },
+      });
+      if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to start OAuth");
+      // Redirect to Instagram OAuth
+      window.location.href = data.url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "OAuth failed");
+      setIsConnecting(false);
+    }
+  };
+
   const handleContinue = () => {
     if (selectedMode === "personal") {
       setStep("limited_form");
+    } else if (OAUTH_CHANNELS.includes(channel.id)) {
+      // Trigger OAuth redirect for supported channels
+      handleOAuthConnect();
     } else if (channel.credential_fields.length > 0) {
       setStep("credentials");
     } else {
