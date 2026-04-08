@@ -12678,6 +12678,60 @@ export type Database = {
           },
         ]
       }
+      webhook_activity_logs: {
+        Row: {
+          channel_id: string | null
+          created_at: string
+          endpoint: string | null
+          error_message: string | null
+          event_type: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          method: string
+          payload_preview: string | null
+          processing_time_ms: number | null
+          sender_id: string | null
+          source: string
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          channel_id?: string | null
+          created_at?: string
+          endpoint?: string | null
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          method?: string
+          payload_preview?: string | null
+          processing_time_ms?: number | null
+          sender_id?: string | null
+          source?: string
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          channel_id?: string | null
+          created_at?: string
+          endpoint?: string | null
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          method?: string
+          payload_preview?: string | null
+          processing_time_ms?: number | null
+          sender_id?: string | null
+          source?: string
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       whatsapp_templates: {
         Row: {
           approved_at: string | null
