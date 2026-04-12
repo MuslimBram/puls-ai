@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { InboxEmptyState } from "@/components/EmptyState";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -105,9 +106,7 @@ const Inbox = () => {
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             ) : messages.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                No messages yet. Connect a Telegram channel and add keywords to start receiving messages.
-              </p>
+              <InboxEmptyState />
             ) : (
               <div className="space-y-2">
                 {messages.map((msg) => (

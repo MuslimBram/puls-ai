@@ -15,7 +15,7 @@ import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useMonetizationCatalog, useEnterpriseLeadSubmission } from "@/hooks/useMonetizationCatalog";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useConversionTracking } from "@/hooks/useConversionTracking";
-import { getPackageVariant } from "@/lib/packagePricing";
+import { getPackageVariant, getPackageTotalPrice, formatCommitmentLabel } from "@/lib/packagePricing";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Building2, Heart, Loader2, Mail, ShieldCheck, Sparkles } from "lucide-react";
@@ -101,21 +101,33 @@ const Pricing = () => {
     track("upgrade_click", { plan: planKey, intent, packageType });
     setLoadingPlan(planKey);
     try {
-      if (intent === "downgrade" && stripeData?.subscribed && currentPlanKey !== planKey) {
-        await openBillingPortal();
-        toast.success("Open billing to manage your downgrade.");
-        return;
-      }
+      const plan = plans.find((p) => p.key === planKey);
+      if (!plan) throw new Error("Plan not found");
 
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { planKey, packageType },
+      const totalPrice = getPackageTotalPrice(plan.monthlyPrice, packageType);
+      const description = `Pulse AI - ${plan.name} (${formatCommitmentLabel(packageType)})`;
+
+      const { data, error } = await supabase.functions.invoke("create-paypal-order", {
+        body: {
+          amount: totalPrice,
+          currency: "EUR",
+          paymentType: "one_time",
+          planKey,
+          description,
+        },
       });
       if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank", "noopener,noreferrer");
+      if (data?.error) throw new Error(data.error);
+
+      if (data?.approveUrl) {
+        sessionStorage.setItem("paypal_order_id", data.orderId);
+        sessionStorage.setItem("paypal_payment_type", "one_time");
+        sessionStorage.setItem("paypal_plan_key", planKey);
+        sessionStorage.setItem("paypal_package_type", packageType);
+        window.location.href = data.approveUrl;
         return;
       }
-      throw new Error("Checkout URL missing");
+      throw new Error("PayPal checkout URL missing");
     } catch (error: any) {
       toast.error(error.message || "Failed to continue to checkout");
     } finally {
@@ -127,18 +139,24 @@ const Pricing = () => {
     const donation = donations.find((item) => item.plan_key === donationType);
     setLoadingPlan(donationType);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
+      const { data, error } = await supabase.functions.invoke("create-paypal-order", {
         body: {
-          donationAmount: Number(donation?.monthly_price ?? 5),
-          donationRecurring: donationType === "donation_monthly",
+          amount: Number(donation?.monthly_price ?? 5),
+          currency: "EUR",
+          paymentType: "donation",
+          planKey: donationType,
+          description: `Pulse AI Donation (${donationType === "donation_monthly" ? "Monthly" : "One-time"})`,
         },
       });
       if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank", "noopener,noreferrer");
+      if (data?.error) throw new Error(data.error);
+      if (data?.approveUrl) {
+        sessionStorage.setItem("paypal_order_id", data.orderId);
+        sessionStorage.setItem("paypal_payment_type", "donation");
+        window.location.href = data.approveUrl;
         return;
       }
-      throw new Error("Checkout URL missing");
+      throw new Error("PayPal checkout URL missing");
     } catch (error: any) {
       toast.error(error.message || "Failed to start donation checkout");
     } finally {
