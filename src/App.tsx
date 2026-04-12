@@ -87,6 +87,7 @@ const WalletPage = lazy(() => import("./pages/Wallet"));
 const InstallPage = lazy(() => import("./pages/Install"));
 const Sources = lazy(() => import("./pages/Sources"));
 const SEOAudit = lazy(() => import("./pages/SEOAudit"));
+const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -214,7 +215,8 @@ const App = () => (
                 <Route path="/dedicated-ai" element={<Navigate to="/knowledge-base" replace />} />
                 <Route path="/visitor-intelligence" element={<Navigate to="/helpdesk" replace />} />
                 <Route path="/lead-qualification" element={<Navigate to="/helpdesk" replace />} />
-                <Route path="/referrals" element={<Navigate to="/partner" replace />} />
+                <Route path="/referral-program" element={<ProtectedPage><ReferralProgram /></ProtectedPage>} />
+                <Route path="/referrals" element={<Navigate to="/referral-program" replace />} />
                 <Route path="/partner-clients" element={<Navigate to="/partner" replace />} />
                 <Route path="/business-insights" element={<Navigate to="/deep-analytics?tab=insights" replace />} />
 
