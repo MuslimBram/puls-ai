@@ -68,6 +68,7 @@ const CRM = () => {
               isLoading={stagesLoading || dealsLoading}
               onNewDeal={() => setShowNewDeal(true)}
               onSelectDeal={setSelectedDeal}
+              onMoveDeal={moveDeal}
             />
           </TabsContent>
 
