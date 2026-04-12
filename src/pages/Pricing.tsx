@@ -139,18 +139,24 @@ const Pricing = () => {
     const donation = donations.find((item) => item.plan_key === donationType);
     setLoadingPlan(donationType);
     try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
+      const { data, error } = await supabase.functions.invoke("create-paypal-order", {
         body: {
-          donationAmount: Number(donation?.monthly_price ?? 5),
-          donationRecurring: donationType === "donation_monthly",
+          amount: Number(donation?.monthly_price ?? 5),
+          currency: "EUR",
+          paymentType: "donation",
+          planKey: donationType,
+          description: `Pulse AI Donation (${donationType === "donation_monthly" ? "Monthly" : "One-time"})`,
         },
       });
       if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank", "noopener,noreferrer");
+      if (data?.error) throw new Error(data.error);
+      if (data?.approveUrl) {
+        sessionStorage.setItem("paypal_order_id", data.orderId);
+        sessionStorage.setItem("paypal_payment_type", "donation");
+        window.location.href = data.approveUrl;
         return;
       }
-      throw new Error("Checkout URL missing");
+      throw new Error("PayPal checkout URL missing");
     } catch (error: any) {
       toast.error(error.message || "Failed to start donation checkout");
     } finally {
