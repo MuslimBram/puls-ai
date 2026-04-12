@@ -184,6 +184,8 @@ const Analytics = () => {
           </div>
         </div>
 
+        {stats.total === 0 && <AnalyticsEmptyState />}
+
         {/* KPI Cards */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <Card>
