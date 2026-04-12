@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { HelpdeskEmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { THREAD_STATUSES, PRIORITY_LEVELS, type ConversationThread } from "@/hooks/useHelpdesk";
