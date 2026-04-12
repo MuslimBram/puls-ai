@@ -30,9 +30,7 @@ export const ThreadList = ({ threads, total, isLoading, page, totalPages, onSele
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : threads.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No conversations yet. They will appear here as messages come in.
-        </p>
+        <HelpdeskEmptyState />
       ) : (
         <div className="space-y-2">
           {threads.map((thread) => {
