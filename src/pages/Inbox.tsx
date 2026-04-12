@@ -105,9 +105,7 @@ const Inbox = () => {
                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             ) : messages.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                No messages yet. Connect a Telegram channel and add keywords to start receiving messages.
-              </p>
+              <InboxEmptyState />
             ) : (
               <div className="space-y-2">
                 {messages.map((msg) => (
