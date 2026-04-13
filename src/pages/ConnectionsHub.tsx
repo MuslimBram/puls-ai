@@ -144,11 +144,10 @@ const ConnectionsHub = () => {
                     <Plug className="h-5 w-5 text-primary" />
                     Connect a Channel
                   </CardTitle>
-                   <CardDescription>
+                  <CardDescription>
                     {canOAuth
                       ? "Set up channels via OAuth or API/token. Each connection is scoped to your business workspace."
                       : "Set up channels via API key, bot token, or webhook. Each connection is scoped to your workspace."}
-                  </CardDescription>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
