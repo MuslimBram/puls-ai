@@ -35,48 +35,23 @@ export interface ReferralEligibility {
   eligibleAt: string | null;
 }
 
-const QUALIFYING_PACKAGES = ["3-month", "6-month"];
-
 export const useReferralEligibility = () => {
   const { user } = useAuth();
 
   return useQuery({
     queryKey: ["referral-eligibility", user?.id],
     queryFn: async (): Promise<ReferralEligibility> => {
-      const { data: sub } = await supabase
-        .from("subscriptions")
-        .select("referral_eligible, referral_eligible_at, qualifying_package_type, package_type, subscription_status")
-        .eq("user_id", user!.id)
-        .maybeSingle();
-
-      if (!sub) {
-        return { eligible: false, reason: "No active subscription found.", packageType: null, eligibleAt: null };
+      if (!user) {
+        return { eligible: false, reason: "Please log in.", packageType: null, eligibleAt: null };
       }
 
-      if (sub.referral_eligible) {
-        return {
-          eligible: true,
-          reason: "You are eligible to refer businesses!",
-          packageType: sub.qualifying_package_type,
-          eligibleAt: sub.referral_eligible_at,
-        };
-      }
-
-      if (!["active", "trialing"].includes(sub.subscription_status)) {
-        return { eligible: false, reason: "An active subscription is required to refer businesses.", packageType: null, eligibleAt: null };
-      }
-
-      const currentPkg = sub.package_type || "monthly";
-      if (!QUALIFYING_PACKAGES.includes(currentPkg)) {
-        return {
-          eligible: false,
-          reason: "A 3-month or 6-month package is required. Upgrade your package to unlock referrals.",
-          packageType: currentPkg,
-          eligibleAt: null,
-        };
-      }
-
-      return { eligible: false, reason: "Processing eligibility...", packageType: currentPkg, eligibleAt: null };
+      // Referrals are now universal — every authenticated user is eligible
+      return {
+        eligible: true,
+        reason: "You are eligible to refer others! Earn 15% when they purchase a package.",
+        packageType: null,
+        eligibleAt: null,
+      };
     },
     enabled: !!user,
   });
@@ -107,16 +82,12 @@ export const useGenerateReferralCode = () => {
 
   return useMutation({
     mutationFn: async () => {
-      const code = `BIZ-${user!.id.slice(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+      const code = `REF-${user!.id.slice(0, 8).toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
       const { error } = await supabase.from("business_referral_codes").insert({
         user_id: user!.id,
         referral_code: code,
       } as any);
       if (error) throw error;
-
-      // Note: referral_eligible is now managed by backend logic only
-      // The subscription table is not directly updatable by users for security
-
       return code;
     },
     onSuccess: () => {

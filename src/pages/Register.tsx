@@ -402,11 +402,12 @@ const Register = () => {
                   <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
                     <p className="text-xs font-medium text-foreground">✅ What's included in the 7-day trial:</p>
                     <ul className="text-[11px] text-muted-foreground space-y-0.5 list-none pl-1">
-                      <li>✓ Full access to all features</li>
+                      <li>✓ Full access to all features <span className="text-muted-foreground/70">(except Admin panel)</span></li>
                       <li>✓ Dedicated personal AI assistant</li>
                       <li>✓ Unified inbox — email, WhatsApp, Telegram</li>
                       <li>✓ CRM, pipeline and analytics</li>
-                      <li>✓ Ability to earn from referrals during trial</li>
+                      <li>✓ Earn from referrals — 15% goes to your wallet</li>
+                      <li>✓ 1 business profile allowed during trial</li>
                     </ul>
                   </div>
                   <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
