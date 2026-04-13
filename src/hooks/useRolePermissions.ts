@@ -41,6 +41,14 @@ export interface RolePermissions {
   canViewAnalytics: boolean;
   canConfigureAutomations: boolean;
   canMonitorConnections: boolean;
+  // Granular channel/integration permissions
+  canConnectOAuth: boolean;
+  canReconnectOAuth: boolean;
+  canDisconnectOAuth: boolean;
+  canTestConnections: boolean;
+  canManageProviderAccounts: boolean;
+  canConnectApiToken: boolean;
+  canManagePlatformProviders: boolean;
 }
 
 const BASE_PERMISSIONS: RolePermissions = {
