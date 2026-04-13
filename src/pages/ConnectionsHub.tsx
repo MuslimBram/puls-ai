@@ -45,6 +45,10 @@ const ConnectionsHub = () => {
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
 
   const isAdminOnly = (isAdmin || isSuperAdmin) && !permissions.canConnectChannels;
+  const canOAuth = permissions.canConnectOAuth;
+  const canApiToken = permissions.canConnectApiToken;
+  const canConnect = permissions.canConnectChannels || canOAuth || canApiToken;
+  const canDisconnect = permissions.canDisconnectOAuth || canApiToken;
 
   const IconMap: Record<string, any> = {
     whatsapp: Phone,
