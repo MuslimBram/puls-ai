@@ -41,6 +41,14 @@ export interface RolePermissions {
   canViewAnalytics: boolean;
   canConfigureAutomations: boolean;
   canMonitorConnections: boolean;
+  // Granular channel/integration permissions
+  canConnectOAuth: boolean;
+  canReconnectOAuth: boolean;
+  canDisconnectOAuth: boolean;
+  canTestConnections: boolean;
+  canManageProviderAccounts: boolean;
+  canConnectApiToken: boolean;
+  canManagePlatformProviders: boolean;
 }
 
 const BASE_PERMISSIONS: RolePermissions = {
@@ -68,6 +76,13 @@ const BASE_PERMISSIONS: RolePermissions = {
   canViewAnalytics: false,
   canConfigureAutomations: false,
   canMonitorConnections: false,
+  canConnectOAuth: false,
+  canReconnectOAuth: false,
+  canDisconnectOAuth: false,
+  canTestConnections: false,
+  canManageProviderAccounts: false,
+  canConnectApiToken: false,
+  canManagePlatformProviders: false,
 };
 
 const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
@@ -88,8 +103,11 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewCRM: true,
     canViewAnalytics: true,
     canMonitorConnections: true,
-    // NOTE: super_admin must NOT connect channels on behalf of businesses
+    canManagePlatformProviders: true,
+    // super_admin monitors but does NOT connect on behalf of businesses
     canConnectChannels: false,
+    canConnectOAuth: false,
+    canConnectApiToken: false,
   },
   admin: {
     ...BASE_PERMISSIONS,
@@ -114,6 +132,14 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAnalytics: true,
     canConfigureAutomations: true,
     canMonitorConnections: true,
+    // Admin gets full OAuth management via RBAC
+    canConnectOAuth: true,
+    canReconnectOAuth: true,
+    canDisconnectOAuth: true,
+    canTestConnections: true,
+    canManageProviderAccounts: true,
+    canConnectApiToken: true,
+    canManagePlatformProviders: true,
   },
   controller: {
     ...BASE_PERMISSIONS,
@@ -136,9 +162,6 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canRegisterBusiness: true,
     canAccessBilling: true,
     canCreateReferralLinks: true,
-    bypassSubscription: false,
-    bypassFeatureGating: false,
-    bypassUsageLimits: false,
     canConnectChannels: true,
     canManageIntegrations: true,
     canManageTeam: true,
@@ -147,6 +170,12 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canRespondInbox: true,
     canViewAnalytics: true,
     canConfigureAutomations: true,
+    // Business connects via API/token/webhook — not OAuth
+    canConnectOAuth: false,
+    canConnectApiToken: true,
+    canTestConnections: true,
+    canManageProviderAccounts: false,
+    canManagePlatformProviders: false,
   },
   business_manager: {
     ...BASE_PERMISSIONS,
@@ -156,7 +185,6 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAnalytics: true,
     canConfigureAutomations: true,
     canManageTeam: true,
-    // Cannot change billing or core integrations
     canAccessBilling: false,
     canConnectChannels: false,
     canManageIntegrations: false,
@@ -165,7 +193,6 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     ...BASE_PERMISSIONS,
     canRespondInbox: true,
     canViewCRM: true,
-    // Cannot access billing, integrations, pricing, or create campaigns
     canAccessBilling: false,
     canConnectChannels: false,
     canManageIntegrations: false,
@@ -181,9 +208,14 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAnalytics: true,
     canConfigureAutomations: true,
     canRegisterBusiness: true,
-    // Cannot see other businesses or change global settings
     canViewAllWorkspaces: false,
     canChangePlans: false,
+    // Freelancer connects via API/token/webhook — not OAuth
+    canConnectOAuth: false,
+    canConnectApiToken: true,
+    canTestConnections: true,
+    canManageProviderAccounts: false,
+    canManagePlatformProviders: false,
   },
   partner: {
     ...BASE_PERMISSIONS,
@@ -191,7 +223,6 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canAccessBilling: true,
     canCreateReferralLinks: true,
     canViewAnalytics: true,
-    // Cannot control business internal operations
     canConnectChannels: false,
     canManageIntegrations: false,
   },
@@ -199,6 +230,10 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     ...BASE_PERMISSIONS,
     canCreateReferralLinks: true,
     canViewAnalytics: true,
+    // Ambassador connects via API/token for their own tools
+    canConnectChannels: true,
+    canConnectApiToken: true,
+    canTestConnections: true,
     // Ambassador is referral-only, no business management
   },
   user: {
