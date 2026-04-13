@@ -157,7 +157,7 @@ export const businessNavGroups: NavGroup[] = [
   {
     label: "Integrations",
     icon: Plug,
-    requiredPermission: "canConnectChannels",
+    requiredPermission: "canConnectChannels" as any, // Also accessible via canConnectApiToken
     items: [
       { href: "/connections", label: "Connections Hub", icon: Plug },
       { href: "/channels", label: "Channels", icon: Radio },
