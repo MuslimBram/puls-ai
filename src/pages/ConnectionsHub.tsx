@@ -137,15 +137,18 @@ const ConnectionsHub = () => {
 
           {/* MESSAGING CHANNELS */}
           <TabsContent value="channels" className="space-y-4">
-            {permissions.canConnectChannels && (
+            {canConnect && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <Plug className="h-5 w-5 text-primary" />
                     Connect a Channel
                   </CardTitle>
-                  <CardDescription>
-                    Set up your messaging channels. Each connection is scoped to your business workspace.
+                   <CardDescription>
+                    {canOAuth
+                      ? "Set up channels via OAuth or API/token. Each connection is scoped to your business workspace."
+                      : "Set up channels via API key, bot token, or webhook. Each connection is scoped to your workspace."}
+                  </CardDescription>
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -221,7 +224,7 @@ const ConnectionsHub = () => {
                               checked={ch.is_enabled}
                               onCheckedChange={(checked) => toggleChannel.mutate({ id: ch.id, is_enabled: checked })}
                             />
-                            {permissions.canConnectChannels && (
+                            {canDisconnect && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -254,7 +257,7 @@ const ConnectionsHub = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {permissions.canConnectChannels ? (
+                {canConnect ? (
                   <div className="space-y-4">
                     <div className="rounded-lg border border-border p-4">
                       <div className="flex items-center gap-3 mb-2">
