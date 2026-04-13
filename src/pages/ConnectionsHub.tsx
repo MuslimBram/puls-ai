@@ -45,6 +45,10 @@ const ConnectionsHub = () => {
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
 
   const isAdminOnly = (isAdmin || isSuperAdmin) && !permissions.canConnectChannels;
+  const canOAuth = permissions.canConnectOAuth;
+  const canApiToken = permissions.canConnectApiToken;
+  const canConnect = permissions.canConnectChannels || canOAuth || canApiToken;
+  const canDisconnect = permissions.canDisconnectOAuth || canApiToken;
 
   const IconMap: Record<string, any> = {
     whatsapp: Phone,
@@ -133,7 +137,7 @@ const ConnectionsHub = () => {
 
           {/* MESSAGING CHANNELS */}
           <TabsContent value="channels" className="space-y-4">
-            {permissions.canConnectChannels && (
+            {canConnect && (
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -141,7 +145,9 @@ const ConnectionsHub = () => {
                     Connect a Channel
                   </CardTitle>
                   <CardDescription>
-                    Set up your messaging channels. Each connection is scoped to your business workspace.
+                    {canOAuth
+                      ? "Set up channels via OAuth or API/token. Each connection is scoped to your business workspace."
+                      : "Set up channels via API key, bot token, or webhook. Each connection is scoped to your workspace."}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -217,7 +223,7 @@ const ConnectionsHub = () => {
                               checked={ch.is_enabled}
                               onCheckedChange={(checked) => toggleChannel.mutate({ id: ch.id, is_enabled: checked })}
                             />
-                            {permissions.canConnectChannels && (
+                            {canDisconnect && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -250,7 +256,7 @@ const ConnectionsHub = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {permissions.canConnectChannels ? (
+                {canConnect ? (
                   <div className="space-y-4">
                     <div className="rounded-lg border border-border p-4">
                       <div className="flex items-center gap-3 mb-2">
