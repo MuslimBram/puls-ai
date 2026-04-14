@@ -189,6 +189,8 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canTestConnections: true,
     canManageProviderAccounts: false,
     canManagePlatformProviders: false,
+    canViewConnectionLogs: true,
+    canManageBusinessScopedIntegrations: true,
   },
   business_manager: {
     ...BASE_PERMISSIONS,
