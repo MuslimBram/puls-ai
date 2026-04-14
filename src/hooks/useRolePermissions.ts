@@ -111,6 +111,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAnalytics: true,
     canMonitorConnections: true,
     canManagePlatformProviders: true,
+    canViewConnectionLogs: true,
+    canRotateSecrets: true,
+    canManageBusinessScopedIntegrations: true,
     // super_admin monitors but does NOT connect on behalf of businesses
     canConnectChannels: false,
     canConnectOAuth: false,
@@ -147,6 +150,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canManageProviderAccounts: true,
     canConnectApiToken: true,
     canManagePlatformProviders: true,
+    canViewConnectionLogs: true,
+    canRotateSecrets: true,
+    canManageBusinessScopedIntegrations: true,
   },
   controller: {
     ...BASE_PERMISSIONS,
