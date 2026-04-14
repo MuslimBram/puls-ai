@@ -49,6 +49,10 @@ export interface RolePermissions {
   canManageProviderAccounts: boolean;
   canConnectApiToken: boolean;
   canManagePlatformProviders: boolean;
+  // New permissions (v2)
+  canViewConnectionLogs: boolean;
+  canRotateSecrets: boolean;
+  canManageBusinessScopedIntegrations: boolean;
 }
 
 const BASE_PERMISSIONS: RolePermissions = {
