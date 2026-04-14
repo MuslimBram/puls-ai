@@ -87,6 +87,9 @@ const BASE_PERMISSIONS: RolePermissions = {
   canManageProviderAccounts: false,
   canConnectApiToken: false,
   canManagePlatformProviders: false,
+  canViewConnectionLogs: false,
+  canRotateSecrets: false,
+  canManageBusinessScopedIntegrations: false,
 };
 
 const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
