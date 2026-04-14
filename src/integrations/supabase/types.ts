@@ -3803,6 +3803,44 @@ export type Database = {
           },
         ]
       }
+      connection_logs: {
+        Row: {
+          connection_id: string | null
+          created_at: string
+          event_type: string
+          id: string
+          message: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          connection_id?: string | null
+          created_at?: string
+          event_type: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          connection_id?: string | null
+          created_at?: string
+          event_type?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connection_logs_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "unified_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_segments: {
         Row: {
           contact_count: number | null
@@ -8292,6 +8330,53 @@ export type Database = {
           },
         ]
       }
+      n8n_configurations: {
+        Row: {
+          base_url: string
+          created_at: string
+          event_mappings: Json
+          id: string
+          last_error: string | null
+          last_tested_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          base_url: string
+          created_at?: string
+          event_mappings?: Json
+          id?: string
+          last_error?: string | null
+          last_tested_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          base_url?: string
+          created_at?: string
+          event_mappings?: Json
+          id?: string
+          last_error?: string | null
+          last_tested_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "n8n_configurations_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oauth_states: {
         Row: {
           channel_type: string
@@ -12147,6 +12232,78 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      unified_connections: {
+        Row: {
+          business_id: string | null
+          category: string
+          config_json: Json
+          connection_type: string
+          created_at: string
+          credentials_encrypted: Json
+          display_name: string | null
+          id: string
+          is_enabled: boolean
+          last_error: string | null
+          last_tested_at: string | null
+          provider: string
+          status: string
+          updated_at: string
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          business_id?: string | null
+          category?: string
+          config_json?: Json
+          connection_type?: string
+          created_at?: string
+          credentials_encrypted?: Json
+          display_name?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_error?: string | null
+          last_tested_at?: string | null
+          provider: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          business_id?: string | null
+          category?: string
+          config_json?: Json
+          connection_type?: string
+          created_at?: string
+          credentials_encrypted?: Json
+          display_name?: string | null
+          id?: string
+          is_enabled?: boolean
+          last_error?: string | null
+          last_tested_at?: string | null
+          provider?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unified_connections_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unified_connections_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       upsell_actions: {
         Row: {

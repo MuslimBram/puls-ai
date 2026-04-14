@@ -49,6 +49,10 @@ export interface RolePermissions {
   canManageProviderAccounts: boolean;
   canConnectApiToken: boolean;
   canManagePlatformProviders: boolean;
+  // New permissions (v2)
+  canViewConnectionLogs: boolean;
+  canRotateSecrets: boolean;
+  canManageBusinessScopedIntegrations: boolean;
 }
 
 const BASE_PERMISSIONS: RolePermissions = {
@@ -83,6 +87,9 @@ const BASE_PERMISSIONS: RolePermissions = {
   canManageProviderAccounts: false,
   canConnectApiToken: false,
   canManagePlatformProviders: false,
+  canViewConnectionLogs: false,
+  canRotateSecrets: false,
+  canManageBusinessScopedIntegrations: false,
 };
 
 const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
@@ -104,6 +111,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canViewAnalytics: true,
     canMonitorConnections: true,
     canManagePlatformProviders: true,
+    canViewConnectionLogs: true,
+    canRotateSecrets: true,
+    canManageBusinessScopedIntegrations: true,
     // super_admin monitors but does NOT connect on behalf of businesses
     canConnectChannels: false,
     canConnectOAuth: false,
@@ -140,6 +150,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canManageProviderAccounts: true,
     canConnectApiToken: true,
     canManagePlatformProviders: true,
+    canViewConnectionLogs: true,
+    canRotateSecrets: true,
+    canManageBusinessScopedIntegrations: true,
   },
   controller: {
     ...BASE_PERMISSIONS,
@@ -176,6 +189,8 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canTestConnections: true,
     canManageProviderAccounts: false,
     canManagePlatformProviders: false,
+    canViewConnectionLogs: true,
+    canManageBusinessScopedIntegrations: true,
   },
   business_manager: {
     ...BASE_PERMISSIONS,
@@ -216,6 +231,8 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canTestConnections: true,
     canManageProviderAccounts: false,
     canManagePlatformProviders: false,
+    canViewConnectionLogs: true,
+    canManageBusinessScopedIntegrations: true,
   },
   partner: {
     ...BASE_PERMISSIONS,
