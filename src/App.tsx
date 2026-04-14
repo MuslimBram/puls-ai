@@ -169,6 +169,7 @@ const App = () => (
                 <Route path="/branding" element={<ProtectedPage><Branding /></ProtectedPage>} />
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
                 <Route path="/admin/businesses/:businessId/scan-insights" element={<AdminPage><AdminBusinessScanInsights /></AdminPage>} />
+                <Route path="/admin/integration-hub" element={<AdminPage><AdminIntegrationHub /></AdminPage>} />
                 <Route path="/deep-analytics" element={<AdminPage><DeepAnalytics /></AdminPage>} />
                 <Route path="/public-api" element={<ProtectedPage><PublicApi /></ProtectedPage>} />
                 <Route path="/marketplace" element={<ProtectedPage><Marketplace /></ProtectedPage>} />
