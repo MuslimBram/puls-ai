@@ -33,6 +33,7 @@ const Subscription = lazy(() => import("./pages/Subscription"));
 const Admin = lazy(() => import("./pages/Admin"));
 const AdminBusinessScanInsights = lazy(() => import("./pages/AdminBusinessScanInsights"));
 const AdminIntegrationHub = lazy(() => import("./pages/AdminIntegrationHub"));
+const ActivationDashboard = lazy(() => import("./pages/ActivationDashboard"));
 const Inbox = lazy(() => import("./pages/Inbox"));
 const ConnectedAccounts = lazy(() => import("./pages/ConnectedAccounts"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
@@ -170,6 +171,7 @@ const App = () => (
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
                 <Route path="/admin/businesses/:businessId/scan-insights" element={<AdminPage><AdminBusinessScanInsights /></AdminPage>} />
                 <Route path="/admin/integration-hub" element={<AdminPage><AdminIntegrationHub /></AdminPage>} />
+                <Route path="/admin/activation" element={<AdminPage><ActivationDashboard /></AdminPage>} />
                 <Route path="/deep-analytics" element={<AdminPage><DeepAnalytics /></AdminPage>} />
                 <Route path="/public-api" element={<ProtectedPage><PublicApi /></ProtectedPage>} />
                 <Route path="/marketplace" element={<ProtectedPage><Marketplace /></ProtectedPage>} />
