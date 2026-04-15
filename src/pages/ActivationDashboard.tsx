@@ -15,11 +15,11 @@ import {
 import { format } from "date-fns";
 
 const statusConfig: Record<ModuleStatus, { label: string; color: string; icon: any }> = {
-  connected: { label: "Connected", color: "bg-emerald-500/15 text-emerald-700 border-emerald-500/30", icon: CheckCircle2 },
+  connected: { label: "Connected", color: "bg-primary/15 text-primary border-primary/30", icon: CheckCircle2 },
   missing: { label: "Missing", color: "bg-destructive/15 text-destructive border-destructive/30", icon: XCircle },
   error: { label: "Error", color: "bg-destructive/15 text-destructive border-destructive/30", icon: XCircle },
-  needs_config: { label: "Needs Config", color: "bg-amber-500/15 text-amber-700 border-amber-500/30", icon: Settings },
-  connected_no_activity: { label: "No Activity", color: "bg-amber-500/15 text-amber-700 border-amber-500/30", icon: AlertTriangle },
+  needs_config: { label: "Needs Config", color: "bg-accent text-accent-foreground border-border", icon: Settings },
+  connected_no_activity: { label: "No Activity", color: "bg-accent text-accent-foreground border-border", icon: AlertTriangle },
   not_tested: { label: "Not Tested", color: "bg-muted text-muted-foreground border-border", icon: TestTube },
 };
 
@@ -92,16 +92,16 @@ const ActivationDashboard = () => {
         )}
 
         {warnings.length > 0 && (
-          <Card className="border-amber-500/40">
+          <Card className="border-accent">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-1.5">
-                <AlertTriangle className="h-4 w-4 text-amber-600" /> Warnings
+                <AlertTriangle className="h-4 w-4 text-muted-foreground" /> Warnings
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {warnings.map((w) => (
                 <div key={w.key} className="flex items-center gap-2 text-sm">
-                  <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                   <span className="text-foreground font-medium">{w.label}</span>
                   <span className="text-muted-foreground truncate text-xs">— {w.fixSuggestion}</span>
                 </div>
