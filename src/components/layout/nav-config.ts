@@ -193,6 +193,7 @@ export const adminNavGroups: NavGroup[] = [
     adminOnly: true,
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
+      { href: "/admin/activation", label: "Activation Status", icon: Activity },
       { href: "/admin/integration-hub", label: "Integration Hub", icon: Plug },
       { href: "/deep-analytics", label: "Analytics", icon: PieChart },
       { href: "/saas-health", label: "SaaS Health", icon: Brain },
