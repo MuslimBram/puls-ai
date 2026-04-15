@@ -303,7 +303,7 @@ const ActivationWizard = ({
                 <div
                   className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium shrink-0 ${
                     st === "done"
-                      ? "bg-emerald-500 text-white"
+                      ? "bg-primary text-primary-foreground"
                       : st === "current"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted text-muted-foreground"
