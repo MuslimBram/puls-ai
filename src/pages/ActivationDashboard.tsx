@@ -312,7 +312,7 @@ const ActivationWizard = ({
                   {st === "done" ? "✓" : i + 1}
                 </div>
                 {i < WIZARD_STEPS.length - 1 && (
-                  <div className={`h-0.5 flex-1 ${st === "done" ? "bg-emerald-500" : "bg-border"}`} />
+                  <div className={`h-0.5 flex-1 ${st === "done" ? "bg-primary" : "bg-border"}`} />
                 )}
               </div>
             );
