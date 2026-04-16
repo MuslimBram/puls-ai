@@ -101,8 +101,8 @@ const Dashboard = () => {
                 hasTelegram={hasTelegram}
                 hasLeads={(leads ?? []).length > 0}
                 hasChannel={(channels ?? []).length > 0}
-                hasKnowledge={false}
-                hasAutomation={false}
+                hasKnowledge={(knowledgeCount ?? 0) > 0}
+                hasAutomation={(automationCount ?? 0) > 0}
                 hasInbox={(messages ?? []).length > 0}
               />
             </SafeRender>
