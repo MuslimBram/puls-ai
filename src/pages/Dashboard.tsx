@@ -45,6 +45,30 @@ const Dashboard = () => {
   const { plan, checkLimit, subscription } = useFeatureGating();
   const { track } = useConversionTracking();
 
+  const { data: knowledgeCount } = useQuery({
+    queryKey: ["knowledge-count", profile?.user_id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("knowledge_chunks")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", profile!.user_id);
+      return count ?? 0;
+    },
+    enabled: !!profile?.user_id,
+  });
+
+  const { data: automationCount } = useQuery({
+    queryKey: ["automation-count", profile?.user_id],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("automation_workflows")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", profile!.user_id);
+      return count ?? 0;
+    },
+    enabled: !!profile?.user_id,
+  });
+
   useEffect(() => {
     track("plan_page_view", { page: "dashboard" });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
