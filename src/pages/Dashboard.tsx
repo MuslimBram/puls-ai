@@ -6,6 +6,8 @@ import { useLeads } from "@/hooks/useLeads";
 import { useChannels } from "@/hooks/useChannels";
 import { useKeywords } from "@/hooks/useKeywords";
 import { useInbox } from "@/hooks/useInbox";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useConversionTracking } from "@/hooks/useConversionTracking";
 import { UsageIndicator } from "@/components/UsageIndicator";
