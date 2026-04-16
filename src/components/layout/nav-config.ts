@@ -47,6 +47,7 @@ import {
   Activity,
   Gauge,
   Wallet,
+  HelpCircle,
 } from "lucide-react";
 import type { RolePermissions } from "@/hooks/useRolePermissions";
 
@@ -181,6 +182,8 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/reseller", label: "Reseller", icon: Store, requiredPermission: "canAccessBilling" },
       { href: "/ops-stability", label: "Ops Health", icon: Activity, requiredPermission: "canViewAnalytics" },
       { href: "/security", label: "Security", icon: Shield },
+      { href: "/managed-businesses", label: "Managed Businesses", icon: Users },
+      { href: "/help-center", label: "Help Center", icon: HelpCircle },
     ],
   },
 ];

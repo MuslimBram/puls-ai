@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
+import { buildReferralLink } from "@/lib/referral";
 
 const PartnerDashboard = () => {
   const { data: partner, isLoading } = usePartnerAccount();
@@ -33,9 +34,7 @@ const PartnerDashboard = () => {
   const [partnerName, setPartnerName] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const referralLink = partner?.referral_code
-    ? `${window.location.origin}/register?ref=${partner.referral_code}`
-    : null;
+  const referralLink = buildReferralLink(partner?.referral_code);
 
   const copyLink = () => {
     if (referralLink) {

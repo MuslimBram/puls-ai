@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
+import { buildReferralLink } from "@/lib/referral";
 
 const statusConfig: Record<string, { icon: any; color: string; label: string }> = {
   pending: { icon: Clock, color: "bg-yellow-500/10 text-yellow-700", label: "Pending" },
@@ -44,9 +45,7 @@ const ReferralProgram = () => {
   const generateCode = useGenerateReferralCode();
   const [copied, setCopied] = useState(false);
 
-  const referralLink = referralCode?.referral_code
-    ? `${window.location.origin}/register?ref=${referralCode.referral_code}`
-    : null;
+  const referralLink = buildReferralLink(referralCode?.referral_code);
 
   const copyLink = () => {
     if (referralLink) {
