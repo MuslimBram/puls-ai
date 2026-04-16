@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ReferralIncentivePopup } from "@/components/ReferralIncentivePopup";
 import { FloatingAIBot } from "@/components/FloatingAIBot";
+import { NavigationButtons } from "@/components/NavigationButtons";
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -22,6 +23,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
       <div className="flex flex-1 flex-col">
         <DashboardHeader onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
+          <NavigationButtons />
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>
       </div>
