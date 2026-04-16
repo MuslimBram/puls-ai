@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { DashboardHeader } from "@/components/layout/DashboardHeader";
 import { ReferralIncentivePopup } from "@/components/ReferralIncentivePopup";
 import { FloatingAIBot } from "@/components/FloatingAIBot";
+import { NavigationButtons } from "@/components/NavigationButtons";
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
