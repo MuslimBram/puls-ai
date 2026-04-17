@@ -227,7 +227,17 @@ async function processMessage(
   const intentScore = matched.length > 0 ? 0.5 : 0.1;
 
   // Insert inbox message
-  const { error: inboxErr } = await supabase.from("inbox_messages").insert({
+  // Upsert conversation thread for traceability
+  const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
+    _user_id: matchedChannel.user_id,
+    _channel_type: msg.channelType,
+    _contact_identifier: msg.senderId,
+    _contact_name: msg.senderName,
+    _message_preview: msg.content,
+    _direction: "inbound",
+  });
+
+  const { data: inboxMsg, error: inboxErr } = await supabase.from("inbox_messages").insert({
     user_id: matchedChannel.user_id,
     channel_id: matchedChannel.id,
     channel_type: msg.channelType,
@@ -241,7 +251,8 @@ async function processMessage(
     is_unread: true,
     priority: matched.length > 0 ? "medium" : "normal",
     status: "new",
-  });
+    thread_id: threadId || null,
+  }).select("id").single();
 
   if (inboxErr) {
     console.error(`[META-WEBHOOK] Inbox insert error:`, inboxErr);
@@ -255,6 +266,10 @@ async function processMessage(
       message_content: msg.content,
       source_name: msg.senderName,
       source_type: msg.channelType,
+      channel_type: msg.channelType,
+      contact_identifier: msg.senderId,
+      thread_id: threadId || null,
+      inbox_message_id: inboxMsg?.id || null,
       message_date: msg.timestamp,
       detected_keyword: matched[0],
       intent_score: intentScore,

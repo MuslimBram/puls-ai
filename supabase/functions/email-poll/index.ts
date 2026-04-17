@@ -331,7 +331,7 @@ serve(async (req) => {
               if (headers.inReplyTo) metadata.in_reply_to = headers.inReplyTo;
               if (headers.hasAttachment) metadata.has_attachment = true;
 
-              await supabase.from("inbox_messages").insert({
+              const { data: insertedInboxMsg } = await supabase.from("inbox_messages").insert({
                 user_id: channel.user_id,
                 workspace_id: channel.workspace_id,
                 channel_id: channel.id,
@@ -348,7 +348,7 @@ serve(async (req) => {
                 status: "new",
                 thread_id: threadId,
                 metadata: Object.keys(metadata).length > 0 ? metadata : null,
-              });
+              }).select("id").single();
 
               if (matched.length > 0 && aiScore >= 0.3) {
                 await supabase.from("leads").insert({
@@ -357,6 +357,10 @@ serve(async (req) => {
                   message_content: messageContent,
                   source_name: headers.fromEmail,
                   source_type: "email",
+                  channel_type: "email",
+                  contact_identifier: headers.fromEmail,
+                  thread_id: threadId || null,
+                  inbox_message_id: insertedInboxMsg?.id || null,
                   message_date: msgTimestamp,
                   detected_keyword: matched[0],
                   intent_score: aiScore,
