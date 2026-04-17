@@ -3,17 +3,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Campaign } from "@/hooks/useCampaigns";
 import { STATUS_COLORS } from "./constants";
-import { Megaphone, Sparkles, Trash2, Eye } from "lucide-react";
+import { Megaphone, Sparkles, Trash2, Eye, Send } from "lucide-react";
 
 interface CampaignCardProps {
   campaign: Campaign;
   onView: () => void;
   onDelete: () => void;
   onRegenerate: () => void;
+  onLaunch?: () => void;
   isRegenerating: boolean;
+  isLaunching?: boolean;
 }
 
-export const CampaignCard = ({ campaign, onView, onDelete, onRegenerate, isRegenerating }: CampaignCardProps) => (
+export const CampaignCard = ({ campaign, onView, onDelete, onRegenerate, onLaunch, isRegenerating, isLaunching }: CampaignCardProps) => (
   <Card className="hover:border-primary/20 transition-colors">
     <CardContent className="flex items-center justify-between py-4">
       <div className="flex-1 min-w-0">
@@ -36,6 +38,11 @@ export const CampaignCard = ({ campaign, onView, onDelete, onRegenerate, isRegen
         {campaign.status === "draft" && (
           <Button size="sm" variant="ghost" onClick={onRegenerate} disabled={isRegenerating}>
             <Sparkles className="h-4 w-4" />
+          </Button>
+        )}
+        {onLaunch && ["strategy_ready", "draft"].includes(campaign.status) && (
+          <Button size="sm" variant="default" onClick={onLaunch} disabled={isLaunching} title="Launch as broadcast">
+            <Send className="h-4 w-4 mr-1" /> Launch
           </Button>
         )}
         <Button size="sm" variant="ghost" className="text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
