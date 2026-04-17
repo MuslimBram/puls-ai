@@ -46,7 +46,7 @@ export const useOnboardingProgress = () => {
         supabase.from("business_profiles").select("id").eq("user_id", user!.id).limit(1),
         supabase.from("channels").select("id").eq("user_id", user!.id).eq("connection_status", "connected").limit(1),
         supabase.from("leads").select("id").eq("user_id", user!.id).limit(1),
-        supabase.from("knowledge_documents").select("id").eq("user_id", user!.id).limit(1),
+        supabase.from("knowledge_sources").select("id").eq("user_id", user!.id).limit(1),
         supabase.from("automation_workflows").select("id").eq("user_id", user!.id).limit(1),
       ]);
       return {
