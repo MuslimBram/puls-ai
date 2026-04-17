@@ -7331,10 +7331,13 @@ export type Database = {
       }
       leads: {
         Row: {
+          channel_type: string | null
+          contact_identifier: string | null
           created_at: string
           deleted_at: string | null
           detected_keyword: string | null
           id: string
+          inbox_message_id: string | null
           intent_score: number | null
           intent_type: string
           is_deleted: boolean
@@ -7345,15 +7348,19 @@ export type Database = {
           source_type: string
           status: string
           suggested_reply: string | null
+          thread_id: string | null
           urgency_level: string
           user_id: string
           workspace_id: string | null
         }
         Insert: {
+          channel_type?: string | null
+          contact_identifier?: string | null
           created_at?: string
           deleted_at?: string | null
           detected_keyword?: string | null
           id?: string
+          inbox_message_id?: string | null
           intent_score?: number | null
           intent_type?: string
           is_deleted?: boolean
@@ -7364,15 +7371,19 @@ export type Database = {
           source_type?: string
           status?: string
           suggested_reply?: string | null
+          thread_id?: string | null
           urgency_level?: string
           user_id: string
           workspace_id?: string | null
         }
         Update: {
+          channel_type?: string | null
+          contact_identifier?: string | null
           created_at?: string
           deleted_at?: string | null
           detected_keyword?: string | null
           id?: string
+          inbox_message_id?: string | null
           intent_score?: number | null
           intent_type?: string
           is_deleted?: boolean
@@ -7383,11 +7394,26 @@ export type Database = {
           source_type?: string
           status?: string
           suggested_reply?: string | null
+          thread_id?: string | null
           urgency_level?: string
           user_id?: string
           workspace_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "leads_inbox_message_id_fkey"
+            columns: ["inbox_message_id"]
+            isOneToOne: false
+            referencedRelation: "inbox_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leads_thread_id_fkey"
+            columns: ["thread_id"]
+            isOneToOne: false
+            referencedRelation: "conversation_threads"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "leads_workspace_id_fkey"
             columns: ["workspace_id"]
