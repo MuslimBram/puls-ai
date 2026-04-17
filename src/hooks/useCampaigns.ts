@@ -154,6 +154,30 @@ export const useUpdateCampaign = () => {
   });
 };
 
+export const useLaunchCampaignBroadcast = () => {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async ({ campaignId, segmentId, channelOverride, scheduledAt }: { campaignId: string; segmentId?: string; channelOverride?: string; scheduledAt?: string }) => {
+      const { data, error } = await supabase.functions.invoke("launch-campaign-broadcast", {
+        body: { campaign_id: campaignId, segment_id: segmentId, channel_override: channelOverride, scheduled_at: scheduledAt },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["broadcasts"] });
+      const count = data?.broadcasts_created?.length || 0;
+      toast({ title: "Campaign launched", description: `${count} broadcast(s) created with ${data?.total_recipients || 0} recipients.` });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Launch failed", description: e.message, variant: "destructive" });
+    },
+  });
+};
+
 export const useDeleteCampaign = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
