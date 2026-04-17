@@ -23,7 +23,8 @@ export const useOnboardingProgress = () => {
   const { workspace } = useWorkspace();
   const qc = useQueryClient();
 
-  const query = useQuery({
+  // Stored completions
+  const stored = useQuery({
     queryKey: ["onboarding-progress", user?.id, workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -37,11 +38,35 @@ export const useOnboardingProgress = () => {
     enabled: !!user && !!workspace,
   });
 
-  const completedKeys = new Set((query.data || []).filter((s: any) => s.completed_at).map((s: any) => s.step_key));
+  // Live signals — auto-detect completion from real data
+  const signals = useQuery({
+    queryKey: ["onboarding-signals", user?.id],
+    queryFn: async () => {
+      const [profile, channels, contacts, knowledge, automations] = await Promise.all([
+        supabase.from("business_profiles").select("id").eq("user_id", user!.id).limit(1),
+        supabase.from("channels").select("id").eq("user_id", user!.id).eq("connection_status", "connected").limit(1),
+        supabase.from("leads").select("id").eq("user_id", user!.id).limit(1),
+        supabase.from("knowledge_documents").select("id").eq("user_id", user!.id).limit(1),
+        supabase.from("automation_workflows").select("id").eq("user_id", user!.id).limit(1),
+      ]);
+      return {
+        business_profile: (profile.data ?? []).length > 0,
+        connect_channel: (channels.data ?? []).length > 0,
+        import_contacts: (contacts.data ?? []).length > 0,
+        upload_knowledge: (knowledge.data ?? []).length > 0,
+        create_automation: (automations.data ?? []).length > 0,
+      } as Record<string, boolean>;
+    },
+    enabled: !!user,
+    staleTime: 30000,
+  });
+
+  const storedKeys = new Set((stored.data || []).filter((s: any) => s.completed_at).map((s: any) => s.step_key));
+  const live = signals.data || {};
 
   const steps: OnboardingStep[] = ONBOARDING_STEPS.map((s) => ({
     ...s,
-    completed: completedKeys.has(s.key),
+    completed: storedKeys.has(s.key) || !!live[s.key],
   }));
 
   const completionPct = steps.length > 0 ? Math.round((steps.filter((s) => s.completed).length / steps.length) * 100) : 0;
@@ -61,5 +86,5 @@ export const useOnboardingProgress = () => {
 
   const isComplete = completionPct === 100;
 
-  return { steps, completionPct, isComplete, completeStep, isLoading: query.isLoading };
+  return { steps, completionPct, isComplete, completeStep, isLoading: stored.isLoading || signals.isLoading };
 };
