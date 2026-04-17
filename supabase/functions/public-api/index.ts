@@ -198,18 +198,33 @@ serve(async (req) => {
           if (!hasPermission(permissions, "write")) throw new Error("Insufficient permissions");
           const body = await req.json();
           if (!body.workflow_id) throw new Error("workflow_id required");
-          // Trigger automation by inserting a log entry
-          const { data, error } = await supabase.from("automation_logs").insert({
-            user_id,
-            workflow_id: body.workflow_id,
-            trigger_event: "api_trigger",
-            status: "queued",
-            metadata: body.metadata || {},
-          }).select().single();
-          if (error) throw error;
-          result = { automation_run: data };
+          // Look up workflow to get its trigger_type, then invoke execute-automation
+          const { data: wf, error: wfErr } = await supabase
+            .from("automation_workflows")
+            .select("id, trigger_type, workspace_id, user_id")
+            .eq("id", body.workflow_id)
+            .eq("user_id", user_id)
+            .maybeSingle();
+          if (wfErr) throw wfErr;
+          if (!wf) throw new Error("workflow not found");
+
+          const execResp = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/execute-automation`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+            },
+            body: JSON.stringify({
+              trigger_type: wf.trigger_type,
+              user_id,
+              workspace_id: wf.workspace_id,
+              trigger_data: { ...(body.metadata || {}), api_trigger: true, workflow_id: wf.id },
+            }),
+          });
+          const execData = await execResp.json();
+          result = { automation_run: execData };
           statusCode = 201;
-          await fireZapierWebhooks(user_id, "automation.triggered", data);
+          await fireZapierWebhooks(user_id, "automation.triggered", { workflow_id: wf.id, ...execData });
         } else {
           throw new Error("Method not allowed");
         }

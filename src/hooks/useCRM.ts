@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
+import { triggerAutomation } from "@/lib/triggerAutomation";
 
 export interface PipelineStage {
   id: string;
@@ -128,28 +129,54 @@ export const useDeals = () => {
 
   const addDeal = useMutation({
     mutationFn: async (deal: Partial<Deal>) => {
-      const { error } = await supabase.from("deals").insert({
+      const { data, error } = await supabase.from("deals").insert({
         ...deal,
         user_id: user!.id,
-      } as any);
+      } as any).select().single();
       if (error) throw error;
+      return data;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["deals"] });
       toast.success("Deal created");
+      // Fire automation: new_lead trigger when a deal is created
+      if (data && user) {
+        triggerAutomation({
+          trigger_type: "new_lead",
+          user_id: user.id,
+          trigger_data: { deal_id: (data as any).id, source: "deal_created" },
+        });
+      }
     },
     onError: (e) => toast.error(e.message),
   });
 
   const updateDeal = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Deal> & { id: string }) => {
+      // Capture previous stage to detect transitions
+      const { data: prev } = await supabase.from("deals").select("stage_id").eq("id", id).maybeSingle();
       const { error } = await supabase
         .from("deals")
         .update({ ...updates, updated_at: new Date().toISOString() } as any)
         .eq("id", id);
       if (error) throw error;
+      return { id, prevStageId: prev?.stage_id ?? null, newStageId: (updates as any).stage_id ?? null };
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["deals"] }),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      // Fire automation: pipeline_stage_change when stage actually changed
+      if (res && user && res.newStageId && res.newStageId !== res.prevStageId) {
+        triggerAutomation({
+          trigger_type: "pipeline_stage_change",
+          user_id: user.id,
+          trigger_data: {
+            deal_id: res.id,
+            from_stage_id: res.prevStageId,
+            to_stage_id: res.newStageId,
+          },
+        });
+      }
+    },
     onError: (e) => toast.error(e.message),
   });
 

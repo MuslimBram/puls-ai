@@ -38,7 +38,7 @@ import {
 import { format, formatDistanceToNow } from "date-fns";
 
 const Automations = () => {
-  const { workflows, isLoading, createWorkflow, updateWorkflow, deleteWorkflow, toggleActive } =
+  const { workflows, isLoading, createWorkflow, updateWorkflow, deleteWorkflow, toggleActive, runWorkflowNow } =
     useAutomationWorkflows();
   const [showCreate, setShowCreate] = useState(false);
   const [editingWorkflow, setEditingWorkflow] = useState<AutomationWorkflow | null>(null);
@@ -183,6 +183,15 @@ const Automations = () => {
                         checked={workflow.is_active}
                         onCheckedChange={(v) => toggleActive.mutate({ id: workflow.id, is_active: v })}
                       />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => runWorkflowNow.mutate(workflow)}
+                        disabled={runWorkflowNow.isPending}
+                        title="Run now"
+                      >
+                        <Play className="h-4 w-4" />
+                      </Button>
                       <Button size="sm" variant="ghost" onClick={() => setViewingLogs(workflow)}>
                         <Eye className="h-4 w-4" />
                       </Button>
