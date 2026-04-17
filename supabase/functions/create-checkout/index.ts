@@ -33,7 +33,17 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated");
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+    if (!stripeKey) {
+      // Soft-fail: Stripe is optional — PayPal flow remains available.
+      return new Response(
+        JSON.stringify({
+          error: "stripe_unavailable",
+          message: "Card payments are temporarily unavailable. Please use PayPal to complete your purchase.",
+          fallback: "paypal",
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
     const body = await req.json();
