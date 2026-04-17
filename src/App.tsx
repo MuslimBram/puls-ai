@@ -92,6 +92,8 @@ const SEOAudit = lazy(() => import("./pages/SEOAudit"));
 const ReferralProgram = lazy(() => import("./pages/ReferralProgram"));
 const HelpCenter = lazy(() => import("./pages/HelpCenter"));
 const ManagedBusinesses = lazy(() => import("./pages/ManagedBusinesses"));
+const SupportTickets = lazy(() => import("./pages/SupportTickets"));
+const AdminSupportTickets = lazy(() => import("./pages/AdminSupportTickets"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -225,6 +227,8 @@ const App = () => (
                 <Route path="/referrals" element={<Navigate to="/referral-program" replace />} />
                 <Route path="/help-center" element={<ProtectedPage><HelpCenter /></ProtectedPage>} />
                 <Route path="/managed-businesses" element={<ProtectedPage><ManagedBusinesses /></ProtectedPage>} />
+                <Route path="/support" element={<ProtectedPage><SupportTickets /></ProtectedPage>} />
+                <Route path="/admin/support-tickets" element={<AdminRoute><AdminSupportTickets /></AdminRoute>} />
                 <Route path="/partner-clients" element={<Navigate to="/partner" replace />} />
                 <Route path="/business-insights" element={<Navigate to="/deep-analytics?tab=insights" replace />} />
 
