@@ -12058,6 +12058,103 @@ export type Database = {
           },
         ]
       }
+      support_ticket_messages: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          internal_note: boolean
+          sender_role: string
+          sender_user_id: string
+          ticket_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          internal_note?: boolean
+          sender_role?: string
+          sender_user_id: string
+          ticket_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          internal_note?: boolean
+          sender_role?: string
+          sender_user_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "support_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      support_tickets: {
+        Row: {
+          assigned_admin_id: string | null
+          category: string
+          created_at: string
+          description: string
+          id: string
+          metadata: Json | null
+          priority: string
+          requester_email: string | null
+          requester_user_id: string
+          resolved_at: string | null
+          status: string
+          subject: string
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          assigned_admin_id?: string | null
+          category?: string
+          created_at?: string
+          description: string
+          id?: string
+          metadata?: Json | null
+          priority?: string
+          requester_email?: string | null
+          requester_user_id: string
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          assigned_admin_id?: string | null
+          category?: string
+          created_at?: string
+          description?: string
+          id?: string
+          metadata?: Json | null
+          priority?: string
+          requester_email?: string | null
+          requester_user_id?: string
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
