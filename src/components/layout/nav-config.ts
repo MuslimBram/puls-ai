@@ -181,6 +181,7 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/partner", label: "Partners", icon: Handshake },
       { href: "/reseller", label: "Reseller", icon: Store, requiredPermission: "canAccessBilling" },
       { href: "/ops-stability", label: "Ops Health", icon: Activity, requiredPermission: "canViewAnalytics" },
+      { href: "/system-status", label: "System Status", icon: Activity },
       { href: "/security", label: "Security", icon: Shield },
       { href: "/managed-businesses", label: "Managed Businesses", icon: Users },
       { href: "/help-center", label: "Help Center", icon: HelpCircle },
