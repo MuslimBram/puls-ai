@@ -20,7 +20,7 @@ const SystemStatus = () => {
     queryFn: async () => {
       const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
       const [channels, automations, autoLogs, apiErrors, msgs] = await Promise.all([
-        supabase.from("channels").select("channel_type, connection_status, is_enabled, last_synced_at").eq("user_id", user!.id),
+        supabase.from("channels").select("channel_type, connection_status, is_enabled").eq("user_id", user!.id),
         supabase.from("automation_workflows").select("id, is_active").eq("user_id", user!.id),
         supabase.from("automation_logs").select("status").eq("user_id", user!.id).gte("created_at", dayAgo),
         supabase.from("api_error_log").select("endpoint, status_code, created_at").gte("created_at", dayAgo).limit(20).order("created_at", { ascending: false }),
