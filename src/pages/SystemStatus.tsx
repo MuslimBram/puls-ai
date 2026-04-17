@@ -57,7 +57,7 @@ const SystemStatus = () => {
   const overallOk = channelHealth >= 50 && automationHealth >= 80 && data.apiErrors.length < 5;
 
   const statusBadge = (pct: number) => {
-    if (pct >= 80) return <Badge className="bg-emerald-500/15 text-emerald-600 hover:bg-emerald-500/15"><CheckCircle2 className="h-3 w-3 mr-1" />Healthy</Badge>;
+    if (pct >= 80) return <Badge className="bg-primary/15 text-primary hover:bg-primary/15"><CheckCircle2 className="h-3 w-3 mr-1" />Healthy</Badge>;
     if (pct >= 50) return <Badge variant="secondary"><AlertTriangle className="h-3 w-3 mr-1" />Degraded</Badge>;
     return <Badge variant="destructive"><XCircle className="h-3 w-3 mr-1" />Action needed</Badge>;
   };
@@ -75,9 +75,9 @@ const SystemStatus = () => {
           </Button>
         </div>
 
-        <Card className={overallOk ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}>
+        <Card className={overallOk ? "border-primary/30 bg-primary/5" : "border-destructive/30 bg-destructive/5"}>
           <CardContent className="flex items-center gap-4 py-5">
-            {overallOk ? <CheckCircle2 className="h-10 w-10 text-emerald-500" /> : <AlertTriangle className="h-10 w-10 text-amber-500" />}
+            {overallOk ? <CheckCircle2 className="h-10 w-10 text-primary" /> : <AlertTriangle className="h-10 w-10 text-destructive" />}
             <div className="flex-1">
               <p className="font-semibold text-lg">{overallOk ? "All systems operational" : "Some systems need your attention"}</p>
               <p className="text-sm text-muted-foreground">{data.msgs24h} messages received in the last 24 hours.</p>
