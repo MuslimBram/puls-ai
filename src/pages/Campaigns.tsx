@@ -12,6 +12,7 @@ import {
   useCreateCampaign,
   useGenerateCampaignStrategy,
   useDeleteCampaign,
+  useLaunchCampaignBroadcast,
   Campaign,
 } from "@/hooks/useCampaigns";
 import { CampaignCard } from "@/components/campaigns/CampaignCard";
@@ -24,6 +25,7 @@ const Campaigns = () => {
   const createMutation = useCreateCampaign();
   const generateMutation = useGenerateCampaignStrategy();
   const deleteMutation = useDeleteCampaign();
+  const launchMutation = useLaunchCampaignBroadcast();
 
   const [showCreate, setShowCreate] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -119,7 +121,9 @@ const Campaigns = () => {
                     onView={() => setSelectedCampaign(campaign)}
                     onDelete={() => deleteMutation.mutate(campaign.id)}
                     onRegenerate={() => generateMutation.mutate({ campaignId: campaign.id, campaignData: campaign })}
+                    onLaunch={() => launchMutation.mutate({ campaignId: campaign.id })}
                     isRegenerating={generateMutation.isPending}
+                    isLaunching={launchMutation.isPending}
                   />
                 ))}
               </div>
