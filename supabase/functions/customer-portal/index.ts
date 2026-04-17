@@ -18,7 +18,16 @@ serve(async (req) => {
 
   try {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
-    if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
+    if (!stripeKey) {
+      // Soft-fail: Stripe billing portal unavailable — surface a clean message instead of 500.
+      return new Response(
+        JSON.stringify({
+          error: "stripe_unavailable",
+          message: "Stripe billing portal is not configured. Manage your subscription via PayPal or contact support.",
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header");
