@@ -35,7 +35,7 @@ export const ValidateWhatsAppButton = () => {
   const Row = ({ label, ok }: { label: string; ok: boolean }) => (
     <div className="flex items-center justify-between text-sm py-1">
       <span className="text-foreground">{label}</span>
-      {ok ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <XCircle className="h-4 w-4 text-destructive" />}
+      {ok ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <XCircle className="h-4 w-4 text-destructive" />}
     </div>
   );
 

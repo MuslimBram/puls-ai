@@ -12,6 +12,7 @@ import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { ChannelConnectionModal } from "@/components/channels/ChannelConnectionModal";
 import { ConnectedChannelCard } from "@/components/channels/ConnectedChannelCard";
 import { ChannelCatalogCard } from "@/components/channels/ChannelCatalogCard";
+import { ValidateWhatsAppButton } from "@/components/channels/ValidateWhatsAppButton";
 import type { PlanKey } from "@/types/monetization";
 import {
   Globe, Mail, MessageSquare, Phone, Plug, Radio, Webhook,
@@ -78,11 +79,16 @@ const Channels = () => {
             {/* Connected Channels */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Radio className="h-5 w-5 text-primary" />
-                  Connected Channels
-                </CardTitle>
-                <CardDescription>Manage your active communication channels and their connection modes.</CardDescription>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <CardTitle className="flex items-center gap-2 text-lg">
+                      <Radio className="h-5 w-5 text-primary" />
+                      Connected Channels
+                    </CardTitle>
+                    <CardDescription>Manage your active communication channels and their connection modes.</CardDescription>
+                  </div>
+                  {channels.some((c) => c.channel_type === "whatsapp") && <ValidateWhatsAppButton />}
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
