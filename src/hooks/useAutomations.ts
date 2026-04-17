@@ -133,6 +133,27 @@ export const useAutomationWorkflows = () => {
     },
   });
 
+  const runWorkflowNow = useMutation({
+    mutationFn: async (workflow: AutomationWorkflow) => {
+      const { data, error } = await supabase.functions.invoke("execute-automation", {
+        body: {
+          trigger_type: workflow.trigger_type,
+          user_id: user!.id,
+          workspace_id: workflow.workspace_id,
+          trigger_data: { manual_run: true, workflow_id: workflow.id },
+        },
+      });
+      if (error) throw error;
+      return data as { executed: number };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["automation-workflows"] });
+      queryClient.invalidateQueries({ queryKey: ["automation-logs"] });
+      toast.success(`Executed ${data?.executed ?? 0} workflow(s)`);
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   return {
     workflows: query.data ?? [],
     isLoading: query.isLoading,
@@ -140,6 +161,7 @@ export const useAutomationWorkflows = () => {
     updateWorkflow,
     deleteWorkflow,
     toggleActive,
+    runWorkflowNow,
   };
 };
 
