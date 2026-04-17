@@ -94,6 +94,7 @@ const HelpCenter = lazy(() => import("./pages/HelpCenter"));
 const ManagedBusinesses = lazy(() => import("./pages/ManagedBusinesses"));
 const SupportTickets = lazy(() => import("./pages/SupportTickets"));
 const AdminSupportTickets = lazy(() => import("./pages/AdminSupportTickets"));
+const SystemStatus = lazy(() => import("./pages/SystemStatus"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -212,6 +213,7 @@ const App = () => (
                 <Route path="/growth-loop" element={<ProtectedPage><GrowthLoop /></ProtectedPage>} />
                 <Route path="/credits" element={<ProtectedPage><CreditEconomy /></ProtectedPage>} />
                 <Route path="/ops-stability" element={<ProtectedPage><OpsStability /></ProtectedPage>} />
+                <Route path="/system-status" element={<ProtectedPage><SystemStatus /></ProtectedPage>} />
                 <Route path="/wallet" element={<ProtectedPage><WalletPage /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
 
