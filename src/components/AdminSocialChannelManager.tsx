@@ -71,13 +71,13 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
           channel_name: `${form.account_name} (${form.platform})`,
           channel_type: form.platform,
           is_enabled: true,
-          credentials: {
+          credentials_encrypted: {
             account_name: form.account_name,
             account_url: form.account_url,
             login_email: form.login_email,
             managed_by_admin: user!.id,
             notes: form.notes,
-          },
+          } as any,
         } as any);
       if (error) throw error;
     },
@@ -199,7 +199,7 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
           <div className="space-y-2">
             {channels.map((ch: any) => {
               const platform = SOCIAL_PLATFORMS.find((p) => p.value === ch.channel_type);
-              const creds = ch.credentials as any;
+              const creds = (ch.credentials_encrypted ?? ch.credentials) as any;
               return (
                 <div key={ch.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
