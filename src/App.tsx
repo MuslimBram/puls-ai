@@ -9,6 +9,8 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
+import { PermissionRoute } from "@/components/PermissionRoute";
+import type { RolePermissions } from "@/hooks/useRolePermissions";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 // Eagerly loaded (critical path)
@@ -130,6 +132,22 @@ const AdminPage = ({ children }: { children: React.ReactNode }) => (
   </ProtectedRoute>
 );
 
+const PermissionPage = ({
+  children,
+  permission,
+}: {
+  children: React.ReactNode;
+  permission: keyof RolePermissions;
+}) => (
+  <ProtectedRoute>
+    <PermissionRoute permission={permission}>
+      <ErrorBoundary fallback={<PageErrorFallback />}>
+        <Suspense fallback={<LazyFallback />}>{children}</Suspense>
+      </ErrorBoundary>
+    </PermissionRoute>
+  </ProtectedRoute>
+);
+
 const App = () => (
   <ErrorBoundary fallback={<PageErrorFallback />}>
     <QueryClientProvider client={queryClient}>
@@ -150,69 +168,69 @@ const App = () => (
                 <Route path="/complete-payment" element={<ProtectedRoute><Suspense fallback={<LazyFallback />}><CompletePayment /></Suspense></ProtectedRoute>} />
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-                <Route path="/inbox" element={<ProtectedPage><Inbox /></ProtectedPage>} />
-                <Route path="/leads" element={<ProtectedPage><Leads /></ProtectedPage>} />
-                <Route path="/crm" element={<ProtectedPage><CRM /></ProtectedPage>} />
-                <Route path="/campaigns" element={<ProtectedPage><Campaigns /></ProtectedPage>} />
-                <Route path="/analytics" element={<ProtectedPage><Analytics /></ProtectedPage>} />
-                <Route path="/keywords" element={<ProtectedPage><Keywords /></ProtectedPage>} />
-                <Route path="/automations" element={<ProtectedPage><Automations /></ProtectedPage>} />
-                <Route path="/competitor-intelligence" element={<ProtectedPage><CompetitorIntelligence /></ProtectedPage>} />
-                <Route path="/seo-audit" element={<ProtectedPage><SEOAudit /></ProtectedPage>} />
-                <Route path="/knowledge-base" element={<ProtectedPage><KnowledgeBase /></ProtectedPage>} />
-                <Route path="/media-studio" element={<ProtectedPage><MediaStudio /></ProtectedPage>} />
-                <Route path="/broadcast" element={<ProtectedPage><BroadcastMessaging /></ProtectedPage>} />
-                <Route path="/helpdesk" element={<ProtectedPage><Helpdesk /></ProtectedPage>} />
-                <Route path="/telephony" element={<ProtectedPage><Telephony /></ProtectedPage>} />
-                <Route path="/channels" element={<ProtectedPage><Channels /></ProtectedPage>} />
+                <Route path="/inbox" element={<PermissionPage permission="canRespondInbox"><Inbox /></PermissionPage>} />
+                <Route path="/leads" element={<PermissionPage permission="canViewCRM"><Leads /></PermissionPage>} />
+                <Route path="/crm" element={<PermissionPage permission="canViewCRM"><CRM /></PermissionPage>} />
+                <Route path="/campaigns" element={<PermissionPage permission="canManageCampaigns"><Campaigns /></PermissionPage>} />
+                <Route path="/analytics" element={<PermissionPage permission="canViewAnalytics"><Analytics /></PermissionPage>} />
+                <Route path="/keywords" element={<PermissionPage permission="canViewAnalytics"><Keywords /></PermissionPage>} />
+                <Route path="/automations" element={<PermissionPage permission="canConfigureAutomations"><Automations /></PermissionPage>} />
+                <Route path="/competitor-intelligence" element={<PermissionPage permission="canViewAnalytics"><CompetitorIntelligence /></PermissionPage>} />
+                <Route path="/seo-audit" element={<PermissionPage permission="canViewAnalytics"><SEOAudit /></PermissionPage>} />
+                <Route path="/knowledge-base" element={<PermissionPage permission="canViewAnalytics"><KnowledgeBase /></PermissionPage>} />
+                <Route path="/media-studio" element={<PermissionPage permission="canManageCampaigns"><MediaStudio /></PermissionPage>} />
+                <Route path="/broadcast" element={<PermissionPage permission="canManageCampaigns"><BroadcastMessaging /></PermissionPage>} />
+                <Route path="/helpdesk" element={<PermissionPage permission="canRespondInbox"><Helpdesk /></PermissionPage>} />
+                <Route path="/telephony" element={<PermissionPage permission="canRespondInbox"><Telephony /></PermissionPage>} />
+                <Route path="/channels" element={<PermissionPage permission="canConnectChannels"><Channels /></PermissionPage>} />
                 <Route path="/oauth/callback" element={<Suspense fallback={<LazyFallback />}><OAuthCallback /></Suspense>} />
-                <Route path="/connections" element={<ProtectedPage><ConnectionsHub /></ProtectedPage>} />
-                <Route path="/connected-accounts" element={<ProtectedPage><ConnectedAccounts /></ProtectedPage>} />
+                <Route path="/connections" element={<PermissionPage permission="canConnectChannels"><ConnectionsHub /></PermissionPage>} />
+                <Route path="/connected-accounts" element={<PermissionPage permission="canConnectChannels"><ConnectedAccounts /></PermissionPage>} />
                 <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
-                <Route path="/subscription" element={<ProtectedPage><Subscription /></ProtectedPage>} />
+                <Route path="/subscription" element={<PermissionPage permission="canAccessBilling"><Subscription /></PermissionPage>} />
                 <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
                 <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
-                <Route path="/branding" element={<ProtectedPage><Branding /></ProtectedPage>} />
+                <Route path="/branding" element={<PermissionPage permission="canAccessBilling"><Branding /></PermissionPage>} />
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
                 <Route path="/admin/businesses/:businessId/scan-insights" element={<AdminPage><AdminBusinessScanInsights /></AdminPage>} />
                 <Route path="/admin/integration-hub" element={<AdminPage><AdminIntegrationHub /></AdminPage>} />
                 <Route path="/admin/activation" element={<AdminPage><ActivationDashboard /></AdminPage>} />
                 <Route path="/deep-analytics" element={<AdminPage><DeepAnalytics /></AdminPage>} />
-                <Route path="/public-api" element={<ProtectedPage><PublicApi /></ProtectedPage>} />
-                <Route path="/marketplace" element={<ProtectedPage><Marketplace /></ProtectedPage>} />
-                <Route path="/developer" element={<ProtectedPage><DeveloperPortal /></ProtectedPage>} />
+                <Route path="/public-api" element={<PermissionPage permission="canConnectChannels"><PublicApi /></PermissionPage>} />
+                <Route path="/marketplace" element={<PermissionPage permission="canConnectChannels"><Marketplace /></PermissionPage>} />
+                <Route path="/developer" element={<PermissionPage permission="canConnectChannels"><DeveloperPortal /></PermissionPage>} />
                 <Route path="/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
-                <Route path="/sales-engine" element={<ProtectedPage><SalesEngine /></ProtectedPage>} />
-                <Route path="/financial-intelligence" element={<ProtectedPage><FinancialIntelligence /></ProtectedPage>} />
+                <Route path="/sales-engine" element={<PermissionPage permission="canViewCRM"><SalesEngine /></PermissionPage>} />
+                <Route path="/financial-intelligence" element={<PermissionPage permission="canAccessBilling"><FinancialIntelligence /></PermissionPage>} />
                 <Route path="/saas-health" element={<AdminPage><SaaSHealth /></AdminPage>} />
-                <Route path="/reseller" element={<ProtectedPage><ResellerDashboard /></ProtectedPage>} />
-                <Route path="/marketing-automation" element={<ProtectedPage><MarketingAutomation /></ProtectedPage>} />
-                <Route path="/autonomous-ops" element={<ProtectedPage><AutonomousOps /></ProtectedPage>} />
-                <Route path="/revenue-engine" element={<ProtectedPage><RevenueEngine /></ProtectedPage>} />
-                <Route path="/growth-strategy" element={<ProtectedPage><GrowthStrategy /></ProtectedPage>} />
-                <Route path="/market-expansion" element={<ProtectedPage><MarketExpansion /></ProtectedPage>} />
-                <Route path="/pricing-optimization" element={<ProtectedPage><PricingOptimization /></ProtectedPage>} />
+                <Route path="/reseller" element={<PermissionPage permission="canAccessBilling"><ResellerDashboard /></PermissionPage>} />
+                <Route path="/marketing-automation" element={<PermissionPage permission="canConfigureAutomations"><MarketingAutomation /></PermissionPage>} />
+                <Route path="/autonomous-ops" element={<PermissionPage permission="canConfigureAutomations"><AutonomousOps /></PermissionPage>} />
+                <Route path="/revenue-engine" element={<PermissionPage permission="canViewAnalytics"><RevenueEngine /></PermissionPage>} />
+                <Route path="/growth-strategy" element={<PermissionPage permission="canConfigureAutomations"><GrowthStrategy /></PermissionPage>} />
+                <Route path="/market-expansion" element={<PermissionPage permission="canConfigureAutomations"><MarketExpansion /></PermissionPage>} />
+                <Route path="/pricing-optimization" element={<PermissionPage permission="canViewAnalytics"><PricingOptimization /></PermissionPage>} />
                 <Route path="/competitive-intelligence-engine" element={<Navigate to="/competitor-intelligence" replace />} />
-                <Route path="/brand-reputation" element={<ProtectedPage><BrandReputation /></ProtectedPage>} />
-                <Route path="/customer-experience" element={<ProtectedPage><CustomerExperience /></ProtectedPage>} />
-                <Route path="/retention" element={<ProtectedPage><RetentionMaximization /></ProtectedPage>} />
-                <Route path="/partnership-ecosystem" element={<ProtectedPage><PartnershipEcosystem /></ProtectedPage>} />
-                <Route path="/reengagement" element={<ProtectedPage><VisitorReengagement /></ProtectedPage>} />
-                <Route path="/personalization" element={<ProtectedPage><PersonalizationEngine /></ProtectedPage>} />
-                <Route path="/demand-forecasting" element={<ProtectedPage><DemandForecasting /></ProtectedPage>} />
-                <Route path="/workforce-optimization" element={<ProtectedPage><WorkforceOptimization /></ProtectedPage>} />
-                <Route path="/process-optimization" element={<ProtectedPage><ProcessOptimization /></ProtectedPage>} />
-                <Route path="/funnel-optimization" element={<ProtectedPage><FunnelOptimization /></ProtectedPage>} />
+                <Route path="/brand-reputation" element={<PermissionPage permission="canViewAnalytics"><BrandReputation /></PermissionPage>} />
+                <Route path="/customer-experience" element={<PermissionPage permission="canViewAnalytics"><CustomerExperience /></PermissionPage>} />
+                <Route path="/retention" element={<PermissionPage permission="canViewAnalytics"><RetentionMaximization /></PermissionPage>} />
+                <Route path="/partnership-ecosystem" element={<PermissionPage permission="canManageCampaigns"><PartnershipEcosystem /></PermissionPage>} />
+                <Route path="/reengagement" element={<PermissionPage permission="canManageCampaigns"><VisitorReengagement /></PermissionPage>} />
+                <Route path="/personalization" element={<PermissionPage permission="canViewAnalytics"><PersonalizationEngine /></PermissionPage>} />
+                <Route path="/demand-forecasting" element={<PermissionPage permission="canViewAnalytics"><DemandForecasting /></PermissionPage>} />
+                <Route path="/workforce-optimization" element={<PermissionPage permission="canViewAnalytics"><WorkforceOptimization /></PermissionPage>} />
+                <Route path="/process-optimization" element={<PermissionPage permission="canViewAnalytics"><ProcessOptimization /></PermissionPage>} />
+                <Route path="/funnel-optimization" element={<PermissionPage permission="canViewAnalytics"><FunnelOptimization /></PermissionPage>} />
                 <Route path="/offer-optimization" element={<Navigate to="/pricing-optimization" replace />} />
-                <Route path="/customer-value" element={<ProtectedPage><CustomerValueMaximization /></ProtectedPage>} />
-                <Route path="/community" element={<ProtectedPage><CommunityGrowth /></ProtectedPage>} />
-                <Route path="/lead-magnets" element={<ProtectedPage><LeadMagnets /></ProtectedPage>} />
-                <Route path="/gamification" element={<ProtectedPage><Gamification /></ProtectedPage>} />
-                <Route path="/ai-decisions" element={<ProtectedPage><AIDecisions /></ProtectedPage>} />
-                <Route path="/benchmarks" element={<ProtectedPage><Benchmarks /></ProtectedPage>} />
-                <Route path="/growth-loop" element={<ProtectedPage><GrowthLoop /></ProtectedPage>} />
-                <Route path="/credits" element={<ProtectedPage><CreditEconomy /></ProtectedPage>} />
-                <Route path="/ops-stability" element={<ProtectedPage><OpsStability /></ProtectedPage>} />
+                <Route path="/customer-value" element={<PermissionPage permission="canViewAnalytics"><CustomerValueMaximization /></PermissionPage>} />
+                <Route path="/community" element={<PermissionPage permission="canManageCampaigns"><CommunityGrowth /></PermissionPage>} />
+                <Route path="/lead-magnets" element={<PermissionPage permission="canManageCampaigns"><LeadMagnets /></PermissionPage>} />
+                <Route path="/gamification" element={<PermissionPage permission="canManageCampaigns"><Gamification /></PermissionPage>} />
+                <Route path="/ai-decisions" element={<PermissionPage permission="canConfigureAutomations"><AIDecisions /></PermissionPage>} />
+                <Route path="/benchmarks" element={<PermissionPage permission="canViewAnalytics"><Benchmarks /></PermissionPage>} />
+                <Route path="/growth-loop" element={<PermissionPage permission="canManageCampaigns"><GrowthLoop /></PermissionPage>} />
+                <Route path="/credits" element={<PermissionPage permission="canAccessBilling"><CreditEconomy /></PermissionPage>} />
+                <Route path="/ops-stability" element={<PermissionPage permission="canViewAnalytics"><OpsStability /></PermissionPage>} />
                 <Route path="/system-status" element={<ProtectedPage><SystemStatus /></ProtectedPage>} />
                 <Route path="/wallet" element={<ProtectedPage><WalletPage /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
