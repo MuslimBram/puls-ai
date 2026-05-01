@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
 import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign } from "lucide-react";
 import { useUserWallets } from "@/hooks/useUserWallet";
+import { usePricingSettings } from "@/hooks/usePricingSettings";
 import { cn } from "@/lib/utils";
 import type { PlanKey } from "@/types/monetization";
 
@@ -17,13 +18,6 @@ interface PlanTier {
   basePrice: number;
   highlighted?: boolean;
 }
-
-const PLAN_TIERS: PlanTier[] = [
-  { key: "standard", name: "Start", basePrice: 49 },
-  { key: "professional", name: "Growth", basePrice: 99, highlighted: true },
-  { key: "advanced", name: "PRO", basePrice: 199 },
-  { key: "enterprise", name: "Enterprise", basePrice: 399 },
-];
 
 interface DurationOption {
   key: string;
