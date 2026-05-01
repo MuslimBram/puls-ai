@@ -9,6 +9,8 @@ import { WorkspaceProvider } from "@/contexts/WorkspaceContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
+import { PermissionRoute } from "@/components/PermissionRoute";
+import type { RolePermissions } from "@/hooks/useRolePermissions";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 
 // Eagerly loaded (critical path)
@@ -127,6 +129,22 @@ const AdminPage = ({ children }: { children: React.ReactNode }) => (
         <Suspense fallback={<LazyFallback />}>{children}</Suspense>
       </ErrorBoundary>
     </AdminRoute>
+  </ProtectedRoute>
+);
+
+const PermissionPage = ({
+  children,
+  permission,
+}: {
+  children: React.ReactNode;
+  permission: keyof RolePermissions;
+}) => (
+  <ProtectedRoute>
+    <PermissionRoute permission={permission}>
+      <ErrorBoundary fallback={<PageErrorFallback />}>
+        <Suspense fallback={<LazyFallback />}>{children}</Suspense>
+      </ErrorBoundary>
+    </PermissionRoute>
   </ProtectedRoute>
 );
 
