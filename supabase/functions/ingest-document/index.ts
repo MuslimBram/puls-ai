@@ -3,10 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 // @ts-ignore - pdf-parse for Deno
 import pdfParse from "npm:pdf-parse@1.1.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 function chunkText(text: string, maxChunkSize = 1500): string[] {
   const paragraphs = text.split(/\n{2,}/);
@@ -25,7 +25,7 @@ function chunkText(text: string, maxChunkSize = 1500): string[] {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -235,11 +235,11 @@ serve(async (req) => {
       source_id: source.id,
       chunks_created: totalChunks,
       topics: uniqueTopics,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
   } catch (error) {
     console.error("ingest-document error:", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

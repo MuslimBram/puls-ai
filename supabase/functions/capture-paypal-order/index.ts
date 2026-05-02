@@ -1,16 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
 
-const json = (body: unknown, status = 200) =>
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
 async function getPayPalAccessToken(clientId: string, secret: string, sandbox: boolean) {
@@ -33,7 +32,7 @@ async function getPayPalAccessToken(clientId: string, secret: string, sandbox: b
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -71,7 +70,7 @@ serve(async (req) => {
 
     if (existingTxn?.status === "completed" && existingTxn?.paypal_capture_id) {
       console.log(`[capture-paypal] Order ${orderId} already captured, returning existing`);
-      return json({
+      return json(req, {
         status: "COMPLETED",
         captureId: existingTxn.paypal_capture_id,
         alreadyCaptured: true,
@@ -112,7 +111,7 @@ serve(async (req) => {
         })
         .eq("paypal_order_id", orderId);
 
-      return json({ status: "COMPLETED", captureId, alreadyCaptured: true });
+      return json(req, { status: "COMPLETED", captureId, alreadyCaptured: true });
     }
 
     if (orderCheck.status !== "APPROVED") {
@@ -160,7 +159,7 @@ serve(async (req) => {
                 updated_at: new Date().toISOString(),
               })
               .eq("paypal_order_id", orderId);
-            return json({ status: "COMPLETED", captureId: cId, alreadyCaptured: true });
+            return json(req, { status: "COMPLETED", captureId: cId, alreadyCaptured: true });
           }
         }
       }
@@ -230,13 +229,13 @@ serve(async (req) => {
       console.log(`[capture-paypal] Billing record created for ${captureId}`);
     }
 
-    return json({
+    return json(req, {
       status: capture.status,
       captureId,
       payerEmail: payer?.email_address,
     });
   } catch (error) {
     console.error("[capture-paypal] Error:", error);
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

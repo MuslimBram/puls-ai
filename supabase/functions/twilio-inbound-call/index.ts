@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = true;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 interface IvrNode {
   id: string;
@@ -22,7 +22,7 @@ interface IvrEdge {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCors(req) });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -47,7 +47,7 @@ serve(async (req) => {
     if (!workspaceId) {
       return new Response(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, this number is not configured.</Say><Hangup/></Response>`,
-        { headers: { ...corsHeaders, "Content-Type": "application/xml" } }
+        { headers: { ...getCors(req), "Content-Type": "application/xml" } }
       );
     }
 
@@ -60,7 +60,7 @@ serve(async (req) => {
     if (!workspace) {
       return new Response(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, this service is unavailable.</Say><Hangup/></Response>`,
-        { headers: { ...corsHeaders, "Content-Type": "application/xml" } }
+        { headers: { ...getCors(req), "Content-Type": "application/xml" } }
       );
     }
 
@@ -70,7 +70,7 @@ serve(async (req) => {
     // If this is an IVR node callback (with digits or node navigation)
     if (ivrNodeId) {
       const twiml = await handleIvrNode(supabase, workspaceId, ivrNodeId, digits, inboundUrl, statusCallbackUrl);
-      return new Response(twiml, { headers: { ...corsHeaders, "Content-Type": "application/xml" } });
+      return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
     }
 
     // Initial call — create records first
@@ -120,7 +120,7 @@ serve(async (req) => {
       const rootNode = nodes.find(n => !targetIds.has(n.id)) || nodes[0];
 
       const twiml = buildIvrNodeTwiml(rootNode, nodes, edges, inboundUrl, statusCallbackUrl);
-      return new Response(twiml, { headers: { ...corsHeaders, "Content-Type": "application/xml" } });
+      return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
     }
 
     // No IVR — check business hours
@@ -134,19 +134,19 @@ serve(async (req) => {
   <Say voice="Polly.Amy">Thank you. Goodbye.</Say>
   <Hangup/>
 </Response>`;
-      return new Response(twiml, { headers: { ...corsHeaders, "Content-Type": "application/xml" } });
+      return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
     }
 
     // Find available agent with queue-based routing
     const twiml = await routeToAgent(supabase, workspaceId, callSid, callerNumber, statusCallbackUrl);
-    return new Response(twiml, { headers: { ...corsHeaders, "Content-Type": "application/xml" } });
+    return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
 
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("twilio-inbound-call error:", msg);
     return new Response(
       `<?xml version="1.0" encoding="UTF-8"?><Response><Say>An error occurred. Please try again.</Say><Hangup/></Response>`,
-      { headers: { ...corsHeaders, "Content-Type": "application/xml" }, status: 200 }
+      { headers: { ...getCors(req), "Content-Type": "application/xml" }, status: 200 }
     );
   }
 });

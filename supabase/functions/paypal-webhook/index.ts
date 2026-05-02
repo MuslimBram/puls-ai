@@ -1,16 +1,15 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
 
-const json = (body: unknown, status = 200) =>
+const ALLOW_ANY_ORIGIN = true;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
 async function verifyPayPalWebhook(
@@ -68,7 +67,7 @@ async function verifyPayPalWebhook(
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -83,7 +82,7 @@ serve(async (req) => {
     event = JSON.parse(rawBody);
   } catch {
     console.error("[paypal-webhook] Invalid JSON body");
-    return json({ error: "Invalid JSON" }, 400);
+    return json(req, { error: "Invalid JSON" }, 400);
   }
 
   const eventType = event.event_type;
@@ -100,25 +99,31 @@ serve(async (req) => {
     status: "received",
   });
 
-  // Optionally verify signature if PAYPAL_WEBHOOK_ID is set
+  // SECURITY: Webhook signature verification is MANDATORY in production.
   const webhookId = Deno.env.get("PAYPAL_WEBHOOK_ID");
   const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
   const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
   const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
 
-  if (webhookId && clientId && clientSecret) {
-    const verified = await verifyPayPalWebhook(
-      req, rawBody, webhookId, clientId, clientSecret, sandbox,
-    );
-    if (!verified) {
-      console.warn("[paypal-webhook] Signature verification FAILED");
-      await supabase.from("paypal_webhook_events")
-        .update({ status: "signature_failed" })
-        .eq("event_id", event.id);
-      return json({ error: "Signature verification failed" }, 403);
-    }
-    console.log("[paypal-webhook] Signature verified");
+  if (!webhookId || !clientId || !clientSecret) {
+    console.error("[paypal-webhook] Missing PAYPAL_WEBHOOK_ID / CLIENT_ID / CLIENT_SECRET — refusing event");
+    await supabase.from("paypal_webhook_events")
+      .update({ status: "config_missing" })
+      .eq("event_id", event.id);
+    return json(req, { error: "Webhook not configured" }, 503);
   }
+
+  const verified = await verifyPayPalWebhook(
+    req, rawBody, webhookId, clientId, clientSecret, sandbox,
+  );
+  if (!verified) {
+    console.warn("[paypal-webhook] Signature verification FAILED");
+    await supabase.from("paypal_webhook_events")
+      .update({ status: "signature_failed" })
+      .eq("event_id", event.id);
+    return json(req, { error: "Signature verification failed" }, 403);
+  }
+  console.log("[paypal-webhook] Signature verified");
 
   try {
     switch (eventType) {
@@ -295,7 +300,7 @@ serve(async (req) => {
       .update({ status: "processed" })
       .eq("event_id", event.id);
 
-    return json({ received: true });
+    return json(req, { received: true });
   } catch (error) {
     console.error("[paypal-webhook] Processing error:", error);
 
@@ -306,6 +311,6 @@ serve(async (req) => {
       })
       .eq("event_id", event.id);
 
-    return json({ error: "Processing error" }, 500);
+    return json(req, { error: "Processing error" }, 500);
   }
 });

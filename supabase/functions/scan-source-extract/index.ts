@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const supabaseAdmin = () =>
   createClient(
@@ -332,7 +332,7 @@ async function upsertKnowledgeBase(args: {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const sb = supabaseAdmin();
@@ -375,7 +375,7 @@ serve(async (req) => {
         branding,
         metadata,
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -445,7 +445,7 @@ serve(async (req) => {
           warning: "Kjo faqe nuk mbështetet për skanim automatik. Provoni një URL tjetër.",
           insights_count: 0,
           duration_ms: Date.now() - startTime,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
       }
 
       throw new Error(scrapeError);
@@ -712,13 +712,13 @@ serve(async (req) => {
         knowledge_source_id: knowledgeResult.knowledgeSourceId,
         knowledge_source_name: knowledgeResult.sourceName,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...getCors(req), "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("scan-source-extract error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 500, headers: { ...getCors(req), "Content-Type": "application/json" } },
     );
   }
 });

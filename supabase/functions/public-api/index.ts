@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-api-key, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -86,7 +86,7 @@ async function logRequest(apiKeyId: string, workspaceId: string | null, endpoint
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   const startTime = Date.now();
   const url = new URL(req.url);
@@ -101,7 +101,7 @@ serve(async (req) => {
     apiKeyData = await authenticateApiKey(req);
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message }), {
-      status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
@@ -263,14 +263,14 @@ serve(async (req) => {
           error: "Unknown resource",
           available: ["leads", "messages", "deals", "automations", "analytics"],
           docs: "Use ?resource={name} or /{name} path",
-        }), { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }), { status: 404, headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     await logRequest(apiKeyId, workspace_id, resource || "unknown", req.method, statusCode, startTime, ip);
 
     return new Response(JSON.stringify(result), {
       status: statusCode,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
 
   } catch (error: any) {
@@ -278,7 +278,7 @@ serve(async (req) => {
     await logRequest(apiKeyId, workspace_id, resource || "unknown", req.method, status, startTime, ip);
     return new Response(JSON.stringify({ error: error.message }), {
       status,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });
