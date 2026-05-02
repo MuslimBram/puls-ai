@@ -39,7 +39,7 @@ serve(async (req) => {
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
     if (authError || !authData.user) return json(req, { error: "Not authenticated" }, { status: 401 });
 
-    const parsed = requestSchema.safeParse(await req.json(req));
+    const parsed = requestSchema.safeParse(await req.json());
     if (!parsed.success) {
       return json(req, { error: parsed.error.issues[0]?.message || "Invalid request payload" }, { status: 400 });
     }

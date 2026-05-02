@@ -31,7 +31,7 @@ async function getPayPalAccessToken(clientId: string, secret: string, sandbox: b
     throw new Error(`PayPal auth failed: ${text}`);
   }
 
-  const data = await res.json(req);
+  const data = await res.json();
   return { token: data.access_token as string, base };
 }
 
@@ -59,7 +59,7 @@ serve(async (req) => {
 
     const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
 
-    const body = await req.json(req);
+    const body = await req.json();
     const { amount, currency = "USD", paymentType = "one_time", planKey, description } = body;
 
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -102,7 +102,7 @@ serve(async (req) => {
       throw new Error(`PayPal order creation failed: ${errText}`);
     }
 
-    const order = await orderRes.json(req);
+    const order = await orderRes.json();
     const approveUrl = order.links?.find((l: any) => l.rel === "approve")?.href;
 
     // Get workspace

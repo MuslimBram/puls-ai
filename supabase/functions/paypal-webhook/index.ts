@@ -34,7 +34,7 @@ async function verifyPayPalWebhook(
     body: "grant_type=client_credentials",
   });
   if (!tokenRes.ok) return false;
-  const { access_token } = await tokenRes.json(req);
+  const { access_token } = await tokenRes.json();
 
   // Verify webhook signature
   const verifyRes = await fetch(
@@ -62,7 +62,7 @@ async function verifyPayPalWebhook(
     return false;
   }
 
-  const verifyData = await verifyRes.json(req);
+  const verifyData = await verifyRes.json();
   return verifyData.verification_status === "SUCCESS";
 }
 
@@ -147,7 +147,7 @@ serve(async (req) => {
             },
             body: "grant_type=client_credentials",
           });
-          const { access_token } = await tokenRes.json(req);
+          const { access_token } = await tokenRes.json();
 
           const captureRes = await fetch(
             `${base}/v2/checkout/orders/${orderId}/capture`,
@@ -161,7 +161,7 @@ serve(async (req) => {
           );
 
           if (captureRes.ok) {
-            const capture = await captureRes.json(req);
+            const capture = await captureRes.json();
             const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
             const payer = capture.payer;
 
