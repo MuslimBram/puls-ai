@@ -1,20 +1,19 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
 
-const json = (body: unknown, status = 200) =>
+const ALLOW_ANY_ORIGIN = true;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -25,7 +24,7 @@ serve(async (req) => {
     const url = new URL(req.url);
     const adapterKey = url.searchParams.get("adapter");
 
-    if (!adapterKey) return json({ error: "Missing 'adapter' query parameter" }, 400);
+    if (!adapterKey) return json(req, { error: "Missing 'adapter' query parameter" }, 400);
 
     // Look up adapter
     const { data: adapter, error: adapterErr } = await supabaseAdmin
@@ -35,17 +34,17 @@ serve(async (req) => {
       .eq("is_active", true)
       .single();
 
-    if (adapterErr || !adapter) return json({ error: "Adapter not found or inactive" }, 404);
+    if (adapterErr || !adapter) return json(req, { error: "Adapter not found or inactive" }, 404);
 
     // Parse body with size guard
     const rawBody = await req.text();
-    if (rawBody.length > 256_000) return json({ error: "Payload too large" }, 413);
+    if (rawBody.length > 256_000) return json(req, { error: "Payload too large" }, 413);
 
     let body: Record<string, unknown>;
     try {
       body = JSON.parse(rawBody);
     } catch {
-      return json({ error: "Invalid JSON body" }, 400);
+      return json(req, { error: "Invalid JSON body" }, 400);
     }
 
     console.log(`[integration-webhook] adapter=${adapterKey}`, rawBody.slice(0, 500));
@@ -66,7 +65,7 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingLog) {
-      return json({ success: true, duplicate: true, message: "Already processed" }, 200);
+      return json(req, { success: true, duplicate: true, message: "Already processed" }, 200);
     }
 
     // Apply inbound_mapping: maps provider fields → Pulse fields
@@ -84,7 +83,7 @@ serve(async (req) => {
     const senderIdentifier = normalized.sender_identifier || String(body.sender_identifier || body.sender_id || body.from || "unknown");
     const channelType = normalized.channel_type || String(body.channel_type || "custom");
 
-    if (!messageContent) return json({ error: "No message content found after mapping" }, 400);
+    if (!messageContent) return json(req, { error: "No message content found after mapping" }, 400);
 
     // Get workspace owner as user_id
     const { data: workspace } = await supabaseAdmin
@@ -93,7 +92,7 @@ serve(async (req) => {
       .eq("id", adapter.workspace_id)
       .single();
 
-    if (!workspace) return json({ error: "Workspace not found for adapter" }, 500);
+    if (!workspace) return json(req, { error: "Workspace not found for adapter" }, 500);
 
     const userId = workspace.owner_id;
 
@@ -128,13 +127,13 @@ serve(async (req) => {
       console.error("[integration-webhook] Insert error:", msgErr);
       // Log failure
       await logEvent(supabaseAdmin, adapter.id, adapterKey, "inbound_message", body, "failed", idempotencyKey, { error: msgErr.message });
-      return json({ error: "Failed to store message", detail: msgErr.message }, 500);
+      return json(req, { error: "Failed to store message", detail: msgErr.message }, 500);
     }
 
     // Log success
     await logEvent(supabaseAdmin, adapter.id, adapterKey, "inbound_message", body, "success", idempotencyKey, { message_id: msg?.id, thread_id: threadId });
 
-    return json({
+    return json(req, {
       success: true,
       adapter: adapterKey,
       message_id: msg?.id,
@@ -143,7 +142,7 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("[integration-webhook] Error:", error);
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
 

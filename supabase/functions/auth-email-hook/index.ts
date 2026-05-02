@@ -10,6 +10,8 @@ import { RecoveryEmail } from '../_shared/email-templates/recovery.tsx'
 import { EmailChangeEmail } from '../_shared/email-templates/email-change.tsx'
 import { ReauthenticationEmail } from '../_shared/email-templates/reauthentication.tsx'
 
+// Lovable-managed webhook: invoked server-to-server by the platform, no browser CORS concern.
+// Wildcard is safe here because there is no user credential context. The signature is verified.
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':

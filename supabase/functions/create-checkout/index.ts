@@ -3,19 +3,19 @@ import Stripe from "https://esm.sh/stripe@18.5.0";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { indexPricingCatalogByPlanKey, loadPricingCatalogRows } from "../_shared/monetization-catalog.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
 
-const jsonResponse = (body: unknown, status = 200) =>
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
+const jsonResponse = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   const supabaseClient = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
@@ -41,7 +41,7 @@ serve(async (req) => {
           message: "Card payments are temporarily unavailable. Please use PayPal to complete your purchase.",
           fallback: "paypal",
         }),
-        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 503, headers: { ...getCors(req), "Content-Type": "application/json" } },
       );
     }
 
@@ -91,7 +91,7 @@ serve(async (req) => {
           cancel_url: `${origin}/pricing?checkout=canceled`,
         });
 
-        return jsonResponse({ url: session.url });
+        return jsonResponse(req, { url: session.url });
       }
 
       const session = await stripe.checkout.sessions.create({
@@ -110,7 +110,7 @@ serve(async (req) => {
         cancel_url: `${origin}/pricing?checkout=canceled`,
       });
 
-      return jsonResponse({ url: session.url });
+      return jsonResponse(req, { url: session.url });
     }
 
     if (addonType && addonPrice) {
@@ -136,7 +136,7 @@ serve(async (req) => {
         cancel_url: `${origin}/media-studio?checkout=canceled`,
       });
 
-      return jsonResponse({ url: session.url });
+      return jsonResponse(req, { url: session.url });
     }
 
     if (!resolvedPlanKey && !resolvedPriceId) throw new Error("planKey is required");
@@ -257,9 +257,9 @@ serve(async (req) => {
     }
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
-    return jsonResponse({ url: session.url });
+    return jsonResponse(req, { url: session.url });
   } catch (error) {
     console.error("create-checkout error:", error);
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return jsonResponse(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

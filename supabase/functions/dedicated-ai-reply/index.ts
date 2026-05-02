@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const PLAN_LIMITS: Record<string, number> = {
   standard: 20, professional: 100, advanced: 500, enterprise: -1,
@@ -28,12 +27,12 @@ function checkRateLimit(ip: string): boolean {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("cf-connecting-ip") || "unknown";
   if (!checkRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: "Too many requests. Please try again later." }), {
-      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
@@ -41,13 +40,13 @@ serve(async (req) => {
     const { user_id, business_id, workspace_id, visitor_name, visitor_email, message, page_url, channel_type } = await req.json();
     if (!user_id || !message) {
       return new Response(JSON.stringify({ error: "user_id and message are required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
     if (message.length > 5000) {
       return new Response(JSON.stringify({ error: "Message too long (max 5000 chars)" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -66,7 +65,7 @@ serve(async (req) => {
 
     if (profile?.is_suspended) {
       return new Response(JSON.stringify({ error: "Account suspended" }), {
-        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 403, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -89,7 +88,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         error: `Daily AI reply limit reached (${currentUsed}/${limit}). Upgrade your plan for more AI replies.`,
         limit_reached: true,
-      }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { status: 429, headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     const subStatus = sub?.subscription_status || "active";
@@ -97,7 +96,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         error: "Your subscription has expired. Please renew to continue using AI replies.",
         limit_reached: true,
-      }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { status: 403, headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     let businessQuery = supabase
@@ -191,12 +190,12 @@ serve(async (req) => {
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited, please try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
       if (aiResponse.status === 402) {
         return new Response(JSON.stringify({ error: "Credits required." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
       throw new Error("AI reply generation failed");
@@ -262,12 +261,12 @@ serve(async (req) => {
       ai_replies_used: currentUsed + 1,
       ai_replies_limit: limit,
     }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("dedicated-ai-reply error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

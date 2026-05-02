@@ -1,26 +1,26 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
 
-const jsonResponse = (body: unknown, status = 200) =>
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
+const jsonResponse = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
+    headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCors(req) });
   }
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -32,7 +32,7 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "").trim();
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
     if (userError || !userData.user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -40,7 +40,7 @@ serve(async (req) => {
 
     const { workspace_id } = await req.json();
     if (!workspace_id) {
-      return jsonResponse({ error: "workspace_id required" }, 400);
+      return jsonResponse(req, { error: "workspace_id required" }, 400);
     }
 
     const userId = userData.user.id;
@@ -56,7 +56,7 @@ serve(async (req) => {
 
     const canScoreWorkspace = Boolean(memberResult.data || ownerResult.data || adminResult.data);
     if (!canScoreWorkspace) {
-      return jsonResponse({ error: "Forbidden" }, 403);
+      return jsonResponse(req, { error: "Forbidden" }, 403);
     }
 
     const { data: leads, error: leadsErr } = await supabase
@@ -68,7 +68,7 @@ serve(async (req) => {
 
     if (leadsErr) throw leadsErr;
     if (!leads || leads.length === 0) {
-      return jsonResponse({ scored: 0, total: 0, predicted_pipeline_value: 0 });
+      return jsonResponse(req, { scored: 0, total: 0, predicted_pipeline_value: 0 });
     }
 
     const { data: memories } = await supabase
@@ -138,10 +138,10 @@ Return JSON array only in this exact shape:
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {
-        return jsonResponse({ error: "Rate limited, please try again later." }, 429);
+        return jsonResponse(req, { error: "Rate limited, please try again later." }, 429);
       }
       if (aiResponse.status === 402) {
-        return jsonResponse({ error: "Credits required. Please add funds." }, 402);
+        return jsonResponse(req, { error: "Credits required. Please add funds." }, 402);
       }
       throw new Error(`AI gateway error: ${aiResponse.status}`);
     }
@@ -193,9 +193,9 @@ Return JSON array only in this exact shape:
       if (!error) scored++;
     }
 
-    return jsonResponse({ scored, total: leads.length, predicted_pipeline_value: predictedPipelineValue });
+    return jsonResponse(req, { scored, total: leads.length, predicted_pipeline_value: predictedPipelineValue });
   } catch (error) {
     console.error("Score leads error:", error);
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return jsonResponse(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
