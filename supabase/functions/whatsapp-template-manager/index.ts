@@ -32,7 +32,7 @@ serve(async (req) => {
     // === CREATE / UPDATE LOCAL TEMPLATE ===
     if (action === "create") {
       if (!template?.user_id || !template?.template_name || !template?.body_text) {
-        return jsonRes({ error: "Missing required fields: user_id, template_name, body_text" }, 400);
+        return jsonRes(req, { error: "Missing required fields: user_id, template_name, body_text" }, 400);
       }
 
       const { data, error } = await supabase
@@ -56,12 +56,12 @@ serve(async (req) => {
         .single();
 
       if (error) throw error;
-      return jsonRes({ ok: true, template: data });
+      return jsonRes(req, { ok: true, template: data });
     }
 
     // === SUBMIT TO META FOR APPROVAL ===
     if (action === "submit") {
-      if (!template_id) return jsonRes({ error: "template_id required" }, 400);
+      if (!template_id) return jsonRes(req, { error: "template_id required" }, 400);
 
       const { data: tmpl, error: tmplErr } = await supabase
         .from("whatsapp_templates")
@@ -69,11 +69,11 @@ serve(async (req) => {
         .eq("id", template_id)
         .single();
 
-      if (tmplErr || !tmpl) return jsonRes({ error: "Template not found" }, 404);
+      if (tmplErr || !tmpl) return jsonRes(req, { error: "Template not found" }, 404);
 
       // Get WA credentials from channel settings
       const credentials = await getWACredentials(supabase, tmpl.user_id);
-      if (!credentials) return jsonRes({ error: "WhatsApp not configured. Connect your WhatsApp Business Account first." }, 400);
+      if (!credentials) return jsonRes(req, { error: "WhatsApp not configured. Connect your WhatsApp Business Account first." }, 400);
 
       // Build Meta template components
       const components: any[] = [];
@@ -129,7 +129,7 @@ serve(async (req) => {
           .update({ status: "rejected", rejection_reason: errorMsg, updated_at: new Date().toISOString() } as any)
           .eq("id", template_id);
 
-        return jsonRes({ error: errorMsg, meta_error: metaData?.error }, metaRes.status);
+        return jsonRes(req, { error: errorMsg, meta_error: metaData?.error }, metaRes.status);
       }
 
       // Update with Meta template ID
@@ -144,15 +144,15 @@ serve(async (req) => {
         } as any)
         .eq("id", template_id);
 
-      return jsonRes({ ok: true, meta_template_id: metaData.id, status: metaData.status });
+      return jsonRes(req, { ok: true, meta_template_id: metaData.id, status: metaData.status });
     }
 
     // === SYNC TEMPLATE STATUSES FROM META ===
     if (action === "sync") {
-      if (!user_id) return jsonRes({ error: "user_id required" }, 400);
+      if (!user_id) return jsonRes(req, { error: "user_id required" }, 400);
 
       const credentials = await getWACredentials(supabase, user_id);
-      if (!credentials) return jsonRes({ error: "WhatsApp not configured" }, 400);
+      if (!credentials) return jsonRes(req, { error: "WhatsApp not configured" }, 400);
 
       const metaRes = await fetch(
         `https://graph.facebook.com/v19.0/${credentials.waba_id}/message_templates?limit=100`,
@@ -160,7 +160,7 @@ serve(async (req) => {
       );
 
       if (!metaRes.ok) {
-        return jsonRes({ error: "Failed to fetch templates from Meta" }, metaRes.status);
+        return jsonRes(req, { error: "Failed to fetch templates from Meta" }, metaRes.status);
       }
 
       const metaData = await metaRes.json();
@@ -191,12 +191,12 @@ serve(async (req) => {
         if (!error) synced++;
       }
 
-      return jsonRes({ ok: true, synced, total_from_meta: metaData.data?.length || 0 });
+      return jsonRes(req, { ok: true, synced, total_from_meta: metaData.data?.length || 0 });
     }
 
     // === DELETE TEMPLATE ===
     if (action === "delete") {
-      if (!template_id) return jsonRes({ error: "template_id required" }, 400);
+      if (!template_id) return jsonRes(req, { error: "template_id required" }, 400);
 
       const { data: tmpl } = await supabase
         .from("whatsapp_templates")
@@ -215,13 +215,13 @@ serve(async (req) => {
       }
 
       await supabase.from("whatsapp_templates").delete().eq("id", template_id);
-      return jsonRes({ ok: true });
+      return jsonRes(req, { ok: true });
     }
 
-    return jsonRes({ error: "Invalid action. Use: create, submit, sync, delete" }, 400);
+    return jsonRes(req, { error: "Invalid action. Use: create, submit, sync, delete" }, 400);
   } catch (e) {
     console.error("[WA-TEMPLATES] Error:", e);
-    return jsonRes({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
+    return jsonRes(req, { error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });
 
