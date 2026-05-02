@@ -244,12 +244,11 @@ async function getWACredentials(supabase: any, userId: string) {
   };
 }
 
-function jsonRes(body: any, status = 200) {
+function jsonRes(req: Request, body: any, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+      ...getCors(req),
       "Content-Type": "application/json",
     },
   });
