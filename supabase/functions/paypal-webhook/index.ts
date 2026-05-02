@@ -99,25 +99,31 @@ serve(async (req) => {
     status: "received",
   });
 
-  // Optionally verify signature if PAYPAL_WEBHOOK_ID is set
+  // SECURITY: Webhook signature verification is MANDATORY in production.
   const webhookId = Deno.env.get("PAYPAL_WEBHOOK_ID");
   const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
   const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
   const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
 
-  if (webhookId && clientId && clientSecret) {
-    const verified = await verifyPayPalWebhook(
-      req, rawBody, webhookId, clientId, clientSecret, sandbox,
-    );
-    if (!verified) {
-      console.warn("[paypal-webhook] Signature verification FAILED");
-      await supabase.from("paypal_webhook_events")
-        .update({ status: "signature_failed" })
-        .eq("event_id", event.id);
-      return json(req, { error: "Signature verification failed" }, 403);
-    }
-    console.log("[paypal-webhook] Signature verified");
+  if (!webhookId || !clientId || !clientSecret) {
+    console.error("[paypal-webhook] Missing PAYPAL_WEBHOOK_ID / CLIENT_ID / CLIENT_SECRET — refusing event");
+    await supabase.from("paypal_webhook_events")
+      .update({ status: "config_missing" })
+      .eq("event_id", event.id);
+    return json(req, { error: "Webhook not configured" }, 503);
   }
+
+  const verified = await verifyPayPalWebhook(
+    req, rawBody, webhookId, clientId, clientSecret, sandbox,
+  );
+  if (!verified) {
+    console.warn("[paypal-webhook] Signature verification FAILED");
+    await supabase.from("paypal_webhook_events")
+      .update({ status: "signature_failed" })
+      .eq("event_id", event.id);
+    return json(req, { error: "Signature verification failed" }, 403);
+  }
+  console.log("[paypal-webhook] Signature verified");
 
   try {
     switch (eventType) {
