@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 /**
  * Validate WhatsApp Business channel end-to-end.
@@ -16,13 +16,13 @@ const corsHeaders = {
  *  4. Optional: send a test text message if `to` is provided
  */
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -34,7 +34,7 @@ serve(async (req) => {
     const { data: { user }, error: aErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
     if (aErr || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -50,7 +50,7 @@ serve(async (req) => {
         ok: false,
         checks: { channel_exists: false },
         message: "No WhatsApp channel configured. Connect WhatsApp first via Channels → Add WhatsApp Business.",
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     const results: any[] = [];
@@ -127,11 +127,11 @@ serve(async (req) => {
     return new Response(JSON.stringify({
       ok: results.every((r) => r.ok),
       results,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
   } catch (e) {
     console.error("validate-whatsapp-connection error", e);
     return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 /**
  * Campaign → Broadcast Launcher
@@ -17,14 +17,14 @@ const corsHeaders = {
  * - Updates campaign status -> 'launched'
  */
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Missing authorization" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -39,7 +39,7 @@ serve(async (req) => {
     if (userErr || !userData.user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
     const userId = userData.user.id;
@@ -50,7 +50,7 @@ serve(async (req) => {
     if (!campaign_id) {
       return new Response(JSON.stringify({ error: "campaign_id required" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -68,7 +68,7 @@ serve(async (req) => {
     if (cErr || !campaign) {
       return new Response(JSON.stringify({ error: "Campaign not found" }), {
         status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -82,7 +82,7 @@ serve(async (req) => {
     if (!contents || contents.length === 0) {
       return new Response(JSON.stringify({ error: "Campaign has no content. Generate strategy first." }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -245,13 +245,13 @@ serve(async (req) => {
         broadcasts_created,
         total_recipients: recipients.length,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { headers: { ...getCors(req), "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("launch-campaign-broadcast error", e);
     return new Response(JSON.stringify({ error: (e as Error).message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

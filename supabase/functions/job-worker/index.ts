@@ -1,9 +1,9 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const BATCH_SIZE = 10;
 const LOCK_TIMEOUT_MS = 5 * 60 * 1000;
@@ -21,7 +21,7 @@ type JobOutcome =
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCors(req) });
   }
 
   try {
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
     if (fetchError) throw fetchError;
     if (!jobs?.length) {
       return new Response(JSON.stringify({ processed: 0, deferred: 0, failed: 0 }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -150,12 +150,12 @@ Deno.serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ processed, deferred, failed, worker: WORKER_ID }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

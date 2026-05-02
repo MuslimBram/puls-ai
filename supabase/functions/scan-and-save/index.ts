@@ -1,20 +1,19 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -29,7 +28,7 @@ Deno.serve(async (req) => {
     if (claimsError || !claimsData?.claims?.sub) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -39,7 +38,7 @@ Deno.serve(async (req) => {
     if (!url || !scan_name) {
       return new Response(JSON.stringify({ error: "URL dhe emri janë të detyrueshëm" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -47,7 +46,7 @@ Deno.serve(async (req) => {
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "FIRECRAWL_API_KEY nuk është konfiguruar" }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -79,7 +78,7 @@ Deno.serve(async (req) => {
       console.error("Firecrawl error:", scrapeData);
       return new Response(
         JSON.stringify({ error: scrapeData.error || `Skanimi dështoi (${scrapeResponse.status})` }),
-        { status: scrapeResponse.status, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { status: scrapeResponse.status, headers: { ...getCors(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -119,7 +118,7 @@ Deno.serve(async (req) => {
       console.error("Save error:", saveError);
       return new Response(JSON.stringify({ error: "Ruajtja dështoi: " + saveError.message }), {
         status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -133,13 +132,13 @@ Deno.serve(async (req) => {
         content_length: markdown.length,
         links_found: links.length,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...getCors(req), "Content-Type": "application/json" } }
     );
   } catch (e: any) {
     console.error("Scan error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

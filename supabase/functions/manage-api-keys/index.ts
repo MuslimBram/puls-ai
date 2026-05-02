@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
@@ -28,7 +28,7 @@ function generateApiKey(): string {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const authHeader = req.headers.get("Authorization")!;
@@ -60,7 +60,7 @@ serve(async (req) => {
         ...data,
         raw_key: rawKey,
         message: "Store this key securely — it won't be shown again.",
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     if (action === "list") {
@@ -70,7 +70,7 @@ serve(async (req) => {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return new Response(JSON.stringify({ keys: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -82,7 +82,7 @@ serve(async (req) => {
       }).eq("id", body.key_id).eq("user_id", user.id);
       if (error) throw error;
       return new Response(JSON.stringify({ success: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -94,14 +94,14 @@ serve(async (req) => {
         .limit(100);
       if (error) throw error;
       return new Response(JSON.stringify({ logs: data }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
     throw new Error("Unknown action. Use: create, list, revoke, logs");
   } catch (error: any) {
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

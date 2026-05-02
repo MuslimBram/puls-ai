@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const getEffectivePlan = (plan: string, status: string, gracePeriodEnd: string | null, trialEnd: string | null): string => {
   const now = new Date();
@@ -46,7 +46,7 @@ const loadPlanLimits = async (supabase: any) => {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", {
     auth: { persistSession: false },
@@ -73,7 +73,7 @@ serve(async (req) => {
 
     if (hasPrivilegedBypass) {
       return new Response(JSON.stringify({ allowed: true, currentPlan: "enterprise", bypassed: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -96,7 +96,7 @@ serve(async (req) => {
       const { count } = await supabase.from("channels").select("*", { count: "exact", head: true }).eq("user_id", user.id);
       const limit = effectiveLimits.channels;
       if (limit !== -1 && (count || 0) >= limit) {
-        return new Response(JSON.stringify({ allowed: false, error: `Channel limit reached (${count}/${limit}). Upgrade to add more channels.`, currentPlan: effectivePlan, limit, current: count }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ allowed: false, error: `Channel limit reached (${count}/${limit}). Upgrade to add more channels.`, currentPlan: effectivePlan, limit, current: count }), { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } });
       }
     }
 
@@ -104,7 +104,7 @@ serve(async (req) => {
       const { count } = await supabase.from("keywords").select("*", { count: "exact", head: true }).eq("user_id", user.id);
       const limit = effectiveLimits.keywords;
       if (limit !== -1 && (count || 0) >= limit) {
-        return new Response(JSON.stringify({ allowed: false, error: `Keyword limit reached (${count}/${limit}). Upgrade to add more keywords.`, currentPlan: effectivePlan, limit, current: count }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ allowed: false, error: `Keyword limit reached (${count}/${limit}). Upgrade to add more keywords.`, currentPlan: effectivePlan, limit, current: count }), { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } });
       }
     }
 
@@ -112,7 +112,7 @@ serve(async (req) => {
       const limit = effectiveLimits.leadsPerMonth;
       const used = sub?.leads_used || 0;
       if (limit !== -1 && used >= limit) {
-        return new Response(JSON.stringify({ allowed: false, error: `Monthly lead limit reached (${used}/${limit}). Upgrade for more leads.`, currentPlan: effectivePlan, limit, current: used }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ allowed: false, error: `Monthly lead limit reached (${used}/${limit}). Upgrade for more leads.`, currentPlan: effectivePlan, limit, current: used }), { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } });
       }
     }
 
@@ -125,7 +125,7 @@ serve(async (req) => {
       const effectiveUsed = hoursSinceReset >= 24 ? 0 : used;
 
       if (limit !== -1 && effectiveUsed >= limit) {
-        return new Response(JSON.stringify({ allowed: false, error: `Daily AI reply limit reached (${effectiveUsed}/${limit}). Upgrade for more AI replies.`, currentPlan: effectivePlan, limit, current: effectiveUsed }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ allowed: false, error: `Daily AI reply limit reached (${effectiveUsed}/${limit}). Upgrade for more AI replies.`, currentPlan: effectivePlan, limit, current: effectiveUsed }), { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } });
       }
 
       if (action === "increment") {
@@ -138,12 +138,12 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify({ allowed: true, currentPlan: effectivePlan }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (error) {
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

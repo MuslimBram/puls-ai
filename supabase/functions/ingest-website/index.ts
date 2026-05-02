@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 function chunkText(text: string, maxChunkSize = 1500): string[] {
   const paragraphs = text.split(/\n{2,}/);
@@ -24,7 +24,7 @@ function chunkText(text: string, maxChunkSize = 1500): string[] {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
@@ -98,7 +98,7 @@ serve(async (req) => {
             chunks_created: cachedChunks?.length || 0,
             topics: meta?.topics || [],
             message: `Using cached scan from ${Math.round(hoursSinceLastScan)}h ago. Use force_rescan=true to refresh.`,
-          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
         }
       }
     }
@@ -140,7 +140,7 @@ serve(async (req) => {
             chunks_created: cachedChunks?.length || 0,
             topics: meta?.topics || [],
             message: `This URL was already scanned ${Math.round(hoursSinceLastScan)}h ago. Reusing cached data.`,
-          }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
         }
 
         sourceId = existingSrc.id;
@@ -191,7 +191,7 @@ serve(async (req) => {
           ? "Kjo faqe nuk mbështetet për skanim automatik. Provoni një URL tjetër."
           : errorMsg,
         source_id: sourceId,
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     // Firecrawl crawl is async - poll for results
@@ -216,7 +216,7 @@ serve(async (req) => {
           success: false,
           error: "Skanimi dështoi. Provoni përsëri ose me një URL tjetër.",
           source_id: sourceId,
-        }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
       }
       attempts++;
     }
@@ -342,11 +342,11 @@ serve(async (req) => {
       pages_crawled: pages.length,
       chunks_created: totalChunks,
       topics: uniqueTopics.slice(0, 20),
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
   } catch (error) {
     console.error("ingest-website error:", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

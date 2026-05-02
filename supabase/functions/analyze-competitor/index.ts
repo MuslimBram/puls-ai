@@ -1,13 +1,13 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -45,7 +45,7 @@ serve(async (req) => {
       if (compErr) throw compErr;
       if (!competitors?.length) {
         return new Response(JSON.stringify({ message: "No active competitors to scan" }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -83,7 +83,7 @@ serve(async (req) => {
         alerts_created: alertsCreated,
         total_active: competitors.length,
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -111,7 +111,7 @@ serve(async (req) => {
         pages_scanned: result.pagesScanned,
         alerts_created: result.alertsCreated,
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -216,17 +216,17 @@ Target audience: ${profile?.target_audience || "general"}`,
         .eq("id", competitor.id);
 
       return new Response(JSON.stringify({ success: true, insights }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
-      status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("analyze-competitor error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });
