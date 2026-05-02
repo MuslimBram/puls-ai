@@ -27,7 +27,7 @@ async function getPayPalAccessToken(clientId: string, secret: string, sandbox: b
   });
 
   if (!res.ok) throw new Error("PayPal auth failed");
-  const data = await res.json(req);
+  const data = await res.json();
   return { token: data.access_token as string, base };
 }
 
@@ -54,7 +54,7 @@ serve(async (req) => {
     if (!clientId || !clientSecret) throw new Error("PayPal credentials not configured");
 
     const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
-    const body = await req.json(req);
+    const body = await req.json();
     const { orderId } = body;
 
     if (!orderId) throw new Error("orderId is required");
@@ -90,7 +90,7 @@ serve(async (req) => {
       throw new Error("Failed to verify order with PayPal");
     }
 
-    const orderCheck = await orderCheckRes.json(req);
+    const orderCheck = await orderCheckRes.json();
     console.log(`[capture-paypal] Order ${orderId} status: ${orderCheck.status}`);
 
     // If already captured, sync the status
@@ -149,7 +149,7 @@ serve(async (req) => {
           headers: { Authorization: `Bearer ${ppToken}` },
         });
         if (recheck.ok) {
-          const recheckData = await recheck.json(req);
+          const recheckData = await recheck.json();
           if (recheckData.status === "COMPLETED") {
             const cId = recheckData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
             await supabase.from("paypal_transactions")
@@ -172,7 +172,7 @@ serve(async (req) => {
       throw new Error(`PayPal capture failed: ${errText}`);
     }
 
-    const capture = await captureRes.json(req);
+    const capture = await captureRes.json();
     const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
     const payer = capture.payer;
     const finalStatus = capture.status === "COMPLETED" ? "completed" : "failed";

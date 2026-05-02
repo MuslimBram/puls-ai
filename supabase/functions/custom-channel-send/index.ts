@@ -34,7 +34,7 @@ serve(async (req) => {
     const userId = userData.user.id;
 
     // Parse and validate body
-    const body = await req.json(req);
+    const body = await req.json();
     const { adapter_key, message_content, recipient_identifier, metadata, idempotency_key } = body;
 
     if (!adapter_key || !message_content || !recipient_identifier) {
