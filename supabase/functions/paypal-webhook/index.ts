@@ -6,7 +6,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-const json = (body: unknown, status = 200) =>
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -34,7 +34,7 @@ async function verifyPayPalWebhook(
     body: "grant_type=client_credentials",
   });
   if (!tokenRes.ok) return false;
-  const { access_token } = await tokenRes.json();
+  const { access_token } = await tokenRes.json(req);
 
   // Verify webhook signature
   const verifyRes = await fetch(
@@ -62,7 +62,7 @@ async function verifyPayPalWebhook(
     return false;
   }
 
-  const verifyData = await verifyRes.json();
+  const verifyData = await verifyRes.json(req);
   return verifyData.verification_status === "SUCCESS";
 }
 
@@ -82,7 +82,7 @@ serve(async (req) => {
     event = JSON.parse(rawBody);
   } catch {
     console.error("[paypal-webhook] Invalid JSON body");
-    return json({ error: "Invalid JSON" }, 400);
+    return json(req, { error: "Invalid JSON" }, 400);
   }
 
   const eventType = event.event_type;
@@ -114,7 +114,7 @@ serve(async (req) => {
       await supabase.from("paypal_webhook_events")
         .update({ status: "signature_failed" })
         .eq("event_id", event.id);
-      return json({ error: "Signature verification failed" }, 403);
+      return json(req, { error: "Signature verification failed" }, 403);
     }
     console.log("[paypal-webhook] Signature verified");
   }
@@ -147,7 +147,7 @@ serve(async (req) => {
             },
             body: "grant_type=client_credentials",
           });
-          const { access_token } = await tokenRes.json();
+          const { access_token } = await tokenRes.json(req);
 
           const captureRes = await fetch(
             `${base}/v2/checkout/orders/${orderId}/capture`,
@@ -161,7 +161,7 @@ serve(async (req) => {
           );
 
           if (captureRes.ok) {
-            const capture = await captureRes.json();
+            const capture = await captureRes.json(req);
             const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
             const payer = capture.payer;
 
@@ -294,7 +294,7 @@ serve(async (req) => {
       .update({ status: "processed" })
       .eq("event_id", event.id);
 
-    return json({ received: true });
+    return json(req, { received: true });
   } catch (error) {
     console.error("[paypal-webhook] Processing error:", error);
 
@@ -305,6 +305,6 @@ serve(async (req) => {
       })
       .eq("event_id", event.id);
 
-    return json({ error: "Processing error" }, 500);
+    return json(req, { error: "Processing error" }, 500);
   }
 });

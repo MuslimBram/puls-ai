@@ -6,7 +6,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-const json = (body: unknown, status = 200) =>
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -27,7 +27,7 @@ async function getPayPalAccessToken(clientId: string, secret: string, sandbox: b
   });
 
   if (!res.ok) throw new Error("PayPal auth failed");
-  const data = await res.json();
+  const data = await res.json(req);
   return { token: data.access_token as string, base };
 }
 
@@ -54,7 +54,7 @@ serve(async (req) => {
     if (!clientId || !clientSecret) throw new Error("PayPal credentials not configured");
 
     const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
-    const body = await req.json();
+    const body = await req.json(req);
     const { orderId } = body;
 
     if (!orderId) throw new Error("orderId is required");
@@ -70,7 +70,7 @@ serve(async (req) => {
 
     if (existingTxn?.status === "completed" && existingTxn?.paypal_capture_id) {
       console.log(`[capture-paypal] Order ${orderId} already captured, returning existing`);
-      return json({
+      return json(req, {
         status: "COMPLETED",
         captureId: existingTxn.paypal_capture_id,
         alreadyCaptured: true,
@@ -90,7 +90,7 @@ serve(async (req) => {
       throw new Error("Failed to verify order with PayPal");
     }
 
-    const orderCheck = await orderCheckRes.json();
+    const orderCheck = await orderCheckRes.json(req);
     console.log(`[capture-paypal] Order ${orderId} status: ${orderCheck.status}`);
 
     // If already captured, sync the status
@@ -111,7 +111,7 @@ serve(async (req) => {
         })
         .eq("paypal_order_id", orderId);
 
-      return json({ status: "COMPLETED", captureId, alreadyCaptured: true });
+      return json(req, { status: "COMPLETED", captureId, alreadyCaptured: true });
     }
 
     if (orderCheck.status !== "APPROVED") {
@@ -149,7 +149,7 @@ serve(async (req) => {
           headers: { Authorization: `Bearer ${ppToken}` },
         });
         if (recheck.ok) {
-          const recheckData = await recheck.json();
+          const recheckData = await recheck.json(req);
           if (recheckData.status === "COMPLETED") {
             const cId = recheckData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
             await supabase.from("paypal_transactions")
@@ -159,7 +159,7 @@ serve(async (req) => {
                 updated_at: new Date().toISOString(),
               })
               .eq("paypal_order_id", orderId);
-            return json({ status: "COMPLETED", captureId: cId, alreadyCaptured: true });
+            return json(req, { status: "COMPLETED", captureId: cId, alreadyCaptured: true });
           }
         }
       }
@@ -172,7 +172,7 @@ serve(async (req) => {
       throw new Error(`PayPal capture failed: ${errText}`);
     }
 
-    const capture = await captureRes.json();
+    const capture = await captureRes.json(req);
     const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
     const payer = capture.payer;
     const finalStatus = capture.status === "COMPLETED" ? "completed" : "failed";
@@ -229,13 +229,13 @@ serve(async (req) => {
       console.log(`[capture-paypal] Billing record created for ${captureId}`);
     }
 
-    return json({
+    return json(req, {
       status: capture.status,
       captureId,
       payerEmail: payer?.email_address,
     });
   } catch (error) {
     console.error("[capture-paypal] Error:", error);
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

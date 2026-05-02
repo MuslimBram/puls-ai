@@ -32,7 +32,7 @@ const logStep = (step: string, details?: Record<string, unknown>) => {
   console.log(`[CHECK-SUBSCRIPTION] ${step}${details ? ` ${JSON.stringify(details)}` : ""}`);
 };
 
-const jsonResponse = (body: unknown, status = 200) =>
+const jsonResponse = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -140,7 +140,7 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: userData, error: userError } = await supabaseClient.auth.getUser(token);
     if (userError || !userData?.user?.id || !userData?.user?.email) {
-      return jsonResponse({
+      return jsonResponse(req, {
         subscribed: false,
         plan: "standard",
         selected_plan: "standard",
@@ -171,7 +171,7 @@ serve(async (req) => {
     // --- If no Stripe key, return DB-only subscription data ---
     if (!stripeKey) {
       logStep("No STRIPE_SECRET_KEY, returning DB-only subscription data");
-      return jsonResponse(buildStoredSubscriptionResponse(storedSubscription));
+      return jsonResponse(req, buildStoredSubscriptionResponse(storedSubscription));
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2025-08-27.basil" });
@@ -183,8 +183,7 @@ serve(async (req) => {
         const effectiveStatus = resolveStatus(storedSubscription?.subscription_status, storedSubscription?.trial_end ?? null, false);
         await syncSubscriptionRow({ plan: "standard", subscription_status: effectiveStatus });
 
-        return jsonResponse(
-          buildStoredSubscriptionResponse(storedSubscription, {
+        return jsonResponse(req, buildStoredSubscriptionResponse(storedSubscription, {
             plan: "standard",
             selected_plan: storedSubscription?.plan || "standard",
             status: effectiveStatus,
@@ -202,8 +201,7 @@ serve(async (req) => {
         const effectiveStatus = resolveStatus(storedSubscription?.subscription_status, storedSubscription?.trial_end ?? null, false);
         await syncSubscriptionRow({ plan: "standard", subscription_status: effectiveStatus, stripe_customer_id: customerId });
 
-        return jsonResponse(
-          buildStoredSubscriptionResponse(storedSubscription, {
+        return jsonResponse(req, buildStoredSubscriptionResponse(storedSubscription, {
             plan: "standard",
             selected_plan: storedSubscription?.plan || "standard",
             status: effectiveStatus,
@@ -239,7 +237,7 @@ serve(async (req) => {
         package_end_at: packageEndAt,
       });
 
-      return jsonResponse({
+      return jsonResponse(req, {
         subscribed,
         plan: subscribed ? selectedPlan : "standard",
         selected_plan: selectedPlan,
@@ -270,11 +268,11 @@ serve(async (req) => {
     } catch (stripeError) {
       const message = stripeError instanceof Error ? stripeError.message : "Unknown Stripe error";
       logStep("Stripe lookup failed, returning DB-only subscription data", { message });
-      return jsonResponse(buildStoredSubscriptionResponse(storedSubscription));
+      return jsonResponse(req, buildStoredSubscriptionResponse(storedSubscription));
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     logStep("ERROR", { message });
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse(req, { error: message }, 500);
   }
 });

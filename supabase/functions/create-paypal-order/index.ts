@@ -6,7 +6,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-const json = (body: unknown, status = 200) =>
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -31,7 +31,7 @@ async function getPayPalAccessToken(clientId: string, secret: string, sandbox: b
     throw new Error(`PayPal auth failed: ${text}`);
   }
 
-  const data = await res.json();
+  const data = await res.json(req);
   return { token: data.access_token as string, base };
 }
 
@@ -59,7 +59,7 @@ serve(async (req) => {
 
     const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
 
-    const body = await req.json();
+    const body = await req.json(req);
     const { amount, currency = "USD", paymentType = "one_time", planKey, description } = body;
 
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
@@ -102,7 +102,7 @@ serve(async (req) => {
       throw new Error(`PayPal order creation failed: ${errText}`);
     }
 
-    const order = await orderRes.json();
+    const order = await orderRes.json(req);
     const approveUrl = order.links?.find((l: any) => l.rel === "approve")?.href;
 
     // Get workspace
@@ -125,9 +125,9 @@ serve(async (req) => {
       metadata: { description },
     });
 
-    return json({ orderId: order.id, approveUrl });
+    return json(req, { orderId: order.id, approveUrl });
   } catch (error) {
     console.error("create-paypal-order error:", error);
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
