@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 /**
  * Broadcast Send Engine
@@ -31,7 +31,7 @@ const RETRY_DELAYS = [60, 300, 900]; // 1min, 5min, 15min
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCors(req) });
   }
 
   const supabase = createClient(
@@ -57,7 +57,7 @@ serve(async (req) => {
     if (qErr) throw qErr;
     if (!queue || queue.length === 0) {
       return new Response(JSON.stringify({ ok: true, message: "No items to process", stats }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -224,13 +224,13 @@ serve(async (req) => {
     console.log(`[SEND-ENGINE] Processed: ${stats.processed}, Sent: ${stats.sent}, Suppressed: ${stats.suppressed}, Failed: ${stats.failed}, Retried: ${stats.retried}`);
 
     return new Response(JSON.stringify({ ok: true, stats }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("[SEND-ENGINE] Error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

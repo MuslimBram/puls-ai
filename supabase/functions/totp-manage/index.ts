@@ -1,10 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 function generateCode(): string {
   const arr = new Uint32Array(1);
@@ -51,14 +50,14 @@ async function sendEmailDirect(to: string, subject: string, htmlBody: string) {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const authHeader = req.headers.get("authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -72,7 +71,7 @@ Deno.serve(async (req) => {
     if (userError || !authUser) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -93,7 +92,7 @@ Deno.serve(async (req) => {
       if (existingTotp && existingTotp.status === "verified") {
         return new Response(JSON.stringify({ error: "TOTP tashmë i konfiguruar" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -110,7 +109,7 @@ Deno.serve(async (req) => {
       if (enrollError) {
         return new Response(JSON.stringify({ error: enrollError.message }), {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -120,7 +119,7 @@ Deno.serve(async (req) => {
         secret: enrollData.totp.secret,
         otpauthUrl: enrollData.totp.uri,
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -129,7 +128,7 @@ Deno.serve(async (req) => {
       if (!token || token.length !== 6) {
         return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -139,7 +138,7 @@ Deno.serve(async (req) => {
       if (!totpFactor) {
         return new Response(JSON.stringify({ error: "Nuk ka faktor TOTP. Filloni regjistrimin." }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -150,7 +149,7 @@ Deno.serve(async (req) => {
       if (challengeError) {
         return new Response(JSON.stringify({ error: "Gabim në krijimin e sfidës" }), {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -163,12 +162,12 @@ Deno.serve(async (req) => {
       if (verifyError) {
         return new Response(JSON.stringify({ error: "Kodi i gabuar. Provoni përsëri." }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
       return new Response(JSON.stringify({ verified: true, enrolled: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -209,7 +208,7 @@ Deno.serve(async (req) => {
           email: userEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3"),
           ...(sent ? {} : { warning: "Email nuk u dërgua. Kontrolloni konfigurimin." }),
         }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        { headers: { ...getCors(req), "Content-Type": "application/json" } }
       );
     }
 
@@ -218,7 +217,7 @@ Deno.serve(async (req) => {
       if (!token || token.length !== 6) {
         return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -236,7 +235,7 @@ Deno.serve(async (req) => {
       if (!otpRow) {
         return new Response(JSON.stringify({ error: "Kodi i gabuar ose ka skaduar. Provo përsëri." }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -246,7 +245,7 @@ Deno.serve(async (req) => {
         .eq("id", otpRow.id);
 
       return new Response(JSON.stringify({ verified: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -255,7 +254,7 @@ Deno.serve(async (req) => {
       if (!token || token.length !== 6) {
         return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -265,7 +264,7 @@ Deno.serve(async (req) => {
       if (!totpFactor) {
         return new Response(JSON.stringify({ error: "TOTP nuk është konfiguruar. Përdorni kodin me email.", not_enrolled: true }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -276,7 +275,7 @@ Deno.serve(async (req) => {
       if (challengeError) {
         return new Response(JSON.stringify({ error: "Gabim në krijimin e sfidës TOTP" }), {
           status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -289,12 +288,12 @@ Deno.serve(async (req) => {
       if (verifyError) {
         return new Response(JSON.stringify({ error: "Kodi i gabuar. Provoni përsëri." }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
       return new Response(JSON.stringify({ verified: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -303,14 +302,14 @@ Deno.serve(async (req) => {
       const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
       const totpFactor = factorsData?.totp?.find(f => f.status === "verified");
       return new Response(JSON.stringify({ enrolled: !!totpFactor }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
     // ── check: Always requires 2FA ──
     if (action === "check") {
       return new Response(JSON.stringify({ requires_2fa: true }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -323,19 +322,19 @@ Deno.serve(async (req) => {
         verified: true,
         totp_enrolled: !!totpFactor,
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (e: any) {
     console.error("totp-manage error:", e);
     return new Response(JSON.stringify({ error: e.message }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

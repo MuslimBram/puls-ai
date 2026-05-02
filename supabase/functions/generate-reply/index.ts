@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30;
@@ -24,12 +23,12 @@ function checkRateLimit(ip: string): boolean {
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (!checkRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
@@ -54,7 +53,7 @@ serve(async (req) => {
 
     if (message.length > 5000) {
       return new Response(JSON.stringify({ error: "Message too long" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -86,7 +85,7 @@ serve(async (req) => {
       return new Response(JSON.stringify({
         error: `Daily AI reply limit reached (${currentUsed}/${limit}). Upgrade your plan.`,
         limit_reached: true,
-      }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }), { status: 429, headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     const businessQuery = supabase
@@ -182,12 +181,12 @@ Write a natural, helpful reply that:
     if (!response.ok) {
       if (response.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limited, please try again later." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
       if (response.status === 402) {
         return new Response(JSON.stringify({ error: "Credits required." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 402, headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
       const t = await response.text();
@@ -212,12 +211,12 @@ Write a natural, helpful reply that:
     }
 
     return new Response(JSON.stringify(result), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("generate-reply error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

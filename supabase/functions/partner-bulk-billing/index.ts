@@ -2,10 +2,10 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import Stripe from "https://esm.sh/stripe@18.5.0";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 /**
  * Partner Bulk Billing
@@ -18,7 +18,7 @@ const corsHeaders = {
  *   → creates a single Stripe invoice with line items per business
  */
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
@@ -74,7 +74,7 @@ serve(async (req) => {
 
       if (!businesses || businesses.length === 0) {
         return new Response(JSON.stringify({ line_items: [], total: 0, discount: 0, final_total: 0 }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
 
@@ -108,7 +108,7 @@ serve(async (req) => {
         final_total: finalTotal,
         business_count: lineItems.length,
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -188,7 +188,7 @@ serve(async (req) => {
         total: totalAmount,
         business_count: subs.length,
       }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
@@ -197,7 +197,7 @@ serve(async (req) => {
     console.error("[PARTNER-BULK-BILLING] Error:", error);
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });
