@@ -8,7 +8,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-const jsonResponse = (body: unknown, status = 200) =>
+const jsonResponse = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -91,7 +91,7 @@ serve(async (req) => {
           cancel_url: `${origin}/pricing?checkout=canceled`,
         });
 
-        return jsonResponse({ url: session.url });
+        return jsonResponse(req, { url: session.url });
       }
 
       const session = await stripe.checkout.sessions.create({
@@ -110,7 +110,7 @@ serve(async (req) => {
         cancel_url: `${origin}/pricing?checkout=canceled`,
       });
 
-      return jsonResponse({ url: session.url });
+      return jsonResponse(req, { url: session.url });
     }
 
     if (addonType && addonPrice) {
@@ -136,7 +136,7 @@ serve(async (req) => {
         cancel_url: `${origin}/media-studio?checkout=canceled`,
       });
 
-      return jsonResponse({ url: session.url });
+      return jsonResponse(req, { url: session.url });
     }
 
     if (!resolvedPlanKey && !resolvedPriceId) throw new Error("planKey is required");
@@ -257,9 +257,9 @@ serve(async (req) => {
     }
 
     const session = await stripe.checkout.sessions.create(sessionConfig);
-    return jsonResponse({ url: session.url });
+    return jsonResponse(req, { url: session.url });
   } catch (error) {
     console.error("create-checkout error:", error);
-    return jsonResponse({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return jsonResponse(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

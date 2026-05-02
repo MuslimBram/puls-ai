@@ -16,7 +16,7 @@ const requestSchema = z.object({
   businessId: z.string().uuid(),
 });
 
-const json = (body: unknown, init?: ResponseInit) =>
+const json = (req: Request, body: unknown, init?: ResponseInit) =>
   new Response(JSON.stringify(body), {
     ...init,
     headers: { ...getCors(req), "Content-Type": "application/json", ...(init?.headers ?? {}) },
@@ -33,15 +33,15 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) return json({ error: "Missing authorization header" }, { status: 401 });
+    if (!authHeader) return json(req, { error: "Missing authorization header" }, { status: 401 });
 
     const token = authHeader.replace("Bearer ", "");
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !authData.user) return json({ error: "Not authenticated" }, { status: 401 });
+    if (authError || !authData.user) return json(req, { error: "Not authenticated" }, { status: 401 });
 
-    const parsed = requestSchema.safeParse(await req.json());
+    const parsed = requestSchema.safeParse(await req.json(req));
     if (!parsed.success) {
-      return json({ error: parsed.error.issues[0]?.message || "Invalid request payload" }, { status: 400 });
+      return json(req, { error: parsed.error.issues[0]?.message || "Invalid request payload" }, { status: 400 });
     }
 
     const { mediaType, prompt, durationSeconds, workspaceId, businessId } = parsed.data;
@@ -53,7 +53,7 @@ serve(async (req) => {
       });
 
       if (memberError) throw memberError;
-      if (!isMember) return json({ error: "Workspace access denied" }, { status: 403 });
+      if (!isMember) return json(req, { error: "Workspace access denied" }, { status: 403 });
     }
 
     const [{ data: subscription, error: subscriptionError }, { data: roleRows, error: roleError }] = await Promise.all([
@@ -75,7 +75,7 @@ serve(async (req) => {
     const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("business_owner") || roles.includes("admin");
     const normalizedPlan = hasPrivilegedBypass ? "enterprise" : normalizeSubscriptionPlan(subscription?.plan);
     if (!normalizedPlan) {
-      return json({ error: "Subscription plan unavailable." }, { status: 409 });
+      return json(req, { error: "Subscription plan unavailable." }, { status: 409 });
     }
 
     const policy = await loadPricingMediaPolicy(supabase, normalizedPlan);
@@ -88,22 +88,22 @@ serve(async (req) => {
       .maybeSingle();
 
     if (businessError) throw businessError;
-    if (!businessProfile) return json({ error: "Business context not found." }, { status: 404 });
-    if (businessProfile.user_id !== authData.user.id) return json({ error: "Business access denied." }, { status: 403 });
+    if (!businessProfile) return json(req, { error: "Business context not found." }, { status: 404 });
+    if (businessProfile.user_id !== authData.user.id) return json(req, { error: "Business access denied." }, { status: 403 });
     if (resolvedWorkspaceId && businessProfile.workspace_id !== resolvedWorkspaceId) {
-      return json({ error: "Business does not belong to the active workspace." }, { status: 403 });
+      return json(req, { error: "Business does not belong to the active workspace." }, { status: 403 });
     }
 
     if (mediaType === "image" && !policy.allowImageGeneration) {
-      return json({ allowed: false, error: "Image generation is disabled for your current plan." });
+      return json(req, { allowed: false, error: "Image generation is disabled for your current plan." });
     }
 
     if (mediaType === "video" && !policy.allowVideoGeneration) {
-      return json({ allowed: false, error: "Video generation is disabled for your current plan." });
+      return json(req, { allowed: false, error: "Video generation is disabled for your current plan." });
     }
 
     if (mediaType === "video" && durationSeconds && policy.maxVideoSeconds !== -1 && durationSeconds > policy.maxVideoSeconds) {
-      return json({ allowed: false, error: `Video duration exceeds your current limit of ${policy.maxVideoSeconds} seconds.` });
+      return json(req, { allowed: false, error: `Video duration exceeds your current limit of ${policy.maxVideoSeconds} seconds.` });
     }
 
     const { data: providers, error: providerError } = await supabase
@@ -116,7 +116,7 @@ serve(async (req) => {
 
     const selectedProvider = (providers ?? []).find((provider) => provider.media_types.includes(mediaType));
     if (!selectedProvider) {
-      return json({ allowed: false, error: `No active ${mediaType} provider is configured.` });
+      return json(req, { allowed: false, error: `No active ${mediaType} provider is configured.` });
     }
 
     let dailyUsage: any;
@@ -133,10 +133,10 @@ serve(async (req) => {
     if (consumeError) {
       const message = consumeError.message || "Unable to consume daily media quota";
       if (message.includes("MEDIA_IMAGE_DAILY_LIMIT_REACHED")) {
-        return json({ allowed: false, error: `Daily image credits reached (${policy.dailyImageLimit}/${policy.dailyImageLimit}).` });
+        return json(req, { allowed: false, error: `Daily image credits reached (${policy.dailyImageLimit}/${policy.dailyImageLimit}).` });
       }
       if (message.includes("MEDIA_VIDEO_DAILY_LIMIT_REACHED")) {
-        return json({ allowed: false, error: `Daily video credits reached (${policy.dailyVideoLimit}/${policy.dailyVideoLimit}).` });
+        return json(req, { allowed: false, error: `Daily video credits reached (${policy.dailyVideoLimit}/${policy.dailyVideoLimit}).` });
       }
       throw consumeError;
     }
@@ -230,7 +230,7 @@ serve(async (req) => {
       }).catch((error) => console.error("Failed to trigger job-worker", error));
     }
 
-    return json({
+    return json(req, {
       allowed: true,
       generationId: generation.id,
       status: "queued",
@@ -245,6 +245,6 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("generate-media error:", error);
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
   }
 });

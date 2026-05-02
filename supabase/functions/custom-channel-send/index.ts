@@ -6,7 +6,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-const json = (body: unknown, status = 200) =>
+const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
     headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -21,7 +21,7 @@ serve(async (req) => {
   try {
     // Validate JWT
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    if (!authHeader?.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
 
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -30,15 +30,15 @@ serve(async (req) => {
 
     const token = authHeader.replace("Bearer ", "");
     const { data: userData } = await supabaseAdmin.auth.getUser(token);
-    if (!userData?.user) return json({ error: "Unauthorized" }, 401);
+    if (!userData?.user) return json(req, { error: "Unauthorized" }, 401);
     const userId = userData.user.id;
 
     // Parse and validate body
-    const body = await req.json();
+    const body = await req.json(req);
     const { adapter_key, message_content, recipient_identifier, metadata, idempotency_key } = body;
 
     if (!adapter_key || !message_content || !recipient_identifier) {
-      return json({ error: "Missing required fields: adapter_key, message_content, recipient_identifier" }, 400);
+      return json(req, { error: "Missing required fields: adapter_key, message_content, recipient_identifier" }, 400);
     }
 
     // --- Idempotency check ---
@@ -54,7 +54,7 @@ serve(async (req) => {
         .maybeSingle();
 
       if (existing) {
-        return json({ success: existing.status === "success", duplicate: true, message: "Already processed" });
+        return json(req, { success: existing.status === "success", duplicate: true, message: "Already processed" });
       }
     }
 
@@ -66,8 +66,8 @@ serve(async (req) => {
       .eq("is_active", true)
       .single();
 
-    if (adapterErr || !adapter) return json({ error: "Adapter not found or inactive" }, 404);
-    if (!adapter.provider_api_url) return json({ error: "Adapter has no provider API URL configured" }, 400);
+    if (adapterErr || !adapter) return json(req, { error: "Adapter not found or inactive" }, 404);
+    if (!adapter.provider_api_url) return json(req, { error: "Adapter has no provider API URL configured" }, 400);
 
     // Apply outbound_mapping
     const outMapping = adapter.outbound_mapping || {};
@@ -164,7 +164,7 @@ serve(async (req) => {
       console.error("[custom-channel-send] Log error:", e);
     }
 
-    return json({
+    return json(req, {
       success,
       provider_status: providerStatus,
       provider_response: providerBody,
@@ -173,6 +173,6 @@ serve(async (req) => {
     }, success ? 200 : 502);
   } catch (error) {
     console.error("[custom-channel-send] Error:", error);
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
