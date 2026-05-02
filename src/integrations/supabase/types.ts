@@ -12645,6 +12645,47 @@ export type Database = {
         }
         Relationships: []
       }
+      vault_secret_refs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          integration_key: string
+          label: string | null
+          updated_at: string
+          vault_secret_name: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          integration_key: string
+          label?: string | null
+          updated_at?: string
+          vault_secret_name: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          integration_key?: string
+          label?: string | null
+          updated_at?: string
+          vault_secret_name?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_secret_refs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       viral_engagement_analytics: {
         Row: {
           created_at: string | null
@@ -13958,6 +13999,23 @@ export type Database = {
           _user_id: string
         }
         Returns: string
+      }
+      vault_delete_secret: {
+        Args: { _vault_secret_name: string }
+        Returns: boolean
+      }
+      vault_read_secret: {
+        Args: { _vault_secret_name: string }
+        Returns: string
+      }
+      vault_store_secret: {
+        Args: {
+          _integration_key: string
+          _label?: string
+          _secret_value: string
+          _workspace_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {
