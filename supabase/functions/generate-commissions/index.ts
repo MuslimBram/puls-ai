@@ -18,7 +18,18 @@ serve(async (req) => {
     { auth: { persistSession: false } }
   );
 
-  try {
+    // Load pricing from single source of truth: pricing_settings
+    const { data: pricingRows } = await supabase
+      .from("pricing_settings")
+      .select("plan_key, monthly_price, is_donation");
+    const planPriceMap: Record<string, number> = {};
+    for (const p of pricingRows || []) {
+      if (!p.is_donation) planPriceMap[p.plan_key] = Number(p.monthly_price) || 0;
+    }
+
+    // Sync referral lifecycle statuses before computing commissions
+    await supabase.rpc("sync_referral_statuses").catch(() => {});
+
     // Get all workspaces that were referred by a partner
     const { data: referredWorkspaces, error: wsErr } = await supabase
       .from("workspaces")
@@ -38,17 +49,22 @@ serve(async (req) => {
     const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
     for (const ws of referredWorkspaces) {
-      // Get subscription for this workspace
+      // Get subscription — only paying ('active') counts; trialing excluded per referral policy
       const { data: sub } = await supabase
         .from("subscriptions")
-        .select("id, plan, subscription_status, stripe_subscription_id, workspace_id")
+        .select("id, plan, subscription_status, payment_status, package_end_at, stripe_subscription_id, workspace_id")
         .eq("workspace_id", ws.id)
         .maybeSingle();
 
-      if (!sub || !["active", "trialing"].includes(sub.subscription_status || "")) continue;
+      if (!sub) continue;
+      const isPaying =
+        ["active", "paid"].includes(sub.payment_status || "") &&
+        (sub.plan && sub.plan !== "free") &&
+        (!sub.package_end_at || new Date(sub.package_end_at) > now);
+      if (!isPaying) continue;
 
       const planName = sub.plan || "standard";
-      const grossAmount = PLAN_PRICES[planName] || 0;
+      const grossAmount = planPriceMap[planName] || 0;
       if (grossAmount === 0) continue;
 
       // Check if commission already exists for this period
