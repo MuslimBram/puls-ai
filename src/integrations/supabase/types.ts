@@ -2008,43 +2008,61 @@ export type Database = {
       }
       business_referrals: {
         Row: {
+          activated_at: string | null
+          canceled_at: string | null
           converted_at: string | null
           created_at: string | null
+          expired_at: string | null
           id: string
+          last_status_check_at: string | null
           referral_code: string
           referred_email: string | null
           referred_user_id: string | null
           referrer_user_id: string
+          registered_at: string | null
           reward_amount: number | null
           reward_status: string | null
           status: string | null
           subscription_plan: string | null
+          trial_started_at: string | null
         }
         Insert: {
+          activated_at?: string | null
+          canceled_at?: string | null
           converted_at?: string | null
           created_at?: string | null
+          expired_at?: string | null
           id?: string
+          last_status_check_at?: string | null
           referral_code: string
           referred_email?: string | null
           referred_user_id?: string | null
           referrer_user_id: string
+          registered_at?: string | null
           reward_amount?: number | null
           reward_status?: string | null
           status?: string | null
           subscription_plan?: string | null
+          trial_started_at?: string | null
         }
         Update: {
+          activated_at?: string | null
+          canceled_at?: string | null
           converted_at?: string | null
           created_at?: string | null
+          expired_at?: string | null
           id?: string
+          last_status_check_at?: string | null
           referral_code?: string
           referred_email?: string | null
           referred_user_id?: string | null
           referrer_user_id?: string
+          registered_at?: string | null
           reward_amount?: number | null
           reward_status?: string | null
           status?: string | null
           subscription_plan?: string | null
+          trial_started_at?: string | null
         }
         Relationships: []
       }
@@ -13930,6 +13948,10 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      get_active_referral_count: {
+        Args: { _referrer_user_id: string }
+        Returns: number
+      }
       get_media_usage_policy_for_user: {
         Args: { _user_id: string }
         Returns: {
@@ -13990,6 +14012,7 @@ export type Database = {
       reset_daily_ai_replies: { Args: never; Returns: undefined }
       reset_expired_media_daily_usage: { Args: never; Returns: number }
       reset_monthly_usage: { Args: never; Returns: undefined }
+      sync_referral_statuses: { Args: never; Returns: Json }
       upsert_conversation_thread: {
         Args: {
           _channel_type: string
