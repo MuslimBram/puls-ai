@@ -235,7 +235,17 @@ serve(async (req) => {
       payerEmail: payer?.email_address,
     });
   } catch (error) {
-    console.error("[capture-paypal] Error:", error);
-    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("[capture-paypal] Error:", msg);
+    try {
+      await supabase.from("webhook_activity_logs").insert({
+        source: "paypal",
+        event_type: "capture_order_error",
+        endpoint: "/capture-paypal-order",
+        status: "error",
+        error_message: msg,
+      });
+    } catch (_) { /* never block */ }
+    return json(req, { error: msg }, 500);
   }
 });
