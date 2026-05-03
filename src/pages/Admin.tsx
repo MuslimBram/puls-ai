@@ -30,6 +30,7 @@ import { AdminRoleManager } from "@/components/AdminRoleManager";
 import { AdminWithdrawalApproval } from "@/components/AdminWithdrawalApproval";
 import { AdminPlatformWallet } from "@/components/AdminPlatformWallet";
 import { AdminCustomChannelPanel } from "@/components/AdminCustomChannelPanel";
+import { AdminPaymentHealthPanel } from "@/components/AdminPaymentHealthPanel";
 
 const Admin = () => {
   const { isAdmin, isLoading: roleLoading } = useIsAdmin();
@@ -195,6 +196,10 @@ const Admin = () => {
             <TabsTrigger value="custom-channels">
               <Plug className="h-3 w-3 mr-1" />
               Custom Channels
+            </TabsTrigger>
+            <TabsTrigger value="payment-health">
+              <Activity className="h-3 w-3 mr-1" />
+              Payment Health
             </TabsTrigger>
           </TabsList>
 
@@ -528,6 +533,10 @@ const Admin = () => {
 
           <TabsContent value="custom-channels">
             <AdminCustomChannelPanel />
+          </TabsContent>
+
+          <TabsContent value="payment-health">
+            <AdminPaymentHealthPanel />
           </TabsContent>
 
         </Tabs>
