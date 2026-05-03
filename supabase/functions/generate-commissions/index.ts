@@ -7,12 +7,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-const PLAN_PRICES: Record<string, number> = {
-  standard: 29,
-  professional: 79,
-  advanced: 149,
-  enterprise: 399,
-};
+// Prices are loaded dynamically from pricing_settings — single source of truth
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
