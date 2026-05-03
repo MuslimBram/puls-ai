@@ -13707,6 +13707,7 @@ export type Database = {
         Args: { _thread_id: string; _workspace_id: string }
         Returns: string
       }
+      billing_consistency_report: { Args: never; Returns: Json }
       bootstrap_user_account_for: {
         Args: { _user_id: string }
         Returns: undefined
