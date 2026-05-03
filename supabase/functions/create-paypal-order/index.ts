@@ -127,7 +127,17 @@ serve(async (req) => {
 
     return json(req, { orderId: order.id, approveUrl });
   } catch (error) {
-    console.error("create-paypal-order error:", error);
-    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    console.error("create-paypal-order error:", msg);
+    try {
+      await supabase.from("webhook_activity_logs").insert({
+        source: "paypal",
+        event_type: "create_order_error",
+        endpoint: "/create-paypal-order",
+        status: "error",
+        error_message: msg,
+      });
+    } catch (_) { /* never block */ }
+    return json(req, { error: msg }, 500);
   }
 });
