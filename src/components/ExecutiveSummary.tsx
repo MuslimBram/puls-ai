@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDeepAnalytics, AnalyticsRange } from "@/hooks/useDeepAnalytics";
-import { useExecutiveSummary } from "@/hooks/useOperationalIntelligence";
+import { useExecutiveSummary, useFunnelAnalytics } from "@/hooks/useOperationalIntelligence";
 import { useScoreLeads } from "@/hooks/useAIConversationMemory";
 import {
   TrendingUp,
