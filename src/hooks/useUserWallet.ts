@@ -157,9 +157,9 @@ export const useRequestWithdrawal = () => {
     onSuccess: (result) => {
       qc.invalidateQueries({ queryKey: ["withdrawal-requests"] });
       if (result.aiResult?.status === "blocked") {
-        toast.error("Kërkesa u bllokua nga verifikimi automatik. Kontaktoni mbështetjen.");
+        toast.error("Request blocked by automated verification. Please contact support.");
       } else {
-        toast.success("Kërkesa për tërheqje u dërgua. Në pritje të aprovimit nga Admini.");
+        toast.success("Withdrawal request submitted. Awaiting admin approval.");
       }
     },
     onError: (e: Error) => toast.error(e.message),
