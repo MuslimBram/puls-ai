@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useDeepAnalytics, AnalyticsRange } from "@/hooks/useDeepAnalytics";
-import { useExecutiveSummary } from "@/hooks/useOperationalIntelligence";
+import { useExecutiveSummary, useFunnelAnalytics } from "@/hooks/useOperationalIntelligence";
 import { useScoreLeads } from "@/hooks/useAIConversationMemory";
 import {
   TrendingUp,
@@ -31,6 +31,7 @@ interface ExecutiveSummaryProps {
 export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
   const m = useDeepAnalytics(dateRange);
   const executive = useExecutiveSummary();
+  const funnel = useFunnelAnalytics(dateRange);
   const scoreLeads = useScoreLeads();
 
   const highlights: { icon: React.ElementType; label: string; value: string | number; trend?: number; color: string }[] = [
@@ -42,11 +43,12 @@ export const ExecutiveSummary = ({ dateRange }: ExecutiveSummaryProps) => {
     { icon: Brain, label: "Avg AI Score", value: m.avgPredictedLeadScore, color: "text-primary" },
   ];
 
+  const f = funnel.data;
   const funnelSteps = [
-    { label: "Leads", value: m.totalLeads, pct: 100 },
-    { label: "Engaged", value: Math.round(m.totalLeads * 0.65), pct: 65 },
-    { label: "Qualified", value: Math.round(m.totalLeads * (m.conversionRate / 100) * 2), pct: Math.round((m.conversionRate / 100) * 200) },
-    { label: "Won", value: Math.round(m.totalLeads * (m.conversionRate / 100)), pct: m.conversionRate },
+    { label: "Leads", value: f?.total_leads ?? 0, pct: 100 },
+    { label: "Qualified", value: f?.qualified ?? 0, pct: f?.lead_to_qualified_pct ?? 0 },
+    { label: "Deals", value: f?.deals ?? 0, pct: f?.qualified_to_deal_pct ?? 0 },
+    { label: "Won", value: f?.won ?? 0, pct: f?.deal_to_won_pct ?? 0 },
   ];
 
   const executiveCards = executive.data
