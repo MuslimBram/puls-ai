@@ -20,9 +20,9 @@ interface AdminCreateBusinessProps {
 }
 
 const toneOptions = [
-  { value: "professional", label: "Profesional" },
-  { value: "friendly", label: "Miqësor" },
-  { value: "casual", label: "I lirshëm" },
+  { value: "professional", label: "Professional" },
+  { value: "friendly", label: "Friendly" },
+  { value: "casual", label: "Casual" },
   { value: "formal", label: "Formal" },
 ];
 
@@ -85,8 +85,8 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
 
   const createBusiness = useMutation({
     mutationFn: async () => {
-      if (!form.business_name.trim()) throw new Error("Emri i biznesit është i detyrueshëm");
-      if (validChannels.length < 2) throw new Error("Duhen të paktën 2 kanale të plotësuara");
+      if (!form.business_name.trim()) throw new Error("Business name is required");
+      if (validChannels.length < 2) throw new Error("At least 2 channels must be filled in");
 
       const targetUserId = form.assign_to_user === "__self__" ? user!.id : form.assign_to_user;
 
@@ -97,7 +97,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
         .limit(1)
         .single();
 
-      if (!workspace) throw new Error("Përdoruesi nuk ka workspace");
+      if (!workspace) throw new Error("User has no workspace");
 
       const { data, error } = await supabase
         .from("business_profiles")
@@ -138,7 +138,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
         channels_count: validChannels.length,
       });
       queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
-      toast.success("Biznesi u krijua me sukses me " + validChannels.length + " kanale");
+      toast.success("Business created successfully with " + validChannels.length + " channels");
       setOpen(false);
       setForm({
         business_name: "", short_description: "", industry: "",
@@ -158,47 +158,47 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="text-base flex items-center gap-2">
           <Building2 className="h-4 w-4" />
-          Bizneset ({businesses.length})
+          Businesses ({businesses.length})
         </CardTitle>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
             <Button size="sm">
-              <Plus className="h-3 w-3 mr-1" /> Krijo Biznes
+              <Plus className="h-3 w-3 mr-1" /> Create Business
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Krijo Biznes të Ri (Admin)</DialogTitle>
+              <DialogTitle>Create New Business (Admin)</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <div>
-                <Label>Emri i Biznesit *</Label>
+                <Label>Business Name *</Label>
                 <Input
                   value={form.business_name}
                   onChange={(e) => setForm((f) => ({ ...f, business_name: e.target.value }))}
-                  placeholder="Emri i biznesit"
+                  placeholder="Business name"
                 />
               </div>
               <div>
-                <Label>Përshkrim i Shkurtër</Label>
+                <Label>Short Description</Label>
                 <Textarea
                   value={form.short_description}
                   onChange={(e) => setForm((f) => ({ ...f, short_description: e.target.value }))}
-                  placeholder="Përshkrim..."
+                  placeholder="Description..."
                   rows={2}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label>Industria</Label>
+                  <Label>Industry</Label>
                   <Input
                     value={form.industry}
                     onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
-                    placeholder="p.sh. Teknologji"
+                    placeholder="e.g. Technology"
                   />
                 </div>
                 <div>
-                  <Label>Toni i AI</Label>
+                  <Label>AI Tone</Label>
                   <Select value={form.ai_tone} onValueChange={(v) => setForm((f) => ({ ...f, ai_tone: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -215,17 +215,17 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
                 <div className="flex items-center justify-between">
                   <Label className="flex items-center gap-1.5">
                     <Link2 className="h-3.5 w-3.5" />
-                    Kanalet (min. 2) *
+                    Channels (min. 2) *
                   </Label>
                   <Button type="button" variant="ghost" size="sm" onClick={addChannel}>
-                    <Plus className="h-3 w-3 mr-1" /> Shto
+                    <Plus className="h-3 w-3 mr-1" /> Add
                   </Button>
                 </div>
 
                 {validChannels.length < 2 && (
                   <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    Plotësoni të paktën 2 kanale (p.sh. Instagram & LinkedIn, Website, etj.)
+                    Fill in at least 2 channels (e.g. Instagram & LinkedIn, Website, etc.)
                   </div>
                 )}
 
@@ -244,7 +244,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
                     <Input
                       value={ch.identifier}
                       onChange={(e) => updateChannel(idx, "identifier", e.target.value)}
-                      placeholder={ch.type === "website" ? "https://..." : "@username ose URL"}
+                      placeholder={ch.type === "website" ? "https://..." : "@username or URL"}
                       className="flex-1"
                     />
                     {channels.length > 2 && (
@@ -257,11 +257,11 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
               </div>
 
               <div>
-                <Label>Cakto te Përdoruesi</Label>
+                <Label>Assign to User</Label>
                 <Select value={form.assign_to_user} onValueChange={(v) => setForm((f) => ({ ...f, assign_to_user: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Vetë (Admin)" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Self (Admin)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__self__">Vetë (Admin)</SelectItem>
+                    <SelectItem value="__self__">Self (Admin)</SelectItem>
                     {profiles.map((p) => (
                       <SelectItem key={p.user_id} value={p.user_id}>
                         {p.full_name || p.user_id.substring(0, 8)}
@@ -275,7 +275,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
                 onClick={() => createBusiness.mutate()}
                 disabled={createBusiness.isPending || !form.business_name.trim() || validChannels.length < 2}
               >
-                {createBusiness.isPending ? "Duke krijuar..." : "Krijo Biznesin"}
+                {createBusiness.isPending ? "Creating..." : "Create Business"}
               </Button>
             </div>
           </DialogContent>
@@ -283,7 +283,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
       </CardHeader>
       <CardContent>
         {businesses.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">Asnjë biznes</p>
+          <p className="py-6 text-center text-sm text-muted-foreground">No businesses</p>
         ) : (
           <div className="space-y-2">
             {businesses.map((b: any) => (
@@ -291,10 +291,10 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-medium text-foreground">{b.business_name}</p>
-                    <Badge variant="secondary" className="text-xs">{b.industry || "Pa industri"}</Badge>
+                    <Badge variant="secondary" className="text-xs">{b.industry || "No industry"}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {b.short_description?.substring(0, 80) || "Pa përshkrim"}
+                    {b.short_description?.substring(0, 80) || "No description"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">

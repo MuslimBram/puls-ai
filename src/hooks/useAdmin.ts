@@ -8,7 +8,7 @@ export const useIsAdmin = () => {
   const { isAdmin, isLoading } = useRolePermissions();
 
   return {
-    // Vetëm admin/super_admin kanë akses në panelin Admin
+    // Only admin/super_admin can access the Admin panel
     isAdmin,
     isLoading,
   };
