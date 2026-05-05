@@ -41,17 +41,17 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="flex min-h-[300px] flex-col items-center justify-center gap-4 p-8 text-center">
           <AlertTriangle className="h-10 w-10 text-destructive" />
           <div>
-            <h3 className="text-lg font-semibold text-foreground">Gabim në faqe</h3>
+            <h3 className="text-lg font-semibold text-foreground">Page error</h3>
             <p className="mt-1 text-sm text-muted-foreground max-w-md">
-              {this.state.error?.message || "Kjo faqe hasi një gabim. Provo ta rifreskosh ose të lundrosh diku tjetër."}
+              {this.state.error?.message || "This page hit an error. Try refreshing or navigating elsewhere."}
             </p>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" onClick={this.handleReset}>
-              <RefreshCw className="h-4 w-4 mr-2" /> Rifresko
+              <RefreshCw className="h-4 w-4 mr-2" /> Refresh
             </Button>
             <Button onClick={() => (window.location.href = "/dashboard")} variant="default">
-              Shko te Paneli i Kontrollit
+              Go to Dashboard
             </Button>
           </div>
         </div>
@@ -65,9 +65,9 @@ export const PageErrorFallback = () => (
   <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background p-8 text-center">
     <AlertTriangle className="h-12 w-12 text-destructive" />
     <div>
-      <h2 className="text-xl font-semibold text-foreground">Gabim në faqe</h2>
+      <h2 className="text-xl font-semibold text-foreground">Page error</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Kjo faqe ka një gabim. Provo ta rifreskosh ose të lundrosh diku tjetër.
+        This page has an error. Try refreshing or navigating elsewhere.
       </p>
     </div>
     <div className="flex gap-3">
@@ -78,10 +78,10 @@ export const PageErrorFallback = () => (
         }
         window.location.reload();
       }}>
-        <RefreshCw className="h-4 w-4 mr-2" /> Pastro cache & Rifresko
+        <RefreshCw className="h-4 w-4 mr-2" /> Clear cache & Refresh
       </Button>
       <Button onClick={() => (window.location.href = "/dashboard")} variant="default">
-        Shko te Paneli i Kontrollit
+        Go to Dashboard
       </Button>
     </div>
   </div>

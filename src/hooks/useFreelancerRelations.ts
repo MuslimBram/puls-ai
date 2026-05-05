@@ -62,8 +62,8 @@ export const useFreelancerRelations = () => {
       queryClient.invalidateQueries({ queryKey: ["freelancer-relations"] });
       const msg =
         vars.relation_type === "referral"
-          ? "Kërkesa për referim u dërgua për aprovim"
-          : "Kërkesa për menaxhim u dërgua për aprovim";
+          ? "Referral request submitted for approval"
+          : "Management request submitted for approval";
       toast.success(msg);
     },
     onError: (e) => toast.error(e.message),
@@ -83,7 +83,7 @@ export const useFreelancerRelations = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["freelancer-relations"] });
-      toast.success("Marrëdhënia u aprovua");
+      toast.success("Relation approved");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -94,14 +94,14 @@ export const useFreelancerRelations = () => {
         .from("freelancer_business_relations")
         .update({
           status: "rejected",
-          deactivation_reason: reason || "Refuzuar nga admini",
+          deactivation_reason: reason || "Rejected by admin",
         } as any)
         .eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["freelancer-relations"] });
-      toast.success("Kërkesa u refuzua");
+      toast.success("Request rejected");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -187,7 +187,7 @@ export const useRegisteredAssets = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["deactivation-requests"] });
-      toast.success("Kërkesa për çaktivizim u dërgua tek Adminët");
+      toast.success("Deactivation request sent to Admins");
     },
     onError: (e) => toast.error(e.message),
   });
@@ -259,7 +259,7 @@ export const useDeactivationRequests = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["deactivation-requests"] });
       queryClient.invalidateQueries({ queryKey: ["registered-assets"] });
-      toast.success("Kërkesa u shqyrtua");
+      toast.success("Request reviewed");
     },
     onError: (e) => toast.error(e.message),
   });
