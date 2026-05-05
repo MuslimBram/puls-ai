@@ -187,11 +187,11 @@ const Admin = () => {
             </TabsTrigger>
             <TabsTrigger value="withdrawals">
               <Wallet className="h-3 w-3 mr-1" />
-              Tërheqjet
+              Withdrawals
             </TabsTrigger>
             <TabsTrigger value="platform-wallet">
               <Wallet className="h-3 w-3 mr-1" />
-              Portofoli
+              Wallet
             </TabsTrigger>
             <TabsTrigger value="custom-channels">
               <Plug className="h-3 w-3 mr-1" />
