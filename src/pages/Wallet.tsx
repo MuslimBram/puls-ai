@@ -6,8 +6,8 @@ const WalletPage = () => {
     <DashboardLayout>
       <div className="space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Portofoli</h1>
-          <p className="text-muted-foreground">Menaxhoni balancën, rimbushjet dhe tërheqjet tuaja</p>
+          <h1 className="text-2xl font-bold text-foreground">Wallet</h1>
+          <p className="text-muted-foreground">Manage your balance, top-ups and withdrawals</p>
         </div>
         <UserWalletPanel />
       </div>
