@@ -13,7 +13,7 @@ import { useConversionTracking } from "@/hooks/useConversionTracking";
 import { UsageIndicator } from "@/components/UsageIndicator";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { GrowthAssistant } from "@/components/GrowthAssistant";
-import { SetupChecklist } from "@/components/SetupChecklist";
+import { ActivationChecklist } from "@/components/ActivationChecklist";
 import { PlanStatusCard } from "@/components/PlanStatusCard";
 import { RetentionHealthCard } from "@/components/RetentionHealthCard";
 import { RevenueOpportunities } from "@/components/RevenueOpportunities";
@@ -94,17 +94,8 @@ const Dashboard = () => {
       <div className="space-y-6">
         {!isLoading && (
           <>
-            <SafeRender label="Setup Checklist">
-              <SetupChecklist
-                hasProfile={!!profile}
-                hasKeywords={(keywords ?? []).length > 0}
-                hasTelegram={hasTelegram}
-                hasLeads={(leads ?? []).length > 0}
-                hasChannel={(channels ?? []).length > 0}
-                hasKnowledge={(knowledgeCount ?? 0) > 0}
-                hasAutomation={(automationCount ?? 0) > 0}
-                hasInbox={(messages ?? []).length > 0}
-              />
+            <SafeRender label="Activation Checklist">
+              <ActivationChecklist />
             </SafeRender>
             <SafeRender label="Onboarding Wizard">
               <OnboardingWizard />
