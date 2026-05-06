@@ -24,18 +24,18 @@ export const RecoveryEmail = ({
 }: RecoveryEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Rivendosni fjalëkalimin tuaj për {siteName}</Preview>
+    <Preview>Reset your password for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Rivendosni fjalëkalimin</Heading>
+        <Heading style={h1}>Reset your password</Heading>
         <Text style={text}>
-          Kemi marrë një kërkesë për të rivendosur fjalëkalimin tuaj për {siteName}. Klikoni butonin më poshtë për të zgjedhur një fjalëkalim të ri.
+          We received a request to reset your password for {siteName}. Click the button below to choose a new password.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Rivendos Fjalëkalimin
+          Reset Password
         </Button>
         <Text style={footer}>
-          Nëse nuk e keni kërkuar rivendosjen e fjalëkalimit, mund ta injoroni këtë email. Fjalëkalimi juaj nuk do të ndryshojë.
+          If you did not request a password reset, you can safely ignore this email. Your password will not change.
         </Text>
       </Container>
     </Body>
