@@ -19,14 +19,14 @@ interface ReauthenticationEmailProps {
 export const ReauthenticationEmail = ({ token }: ReauthenticationEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Kodi juaj i verifikimit</Preview>
+    <Preview>Your verification code</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Konfirmoni identitetin</Heading>
-        <Text style={text}>Përdorni kodin më poshtë për të konfirmuar identitetin tuaj:</Text>
+        <Heading style={h1}>Confirm your identity</Heading>
+        <Text style={text}>Use the code below to confirm your identity:</Text>
         <Text style={codeStyle}>{token}</Text>
         <Text style={footer}>
-          Ky kod do të skadojë së shpejti. Nëse nuk e keni kërkuar këtë, mund ta injoroni këtë email.
+          This code will expire shortly. If you did not request this, you can safely ignore this email.
         </Text>
       </Container>
     </Body>
