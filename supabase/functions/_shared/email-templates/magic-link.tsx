@@ -24,18 +24,18 @@ export const MagicLinkEmail = ({
 }: MagicLinkEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Linku juaj i hyrjes për {siteName}</Preview>
+    <Preview>Your sign-in link for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Linku juaj i hyrjes</Heading>
+        <Heading style={h1}>Your sign-in link</Heading>
         <Text style={text}>
-          Klikoni butonin më poshtë për të hyrë në {siteName}. Ky link do të skadojë së shpejti.
+          Click the button below to sign in to {siteName}. This link will expire shortly.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Hyr në Llogari
+          Sign In
         </Button>
         <Text style={footer}>
-          Nëse nuk e keni kërkuar këtë link, mund ta injoroni këtë email.
+          If you did not request this link, you can safely ignore this email.
         </Text>
       </Container>
     </Body>
