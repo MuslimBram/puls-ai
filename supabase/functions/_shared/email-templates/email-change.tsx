@@ -29,29 +29,29 @@ export const EmailChangeEmail = ({
 }: EmailChangeEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Konfirmoni ndryshimin e email-it për {siteName}</Preview>
+    <Preview>Confirm your email change for {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Konfirmoni ndryshimin e email-it</Heading>
+        <Heading style={h1}>Confirm your email change</Heading>
         <Text style={text}>
-          Keni kërkuar të ndryshoni adresën e email-it tuaj për {siteName} nga{' '}
+          You requested to change your email address for {siteName} from{' '}
           <Link href={`mailto:${email}`} style={link}>
             {email}
           </Link>{' '}
-          në{' '}
+          to{' '}
           <Link href={`mailto:${newEmail}`} style={link}>
             {newEmail}
           </Link>
           .
         </Text>
         <Text style={text}>
-          Klikoni butonin më poshtë për të konfirmuar këtë ndryshim:
+          Click the button below to confirm this change:
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Konfirmo Ndryshimin
+          Confirm Change
         </Button>
         <Text style={footer}>
-          Nëse nuk e keni kërkuar këtë ndryshim, ju lutemi siguroni llogarinë tuaj menjëherë.
+          If you did not request this change, please secure your account immediately.
         </Text>
       </Container>
     </Body>

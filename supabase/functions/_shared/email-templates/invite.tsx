@@ -27,22 +27,22 @@ export const InviteEmail = ({
 }: InviteEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Jeni ftuar të bashkoheni me {siteName}</Preview>
+    <Preview>You're invited to join {siteName}</Preview>
     <Body style={main}>
       <Container style={container}>
-        <Heading style={h1}>Jeni ftuar</Heading>
+        <Heading style={h1}>You're invited</Heading>
         <Text style={text}>
-          Jeni ftuar të bashkoheni me{' '}
+          You've been invited to join{' '}
           <Link href={siteUrl} style={link}>
             <strong>{siteName}</strong>
           </Link>
-          . Klikoni butonin më poshtë për të pranuar ftesën dhe krijuar llogarinë tuaj.
+          . Click the button below to accept the invitation and create your account.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Prano Ftesën
+          Accept Invitation
         </Button>
         <Text style={footer}>
-          Nëse nuk e prisnit këtë ftesë, mund ta injoroni këtë email.
+          If you weren't expecting this invitation, you can safely ignore this email.
         </Text>
       </Container>
     </Body>
