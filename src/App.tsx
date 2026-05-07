@@ -22,6 +22,7 @@ import Dashboard from "./pages/Dashboard";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 const CompletePayment = lazy(() => import("./pages/CompletePayment"));
+const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
 
 // Lazy loaded pages
 const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
@@ -164,6 +165,7 @@ const App = () => (
                 <Route path="/register" element={<Register />} />
                 <Route path="/forgot-password" element={<ForgotPassword />} />
                 <Route path="/reset-password" element={<ResetPassword />} />
+                <Route path="/unsubscribe" element={<Suspense fallback={<LazyFallback />}><Unsubscribe /></Suspense>} />
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/complete-payment" element={<ProtectedRoute><Suspense fallback={<LazyFallback />}><CompletePayment /></Suspense></ProtectedRoute>} />
 
