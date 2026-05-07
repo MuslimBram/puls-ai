@@ -218,6 +218,13 @@ const Inbox = () => {
           </DialogContent>
         </Dialog>
       </div>
+      <CoachTour
+        tourId="inbox-v1"
+        steps={[
+          { selector: '[data-tour="inbox-filters"]', title: "Filter your inbox", body: "Narrow messages by channel, priority and status — your view is saved as you change it." },
+          { selector: '[data-tour="inbox-messages"]', title: "All conversations in one place", body: "WhatsApp, Telegram, Email and Web Chat unified here. Click any message to reply with AI assistance." },
+        ]}
+      />
     </DashboardLayout>
   );
 };
