@@ -12,6 +12,7 @@ import { OpenTasksList } from "@/components/crm/OpenTasksList";
 import { NewDealDialog } from "@/components/crm/NewDealDialog";
 import { DealDetailDialog } from "@/components/crm/DealDetailDialog";
 import { Users, Phone } from "lucide-react";
+import { CoachTour } from "@/components/CoachTour";
 
 const CRM = () => {
   const [searchParams] = useSearchParams();
@@ -53,7 +54,7 @@ const CRM = () => {
         />
 
         <Tabs defaultValue={defaultTab}>
-          <TabsList>
+          <TabsList data-tour="crm-tabs">
             <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
             <TabsTrigger value="tasks">Tasks</TabsTrigger>
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -61,7 +62,7 @@ const CRM = () => {
             <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" />Calls</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="pipeline">
+          <TabsContent value="pipeline" data-tour="crm-pipeline">
             <PipelineBoard
               stages={stages}
               deals={deals}
@@ -116,6 +117,13 @@ const CRM = () => {
           />
         )}
       </div>
+      <CoachTour
+        tourId="crm-v1"
+        steps={[
+          { selector: '[data-tour="crm-tabs"]', title: "Your CRM at a glance", body: "Switch between pipeline, tasks, contacts and call history. Everything stays connected." },
+          { selector: '[data-tour="crm-pipeline"]', title: "Drag deals across stages", body: "Move deals through your sales process. Stage changes trigger automations and notifications." },
+        ]}
+      />
     </DashboardLayout>
   );
 };
