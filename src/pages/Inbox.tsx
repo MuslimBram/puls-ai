@@ -93,7 +93,7 @@ const Inbox = () => {
         </Card>
 
         {/* Messages */}
-        <Card>
+        <Card data-tour="inbox-messages">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <InboxIcon className="h-5 w-5 text-primary" />
