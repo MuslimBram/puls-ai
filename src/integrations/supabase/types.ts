@@ -5283,6 +5283,30 @@ export type Database = {
           },
         ]
       }
+      drip_email_log: {
+        Row: {
+          id: string
+          metadata: Json | null
+          sent_at: string
+          template_name: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          metadata?: Json | null
+          sent_at?: string
+          template_name: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          metadata?: Json | null
+          sent_at?: string
+          template_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ecosystem_analytics: {
         Row: {
           collaboration_campaigns: number | null
@@ -11949,6 +11973,8 @@ export type Database = {
           subscription_status: string
           total_discount_savings: number | null
           trial_end: string | null
+          trial_extended_at: string | null
+          trial_extension_days: number | null
           trial_start: string | null
           updated_at: string
           user_id: string
@@ -11987,6 +12013,8 @@ export type Database = {
           subscription_status?: string
           total_discount_savings?: number | null
           trial_end?: string | null
+          trial_extended_at?: string | null
+          trial_extension_days?: number | null
           trial_start?: string | null
           updated_at?: string
           user_id: string
@@ -12025,6 +12053,8 @@ export type Database = {
           subscription_status?: string
           total_discount_savings?: number | null
           trial_end?: string | null
+          trial_extended_at?: string | null
+          trial_extension_days?: number | null
           trial_start?: string | null
           updated_at?: string
           user_id?: string

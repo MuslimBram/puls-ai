@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CoachTour } from "@/components/CoachTour";
 import {
   useAutomationWorkflows,
   useAutomationLogs,
@@ -66,13 +67,13 @@ const Automations = () => {
             <h1 className="text-2xl font-bold text-foreground">Automations</h1>
             <p className="text-sm text-muted-foreground">Event-driven workflows to automate your business processes</p>
           </div>
-          <Button onClick={() => setShowCreate(true)}>
+          <Button onClick={() => setShowCreate(true)} data-tour="auto-create">
             <Plus className="mr-2 h-4 w-4" /> New Workflow
           </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="workflows">
-          <TabsList>
+          <TabsList data-tour="auto-tabs">
             <TabsTrigger value="workflows">My Workflows</TabsTrigger>
             <TabsTrigger value="chatbots">Chatbot Flows</TabsTrigger>
             <TabsTrigger value="templates">Templates Library</TabsTrigger>
@@ -238,6 +239,13 @@ const Automations = () => {
           </TabsContent>
         </Tabs>
       </div>
+      <CoachTour
+        tourId="auto-v1"
+        steps={[
+          { selector: '[data-tour="auto-tabs"]', title: "Three ways to automate", body: "Build custom workflows, design chatbot flows, or pick a ready-made template." },
+          { selector: '[data-tour="auto-create"]', title: "Create your first workflow", body: "Start from a trigger (new lead, new message, status change) and chain actions like send reply, assign owner, or notify team." },
+        ]}
+      />
     </DashboardLayout>
   );
 };

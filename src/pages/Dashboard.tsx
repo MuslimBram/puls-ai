@@ -14,6 +14,8 @@ import { UsageIndicator } from "@/components/UsageIndicator";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
 import { GrowthAssistant } from "@/components/GrowthAssistant";
 import { ActivationChecklist } from "@/components/ActivationChecklist";
+import { TrialExtendedBanner } from "@/components/TrialExtendedBanner";
+import { WalkthroughVideo } from "@/components/WalkthroughVideo";
 import { PlanStatusCard } from "@/components/PlanStatusCard";
 import { RetentionHealthCard } from "@/components/RetentionHealthCard";
 import { RevenueOpportunities } from "@/components/RevenueOpportunities";
@@ -94,8 +96,14 @@ const Dashboard = () => {
       <div className="space-y-6">
         {!isLoading && (
           <>
+            <SafeRender label="Trial Extended Banner">
+              <TrialExtendedBanner />
+            </SafeRender>
             <SafeRender label="Activation Checklist">
               <ActivationChecklist />
+            </SafeRender>
+            <SafeRender label="Walkthrough Video">
+              <WalkthroughVideo />
             </SafeRender>
             <SafeRender label="Onboarding Wizard">
               <OnboardingWizard />

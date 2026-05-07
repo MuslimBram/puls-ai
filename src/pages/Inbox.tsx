@@ -16,6 +16,7 @@ import { IntentBadge, INTENT_TYPE_OPTIONS } from "@/components/IntentBadge";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { CoachTour } from "@/components/CoachTour";
 
 const Inbox = () => {
   const [filters, setFilters] = useState<InboxFilters>({});
@@ -52,7 +53,7 @@ const Inbox = () => {
     <DashboardLayout>
       <div className="space-y-4">
         {/* Filters */}
-        <Card>
+        <Card data-tour="inbox-filters">
           <CardContent className="flex flex-wrap items-center gap-3 pt-4 pb-4">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input placeholder="Search messages..." className="w-48" value={filters.search ?? ""} onChange={(e) => handleFilterChange((f) => ({ ...f, search: e.target.value || undefined }))} />
@@ -92,7 +93,7 @@ const Inbox = () => {
         </Card>
 
         {/* Messages */}
-        <Card>
+        <Card data-tour="inbox-messages">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <InboxIcon className="h-5 w-5 text-primary" />
@@ -217,6 +218,13 @@ const Inbox = () => {
           </DialogContent>
         </Dialog>
       </div>
+      <CoachTour
+        tourId="inbox-v1"
+        steps={[
+          { selector: '[data-tour="inbox-filters"]', title: "Filter your inbox", body: "Narrow messages by channel, priority and status — your view is saved as you change it." },
+          { selector: '[data-tour="inbox-messages"]', title: "All conversations in one place", body: "WhatsApp, Telegram, Email and Web Chat unified here. Click any message to reply with AI assistance." },
+        ]}
+      />
     </DashboardLayout>
   );
 };
