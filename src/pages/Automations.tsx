@@ -239,6 +239,13 @@ const Automations = () => {
           </TabsContent>
         </Tabs>
       </div>
+      <CoachTour
+        tourId="auto-v1"
+        steps={[
+          { selector: '[data-tour="auto-tabs"]', title: "Three ways to automate", body: "Build custom workflows, design chatbot flows, or pick a ready-made template." },
+          { selector: '[data-tour="auto-create"]', title: "Create your first workflow", body: "Start from a trigger (new lead, new message, status change) and chain actions like send reply, assign owner, or notify team." },
+        ]}
+      />
     </DashboardLayout>
   );
 };
