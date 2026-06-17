@@ -98,24 +98,45 @@ const Marketplace = () => {
   const { plugins, installed, installPlugin, togglePlugin, uninstallPlugin } = useMarketplacePlugins();
   const { templates, installTemplate } = useMarketplaceTemplates();
   const { packs, installPack } = useMarketplaceAIPacks();
+  const { packs: industryPacks, installed: installedIndustryPacks, installPack: installIndustryPack } = useIndustryPacks();
+  const [previewPack, setPreviewPack] = useState<IndustryPack | null>(null);
+
+  const isIndustryPackInstalled = (id: string) =>
+    installedIndustryPacks.some((i) => i.pack_id === id);
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Package className="h-6 w-6 text-primary" /> Marketplace</h1>
-          <p className="text-sm text-muted-foreground mt-1">Extend your platform with plugins, templates, and AI packs</p>
+          <p className="text-sm text-muted-foreground mt-1">Extend your platform with plugins, templates, AI packs, and full industry starters</p>
         </div>
 
-        <Tabs defaultValue="plugins">
+        <Tabs defaultValue="industry-packs">
           <TabsList>
+            <TabsTrigger value="industry-packs" className="gap-1"><Briefcase className="h-3 w-3" />Industry Packs</TabsTrigger>
             <TabsTrigger value="plugins" className="gap-1"><Plug className="h-3 w-3" />Plugins</TabsTrigger>
             <TabsTrigger value="templates" className="gap-1"><FileText className="h-3 w-3" />Templates</TabsTrigger>
             <TabsTrigger value="ai-packs" className="gap-1"><Brain className="h-3 w-3" />AI Packs</TabsTrigger>
             <TabsTrigger value="installed" className="gap-1"><Sparkles className="h-3 w-3" />Installed</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="plugins" className="mt-4">
+          <TabsContent value="industry-packs" className="mt-4">
+            {industryPacks.length === 0 ? (
+              <Card><CardContent className="py-12 text-center text-muted-foreground">Loading industry packs…</CardContent></Card>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {industryPacks.map((p) => (
+                  <IndustryPackCard
+                    key={p.id}
+                    pack={p}
+                    installed={isIndustryPackInstalled(p.id)}
+                    onPreview={setPreviewPack}
+                  />
+                ))}
+              </div>
+            )}
+          </TabsContent>
             {plugins.length === 0 ? (
               <Card><CardContent className="py-12 text-center text-muted-foreground">No plugins available yet. Check back soon!</CardContent></Card>
             ) : (
