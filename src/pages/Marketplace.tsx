@@ -199,6 +199,16 @@ const Marketplace = () => {
           </TabsContent>
         </Tabs>
       </div>
+
+      <IndustryPackInstallDialog
+        pack={previewPack}
+        open={!!previewPack}
+        onOpenChange={(o) => { if (!o) setPreviewPack(null); }}
+        alreadyInstalled={previewPack ? isIndustryPackInstalled(previewPack.id) : false}
+        onConfirm={async (p) => {
+          await installIndustryPack.mutateAsync({ pack_slug: p.slug });
+        }}
+      />
     </DashboardLayout>
   );
 };
