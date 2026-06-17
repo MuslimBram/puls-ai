@@ -182,6 +182,12 @@ const Dashboard = () => {
           <RoleDashboardWidgets />
         </SafeRender>
 
+        {/* Industry Pack Widgets */}
+        <SafeRender label="Industry Pack Widgets">
+          <IndustryPackWidgets />
+        </SafeRender>
+
+
         {/* Portfolio & Withdrawal */}
         <SafeRender label="Withdrawal Panel">
           <WithdrawalRequestPanel />
