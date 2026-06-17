@@ -28,9 +28,14 @@ export const LanguageSwitcher = ({ variant = "ghost" }: { variant?: "ghost" | "o
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant={variant} size="sm" className="gap-1.5">
+        <Button
+          variant={variant}
+          size="sm"
+          className="gap-1.5"
+          aria-label={`Select language (current: ${currentLang.label})`}
+        >
           <span className="text-base leading-none">{currentLang.flag}</span>
-          <Globe className="h-3.5 w-3.5" />
+          <Globe className="h-3.5 w-3.5" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

@@ -1,0 +1,12 @@
+# Pulse AI
+
+> AI-native platform that unifies inbox, CRM, telephony, and marketing automation so small businesses and freelancers can capture leads, reply faster, and grow revenue.
+
+Pulse AI brings WhatsApp, email, social channels, calls, and a knowledge-trained AI assistant into one workspace. Teams connect their channels, train the AI on their business, and run campaigns, automations, and analytics from a single dashboard.
+
+## Pages
+
+- [Home](/): Product overview, features, and how Pulse AI works.
+- [Pricing](/pricing): Plans, prices, and the 7-day free trial.
+- [Sign up](/register): Create a new account and start the trial.
+- [Login](/login): Sign in to an existing workspace.
