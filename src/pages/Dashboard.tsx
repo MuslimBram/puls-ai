@@ -22,6 +22,7 @@ import { RevenueOpportunities } from "@/components/RevenueOpportunities";
 import { GrowthProgressIndicator } from "@/components/GrowthProgressIndicator";
 import { SafeRender } from "@/components/SafeRender";
 import { RoleDashboardWidgets } from "@/components/RoleDashboardWidgets";
+import { IndustryPackWidgets } from "@/components/dashboard/IndustryPackWidgets";
 import { WithdrawalRequestPanel } from "@/components/WithdrawalRequestPanel";
 import { TrialExpiredGate } from "@/components/TrialExpiredGate";
 import { GuidedTour } from "@/components/GuidedTour";
