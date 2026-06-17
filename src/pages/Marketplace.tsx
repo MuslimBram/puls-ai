@@ -137,6 +137,8 @@ const Marketplace = () => {
               </div>
             )}
           </TabsContent>
+
+          <TabsContent value="plugins" className="mt-4">
             {plugins.length === 0 ? (
               <Card><CardContent className="py-12 text-center text-muted-foreground">No plugins available yet. Check back soon!</CardContent></Card>
             ) : (
