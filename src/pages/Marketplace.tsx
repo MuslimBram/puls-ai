@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -5,7 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useMarketplacePlugins, useMarketplaceTemplates, useMarketplaceAIPacks } from "@/hooks/useMarketplace";
-import { Package, FileText, Brain, Star, Download, Plug, Sparkles } from "lucide-react";
+import { useIndustryPacks, type IndustryPack } from "@/hooks/useIndustryPacks";
+import { IndustryPackCard } from "@/components/marketplace/IndustryPackCard";
+import { IndustryPackInstallDialog } from "@/components/marketplace/IndustryPackInstallDialog";
+import { Package, FileText, Brain, Star, Download, Plug, Sparkles, Briefcase } from "lucide-react";
 
 const PluginCard = ({ plugin, installed, onInstall, onToggle, onUninstall }: any) => {
   const wp = installed?.find((i: any) => i.plugin_id === plugin.id);
