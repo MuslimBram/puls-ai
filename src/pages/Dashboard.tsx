@@ -93,6 +93,7 @@ const Dashboard = () => {
     <DashboardLayout>
       <GuidedTour />
       <TrialExpiredGate>
+      <h1 className="sr-only">Dashboard — Pulse AI</h1>
       <div className="space-y-6">
         {!isLoading && (
           <>
