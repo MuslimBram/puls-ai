@@ -45,6 +45,7 @@ const CRM = () => {
 
   return (
     <DashboardLayout>
+      <h1 className="sr-only">CRM — Pipeline, Tasks &amp; Contacts</h1>
       <div className="space-y-6">
         <CrmStatsRow
           totalDeals={stats.totalDeals}
