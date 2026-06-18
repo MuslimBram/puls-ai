@@ -48,6 +48,13 @@ import {
   Gauge,
   Wallet,
   HelpCircle,
+  Image as ImageIcon,
+  Video,
+  FileText,
+  Library,
+  Wand2,
+  MessageSquare,
+  Lightbulb,
 } from "lucide-react";
 import type { RolePermissions } from "@/hooks/useRolePermissions";
 
@@ -90,6 +97,45 @@ export const businessNavGroups: NavGroup[] = [
     ],
   },
   {
+    label: "Content Studio",
+    icon: Sparkles,
+    requiredPermission: "canManageCampaigns",
+    items: [
+      { href: "/media-studio?tab=generate", label: "Create Content", icon: Wand2 },
+      { href: "/media-studio?tab=generate&type=image", label: "AI Images", icon: ImageIcon },
+      { href: "/media-studio?tab=generate&type=video", label: "AI Videos", icon: Video },
+      { href: "/content-calendar?tab=posts", label: "AI Posts", icon: FileText },
+      { href: "/media-studio?tab=gallery", label: "Content Library", icon: Library },
+      { href: "/content-calendar", label: "Calendar", icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Business Scanner",
+    icon: Radar,
+    requiredPermission: "canViewAnalytics",
+    items: [
+      { href: "/sources?type=website", label: "Website Analysis", icon: Globe },
+      { href: "/sources?type=product", label: "Product Analysis", icon: Package },
+      { href: "/sources?type=service", label: "Service Analysis", icon: Briefcase },
+      { href: "/sources?type=social", label: "Social Media Analysis", icon: Radio },
+      { href: "/seo-audit", label: "SEO Analysis", icon: Search },
+      { href: "/competitor-intelligence", label: "Competitor Analysis", icon: Radar },
+    ],
+  },
+  {
+    label: "AI Business Advisor",
+    icon: Brain,
+    requiredPermission: "canConfigureAutomations",
+    items: [
+      { href: "/ai-decisions?focus=posts", label: "Suggested Posts", icon: FileText },
+      { href: "/ai-decisions?focus=offers", label: "Suggested Offers", icon: Lightbulb },
+      { href: "/ai-decisions?focus=replies", label: "Suggested Replies", icon: MessageSquare },
+      { href: "/ai-decisions?focus=campaigns", label: "Suggested Campaigns", icon: Megaphone },
+      { href: "/ai-decisions?focus=seo", label: "SEO Opportunities", icon: Search },
+      { href: "/ai-decisions?focus=competitors", label: "Competitor Insights", icon: Radar },
+    ],
+  },
+  {
     label: "Contact Center",
     icon: Headphones,
     requiredPermission: "canRespondInbox",
@@ -108,7 +154,6 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/marketing-automation", label: "Marketing Auto", icon: Globe },
       { href: "/growth-strategy", label: "Growth Strategy", icon: TrendingUp },
       { href: "/market-expansion", label: "Market Expansion", icon: Globe },
-      { href: "/ai-decisions", label: "AI Decisions", icon: Brain },
       { href: "/benchmarks", label: "Benchmarks", icon: BarChart3 },
     ],
   },
@@ -131,8 +176,6 @@ export const businessNavGroups: NavGroup[] = [
     icon: Radar,
     requiredPermission: "canViewAnalytics",
     items: [
-      { href: "/competitor-intelligence", label: "Competitor Intel", icon: Radar },
-      { href: "/seo-audit", label: "SEO Audit", icon: Search },
       { href: "/brand-reputation", label: "Brand & Reputation", icon: Heart },
       { href: "/customer-experience", label: "Customer Experience", icon: Smile },
       { href: "/retention", label: "Retention", icon: ShieldCheckIcon },
@@ -151,7 +194,6 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/community", label: "Community", icon: Users },
       { href: "/lead-magnets", label: "Lead Magnets", icon: Target },
       { href: "/gamification", label: "Gamification", icon: FlaskConical },
-      { href: "/media-studio", label: "Media Studio", icon: Megaphone },
       { href: "/broadcast", label: "Broadcast", icon: Send },
     ],
   },
@@ -201,7 +243,6 @@ export const adminNavGroups: NavGroup[] = [
       { href: "/admin/integration-hub", label: "Integration Hub", icon: Plug },
       { href: "/deep-analytics", label: "Analytics", icon: PieChart },
       { href: "/saas-health", label: "SaaS Health", icon: Brain },
-      { href: "/sources", label: "Sources & Scanner", icon: Search },
     ],
   },
 ];
