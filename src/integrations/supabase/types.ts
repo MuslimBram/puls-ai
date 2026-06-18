@@ -6735,6 +6735,54 @@ export type Database = {
           },
         ]
       }
+      industry_packs: {
+        Row: {
+          color: string | null
+          contents: Json
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          industry: string
+          install_count: number
+          is_published: boolean
+          name: string
+          slug: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          color?: string | null
+          contents?: Json
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          industry: string
+          install_count?: number
+          is_published?: boolean
+          name: string
+          slug: string
+          updated_at?: string
+          version?: string
+        }
+        Update: {
+          color?: string | null
+          contents?: Json
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          industry?: string
+          install_count?: number
+          is_published?: boolean
+          name?: string
+          slug?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       industry_templates: {
         Row: {
           created_at: string
@@ -13432,6 +13480,64 @@ export type Database = {
             foreignKeyName: "workspace_branding_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_industry_packs: {
+        Row: {
+          business_id: string | null
+          id: string
+          install_log: Json
+          installed_at: string
+          installed_by: string | null
+          pack_id: string
+          status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          business_id?: string | null
+          id?: string
+          install_log?: Json
+          installed_at?: string
+          installed_by?: string | null
+          pack_id: string
+          status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          business_id?: string | null
+          id?: string
+          install_log?: Json
+          installed_at?: string
+          installed_by?: string | null
+          pack_id?: string
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_industry_packs_business_id_fkey"
+            columns: ["business_id"]
+            isOneToOne: false
+            referencedRelation: "business_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_industry_packs_pack_id_fkey"
+            columns: ["pack_id"]
+            isOneToOne: false
+            referencedRelation: "industry_packs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "workspace_industry_packs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
