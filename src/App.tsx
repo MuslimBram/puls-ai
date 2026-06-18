@@ -239,7 +239,7 @@ const App = () => (
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
                 <Route path="/call-history" element={<Navigate to="/crm?tab=calls" replace />} />
-                <Route path="/content-calendar" element={<Navigate to="/campaigns?tab=calendar" replace />} />
+                <Route path="/content-calendar" element={<PermissionPage permission="canManageCampaigns"><ContentCalendar /></PermissionPage>} />
                 <Route path="/sources" element={<AdminPage><Sources /></AdminPage>} />
                 <Route path="/reply-workspace" element={<Navigate to="/inbox" replace />} />
                 <Route path="/dedicated-ai" element={<Navigate to="/knowledge-base" replace />} />
