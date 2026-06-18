@@ -131,6 +131,7 @@ const PartnerDashboard = () => {
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 Share this link with businesses. They'll be automatically linked to your partner account.
+                You earn commission <strong>only on the first paid invoice</strong> of each referred customer — no commission on renewals or future payments.
               </p>
             </CardContent>
           </Card>
@@ -166,7 +167,7 @@ const PartnerDashboard = () => {
                 <DollarSign className="h-8 w-8 text-green-600" />
                 <div>
                   <p className="text-2xl font-bold">${referralStats?.totalRevenue ?? 0}</p>
-                  <p className="text-xs text-muted-foreground">Monthly Revenue</p>
+                  <p className="text-xs text-muted-foreground">First-Payment Revenue</p>
                 </div>
               </div>
             </CardContent>
