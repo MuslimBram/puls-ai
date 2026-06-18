@@ -250,46 +250,53 @@ serve(async (req) => {
 
     const createCommission = async (
       partnerId: string, workspaceId: string, subId: string,
-      planName: string, commRate: number
+      planName: string, commRate: number,
+      invoiceRef?: string | null, paidAmount?: number | null,
     ) => {
-      const grossAmount = PLAN_PRICES[planName] || 0;
-      if (grossAmount === 0) return;
-
-      const commAmount = (grossAmount * commRate) / 100;
-      const now = new Date();
-      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-      const { data: existing } = await supabase
+      // FIRST-PAYMENT-ONLY RULE: only the first paid invoice per referred
+      // workspace generates a commission. Renewals/upgrades return immediately.
+      const { data: existingFirst } = await supabase
         .from("partner_commissions")
         .select("id")
         .eq("partner_id", partnerId)
         .eq("workspace_id", workspaceId)
-        .gte("billing_period_start", periodStart.toISOString())
+        .eq("is_first_payment", true)
         .maybeSingle();
 
-      if (existing) return;
+      if (existingFirst) {
+        console.log(`[STRIPE-WEBHOOK] Commission skipped (not first payment) ws=${workspaceId}`);
+        return;
+      }
 
-      const { data: partnerConfig } = await supabase
-        .from("partner_accounts")
-        .select("refund_window_days")
-        .eq("id", partnerId)
-        .maybeSingle();
+      const grossAmount = Number(paidAmount) > 0
+        ? Number(paidAmount)
+        : (PLAN_PRICES[planName] || 0);
+      if (grossAmount === 0) return;
 
-      const refundWindowDays = partnerConfig?.refund_window_days ?? REFUND_WINDOW_DAYS;
+      const commAmount = (grossAmount * commRate) / 100;
+      const nowIso = new Date().toISOString();
 
-      await supabase.from("partner_commissions").insert({
+      const { error: insertErr } = await supabase.from("partner_commissions").insert({
         partner_id: partnerId,
         workspace_id: workspaceId,
         subscription_id: subId,
         plan_name: planName,
-        billing_period_start: periodStart.toISOString(),
-        billing_period_end: periodEnd.toISOString(),
+        billing_period_start: nowIso,
+        billing_period_end: nowIso,
         gross_amount: grossAmount,
         commission_percent: commRate,
         commission_amount: commAmount,
         commission_status: "pending_refund_window",
+        is_first_payment: true,
+        source_invoice_id: invoiceRef || null,
       });
+
+      if (insertErr) {
+        if (!String(insertErr.message || "").includes("duplicate")) {
+          console.error(`[STRIPE-WEBHOOK] Commission insert failed:`, insertErr);
+        }
+        return;
+      }
 
       const { data: wallet } = await supabase
         .from("partner_wallets")
@@ -302,13 +309,14 @@ serve(async (req) => {
           .from("partner_wallets")
           .update({
             pending_amount: Number(wallet.pending_amount) + commAmount,
-            updated_at: new Date().toISOString(),
+            updated_at: nowIso,
           })
           .eq("partner_id", partnerId);
       }
 
-      console.log(`[STRIPE-WEBHOOK] Commission created: $${commAmount} for partner ${partnerId}`);
+      console.log(`[STRIPE-WEBHOOK] First-payment commission created: $${commAmount} for partner ${partnerId}`);
     };
+
 
     const checkPartnerAbuse = async (partnerId: string) => {
       const thirtyDaysAgo = new Date();

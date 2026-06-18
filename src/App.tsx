@@ -98,6 +98,7 @@ const ManagedBusinesses = lazy(() => import("./pages/ManagedBusinesses"));
 const SupportTickets = lazy(() => import("./pages/SupportTickets"));
 const AdminSupportTickets = lazy(() => import("./pages/AdminSupportTickets"));
 const SystemStatus = lazy(() => import("./pages/SystemStatus"));
+const ContentCalendar = lazy(() => import("./pages/ContentCalendar"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -239,7 +240,7 @@ const App = () => (
 
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
                 <Route path="/call-history" element={<Navigate to="/crm?tab=calls" replace />} />
-                <Route path="/content-calendar" element={<Navigate to="/campaigns?tab=calendar" replace />} />
+                <Route path="/content-calendar" element={<PermissionPage permission="canManageCampaigns"><Suspense fallback={<LazyFallback />}><ContentCalendar /></Suspense></PermissionPage>} />
                 <Route path="/sources" element={<AdminPage><Sources /></AdminPage>} />
                 <Route path="/reply-workspace" element={<Navigate to="/inbox" replace />} />
                 <Route path="/dedicated-ai" element={<Navigate to="/knowledge-base" replace />} />
