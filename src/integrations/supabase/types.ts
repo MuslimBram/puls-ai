@@ -9045,8 +9045,10 @@ export type Database = {
           created_at: string
           gross_amount: number
           id: string
+          is_first_payment: boolean
           partner_id: string
           plan_name: string
+          source_invoice_id: string | null
           subscription_id: string | null
           workspace_id: string
         }
@@ -9059,8 +9061,10 @@ export type Database = {
           created_at?: string
           gross_amount?: number
           id?: string
+          is_first_payment?: boolean
           partner_id: string
           plan_name?: string
+          source_invoice_id?: string | null
           subscription_id?: string | null
           workspace_id: string
         }
@@ -9073,8 +9077,10 @@ export type Database = {
           created_at?: string
           gross_amount?: number
           id?: string
+          is_first_payment?: boolean
           partner_id?: string
           plan_name?: string
+          source_invoice_id?: string | null
           subscription_id?: string | null
           workspace_id?: string
         }
