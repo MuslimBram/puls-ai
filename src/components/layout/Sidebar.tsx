@@ -105,7 +105,20 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-2 space-y-px">
         {allGroups.map((group) => {
-          const isGroupActive = group.items.some((item) => location.pathname === item.href);
+          const itemMatches = (href: string) => {
+            const [path, query] = href.split("?");
+            if (location.pathname !== path) return false;
+            if (!query) return true;
+            // For items differentiated by query (e.g. /media-studio?tab=x),
+            // require all of the item's query params to be present on the URL.
+            const want = new URLSearchParams(query);
+            const have = new URLSearchParams(location.search);
+            for (const [k, v] of want.entries()) {
+              if (have.get(k) !== v) return false;
+            }
+            return true;
+          };
+          const isGroupActive = group.items.some((item) => itemMatches(item.href));
           return (
             <Collapsible key={group.label} defaultOpen={group.defaultOpen || isGroupActive}>
               <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
@@ -122,7 +135,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
                       onClick={onClose}
                       className={cn(
                         "flex items-center gap-2 rounded-md px-2 py-1 text-[13px] font-medium transition-colors",
-                        location.pathname === item.href
+                        itemMatches(item.href)
                           ? "bg-primary/10 text-primary"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
@@ -137,6 +150,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
           );
         })}
       </nav>
+
 
       {/* Footer */}
       <div className="border-t border-border p-2">

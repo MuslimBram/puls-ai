@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
-import { Navigate } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,9 +54,22 @@ const validateInput = (platform: string, value: string): string | null => {
   return null;
 };
 
+const TYPE_LABEL: Record<string, string> = {
+  website: "Website Analysis",
+  product: "Product Analysis",
+  service: "Service Analysis",
+  social: "Social Media Analysis",
+};
+
+const TYPE_PLATFORMS: Record<string, string[]> = {
+  social: ["instagram", "facebook", "telegram", "whatsapp", "linkedin"],
+};
+
 export default function Sources() {
   const { sources, isLoading, addSource, updateSource, deleteSource, triggerScan } = useScanSources();
   const { isAdmin, isBusinessOwner, isLoading: rolesLoading } = useRolePermissions();
+  const [searchParams] = useSearchParams();
+  const typeFilter = searchParams.get("type") || "";
   const [showAdd, setShowAdd] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [viewSourceId, setViewSourceId] = useState<string | null>(null);
@@ -67,6 +80,15 @@ export default function Sources() {
     label: "",
   });
   const [error, setError] = useState<string | null>(null);
+
+  const visibleSources = useMemo(() => {
+    if (!typeFilter) return sources;
+    if (typeFilter === "social") {
+      const social = TYPE_PLATFORMS.social;
+      return sources.filter((s) => social.includes(s.platform));
+    }
+    return sources.filter((s) => s.source_type === typeFilter);
+  }, [sources, typeFilter]);
 
   const resetForm = () => {
     setForm({ platform: "web", source_type: "website", url_or_identifier: "", label: "" });
@@ -129,8 +151,14 @@ export default function Sources() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Source Management</h1>
-            <p className="text-sm text-muted-foreground">Manage scan sources across platforms</p>
+            <h1 className="text-2xl font-bold text-foreground">
+              {typeFilter ? TYPE_LABEL[typeFilter] || "Business Scanner" : "Source Management"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {typeFilter
+                ? `Showing scan sources filtered to ${typeFilter}`
+                : "Manage scan sources across platforms"}
+            </p>
           </div>
           <Button
             onClick={() => {
@@ -154,8 +182,12 @@ export default function Sources() {
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
-            ) : sources.length === 0 ? (
-              <p className="py-8 text-center text-muted-foreground">No sources added yet. Click "Add Source" to get started.</p>
+            ) : visibleSources.length === 0 ? (
+              <p className="py-8 text-center text-muted-foreground">
+                {typeFilter
+                  ? `No ${typeFilter} sources yet. Click "Add Source" to add one.`
+                  : 'No sources added yet. Click "Add Source" to get started.'}
+              </p>
             ) : (
               <Table>
                 <TableHeader>
@@ -170,7 +202,7 @@ export default function Sources() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {sources.map((s) => (
+                  {visibleSources.map((s) => (
                     <TableRow key={s.id}>
                       <TableCell>
                         <span className="mr-1">{platformIcons[s.platform] || "🔗"}</span>

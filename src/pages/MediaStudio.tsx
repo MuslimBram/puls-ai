@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { format, formatDistanceToNowStrict } from "date-fns";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,16 +63,28 @@ const STYLE_PRESETS = [
 const VIDEO_DURATION_OPTIONS = [5, 10, 15, 30, 60];
 
 const MediaStudio = () => {
+  const [searchParams] = useSearchParams();
+  const initialTab = searchParams.get("tab") || "generate";
+  const initialType = (searchParams.get("type") as "image" | "video" | null) || "image";
   const usage = useMediaUsage();
   const createMedia = useCreateMediaGeneration();
   const { data: generations, isLoading: generationsLoading } = useMediaGenerations();
   const [prompt, setPrompt] = useState("");
-  const [mediaType, setMediaType] = useState<"image" | "video">("image");
+  const [activeTab, setActiveTab] = useState(initialTab);
+  const [mediaType, setMediaType] = useState<"image" | "video">(initialType);
   const [style, setStyle] = useState("none");
   const [gallerySearch, setGallerySearch] = useState("");
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const [variations, setVariations] = useState(1);
   const [videoDuration, setVideoDuration] = useState(10);
+
+  // React to in-app menu navigation when URL params change without remount.
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t) setActiveTab(t);
+    const ty = searchParams.get("type");
+    if (ty === "image" || ty === "video") setMediaType(ty);
+  }, [searchParams]);
 
   const canGenerate = mediaType === "image" ? usage.canGenerateImages : usage.canGenerateVideos;
 
@@ -175,7 +188,7 @@ const MediaStudio = () => {
           </Card>
         </div>
 
-        <Tabs defaultValue="generate">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="generate">
               <Sparkles className="mr-1 h-3 w-3" /> Generate
