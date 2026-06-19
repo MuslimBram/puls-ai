@@ -1,102 +1,109 @@
 
-# Plan — Menu Reorg + Partner Commission (First Payment Only)
+# Raport i Plotë i Aplikacionit (Pulsi / Koha Blerjeve / Alfis)
 
-## 1. Sidebar Reorganization (`src/components/layout/nav-config.ts`)
+> Ky është një raport statusi — jo një plan ndërtimi. Nëse dëshiron, mund të kthej secilën pikë "të papërfunduar" në një plan të veçantë pune.
 
-Add 3 new groups, remove duplicates from existing groups, keep all routes functional (no dead links). Each sub-item maps to an existing real page using query params for sub-views where a dedicated page does not yet exist.
+## 1. Çfarë është aplikacioni
 
-### Group: **Content Studio** (icon: Sparkles)
-| Label | Route |
+Platformë **SaaS multi-tenant për menaxhimin e biznesit dixhital** me fokus: shitje, marketing, AI dhe automatizim. Përmban **92 faqe**, **102 edge functions**, **120 hooks**. Operon nën 3 domain-e (`pulsi.lovable.app`, `kohablerjeve.top`, `alfis.re`).
+
+### Module kryesore
+- **CRM & Inbox** — kontakte, pipeline, threads të unifikuara, leads, qualification
+- **Content Studio** — gjenerim AI i imazheve, videos, postimeve, kalendar, library
+- **Business Scanner** — analizë website / produkt / shërbim / social / SEO / konkurrencë
+- **AI Business Advisor** — sugjerime posts, offers, replies, campaigns, SEO, competitors
+- **Channels & Integrations** — Meta (FB/IG/WA), Telegram, SMS, Email, Custom Channels, Slack, Discord, Bluesky, Mastodon
+- **Broadcast & Campaigns** — drip emails, broadcast engine, compliance, unsubscribe
+- **Telephony** — Twilio device, IVR builder, recordings, dialer campaigns, supervisor monitor
+- **Billing & Monetization** — PayPal + Stripe, plane, kuota, wallet, marketplace, industry packs
+- **Partner / Reseller / Ambassador** — komisione vetëm pagesa e parë, payouts, referral
+- **Admin** — RBAC, analytics, scan insights, support tickets, integration hub, security
+- **Knowledge Base + RAG** — `search-knowledge`, `ingest-website`, `ingest-document`
+- **Automation** — `execute-automation`, n8n config, triggers, drip flows
+
+## 2. Çfarë është e ndërtuar profesionalisht (Fully Working)
+
+| Zona | Pse llogaritet profesional |
 |---|---|
-| Create Content | `/media-studio?tab=create` |
-| AI Images | `/media-studio?tab=images` |
-| AI Videos | `/media-studio?tab=videos` |
-| AI Posts | `/media-studio?tab=posts` |
-| Content Library | `/media-studio?tab=library` |
-| Calendar | `/content-calendar` (existing page, route added if missing) |
+| **Auth & Security** | RLS në çdo tabelë publike, `has_role()` SECURITY DEFINER, EXECUTE i revokuar nga `anon`/`PUBLIC`, 24h auto-logout, email verification, brute-force auto-block, audit log |
+| **Backend Cloud (Supabase)** | 102 edge functions me shared utils, RLS + GRANT në çdo migrim, DLQ + retry për email queue, rate limiting, idempotency keys |
+| **Billing** | PayPal sandbox-ready me webhook verification & idempotency, Stripe webhook, `pricing_settings` si single source of truth, freelancer 40% discount me validim DB, business creation limit DB function |
+| **Partner Commission** | Rregulli "first payment only" i zbatuar në schema + edge function + UI, me unique partial index |
+| **Email Infrastructure** | `notify.kohablerjeve.top`, `process-email-queue`, transactional + auth templates, suppression list, unsubscribe handler |
+| **Integrations Layer** | `unified_connections` single source of truth, Professional vs Limited mode, ChannelCapabilityGate, Meta OAuth + webhook, Instagram OAuth pattern |
+| **Industry Packs** | 6 paketa (Restaurant, Clinic, Real Estate, Beauty, Gym, Education) me CRM pipeline + automations + broadcast templates + KB + dashboard widgets + install flow funksional |
+| **SEO base** | `index.html` meta + OG, sitemap.xml, robots.txt, llms.txt, JSON-LD, canonical, alt tags |
+| **i18n** | EN si default, sq legacy, switcher |
+| **Deployment** | Vercel multi-domain, redirect URL whitelist, cron jobs aktivë (reset_daily/monthly usage, sync_referral_statuses) |
 
-Will verify `MediaStudio.tsx` already reads `?tab=` and route registration for `/content-calendar`. If missing, add the route to `App.tsx` (existing `ContentCalendar.tsx` page).
+## 3. Çfarë është e papërfunduar (Backend Ready / UI Only)
 
-### Group: **Business Scanner** (icon: Radar)
-| Label | Route |
+| Zona | Statusi | Çfarë mungon |
+|---|---|---|
+| **Localization cleanup** | UI Only | Mbeturina shqip në Admin / Wallet / disa modale (mem://style/localization) |
+| **AI Business Advisor** | Backend Ready | `?tab=` filter është shtuar por disa tabs (offers, replies) tregojnë listë të përbashkët — duhet skopim më i fortë për tab |
+| **Business Scanner sub-types** | Backend Ready | `Sources?type=product/service` filtron, por nuk ka UI të specializuar për secilin tip (vetëm një view me filter) |
+| **Content Studio tabs** | UI Only | `MediaStudio?tab=images/videos/posts` riintegron të njëjtin UI me preselect — nuk ka UI të dedikuar për secilin tab |
+| **Industry Packs** | Backend Ready | Install flow punon, por nuk ka uninstall / update version / migration midis versioneve të paketës |
+| **Telephony Supervisor** | UI Only | Monitor real-time ekziston por nuk është testuar end-to-end me thirrje reale (varet nga Twilio creds në prod) |
+| **Reseller Dashboard** | UI Only | Faqja ekziston por flow i porosive/komisioneve të rishitësit nuk është lidhur me billing |
+| **Public API** | Backend Ready | `public-api` function + UI për keys, por dokumentim publik dhe rate-limit per-key dashboard mungon |
+| **Knowledge Base ingestion** | Fully Working për website/document; **mungon** OCR për imazhe dhe transcript për video |
+| **Demo Business (TechVista)** | Fully Working për showcase, por nuk ka button "Reset Demo" për admin |
+| **Marketplace beyond Industry Packs** | UI Only | Card-et e tjera (jo industry packs) janë statike |
+
+## 4. Çfarë ka mbetur për t'u bërë (Not Implemented)
+
+### Prioritet i lartë
+1. **Google Search Console + verifikim domain-i** — SEO indexing kërkon DNS/HTML verification.
+2. **Pulse vs Seamless vs Clay comparison page** — premtuar më parë, jo i ndërtuar.
+3. **Uninstall / Reinstall flow për Industry Packs** — vetëm install ekziston.
+4. **Përmirësim AI Advisor** — secili tab duhet të kthejë vetëm sugjerime të llojit përkatës (jo listë e përgjithshme me badge).
+5. **Reseller commission flow** — lidhja me `partner_commissions` ose tabelë e re `reseller_commissions`.
+6. **Spastrimi i mbetjeve shqip** në Admin/Wallet/Modale (Localization debt).
+
+### Prioritet i mesëm
+7. **Public API docs** publike + Swagger/OpenAPI + per-key analytics.
+8. **OCR / video transcript** për Knowledge Base ingestion.
+9. **Multi-version Industry Packs** — versioning + migration mes versioneve.
+10. **Specialized scanner UIs** për website / product / service / social / SEO (tani përdoret një UI me filter).
+11. **Specialized Content Studio UIs** për imazhe / video / posts (tani përdoret një UI me preselect).
+12. **Marketplace expansion** — populim real i seksioneve të tjera përtej Industry Packs.
+
+### Prioritet i ulët / Operacional
+13. **End-to-end test për Telephony** me Twilio prod credentials.
+14. **Admin "Reset Demo Business" button**.
+15. **In-app changelog / release notes**.
+16. **Status page publik** (kemi SystemStatus.tsx internal, mungon publik).
+17. **Performance audit** — Lighthouse për faqet e brendshme, lazy-load i widget-eve të rënda.
+18. **Mobile UX polish** — disa tabela në Admin nuk janë responsive.
+
+### Siguri (mbetur)
+19. **Leaked password protection** — aktivizimi në Supabase Auth settings.
+20. **SAML SSO** për klientë enterprise (vetëm scaffolding ekziston).
+21. **2FA enforcement policy për super_admin** (TOTP hook ekziston, jo i detyruar).
+
+## 5. Përmbledhje sasiore
+
+| Kategori | Numri |
 |---|---|
-| Website Analysis | `/sources?type=website` |
-| Product Analysis | `/sources?type=product` |
-| Service Analysis | `/sources?type=service` |
-| Social Media Analysis | `/sources?type=social` |
-| SEO Analysis | `/seo-audit` |
-| Competitor Analysis | `/competitor-intelligence` |
+| Faqe (pages) | 92 |
+| Edge functions | 102 |
+| Custom hooks | 120 |
+| Migrime DB të aplikuara | 100+ |
+| Industry Packs të gatshme | 6 |
+| Kanale integrimi | 10+ (Meta, IG, WA, Telegram, SMS, Email, Slack, Discord, Bluesky, Mastodon, Custom) |
+| Provider pagesash | 2 (PayPal aktiv, Stripe webhook-ready) |
+| Role RBAC | super_admin, admin, partner, reseller, ambassador, user |
+| Domain-e prodhimi | 3 |
 
-`Sources.tsx` will be extended to read `?type=` and filter the scanner UI to that asset type (light additive change, no new logic).
+## 6. Vlerësim i përgjithshëm
 
-### Group: **AI Business Advisor** (icon: Brain)
-| Label | Route |
-|---|---|
-| Suggested Posts | `/ai-decisions?tab=posts` |
-| Suggested Offers | `/ai-decisions?tab=offers` |
-| Suggested Replies | `/ai-decisions?tab=replies` |
-| Suggested Campaigns | `/ai-decisions?tab=campaigns` |
-| SEO Opportunities | `/ai-decisions?tab=seo` |
-| Competitor Insights | `/ai-decisions?tab=competitors` |
+- **Backend & Security**: ~92% i pjekur. Arkitekturë solide multi-tenant me RLS dhe DB functions për integritet.
+- **Frontend modules**: ~80% i pjekur. Faqet kryesore funksionojnë; debt i mbetur është kryesisht në specializimin e nën-tabs dhe spastrimin e i18n.
+- **AI/Automation**: ~75%. Funksionon end-to-end, por sugjerimet nuk janë gjithmonë të skopuara saktë për tab.
+- **Operations** (docs, status page, changelog, OCR, multi-version packs): ~50%. Pjesa më e vonuar.
 
-`AIDecisions.tsx` already aggregates `ai_suggested_actions` + recommendations; add a tab filter reading `?tab=` to scope cards to each advisor area. All data is live (no placeholders) — pulled from `ai_suggested_actions`, `offer_suggestions`, `reply_drafts`, `competitive_signals`, `scan_insights` already in DB.
+---
 
-### Cleanup in existing groups
-- Remove from **Intelligence**: `Competitor Intel`, `SEO Audit` (moved to Business Scanner)
-- Remove from **Engagement**: `Media Studio` (moved to Content Studio)
-- Remove from **Growth & AI Core**: `AI Decisions` (moved to AI Business Advisor)
-- Remove from **Admin**: `Sources & Scanner` duplicate (Business Scanner now exposes it to users)
-
-## 2. Verification pass (no placeholders)
-
-For every menu item above, confirm:
-- Route registered in `src/App.tsx`
-- Page renders real data (hook hits Supabase, not mock arrays)
-- CRUD/filters/integrations wired to existing tables
-
-Will produce a short verification table in the final summary listing each item as **Fully Working** / **Backend Ready** / **UI Only**. Any item that is not Fully Working will get a tracked TODO note rather than being hidden — but no new placeholder UI will be created.
-
-## 3. Partner Commissions — First Payment Only
-
-### Rule
-A partner earns commission **only on the referred customer's first paid invoice**. No commission on renewals, plan upgrades, additional purchases, or recurring monthly billing.
-
-### Backend changes
-
-**a. Schema** (migration)
-- Add column `partner_commissions.is_first_payment boolean not null default true`
-- Add `partner_commissions.source_invoice_id text` (idempotency key from payment provider)
-- Unique partial index: `(partner_id, workspace_id) where is_first_payment = true` — guarantees one commission per referred workspace, ever.
-
-**b. `supabase/functions/generate-commissions/index.ts`** — rewrite logic:
-- Skip workspace if a commission already exists for it (regardless of period).
-- Only generate when the workspace's **first** successful payment is detected (check `paypal_transactions` / `billing_history` for earliest `status='completed'` record for that workspace).
-- Use that earliest invoice's amount as `gross_amount` (not the monthly plan price).
-- Set `is_first_payment = true`, `source_invoice_id = <invoice/transaction id>`.
-- Remove monthly period loop — commission generation becomes event-style (still safe to run on cron; it becomes a no-op after first payment).
-
-**c. PayPal webhook hook** (`paypal-webhook` function): on `PAYMENT.SALE.COMPLETED` / first successful capture for a referred workspace, immediately trigger commission insert (so partners see credit without waiting for cron).
-
-### UI changes
-- `src/pages/PartnerDashboard.tsx` — relabel "Monthly Commissions" → "Referral Commissions (first payment)"; add helper text: *"You earn commission only on each referred customer's first paid invoice. Renewals are not commissionable."*
-- `src/pages/Admin.tsx` partner commissions tab — same copy update; payout calculator updated automatically since it reads from `partner_commissions`.
-- `src/hooks/usePartner.ts` / `usePartnerWallet.ts` — no schema-breaking change; queries continue to work. Add filter helper `isFirstPayment` for display badge.
-
-### Reports / payouts
-- Payout calculation already sums `partner_commissions.commission_amount`. Because new logic inserts at most one row per referred workspace, totals reflect first-payment-only automatically.
-- Backfill: one-time SQL in the migration to mark all historical rows `is_first_payment = true` for the earliest row per (partner_id, workspace_id) and **delete duplicates** (after archiving to `partner_commissions_archive` table). Will confirm archive approach with user before deletion.
-
-## 4. Out of scope (explicit)
-- No new pages created. No new content generation features. No new scanner logic. No new advisor logic. This is reorg + commission rule only.
-
-## 5. Deliverables
-1. Updated `nav-config.ts`
-2. Tab-param support added to `MediaStudio`, `Sources`, `AIDecisions` (read-only filter, no business logic change)
-3. Route registration for `/content-calendar` if missing
-4. Migration: commission schema + backfill
-5. Edge function rewrite: `generate-commissions`
-6. Webhook hook for first-payment trigger
-7. UI copy updates on Partner Dashboard + Admin
-8. Verification table (Fully Working / Backend Ready / UI Only) for every new menu item
-
-**Awaiting your explicit "ok continue" before implementation.**
+**Pyetje për ty**: A dëshiron që këtë raport ta kthej në një **roadmap të prioritizuar me sprintet** (p.sh. Sprint 1 = Localization cleanup + AI Advisor skoping, Sprint 2 = Reseller flow + Public API docs, etj.), apo të hapim direkt një nga pikat e mësipërme si task të ardhshëm?
