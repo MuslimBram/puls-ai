@@ -23,3 +23,19 @@ project_id = "wllvvzzjhnmbydpbvump"
     verify_jwt = false
   [functions.process-drip-emails]
     verify_jwt = false
+  [functions.stripe-webhook]
+    verify_jwt = false
+  [functions.whatsapp-webhook]
+    verify_jwt = false
+  [functions.telegram-webhook]
+    verify_jwt = false
+  [functions.sms-webhook]
+    verify_jwt = false
+  [functions.twilio-inbound-call]
+    verify_jwt = false
+  [functions.twilio-twiml]
+    verify_jwt = false
+  [functions.twilio-status-callback]
+    verify_jwt = false
+  [functions.webhook-ingest]
+    verify_jwt = false
