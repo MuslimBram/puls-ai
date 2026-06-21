@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { verifyMetaSignature } from "../_shared/webhook-signatures.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -53,7 +54,18 @@ serve(async (req) => {
   );
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    const sigCheck = await verifyMetaSignature(
+      rawBody,
+      req.headers.get("x-hub-signature-256"),
+    );
+    if (!sigCheck.ok) {
+      console.warn(`[WHATSAPP] Signature rejected: ${sigCheck.reason}`);
+      return new Response(JSON.stringify({ error: "invalid_signature" }), {
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const body = rawBody ? JSON.parse(rawBody) : {};
     const entries = body?.entry || [];
     let processed = 0;
     let statusUpdates = 0;
