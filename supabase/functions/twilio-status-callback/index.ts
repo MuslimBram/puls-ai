@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -20,10 +21,19 @@ serve(async (req) => {
     const event = url.searchParams.get("event");
     const workspaceId = url.searchParams.get("workspace_id");
 
-    // Twilio sends form-encoded data
-    const formData = await req.formData();
+    const contentType = req.headers.get("content-type") || "";
+    const rawBody = await req.text();
+    const sigCheck = await verifyTwilioSignature(req, rawBody, contentType);
+    if (!sigCheck.ok) {
+      console.warn(`[twilio-status-callback] Signature rejected: ${sigCheck.reason}`);
+      return new Response(JSON.stringify({ error: "invalid_signature" }), {
+        status: 403, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
     const params: Record<string, string> = {};
-    formData.forEach((value, key) => { params[key] = value.toString(); });
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+      new URLSearchParams(rawBody).forEach((value, key) => { params[key] = value; });
+    }
 
     const callSid = params.CallSid;
     const callStatus = params.CallStatus;
