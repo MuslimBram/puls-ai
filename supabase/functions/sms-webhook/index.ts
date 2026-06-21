@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -48,13 +49,22 @@ serve(async (req) => {
 
   try {
     const contentType = req.headers.get("content-type") || "";
+    const rawBody = await req.text();
+
+    const sigCheck = await verifyTwilioSignature(req, rawBody, contentType);
+    if (!sigCheck.ok) {
+      console.warn(`[SMS] Twilio signature rejected: ${sigCheck.reason}`);
+      return new Response("<Response></Response>", {
+        status: 403, headers: { ...getCors(req), "Content-Type": "text/xml" },
+      });
+    }
+
     let from = "", to = "", body = "", messageSid = "", numMedia = 0;
     let messageStatus = "", errorCode = "", errorMessage = "";
     const mediaItems: Array<{ url: string; contentType: string; index: number }> = [];
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
-      const formData = await req.text();
-      const params = new URLSearchParams(formData);
+      const params = new URLSearchParams(rawBody);
       from = params.get("From") || "";
       to = params.get("To") || "";
       body = params.get("Body") || "";
@@ -70,7 +80,7 @@ serve(async (req) => {
         if (url) mediaItems.push({ url, contentType: ct || "application/octet-stream", index: i });
       }
     } else {
-      const jsonBody = await req.json();
+      const jsonBody = rawBody ? JSON.parse(rawBody) : {};
       from = jsonBody.from || jsonBody.From || "";
       to = jsonBody.to || jsonBody.To || "";
       body = jsonBody.body || jsonBody.Body || jsonBody.message || "";
