@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { verifyTelegramSecret } from "../_shared/webhook-signatures.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -30,6 +31,16 @@ serve(async (req) => {
   if (!checkRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
       status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
+  }
+
+  const secretCheck = verifyTelegramSecret(
+    req.headers.get("x-telegram-bot-api-secret-token"),
+  );
+  if (!secretCheck.ok) {
+    console.warn(`[TELEGRAM] Secret token rejected: ${secretCheck.reason}`);
+    return new Response(JSON.stringify({ error: "invalid_secret" }), {
+      status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
