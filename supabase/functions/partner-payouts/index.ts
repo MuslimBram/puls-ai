@@ -236,10 +236,10 @@ serve(async (req) => {
       default:
         throw new Error(`Unknown action: ${action}`);
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Partner payout error:", error);
     return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+      status: error.status || 500,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
