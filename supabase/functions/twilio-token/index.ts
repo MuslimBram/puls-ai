@@ -42,6 +42,20 @@ serve(async (req) => {
 
     if (!workspace_id) throw new Error("workspace_id required");
 
+    // SECURITY: Verify the caller is a member of the workspace before
+    // returning credentials that can place/receive calls on its behalf.
+    const { data: isMember, error: memberErr } = await supabase.rpc(
+      "is_workspace_member",
+      { _user_id: user.id, _workspace_id: workspace_id },
+    );
+    if (memberErr) throw new Error(`Membership check failed: ${memberErr.message}`);
+    if (!isMember) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden: not a member of this workspace" }),
+        { status: 403, headers: { ...getCors(req), "Content-Type": "application/json" } },
+      );
+    }
+
     // Get business Twilio credentials
     const { data: voipChannel } = await supabase
       .from("channels")
