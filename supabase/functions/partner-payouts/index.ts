@@ -29,9 +29,30 @@ serve(async (req) => {
 
     const { action, partner_id, payout_request_id, amount } = await req.json();
 
+    // SECURITY: For any action scoped to a partner_id, verify the caller
+    // owns that partner_account. Without this check, any authenticated
+    // user could onboard or drain another partner's wallet (IDOR).
+    async function assertOwnsPartner(pid: string) {
+      if (!pid) throw new Error("partner_id required");
+      const { data: p, error } = await supabase
+        .from("partner_accounts")
+        .select("id, user_id")
+        .eq("id", pid)
+        .maybeSingle();
+      if (error) throw new Error(`Partner lookup failed: ${error.message}`);
+      if (!p) throw new Error("Partner not found");
+      if (p.user_id !== userData.user.id) {
+        const err: any = new Error("Forbidden: you do not own this partner account");
+        err.status = 403;
+        throw err;
+      }
+      return p;
+    }
+
     switch (action) {
       // Partner requests Stripe Connect onboarding
       case "connect_onboard": {
+        await assertOwnsPartner(partner_id);
         const { data: partner } = await supabase
           .from("partner_accounts")
           .select("*")
@@ -71,6 +92,7 @@ serve(async (req) => {
 
       // Partner requests a payout
       case "request_payout": {
+        await assertOwnsPartner(partner_id);
         if (!amount || amount < 10) throw new Error("Minimum payout is $10");
 
         const { data: wallet } = await supabase
