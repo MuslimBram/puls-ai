@@ -13,7 +13,10 @@ serve(async (req) => {
   const url = new URL(req.url);
   const type = url.searchParams.get("type") || "outbound";
   const target = url.searchParams.get("target") || "";
-  const workspaceId = url.searchParams.get("workspace_id") || "";
+  const rawWorkspaceId = url.searchParams.get("workspace_id") || "";
+  // Strict UUID validation — reject anything else to prevent XML/TwiML injection
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const workspaceId = UUID_RE.test(rawWorkspaceId) ? rawWorkspaceId : "";
 
   let twiml = "";
 
@@ -23,7 +26,7 @@ serve(async (req) => {
       twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">Connecting your call. Please wait.</Say>
-  <Dial record="record-from-answer-dual" recordingStatusCallback="${Deno.env.get("SUPABASE_URL")}/functions/v1/twilio-status-callback?event=recording&amp;workspace_id=${workspaceId}" recordingStatusCallbackMethod="POST">
+  <Dial record="record-from-answer-dual" recordingStatusCallback="${escapeXml(Deno.env.get("SUPABASE_URL") || "")}/functions/v1/twilio-status-callback?event=recording&amp;workspace_id=${escapeXml(workspaceId)}" recordingStatusCallbackMethod="POST">
   </Dial>
 </Response>`;
       break;
@@ -33,7 +36,7 @@ serve(async (req) => {
       twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">Thank you for calling. Please hold while we connect you to an agent.</Say>
-  <Enqueue waitUrl="/hold-music">${workspaceId}</Enqueue>
+  <Enqueue waitUrl="/hold-music">${escapeXml(workspaceId)}</Enqueue>
 </Response>`;
       break;
 
