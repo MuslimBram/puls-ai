@@ -38,6 +38,17 @@ Deno.serve(async (req) => {
       });
     }
 
+    // SECURITY: ownership check — admins may inspect any request,
+    // otherwise the caller must own the withdrawal request.
+    const { data: isAdmin } = await supabaseClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
+    const { data: isSuper } = await supabaseClient.rpc("has_role", { _user_id: user.id, _role: "super_admin" });
+    if (wr.user_id !== user.id && !isAdmin && !isSuper) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+
     // Get user profile and wallet history
     const [profileRes, walletRes, txRes, recentWithdrawals] = await Promise.all([
       supabaseClient.from("profiles").select("*").eq("user_id", wr.user_id).single(),

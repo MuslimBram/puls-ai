@@ -20,12 +20,15 @@ async function hashKey(key: string): Promise<string> {
 
 function generateApiKey(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const bytes = new Uint8Array(40);
+  crypto.getRandomValues(bytes);
   let key = "lp_";
-  for (let i = 0; i < 40; i++) {
-    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  for (let i = 0; i < bytes.length; i++) {
+    key += chars.charAt(bytes[i] % chars.length);
   }
   return key;
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });

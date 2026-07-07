@@ -2,9 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { requireInternalSecret } from "../_shared/cron-auth.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
 
 // Rate limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -26,12 +28,18 @@ function checkRateLimit(ip: string): boolean {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
+  // SECURITY: require internal shared secret — public callers must go
+  // through a server proxy that signs requests with INTERNAL_WEBHOOK_SECRET.
+  const unauth = requireInternalSecret(req);
+  if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...getCors(req), "Content-Type": "application/json" } });
+
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (!checkRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
       status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
+
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
