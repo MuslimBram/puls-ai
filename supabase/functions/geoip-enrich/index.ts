@@ -35,8 +35,9 @@ Deno.serve(async (req) => {
     let enriched = 0;
     for (const event of events) {
       try {
-        // Use free ip-api.com (no key needed, 45 req/min)
-        const res = await fetch(`http://ip-api.com/json/${event.ip_address}?fields=status,countryCode,city`);
+        // Use ip-api.com over HTTPS to avoid leaking IPs in plaintext
+        const res = await fetch(`https://ip-api.com/json/${event.ip_address}?fields=status,countryCode,city`);
+
         const geo = await res.json();
 
         if (geo.status === "success") {
