@@ -2243,6 +2243,7 @@ export type Database = {
           route: string | null
           score: number | null
           social_profiles: Json | null
+          submitter_id: string | null
           user_agent: string | null
           website: string | null
         }
@@ -2264,6 +2265,7 @@ export type Database = {
           route?: string | null
           score?: number | null
           social_profiles?: Json | null
+          submitter_id?: string | null
           user_agent?: string | null
           website?: string | null
         }
@@ -2285,6 +2287,7 @@ export type Database = {
           route?: string | null
           score?: number | null
           social_profiles?: Json | null
+          submitter_id?: string | null
           user_agent?: string | null
           website?: string | null
         }
