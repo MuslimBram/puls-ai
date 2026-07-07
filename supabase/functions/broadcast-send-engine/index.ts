@@ -35,6 +35,10 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: getCors(req) });
   }
+  const unauth = requireCronAuth(req);
+  if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...getCors(req), "Content-Type": "application/json" } });
+
+
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
