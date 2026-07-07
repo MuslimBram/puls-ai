@@ -2,9 +2,11 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { requireInternalSecret } from "../_shared/cron-auth.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
 
 // Rate limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
