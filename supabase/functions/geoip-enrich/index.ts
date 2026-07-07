@@ -1,12 +1,16 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { requireCronAuth } from "../_shared/cron-auth.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  const unauth = requireCronAuth(req);
+  if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...getCors(req), "Content-Type": "application/json" } });
+
 
   try {
     const supabase = createClient(
@@ -31,8 +35,9 @@ Deno.serve(async (req) => {
     let enriched = 0;
     for (const event of events) {
       try {
-        // Use free ip-api.com (no key needed, 45 req/min)
-        const res = await fetch(`http://ip-api.com/json/${event.ip_address}?fields=status,countryCode,city`);
+        // Use ip-api.com over HTTPS to avoid leaking IPs in plaintext
+        const res = await fetch(`https://ip-api.com/json/${event.ip_address}?fields=status,countryCode,city`);
+
         const geo = await res.json();
 
         if (geo.status === "success") {

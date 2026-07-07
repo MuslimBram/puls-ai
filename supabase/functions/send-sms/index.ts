@@ -44,7 +44,23 @@ serve(async (req) => {
   );
 
   try {
-    const { to, body: messageBody, from, user_id } = await req.json();
+    // SECURITY: verify JWT — never trust caller-supplied user_id
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !authData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const user_id = authData.user.id;
+
+    const { to, body: messageBody, from } = await req.json();
 
     if (!to || !messageBody) {
       return new Response(JSON.stringify({ error: "to and body are required" }), {
@@ -52,6 +68,7 @@ serve(async (req) => {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
+
 
     // Determine "from" number: explicit param or from channel settings
     let fromNumber = from;
