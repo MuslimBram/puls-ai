@@ -15,13 +15,31 @@ serve(async (req) => {
   );
 
   try {
-    const { trigger_type, trigger_data, user_id, workspace_id } = await req.json();
+    // SECURITY: verify JWT — never trust body-supplied user_id
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const { data: authData, error: authErr } = await supabase.auth.getUser(token);
+    if (authErr || !authData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const callerId = authData.user.id;
 
-    if (!trigger_type || !user_id) {
-      return new Response(JSON.stringify({ error: "trigger_type and user_id required" }), {
+    const { trigger_type, trigger_data, workspace_id } = await req.json();
+    const user_id = callerId; // enforce caller identity
+
+    if (!trigger_type) {
+      return new Response(JSON.stringify({ error: "trigger_type required" }), {
         status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
+
 
     // Find matching active workflows
     const { data: workflows, error: wfErr } = await supabase
