@@ -28,12 +28,18 @@ function checkRateLimit(ip: string): boolean {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
+  // SECURITY: require internal shared secret — public callers must go
+  // through a server proxy that signs requests with INTERNAL_WEBHOOK_SECRET.
+  const unauth = requireInternalSecret(req);
+  if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...getCors(req), "Content-Type": "application/json" } });
+
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (!checkRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
       status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
+
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
