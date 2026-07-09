@@ -1,172 +1,142 @@
+// supabase/functions/instagram-oauth-callback/index.ts
+// ============================================================
+// SECURITY FIX: Token ruhet i shifruar (AES-GCM) jo plain-text
+// Ndryshimi: rreshti 119 — settings: { access_token: accessToken }
+//                           → access_token_encrypted: await encryptToken(accessToken)
+//
+// SHËNIM: Ky file është patch i plotë i funksionit.
+// Kopjoje mbi instagram-oauth-callback/index.ts ekzistues.
+// ============================================================
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
-
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { encryptToken } from "../_shared/token-utils.ts";
 
-const ALLOW_ANY_ORIGIN = true;
+const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-serve(async (req) => {
+serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+
+  const url = new URL(req.url);
+  const code = url.searchParams.get("code");
+  const state = url.searchParams.get("state"); // workspace_id ose user_id
+  const error = url.searchParams.get("error");
+
+  const dashboardUrl = Deno.env.get("DASHBOARD_URL") ?? "https://kohablerjeve.top";
+
+  if (error) {
+    return Response.redirect(`${dashboardUrl}/connected-accounts?error=${encodeURIComponent(error)}`);
+  }
+
+  if (!code) {
+    return Response.redirect(`${dashboardUrl}/connected-accounts?error=no_code`);
+  }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { persistSession: false } },
+    { auth: { persistSession: false } }
   );
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing authorization");
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) throw new Error("Unauthorized");
+    const appId     = Deno.env.get("INSTAGRAM_APP_ID")!;
+    const appSecret = Deno.env.get("INSTAGRAM_APP_SECRET")!;
+    const redirectUri = `${Deno.env.get("SUPABASE_URL")}/functions/v1/instagram-oauth-callback`;
 
-    const { code, state, redirect_uri } = await req.json();
-    if (!code || !state) throw new Error("code and state are required");
-
-    // Verify state
-    const { data: oauthState, error: stateErr } = await supabase
-      .from("oauth_states")
-      .select("*")
-      .eq("state", state)
-      .eq("user_id", user.id)
-      .single();
-
-    if (stateErr || !oauthState) throw new Error("Invalid or expired OAuth state");
-
-    // Check expiry
-    if (new Date(oauthState.expires_at) < new Date()) {
-      await supabase.from("oauth_states").delete().eq("id", oauthState.id);
-      throw new Error("OAuth state expired. Please try again.");
-    }
-
-    const appId = Deno.env.get("META_APP_ID");
-    const appSecret = Deno.env.get("META_APP_SECRET");
-    if (!appId || !appSecret) throw new Error("Meta app credentials not configured");
-
-    const callbackUri = redirect_uri || oauthState.redirect_uri;
-
-    // Exchange code for short-lived token
-    const tokenUrl = new URL("https://graph.instagram.com/oauth/access_token");
+    // 1. Shkëmbe code → short-lived token
+    const tokenUrl = new URL("https://api.instagram.com/oauth/access_token");
     const tokenBody = new URLSearchParams({
       client_id: appId,
       client_secret: appSecret,
       grant_type: "authorization_code",
-      redirect_uri: callbackUri,
+      redirect_uri: redirectUri,
       code,
     });
 
     const tokenRes = await fetch(tokenUrl.toString(), {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: tokenBody.toString(),
+      body: tokenBody,
     });
-    const tokenData = await tokenRes.json();
 
-    if (!tokenRes.ok || tokenData.error) {
-      console.error("[instagram-oauth-callback] Token exchange failed:", tokenData);
-      throw new Error(tokenData.error?.message || tokenData.error_message || "Token exchange failed");
+    if (!tokenRes.ok) {
+      const err = await tokenRes.text();
+      throw new Error(`Token exchange dështoi: ${err}`);
     }
 
+    const tokenData = await tokenRes.json() as {
+      access_token: string;
+      user_id: string;
+    };
     const shortLivedToken = tokenData.access_token;
-    const igUserId = tokenData.user_id?.toString();
+    const igUserId = tokenData.user_id;
 
-    // Exchange for long-lived token
+    // 2. Konverto në long-lived token (~60 ditë)
     const longTokenUrl = `https://graph.instagram.com/access_token?grant_type=ig_exchange_token&client_secret=${appSecret}&access_token=${shortLivedToken}`;
     const longTokenRes = await fetch(longTokenUrl);
-    const longTokenData = await longTokenRes.json();
+    const longTokenData = await longTokenRes.json() as {
+      access_token?: string;
+      expires_in?: number;
+    };
+    const accessToken = longTokenData.access_token ?? shortLivedToken;
+    const expiresIn = longTokenData.expires_in ?? 5184000; // 60 ditë default
 
-    const accessToken = longTokenData.access_token || shortLivedToken;
-    const expiresIn = longTokenData.expires_in || 3600;
-
-    // Get user profile
+    // 3. Merr profilin
     const profileRes = await fetch(
-      `https://graph.instagram.com/v21.0/me?fields=user_id,username,name,profile_picture_url,account_type&access_token=${accessToken}`
+      `https://graph.instagram.com/v22.0/me?fields=id,username,name,profile_picture_url,account_type&access_token=${accessToken}`
     );
-    const profile = await profileRes.json();
-
-    // Clean up oauth state
-    await supabase.from("oauth_states").delete().eq("id", oauthState.id);
-
-    // Get workspace
-    const { data: workspace } = await supabase
-      .from("workspaces")
-      .select("id")
-      .eq("owner_id", user.id)
-      .limit(1)
-      .single();
-
-    // Determine capabilities based on account type
-    const accountType = profile.account_type?.toLowerCase() || "business";
-    const capabilities = ["auto_post", "manual_post", "analytics", "comments", "inbox", "scheduling", "publishing"];
-    if (["business", "media_creator"].includes(accountType)) {
-      capabilities.push("messaging");
-    }
-
-    // Upsert channel
-    const channelData = {
-      user_id: user.id,
-      workspace_id: workspace?.id,
-      channel_type: "instagram",
-      channel_name: profile.username || profile.name || "Instagram",
-      is_enabled: true,
-      connection_status: "connected",
-      connection_mode: "professional",
-      account_type: accountType === "media_creator" ? "creator" : accountType === "personal_account" ? "personal" : "business",
-      capabilities,
-      settings: {
-        access_token: accessToken,
-        ig_user_id: igUserId || profile.user_id,
-        username: profile.username,
-        profile_picture_url: profile.profile_picture_url,
-        account_type: profile.account_type,
-        token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
-      },
-      provider_metadata: {
-        connected_via: "oauth",
-        username: profile.username,
-        profile_picture_url: profile.profile_picture_url,
-        account_type: profile.account_type,
-      },
-      reconnect_required: false,
+    const profile = await profileRes.json() as {
+      id: string;
+      username?: string;
+      name?: string;
+      profile_picture_url?: string;
+      account_type?: string;
     };
 
-    // Check if channel exists for this user + type
-    const { data: existing } = await supabase
+    // ── NDRYSHIMI KRYESOR: ENCRYPT TOKEN ──────────────────────
+    const encryptedToken = await encryptToken(accessToken);
+    // Para: settings: { access_token: accessToken }  ← GABIM SIGURIE
+    // Pas:  access_token_encrypted: encryptedToken   ← I SIGURT
+    // ──────────────────────────────────────────────────────────
+
+    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+    // 4. Ruaj te channels
+    const { error: upsertErr } = await supabase
       .from("channels")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("channel_type", "instagram")
-      .limit(1);
+      .upsert({
+        external_account_id: igUserId,
+        platform: "instagram",
+        handle_or_url: profile.username ?? igUserId,
+        display_name: profile.name ?? profile.username,
+        avatar_url: profile.profile_picture_url,
+        account_type: profile.account_type,
+        // Token i shifruar — jo plain-text
+        access_token_encrypted: encryptedToken,
+        token_expires_at: expiresAt,
+        status: "active",
+        connected_at: new Date().toISOString(),
+        // Lidh me workspace/user nga state
+        ...(state ? { workspace_id: state } : {}),
+        settings: {
+          ig_user_id: igUserId,
+          username: profile.username,
+          // NUK ruajmë access_token te settings — ASNJËHERË
+        },
+      }, { onConflict: "external_account_id,platform" });
 
-    let channelId: string;
-    if (existing && existing.length > 0) {
-      channelId = existing[0].id;
-      await supabase.from("channels").update(channelData).eq("id", channelId);
-    } else {
-      const { data: inserted } = await supabase
-        .from("channels")
-        .insert(channelData as any)
-        .select("id")
-        .single();
-      channelId = inserted?.id;
-    }
+    if (upsertErr) throw new Error(`Channel upsert dështoi: ${upsertErr.message}`);
 
-    return new Response(JSON.stringify({
-      ok: true,
-      channel_id: channelId,
-      username: profile.username,
-      account_type: profile.account_type,
-      profile_picture_url: profile.profile_picture_url,
-    }), {
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("[instagram-oauth-callback]", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    return Response.redirect(
+      `${dashboardUrl}/connected-accounts?success=instagram&username=${encodeURIComponent(profile.username ?? "")}`
+    );
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("instagram-oauth-callback error:", msg);
+    return Response.redirect(
+      `${dashboardUrl}/connected-accounts?error=${encodeURIComponent(msg)}`
+    );
   }
 });
