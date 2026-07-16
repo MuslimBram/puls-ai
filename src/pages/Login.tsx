@@ -16,6 +16,13 @@ type LoginStep = "credentials" | "security_code" | "2fa";
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextRaw = searchParams.get("next");
+  const safeNext = nextRaw && nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : null;
+  const postAuthTarget = safeNext ?? "/dashboard";
+  const oauthRedirect = safeNext
+    ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
+    : window.location.origin;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
