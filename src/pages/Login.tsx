@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,13 @@ type LoginStep = "credentials" | "security_code" | "2fa";
 const Login = () => {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const nextRaw = searchParams.get("next");
+  const safeNext = nextRaw && nextRaw.startsWith("/") && !nextRaw.startsWith("//") ? nextRaw : null;
+  const postAuthTarget = safeNext ?? "/dashboard";
+  const oauthRedirect = safeNext
+    ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
+    : window.location.origin;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -44,7 +51,7 @@ const Login = () => {
   }
 
   if (user && !needs2FA && loginStep === "credentials") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={postAuthTarget} replace />;
   }
 
   const sendOTPCode = async () => {
@@ -200,7 +207,7 @@ const Login = () => {
       }
 
       toast.success("Verification successful!");
-      navigate("/dashboard");
+      navigate(postAuthTarget);
     } catch {
       toast.error("Verification error");
     }
@@ -564,7 +571,7 @@ const Login = () => {
               onClick={async () => {
                 try {
                   const { error } = await lovable.auth.signInWithOAuth("google", {
-                    redirect_uri: window.location.origin,
+                    redirect_uri: oauthRedirect,
                   });
                   if (error) {
                     toast.error("Google login failed: " + String(error));
@@ -593,7 +600,7 @@ const Login = () => {
               onClick={async () => {
                 try {
                   const { error } = await lovable.auth.signInWithOAuth("apple", {
-                    redirect_uri: window.location.origin,
+                    redirect_uri: oauthRedirect,
                   });
                   if (error) {
                     toast.error("Apple login failed: " + String(error));
