@@ -51,7 +51,7 @@ const Login = () => {
   }
 
   if (user && !needs2FA && loginStep === "credentials") {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to={postAuthTarget} replace />;
   }
 
   const sendOTPCode = async () => {
@@ -207,7 +207,7 @@ const Login = () => {
       }
 
       toast.success("Verification successful!");
-      navigate("/dashboard");
+      navigate(postAuthTarget);
     } catch {
       toast.error("Verification error");
     }
@@ -571,7 +571,7 @@ const Login = () => {
               onClick={async () => {
                 try {
                   const { error } = await lovable.auth.signInWithOAuth("google", {
-                    redirect_uri: window.location.origin,
+                    redirect_uri: oauthRedirect,
                   });
                   if (error) {
                     toast.error("Google login failed: " + String(error));
@@ -600,7 +600,7 @@ const Login = () => {
               onClick={async () => {
                 try {
                   const { error } = await lovable.auth.signInWithOAuth("apple", {
-                    redirect_uri: window.location.origin,
+                    redirect_uri: oauthRedirect,
                   });
                   if (error) {
                     toast.error("Apple login failed: " + String(error));
