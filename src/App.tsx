@@ -23,6 +23,8 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 const CompletePayment = lazy(() => import("./pages/CompletePayment"));
 const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
 // Lazy loaded pages
 const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
