@@ -23,6 +23,7 @@ import { GrowthProgressIndicator } from "@/components/GrowthProgressIndicator";
 import { SafeRender } from "@/components/SafeRender";
 import { RoleDashboardWidgets } from "@/components/RoleDashboardWidgets";
 import { IndustryPackWidgets } from "@/components/dashboard/IndustryPackWidgets";
+import { AdsSpendWidget } from "@/components/dashboard/AdsSpendWidget";
 import { WithdrawalRequestPanel } from "@/components/WithdrawalRequestPanel";
 import { TrialExpiredGate } from "@/components/TrialExpiredGate";
 import { GuidedTour } from "@/components/GuidedTour";
@@ -218,6 +219,11 @@ const Dashboard = () => {
             </div>
           </CardContent>
         </Card>
+
+        {/* Ad Spend — Meta + Google */}
+        <SafeRender label="Ad Spend">
+          <AdsSpendWidget />
+        </SafeRender>
 
         <div className="grid gap-6 lg:grid-cols-2">
           <SafeRender label="Connected Channels">
