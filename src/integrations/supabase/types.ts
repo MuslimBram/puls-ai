@@ -6247,6 +6247,57 @@ export type Database = {
           },
         ]
       }
+      google_ads_cache: {
+        Row: {
+          clicks: number | null
+          conversions: number | null
+          cost_per_conv: number | null
+          cpc: number | null
+          ctr: number | null
+          customer_id: string
+          date_start: string
+          date_stop: string
+          id: string
+          impressions: number | null
+          raw_data: Json | null
+          spend: number | null
+          synced_at: string
+          workspace_id: string
+        }
+        Insert: {
+          clicks?: number | null
+          conversions?: number | null
+          cost_per_conv?: number | null
+          cpc?: number | null
+          ctr?: number | null
+          customer_id: string
+          date_start: string
+          date_stop: string
+          id?: string
+          impressions?: number | null
+          raw_data?: Json | null
+          spend?: number | null
+          synced_at?: string
+          workspace_id: string
+        }
+        Update: {
+          clicks?: number | null
+          conversions?: number | null
+          cost_per_conv?: number | null
+          cpc?: number | null
+          ctr?: number | null
+          customer_id?: string
+          date_start?: string
+          date_stop?: string
+          id?: string
+          impressions?: number | null
+          raw_data?: Json | null
+          spend?: number | null
+          synced_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
       growth_action_items: {
         Row: {
           category: string | null
@@ -8448,6 +8499,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      meta_ads_cache: {
+        Row: {
+          ad_account_id: string
+          clicks: number | null
+          cost_per_lead: number | null
+          cpc: number | null
+          cpm: number | null
+          ctr: number | null
+          date_start: string
+          date_stop: string
+          id: string
+          impressions: number | null
+          leads_count: number | null
+          raw_data: Json | null
+          reach: number | null
+          spend: number | null
+          synced_at: string
+          workspace_id: string
+        }
+        Insert: {
+          ad_account_id: string
+          clicks?: number | null
+          cost_per_lead?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          date_start: string
+          date_stop: string
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          raw_data?: Json | null
+          reach?: number | null
+          spend?: number | null
+          synced_at?: string
+          workspace_id: string
+        }
+        Update: {
+          ad_account_id?: string
+          clicks?: number | null
+          cost_per_lead?: number | null
+          cpc?: number | null
+          cpm?: number | null
+          ctr?: number | null
+          date_start?: string
+          date_stop?: string
+          id?: string
+          impressions?: number | null
+          leads_count?: number | null
+          raw_data?: Json | null
+          reach?: number | null
+          spend?: number | null
+          synced_at?: string
+          workspace_id?: string
+        }
+        Relationships: []
       }
       n8n_configurations: {
         Row: {

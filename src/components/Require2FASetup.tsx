@@ -38,21 +38,26 @@ export const Require2FASetup = ({
           .from("user_roles")
           .select("role")
           .eq("user_id", userId)
-          .in("role", requiredForRoles);
+          .in("role", requiredForRoles as never);
 
         const needsCheck = roles && roles.length > 0;
         if (!needsCheck) { setChecked(true); return; }
 
         // 3. Kontrollo nëse ka TOTP të konfiguruar dhe të verifikuar
-        //    Supabase ruan AAL (Assurance Assurance Level) te sesioni
-        //    AAL2 = 2FA e kaluar; AAL1 = vetëm fjalëkalim
         const aal = session.user?.factors?.length ?? 0;
         const hasVerified2FA = aal > 0 &&
           (session as unknown as { aal?: string }).aal === "aal2";
 
-        // Alternativa: kontrollo kolonën tonë të TOTP nëse e kemi
         if (!hasVerified2FA) {
-          const { data: totp } = await supabase
+          const { data: totp } = await (supabase as unknown as {
+            from: (t: string) => {
+              select: (c: string) => {
+                eq: (k: string, v: string) => {
+                  maybeSingle: () => Promise<{ data: { is_enabled?: boolean; is_verified?: boolean } | null }>;
+                };
+              };
+            };
+          })
             .from("user_totp_settings")
             .select("is_enabled, is_verified")
             .eq("user_id", userId)
