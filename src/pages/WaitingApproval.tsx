@@ -32,7 +32,17 @@ export default function WaitingApproval() {
       if (!session) { navigate("/login"); return; }
 
       // Kontrollo nëse ka approval të re
-      const { data: recentAttempt } = await supabase
+      const { data: recentAttempt } = await (supabase as unknown as {
+        from: (t: string) => {
+          select: (c: string) => {
+            eq: (k: string, v: string) => {
+              order: (c: string, o: { ascending: boolean }) => {
+                limit: (n: number) => { maybeSingle: () => Promise<{ data: { outcome?: string } | null }> };
+              };
+            };
+          };
+        };
+      })
         .from("login_attempts")
         .select("outcome")
         .eq("user_id", session.user.id)
