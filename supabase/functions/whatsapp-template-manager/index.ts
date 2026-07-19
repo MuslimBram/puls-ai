@@ -165,8 +165,6 @@ serve(async (req) => {
 
     // === SYNC TEMPLATE STATUSES FROM META ===
     if (action === "sync") {
-      if (!user_id) return jsonRes(req, { error: "user_id required" }, 400);
-
       const credentials = await getWACredentials(supabase, user_id);
       if (!credentials) return jsonRes(req, { error: "WhatsApp not configured" }, 400);
 
