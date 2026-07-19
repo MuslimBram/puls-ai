@@ -216,9 +216,12 @@ serve(async (req) => {
         .from("whatsapp_templates")
         .select("*")
         .eq("id", template_id)
+        .eq("user_id", user_id)
         .single();
 
-      if (tmpl?.meta_template_id) {
+      if (!tmpl) return jsonRes(req, { error: "Template not found" }, 404);
+
+      if (tmpl.meta_template_id) {
         const credentials = await getWACredentials(supabase, tmpl.user_id);
         if (credentials) {
           await fetch(
@@ -228,7 +231,7 @@ serve(async (req) => {
         }
       }
 
-      await supabase.from("whatsapp_templates").delete().eq("id", template_id);
+      await supabase.from("whatsapp_templates").delete().eq("id", template_id).eq("user_id", user_id);
       return jsonRes(req, { ok: true });
     }
 
