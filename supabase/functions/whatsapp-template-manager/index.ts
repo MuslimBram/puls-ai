@@ -82,6 +82,7 @@ serve(async (req) => {
         .from("whatsapp_templates")
         .select("*")
         .eq("id", template_id)
+        .eq("user_id", user_id)
         .single();
 
       if (tmplErr || !tmpl) return jsonRes(req, { error: "Template not found" }, 404);
