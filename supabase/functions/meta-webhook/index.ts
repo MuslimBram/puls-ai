@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { verifyMetaSignature } from "../_shared/webhook-signatures.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -68,7 +69,20 @@ serve(async (req) => {
   );
 
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+    const sigCheck = await verifyMetaSignature(
+      rawBody,
+      req.headers.get("x-hub-signature-256"),
+      "META_APP_SECRET",
+    );
+    if (!sigCheck.ok) {
+      console.warn("[META-WEBHOOK] Signature check failed:", sigCheck.reason);
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const body = JSON.parse(rawBody);
     const startTime = Date.now();
     const objectType = body?.object; // "instagram" or "page" (Facebook Messenger)
     const entries = body?.entry || [];

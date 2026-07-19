@@ -37,9 +37,9 @@ serve(async (req) => {
   }
 
   try {
-    const { user_id, business_id, workspace_id, visitor_name, visitor_email, message, page_url, channel_type } = await req.json();
-    if (!user_id || !message) {
-      return new Response(JSON.stringify({ error: "user_id and message are required" }), {
+    const { business_id, workspace_id, visitor_name, visitor_email, message, page_url, channel_type } = await req.json();
+    if (!business_id || !message) {
+      return new Response(JSON.stringify({ error: "business_id and message are required" }), {
         status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
@@ -56,6 +56,19 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Resolve user_id server-side from business_id — never trust the widget.
+    const { data: bp, error: bpErr } = await supabase
+      .from("business_profiles")
+      .select("user_id")
+      .eq("id", business_id)
+      .maybeSingle();
+    if (bpErr || !bp?.user_id) {
+      return new Response(JSON.stringify({ error: "Unknown business" }), {
+        status: 404, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const user_id = bp.user_id;
 
     const { data: profile } = await supabase
       .from("profiles")

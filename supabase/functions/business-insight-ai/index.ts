@@ -10,12 +10,30 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
-    const { user_id, workspace_id } = await req.json();
-    if (!user_id) throw new Error("user_id required");
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+
+    const authClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+    });
+    const { data: userData, error: userErr } = await authClient.auth.getUser(token);
+    if (userErr || !userData?.user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const user_id = userData.user.id;
+
+    const { workspace_id } = await req.json().catch(() => ({}));
     const sb = createClient(supabaseUrl, serviceKey);
 
     // Gather data for analysis
