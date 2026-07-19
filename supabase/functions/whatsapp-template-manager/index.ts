@@ -27,12 +27,27 @@ serve(async (req) => {
   );
 
   try {
-    const { action, template, template_id, user_id } = await req.json();
+    // ── Require authenticated caller ─────────────────────────────────────────
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) return jsonRes(req, { error: "Unauthorized" }, 401);
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } },
+    );
+    const { data: userData, error: userErr } = await authClient.auth.getUser(token);
+    if (userErr || !userData?.user) return jsonRes(req, { error: "Unauthorized" }, 401);
+    const caller_id = userData.user.id;
+
+    const { action, template, template_id, user_id: bodyUserId } = await req.json();
+    // Never trust body user_id — always use caller
+    const user_id = caller_id;
 
     // === CREATE / UPDATE LOCAL TEMPLATE ===
     if (action === "create") {
-      if (!template?.user_id || !template?.template_name || !template?.body_text) {
-        return jsonRes(req, { error: "Missing required fields: user_id, template_name, body_text" }, 400);
+      if (!template?.template_name || !template?.body_text) {
+        return jsonRes(req, { error: "Missing required fields: template_name, body_text" }, 400);
       }
 
       const { data, error } = await supabase
