@@ -40,6 +40,50 @@ serve(async (req) => {
     const rawBody = await req.text();
     if (rawBody.length > 256_000) return json(req, { error: "Payload too large" }, 413);
 
+    // --- Adapter credential verification ---
+    const authType = (adapter as any).auth_type as string | null | undefined;
+    const authCreds = ((adapter as any).auth_credentials || {}) as Record<string, any>;
+    if (authType && authType !== "none") {
+      if (authType === "api_key") {
+        const expectedKey = authCreds.api_key || authCreds.token;
+        const incomingKey =
+          req.headers.get("x-api-key") ||
+          req.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ||
+          "";
+        if (!expectedKey || incomingKey !== expectedKey) {
+          return json(req, { error: "Unauthorized" }, 401);
+        }
+      } else if (authType === "hmac") {
+        const secret = authCreds.secret;
+        const header =
+          req.headers.get("x-signature-256") ||
+          req.headers.get("x-hub-signature-256") ||
+          req.headers.get("x-signature") ||
+          "";
+        if (!secret || !header) return json(req, { error: "Unauthorized" }, 401);
+        const key = await crypto.subtle.importKey(
+          "raw",
+          new TextEncoder().encode(secret),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"],
+        );
+        const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+        const bytes = new Uint8Array(mac);
+        let hex = "";
+        for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, "0");
+        const expected = header.startsWith("sha256=") ? header.slice(7) : header;
+        if (expected.toLowerCase() !== hex) return json(req, { error: "Unauthorized" }, 401);
+      } else if (authType === "basic") {
+        const expected = authCreds.authorization || authCreds.header;
+        const incoming = req.headers.get("authorization") || "";
+        if (!expected || incoming !== expected) return json(req, { error: "Unauthorized" }, 401);
+      } else {
+        // Unknown auth type — fail closed
+        return json(req, { error: "Unsupported auth_type" }, 401);
+      }
+    }
+
     let body: Record<string, unknown>;
     try {
       body = JSON.parse(rawBody);

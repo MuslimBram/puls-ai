@@ -27,18 +27,33 @@ serve(async (req) => {
   );
 
   try {
-    const { action, template, template_id, user_id } = await req.json();
+    // ── Require authenticated caller ─────────────────────────────────────────
+    const authHeader = req.headers.get("Authorization") || "";
+    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+    if (!token) return jsonRes(req, { error: "Unauthorized" }, 401);
+    const authClient = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } },
+    );
+    const { data: userData, error: userErr } = await authClient.auth.getUser(token);
+    if (userErr || !userData?.user) return jsonRes(req, { error: "Unauthorized" }, 401);
+    const caller_id = userData.user.id;
+
+    const { action, template, template_id, user_id: bodyUserId } = await req.json();
+    // Never trust body user_id — always use caller
+    const user_id = caller_id;
 
     // === CREATE / UPDATE LOCAL TEMPLATE ===
     if (action === "create") {
-      if (!template?.user_id || !template?.template_name || !template?.body_text) {
-        return jsonRes(req, { error: "Missing required fields: user_id, template_name, body_text" }, 400);
+      if (!template?.template_name || !template?.body_text) {
+        return jsonRes(req, { error: "Missing required fields: template_name, body_text" }, 400);
       }
 
       const { data, error } = await supabase
         .from("whatsapp_templates")
         .upsert({
-          user_id: template.user_id,
+          user_id,
           workspace_id: template.workspace_id || null,
           template_name: template.template_name.toLowerCase().replace(/\s+/g, "_"),
           template_language: template.template_language || "en",
@@ -67,6 +82,7 @@ serve(async (req) => {
         .from("whatsapp_templates")
         .select("*")
         .eq("id", template_id)
+        .eq("user_id", user_id)
         .single();
 
       if (tmplErr || !tmpl) return jsonRes(req, { error: "Template not found" }, 404);
@@ -149,8 +165,6 @@ serve(async (req) => {
 
     // === SYNC TEMPLATE STATUSES FROM META ===
     if (action === "sync") {
-      if (!user_id) return jsonRes(req, { error: "user_id required" }, 400);
-
       const credentials = await getWACredentials(supabase, user_id);
       if (!credentials) return jsonRes(req, { error: "WhatsApp not configured" }, 400);
 
@@ -202,9 +216,12 @@ serve(async (req) => {
         .from("whatsapp_templates")
         .select("*")
         .eq("id", template_id)
+        .eq("user_id", user_id)
         .single();
 
-      if (tmpl?.meta_template_id) {
+      if (!tmpl) return jsonRes(req, { error: "Template not found" }, 404);
+
+      if (tmpl.meta_template_id) {
         const credentials = await getWACredentials(supabase, tmpl.user_id);
         if (credentials) {
           await fetch(
@@ -214,7 +231,7 @@ serve(async (req) => {
         }
       }
 
-      await supabase.from("whatsapp_templates").delete().eq("id", template_id);
+      await supabase.from("whatsapp_templates").delete().eq("id", template_id).eq("user_id", user_id);
       return jsonRes(req, { ok: true });
     }
 
