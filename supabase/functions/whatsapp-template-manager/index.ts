@@ -53,7 +53,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from("whatsapp_templates")
         .upsert({
-          user_id: template.user_id,
+          user_id,
           workspace_id: template.workspace_id || null,
           template_name: template.template_name.toLowerCase().replace(/\s+/g, "_"),
           template_language: template.template_language || "en",
