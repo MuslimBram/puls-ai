@@ -259,7 +259,9 @@ const App = () => (
                 <Route path="/partner-clients" element={<Navigate to="/partner" replace />} />
                 <Route path="/business-insights" element={<Navigate to="/deep-analytics?tab=insights" replace />} />
 
-                <Route path="*" element={<NotFound />} />
+                <Route path="/waiting-approval" element={<Suspense fallback={<LazyFallback />}><WaitingApproval /></Suspense>} />
+        <Route path="/landing" element={<Suspense fallback={<LazyFallback />}><Landing /></Suspense>} />
+        <Route path="*" element={<NotFound />} />
               </Routes>
               <PWAInstallPrompt />
             </BrowserRouter>
