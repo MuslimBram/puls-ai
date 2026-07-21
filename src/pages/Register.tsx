@@ -93,20 +93,17 @@ const Register = () => {
       toast.error("Select an account type");
       return;
     }
-    if (accountType === "freelancer" || accountType === "ambassador") {
-      setSelectedTier("standard");
-      setSelectedDuration("trial");
-      setStep("credentials");
-    } else {
-      setStep("plan-selection");
-    }
+    // All account types start with 7-day free trial on the Start plan.
+    // The user can pick/upgrade a plan later from the Subscription page.
+    setSelectedTier("standard");
+    setSelectedDuration("trial");
+    setStep("credentials");
   };
 
   const handlePlanNext = () => {
-    if (!selectedTier || !selectedDuration) {
-      toast.error("Select a plan and duration");
-      return;
-    }
+    // Plan selection is optional during registration — default to Start + trial.
+    if (!selectedTier) setSelectedTier("standard");
+    if (!selectedDuration) setSelectedDuration("trial");
     setStep("credentials");
   };
 
