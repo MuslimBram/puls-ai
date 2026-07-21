@@ -154,8 +154,60 @@ serve(async (req) => {
 
     const user = userData.user;
 
+    // Privileged roles (super_admin, admin, business_owner) always read back
+    // as the top-tier plan here too — matching enforce-limits and
+    // generate-media, which already bypass for these roles. Without this,
+    // an admin with no live Stripe subscription would still see "standard"
+    // in the UI badge even though every limit-enforcing function treats
+    // them as unlimited.
+    const { data: roleRows, error: roleError } = await supabaseClient
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id);
+    if (roleError) logStep("Role lookup failed, continuing without bypass", { message: roleError.message });
+
+    const roles = (roleRows || []).map((r: { role: string }) => r.role);
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin") || roles.includes("business_owner");
+
     const catalogRows = await loadPricingCatalogRows(supabaseClient);
     const productMap = indexPricingCatalogByProductId(catalogRows);
+
+    if (hasPrivilegedBypass) {
+      // Resolve the top-tier plan using the same ordering the frontend
+      // catalog uses (sort_order, then plan_key) — not array position —
+      // so this stays correct regardless of row insertion order and even
+      // if plan tiers/names change later.
+      const { data: orderedPlans, error: orderedPlansError } = await supabaseClient
+        .from("pricing_settings")
+        .select("plan_key")
+        .eq("is_donation", false)
+        .eq("is_public", true)
+        .order("sort_order", { ascending: true })
+        .order("plan_key", { ascending: true });
+      if (orderedPlansError) logStep("Top plan lookup failed, defaulting to enterprise", { message: orderedPlansError.message });
+
+      const planKeys = (orderedPlans || []).map((r: { plan_key: string }) => r.plan_key);
+      const topPlanKey = planKeys.length > 0 ? planKeys[planKeys.length - 1] : "enterprise";
+
+      return jsonResponse(req, {
+        subscribed: true,
+        plan: topPlanKey,
+        selected_plan: topPlanKey,
+        status: "active",
+        status_label: "Admin access",
+        trial_end: null,
+        trial_start: null,
+        grace_period_end: null,
+        leads_used: 0,
+        ai_replies_today: 0,
+        package_type: "yearly",
+        package_start_at: null,
+        package_end_at: null,
+        commitment_months: 12,
+        referral_discount: null,
+        privileged_bypass: true,
+      });
+    }
 
     const syncSubscriptionRow = async (payload: Record<string, unknown>) => {
       const { error } = await supabaseClient.from("subscriptions").update(payload).eq("user_id", user.id);
