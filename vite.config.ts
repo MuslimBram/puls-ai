@@ -3,7 +3,6 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
-import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/supabase/vite";
 
 const computeManifestVersion = (): string => {
   const now = new Date();
@@ -60,6 +59,7 @@ export default defineConfig(({ mode }) => ({
       includeAssets: [
         "robots.txt",
         "favicon.ico",
+        "offline.html",
         "pwa/icon-64.png",
         "pwa/icon-192.png",
         "pwa/icon-512.png",
@@ -101,8 +101,12 @@ export default defineConfig(({ mode }) => ({
       workbox: {
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         navigateFallback: "/index.html",
-        navigateFallbackDenylist: [/^\/api/, /^\/~oauth/, /^\/functions\/v1\//, /^\/\.well-known\//],
+        navigateFallbackDenylist: [/^\/api/, /^\/~oauth/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Guarantees offline.html is precached at install time, independent
+        // of the runtime caches main.tsx clears on load, so it's always
+        // available the moment the service worker activates.
+        additionalManifestEntries: [{ url: "/offline.html", revision: APP_MANIFEST_VERSION }],
         runtimeCaching: [
           {
             urlPattern: ({ request }) => request.destination === "document",
@@ -110,6 +114,14 @@ export default defineConfig(({ mode }) => ({
             options: {
               cacheName: "pages-cache",
               networkTimeoutSeconds: 10,
+              // When NetworkFirst exhausts both network and cache (e.g. a
+              // page never visited before, opened while fully offline),
+              // serve the dedicated offline.html instead of a browser error.
+              plugins: [
+                {
+                  handlerDidError: async () => caches.match("/offline.html"),
+                },
+              ],
             },
           },
           {
@@ -134,7 +146,6 @@ export default defineConfig(({ mode }) => ({
       },
     }),
     mode === "development" && componentTagger(),
-    mcpPlugin(),
   ].filter(Boolean),
   resolve: {
     alias: {
