@@ -24,6 +24,11 @@ const ASSIGNABLE_ROLES: { value: AppRole; label: string; icon: React.ReactNode }
   { value: "moderator", label: "Moderator", icon: <Shield className="h-3 w-3" /> },
 ];
 
+// Roles a workspace Owner (business_owner, not platform admin) is allowed to
+// grant or revoke. Mirrors the DB RLS policies in user_roles — owners can
+// only touch 'admin', never super_admin or other system roles.
+const OWNER_MANAGEABLE_ROLES: AppRole[] = ["admin"];
+
 const ROLE_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   super_admin: "destructive",
   admin: "default",
@@ -38,9 +43,14 @@ const ROLE_COLORS: Record<string, "default" | "secondary" | "destructive" | "out
 export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
   const queryClient = useQueryClient();
   const { log } = useAuditLog();
-  const { isAdmin } = useRolePermissions();
+  const { isAdmin, isBusinessOwner } = useRolePermissions();
   const [selectedRole, setSelectedRole] = useState<AppRole>("admin");
-  const canManageRoles = isAdmin;
+  // Full admins/super_admins can manage any assignable role.
+  // Workspace Owners can only manage the 'admin' role (promote/demote admins),
+  // matching the DB RLS policy exactly.
+  const canManageRoles = isAdmin || isBusinessOwner;
+  const canManageRole = (role: AppRole) => isAdmin || (isBusinessOwner && OWNER_MANAGEABLE_ROLES.includes(role));
+  const visibleRoleOptions = isAdmin ? ASSIGNABLE_ROLES : ASSIGNABLE_ROLES.filter((r) => OWNER_MANAGEABLE_ROLES.includes(r.value));
 
   const rolesQuery = useQuery({
     queryKey: ["admin-all-user-roles"],
@@ -56,7 +66,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
 
   const assignRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
-      if (!canManageRoles) throw new Error("Only admins can assign roles");
+      if (!canManageRole(role)) throw new Error("You don't have permission to assign this role");
       const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: role as any });
       if (error) throw error;
     },
@@ -77,7 +87,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
 
   const removeRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      if (!canManageRoles) throw new Error("Only admins can remove roles");
+      if (!canManageRole(role as AppRole)) throw new Error("You don't have permission to remove this role");
       const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role as any);
       if (error) throw error;
     },
@@ -98,13 +108,17 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
           Role Management
         </CardTitle>
         <CardDescription>
-          {canManageRoles ? "Assign or remove roles for platform users" : "Only admins can assign/remove roles"}
+          {isAdmin
+            ? "Assign or remove roles for platform users"
+            : isBusinessOwner
+            ? "As Owner, you can promote/demote the Admin role for your workspace users"
+            : "Only admins and owners can assign/remove roles"}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {!canManageRoles ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            You have admin panel access as owner, but role changes are restricted to admin users.
+            You have admin panel access, but role changes are restricted to admins and owners.
           </p>
         ) : profiles.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">No users found</p>
@@ -124,8 +138,8 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
                           variant={ROLE_COLORS[role] || "outline"}
                           className="text-xs cursor-pointer hover:opacity-70 gap-1"
                           onClick={() => {
-                            if (!canManageRoles) {
-                              toast.error("Only admins can remove roles");
+                            if (!canManageRole(role as AppRole)) {
+                              toast.error("You don't have permission to remove this role");
                               return;
                             }
                             if (role === "user") {
@@ -149,7 +163,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {ASSIGNABLE_ROLES.map((r) => (
+                        {visibleRoleOptions.map((r) => (
                           <SelectItem key={r.value} value={r.value}>
                             <span className="flex items-center gap-1.5">
                               {r.icon} {r.label}
@@ -161,7 +175,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
                     <Button
                       size="sm"
                       variant="default"
-                      disabled={!canManageRoles || assignRole.isPending || userRoles.includes(selectedRole)}
+                      disabled={!canManageRole(selectedRole) || assignRole.isPending || userRoles.includes(selectedRole)}
                       onClick={() => assignRole.mutate({ userId: p.user_id, role: selectedRole })}
                     >
                       <ShieldPlus className="h-3 w-3 mr-1" />
