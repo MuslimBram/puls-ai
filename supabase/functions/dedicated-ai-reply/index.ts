@@ -37,9 +37,9 @@ serve(async (req) => {
   }
 
   try {
-    const { business_id, workspace_id, visitor_name, visitor_email, message, page_url, channel_type } = await req.json();
-    if (!business_id || !message) {
-      return new Response(JSON.stringify({ error: "business_id and message are required" }), {
+    const { user_id, business_id, workspace_id, visitor_name, visitor_email, message, page_url, channel_type } = await req.json();
+    if (!user_id || !message) {
+      return new Response(JSON.stringify({ error: "user_id and message are required" }), {
         status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
@@ -57,19 +57,6 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Resolve user_id server-side from business_id — never trust the widget.
-    const { data: bp, error: bpErr } = await supabase
-      .from("business_profiles")
-      .select("user_id")
-      .eq("id", business_id)
-      .maybeSingle();
-    if (bpErr || !bp?.user_id) {
-      return new Response(JSON.stringify({ error: "Unknown business" }), {
-        status: 404, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-    const user_id = bp.user_id;
-
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_suspended")
@@ -82,15 +69,21 @@ serve(async (req) => {
       });
     }
 
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status")
-      .eq("user_id", user_id)
-      .maybeSingle();
+    const [{ data: sub }, { data: roleRows }] = await Promise.all([
+      supabase
+        .from("subscriptions")
+        .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status")
+        .eq("user_id", user_id)
+        .maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", user_id),
+    ]);
+
+    const roles = (roleRows || []).map((r: { role: string }) => r.role);
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin") || roles.includes("business_owner");
 
     const planMap: Record<string, string> = { free: "standard", pro: "professional" };
-    const plan = planMap[sub?.plan || "standard"] || sub?.plan || "standard";
-    const limit = PLAN_LIMITS[plan] ?? 20;
+    const plan = hasPrivilegedBypass ? "enterprise" : (planMap[sub?.plan || "standard"] || sub?.plan || "standard");
+    const limit = hasPrivilegedBypass ? -1 : (PLAN_LIMITS[plan] ?? 20);
 
     const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
     const now = new Date();
@@ -105,7 +98,7 @@ serve(async (req) => {
     }
 
     const subStatus = sub?.subscription_status || "active";
-    if (["canceled", "unpaid"].includes(subStatus) && currentUsed >= PLAN_LIMITS.standard) {
+    if (!hasPrivilegedBypass && ["canceled", "unpaid"].includes(subStatus) && currentUsed >= PLAN_LIMITS.standard) {
       return new Response(JSON.stringify({
         error: "Your subscription has expired. Please renew to continue using AI replies.",
         limit_reached: true,
