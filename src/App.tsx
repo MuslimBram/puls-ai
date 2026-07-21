@@ -58,6 +58,8 @@ const Telephony = lazy(() => import("./pages/Telephony"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const DeveloperPortal = lazy(() => import("./pages/DeveloperPortal"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
+const WaitingApproval = lazy(() => import("./pages/WaitingApproval"));
+const Landing = lazy(() => import("./pages/Landing"));
 const Branding = lazy(() => import("./pages/Branding"));
 const SalesEngine = lazy(() => import("./pages/SalesEngine"));
 const FinancialIntelligence = lazy(() => import("./pages/FinancialIntelligence"));
