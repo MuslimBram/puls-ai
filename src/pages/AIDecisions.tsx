@@ -8,54 +8,49 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAIDecisions } from "@/hooks/useAIDecisions";
 import { Brain, CheckCircle2, XCircle, Zap, Clock } from "lucide-react";
 
+// Each focus maps to the exact set of action_type values an edge function
+// can write for that category. Filtering is an exact match on action_type —
+// not a fuzzy text search — so a focus tab only ever shows suggestions of
+// its own kind, never a shared/mixed list.
 const FOCUS_CONFIG: Record<
   string,
-  { title: string; description: string; keywords: string[] }
+  { title: string; description: string; actionTypes: string[] }
 > = {
   posts: {
     title: "Suggested Posts",
     description: "AI-recommended content posts ready to publish.",
-    keywords: ["post", "content", "publish", "social"],
+    actionTypes: ["suggest_post", "content_post"],
   },
   offers: {
     title: "Suggested Offers",
     description: "Pricing, bundle, and promotion ideas based on customer signals.",
-    keywords: ["offer", "pricing", "discount", "bundle", "promotion"],
+    actionTypes: ["suggest_offer", "pricing_offer"],
   },
   replies: {
     title: "Suggested Replies",
     description: "Drafted responses to incoming conversations awaiting your approval.",
-    keywords: ["reply", "response", "message", "inbox", "conversation"],
+    actionTypes: ["suggest_reply", "inbox_reply"],
   },
   campaigns: {
     title: "Suggested Campaigns",
     description: "Campaign briefs the AI thinks are worth running next.",
-    keywords: ["campaign", "broadcast", "outreach"],
+    actionTypes: ["suggest_campaign", "broadcast_campaign"],
   },
   seo: {
     title: "SEO Opportunities",
     description: "Keyword, ranking, and content gaps the AI surfaced from your site signals.",
-    keywords: ["seo", "keyword", "ranking", "search", "meta"],
+    actionTypes: ["seo_opportunity", "seo_keyword"],
   },
   competitors: {
     title: "Competitor Insights",
     description: "Plays inspired by what your competitors are doing right now.",
-    keywords: ["competitor", "competitive", "rival", "benchmark"],
+    actionTypes: ["competitor_insight", "competitor_play"],
   },
 };
 
 const matchesFocus = (item: any, focus: string | null) => {
   if (!focus || !FOCUS_CONFIG[focus]) return true;
-  const haystack = [
-    item.action_type,
-    item.source_signal,
-    item.title,
-    item.category,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-  return FOCUS_CONFIG[focus].keywords.some((k) => haystack.includes(k));
+  return FOCUS_CONFIG[focus].actionTypes.includes(item.action_type);
 };
 
 const AIDecisions = () => {
