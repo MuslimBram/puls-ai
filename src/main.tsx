@@ -15,11 +15,17 @@ const updateSW = registerSW({
   },
 });
 
-// Force clear ALL stale caches on load to prevent offline/stale errors
+// Force clear the stale runtime pages-cache on load to prevent serving an
+// outdated build after a deploy. We deliberately do NOT touch any
+// "workbox-precache-*" cache here: workbox already version-manages and
+// replaces its own precache automatically on every service worker update,
+// and that precache is also where offline.html lives (via
+// additionalManifestEntries in vite.config.ts) — clearing it manually here
+// would risk deleting the offline fallback right when it's needed most.
 if ("caches" in window) {
   caches.keys().then((names) => {
     names.forEach((n) => {
-      if (n.startsWith("workbox-precache") || n === "pages-cache") {
+      if (n === "pages-cache") {
         caches.delete(n);
       }
     });
@@ -27,3 +33,4 @@ if ("caches" in window) {
 }
 
 createRoot(document.getElementById("root")!).render(<App />);
+
