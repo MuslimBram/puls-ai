@@ -33,26 +33,6 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-    if (!token) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const authClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: `Bearer ${token}` } },
-    });
-    const { data: userData, error: userErr } = await authClient.auth.getUser(token);
-    if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-    const user_id = userData.user.id;
-
     const {
       message,
       senderName,
@@ -60,6 +40,7 @@ serve(async (req) => {
       keywords,
       tone,
       template,
+      user_id,
       workspace_id,
       business_id,
     } = await req.json();
@@ -67,6 +48,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
     if (!message || typeof message !== "string") throw new Error("message is required");
+    if (!user_id) throw new Error("user_id is required");
     if (!business_id) throw new Error("business_id is required");
 
     if (message.length > 5000) {
@@ -76,7 +58,7 @@ serve(async (req) => {
     }
 
     const supabase = createClient(
-      supabaseUrl,
+      Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
@@ -84,15 +66,21 @@ serve(async (req) => {
       standard: 20, professional: 100, advanced: 500, enterprise: -1,
     };
 
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("plan, ai_replies_today, ai_replies_reset_at")
-      .eq("user_id", user_id)
-      .maybeSingle();
+    const [{ data: sub }, { data: roleRows }] = await Promise.all([
+      supabase
+        .from("subscriptions")
+        .select("plan, ai_replies_today, ai_replies_reset_at")
+        .eq("user_id", user_id)
+        .maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", user_id),
+    ]);
+
+    const roles = (roleRows || []).map((r: { role: string }) => r.role);
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin") || roles.includes("business_owner");
 
     const planMap: Record<string, string> = { free: "standard", pro: "professional" };
-    const plan = planMap[sub?.plan || "standard"] || sub?.plan || "standard";
-    const limit = PLAN_LIMITS[plan] ?? 20;
+    const plan = hasPrivilegedBypass ? "enterprise" : (planMap[sub?.plan || "standard"] || sub?.plan || "standard");
+    const limit = hasPrivilegedBypass ? -1 : (PLAN_LIMITS[plan] ?? 20);
 
     const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
     const now = new Date();
