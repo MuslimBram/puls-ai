@@ -55,7 +55,7 @@ export default function TermsAndPayments() {
             <div className="font-medium text-green-800 dark:text-green-400 mb-2">✓ Çfarë rimbursohet</div>
             <ul className="text-sm text-green-700 dark:text-green-300 space-y-1.5">
               <li>• Pagesa e parë e abonimit brenda <strong>7 ditëve</strong> nëse platforma nuk funksionoi për shkak tonin</li>
-              <li>• Periudha e papërdorur nëse Pulse AI ka ndërprerje teknike > 48 orë të vazhdueshme</li>
+              <li>• Periudha e papërdorur nëse Pulse AI ka ndërprerje teknike {'>'} 48 orë të vazhdueshme</li>
               <li>• Gabime faturimi të vërtetuara (shumëfishim i pagesës, shumë e gabuar)</li>
             </ul>
           </div>
