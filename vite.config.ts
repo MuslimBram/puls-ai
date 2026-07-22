@@ -119,7 +119,7 @@ export default defineConfig(({ mode }) => ({
               // serve the dedicated offline.html instead of a browser error.
               plugins: [
                 {
-                  handlerDidError: async () => caches.match("/offline.html"),
+                  handlerDidError: async () => (self as unknown as { caches: CacheStorage }).caches.match("/offline.html"),
                 },
               ],
             },
