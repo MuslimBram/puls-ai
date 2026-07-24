@@ -15,39 +15,39 @@ import {
 } from "lucide-react";
 
 const FEATURES = [
-  { icon: Inbox, title: "Inbox i Unifikuar", desc: "WhatsApp, Instagram, Facebook, SMS — gjithçka në 1 vend. AI përgjigjet 24/7." },
-  { icon: Brain, title: "AI me Memorie", desc: "Mëson çmimet, produktet, FAQ nga postimet tuaja. Pa konfigurim manual." },
-  { icon: Target, title: "Lead Capture Automatik", desc: "Çdo DM, çdo koment → lead automatik → CRM → follow-up pa ndërhyrje." },
-  { icon: TrendingUp, title: "Revenue Intelligence", desc: "Lead scoring, churn prediction, upsell automatik. Di kur klienti është gati." },
-  { icon: BarChart3, title: "CEO Dashboard Live", desc: "Leads, Revenue, Ads, Thirrje, KPI — gjithçka live në 1 dashboard." },
-  { icon: Shield, title: "Siguri Enterprise", desc: "Device Trust AI, AES-GCM encryption, aprovim admin për pajisje të reja." },
+  { icon: Inbox, title: "Unified Inbox", desc: "WhatsApp, Instagram, Facebook, SMS — everything in one place. AI replies 24/7." },
+  { icon: Brain, title: "AI with Memory", desc: "Learns prices, products and FAQs from your posts. No manual configuration." },
+  { icon: Target, title: "Automatic Lead Capture", desc: "Every DM, every comment → automatic lead → CRM → follow-up with no manual work." },
+  { icon: TrendingUp, title: "Revenue Intelligence", desc: "Lead scoring, churn prediction, automatic upsell. Know when the customer is ready to buy." },
+  { icon: BarChart3, title: "Live CEO Dashboard", desc: "Leads, Revenue, Ads, Calls, KPIs — everything live in one dashboard." },
+  { icon: Shield, title: "Enterprise Security", desc: "Device Trust AI, AES-GCM encryption, admin approval for new devices." },
 ];
 
 const PLANS = [
   {
-    name: "Starter", price: "50€", period: "/muaj",
-    desc: "Për biznese të vogla",
-    features: ["1 kanal (IG ose WA)", "1,000 mesazhe AI/muaj", "CRM bazik", "Dashboard"],
-    cta: "Fillo falas 7 ditë", highlight: false,
+    name: "Starter", price: "€50", period: "/mo",
+    desc: "For small businesses",
+    features: ["1 channel (IG or WA)", "1,000 AI messages/mo", "Basic CRM", "Dashboard"],
+    cta: "Start 7-day free trial", highlight: false,
   },
   {
-    name: "Growth", price: "70€", period: "/muaj",
-    desc: "Për biznese në rritje",
-    features: ["3 kanale (IG+WA+FB)", "5,000 mesazhe AI/muaj", "Revenue Intelligence", "Sequences automatike", "Email campaigns", "Rezervimet online"],
-    cta: "Fillo falas 7 ditë", highlight: true,
+    name: "Growth", price: "€70", period: "/mo",
+    desc: "For growing businesses",
+    features: ["3 channels (IG+WA+FB)", "5,000 AI messages/mo", "Revenue Intelligence", "Automated sequences", "Email campaigns", "Online bookings"],
+    cta: "Start 7-day free trial", highlight: true,
   },
   {
-    name: "Pro", price: "120€", period: "/muaj",
-    desc: "Për agjenci dhe ekipe",
-    features: ["Kanale të pakufizuara", "20,000 mesazhe AI/muaj", "CEO Dashboard live", "Ads sync (Meta+Google)", "Fatura PDF + Kontrata", "Business Memory Engine", "Partner program"],
-    cta: "Kontakto për demo", highlight: false,
+    name: "Pro", price: "€120", period: "/mo",
+    desc: "For agencies and teams",
+    features: ["Unlimited channels", "20,000 AI messages/mo", "Live CEO Dashboard", "Ads sync (Meta+Google)", "PDF Invoices + Contracts", "Business Memory Engine", "Partner program"],
+    cta: "Contact for demo", highlight: false,
   },
 ];
 
 const TESTIMONIALS = [
-  { name: "Erjona K.", biz: "Salon Bukurie, Tiranë", text: "Para Pulse AI kisha 50 DM të pavarura çdo ditë. Tani AI i trajton 90% automatikisht dhe unë fokusohem tek puna reale.", stars: 5 },
-  { name: "Artan M.", biz: "Restorant, Vlorë", text: "Rezervimet tani bëhen vetë. Klientët rezervojnë nga Instagram direkt dhe marrin kujtesë automatike. 0 rezervime të humbura.", stars: 5 },
-  { name: "Blerim H.", biz: "Gym, Durrës", text: "Revenue Intelligence më tregon kush do të largohet 2 javë para. Kurrë s'e kisha këtë informacion. Kursej 3-4 anëtarë/muaj.", stars: 5 },
+  { name: "Erjona K.", biz: "Beauty Salon, Tirana", text: "Before Pulse AI I was juggling 50 DMs every day. Now the AI handles 90% automatically and I focus on real work.", stars: 5 },
+  { name: "Artan M.", biz: "Restaurant, Vlora", text: "Reservations now happen by themselves. Customers book directly from Instagram and get automatic reminders. Zero lost reservations.", stars: 5 },
+  { name: "Blerim H.", biz: "Gym, Durres", text: "Revenue Intelligence tells me who is about to churn two weeks in advance. I never had this insight. I save 3-4 members per month.", stars: 5 },
 ];
 
 export default function Landing() {
@@ -86,8 +86,8 @@ export default function Landing() {
             <span className="font-bold text-lg">Pulse AI</span>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>Kyçu</Button>
-            <Button size="sm" onClick={() => navigate("/register")}>Fillo falas</Button>
+            <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>Sign in</Button>
+            <Button size="sm" onClick={() => navigate("/register")}>Start free</Button>
           </div>
         </div>
       </nav>
@@ -99,12 +99,12 @@ export default function Landing() {
           Business Operating System AI
         </div>
         <h1 className="text-4xl sm:text-5xl font-bold text-foreground mb-6 leading-tight">
-          AI që punon 24/7<br />
-          <span className="text-primary">për biznesin tuaj</span>
+          AI that works 24/7<br />
+          <span className="text-primary">for your business</span>
         </h1>
         <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-          0 leads të humbur. 0 follow-up të harruara. 0 punë manuale të panevojshme.
-          Pulse AI menaxhon Instagram, WhatsApp dhe Facebook — automatikisht.
+          Zero lost leads. Zero forgotten follow-ups. Zero unnecessary manual work.
+          Pulse AI manages Instagram, WhatsApp and Facebook — automatically.
         </p>
 
         {/* CTA */}
@@ -112,29 +112,29 @@ export default function Landing() {
           <div className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
             <Input
               type="email"
-              placeholder="emaili@biznesijuaj.al"
+              placeholder="you@yourbusiness.com"
               value={email}
               onChange={e => setEmail(e.target.value)}
               onKeyDown={e => e.key === "Enter" && handleQuickSignup()}
               className="flex-1"
             />
             <Button onClick={handleQuickSignup} className="gap-2 whitespace-nowrap">
-              Fillo falas 7 ditë <ArrowRight className="h-4 w-4" />
+              Start 7-day free trial <ArrowRight className="h-4 w-4" />
             </Button>
           </div>
         ) : (
           <div className="flex items-center justify-center gap-2 text-green-600 font-medium">
             <CheckCircle className="h-5 w-5" />
-            Faleminderit! Do t'ju kontaktojmë brenda 24 orëve.
+            Thanks! We'll contact you within 24 hours.
           </div>
         )}
         <p className="text-xs text-muted-foreground mt-3">
-          Pa kartë krediti. Konfigurohesh brenda 15 minutave.
+          No credit card required. Set up in 15 minutes.
         </p>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-8 max-w-xl mx-auto mt-16">
-          {[["90%", "DM të trajtuar nga AI"], ["15 min", "Onboarding i plotë"], ["24/7", "Support automatik"]].map(([n, l]) => (
+          {[["90%", "DMs handled by AI"], ["15 min", "Full onboarding"], ["24/7", "Automated support"]].map(([n, l]) => (
             <div key={l}>
               <div className="text-3xl font-bold text-primary">{n}</div>
               <div className="text-sm text-muted-foreground mt-1">{l}</div>
@@ -146,9 +146,9 @@ export default function Landing() {
       {/* FEATURES */}
       <section className="bg-muted/30 py-20">
         <div className="max-w-6xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-4">Çfarë bën Pulse AI</h2>
+          <h2 className="text-3xl font-bold text-center mb-4">What Pulse AI does</h2>
           <p className="text-muted-foreground text-center mb-12 max-w-2xl mx-auto">
-            Sistemi i vetëm që mëson automatikisht nga biznesi juaj dhe fillon të punojë brenda 15 minutave.
+            The only system that learns automatically from your business and starts working within 15 minutes.
           </p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map(({ icon: Icon, title, desc }) => (
@@ -166,12 +166,12 @@ export default function Landing() {
 
       {/* VS COMPETITORS */}
       <section className="py-20 max-w-4xl mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center mb-12">Pse Pulse AI dhe jo të tjerët?</h2>
+        <h2 className="text-3xl font-bold text-center mb-12">Why Pulse AI over the others?</h2>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-border">
-                <th className="text-left py-3 text-muted-foreground font-medium">Funksioni</th>
+                <th className="text-left py-3 text-muted-foreground font-medium">Feature</th>
                 {["respond.io\n$299/m", "GoHighLevel\n$97/m", "Pulse AI\n$50/m"].map(n => (
                   <th key={n} className={`text-center py-3 px-4 ${n.includes("Pulse") ? "text-primary font-bold" : "text-muted-foreground font-medium"}`}>
                     {n.split("\n").map((l, i) => <div key={i}>{l}</div>)}
@@ -184,9 +184,9 @@ export default function Landing() {
                 ["AI Memory", "✗", "✗", "✓"],
                 ["Business Scanner", "✗", "✗", "✓"],
                 ["Revenue Intelligence", "✗", "✗", "✓"],
-                ["Omnichannel AI", "Pjesërisht", "✗", "✓"],
-                ["Onboarding 15 min", "✗", "✗", "✓"],
-                ["Shqip/Treg lokal", "✗", "✗", "✓"],
+                ["Omnichannel AI", "Partial", "✗", "✓"],
+                ["15-min onboarding", "✗", "✗", "✓"],
+                ["Local market focus", "✗", "✗", "✓"],
               ].map(([f, ...vals]) => (
                 <tr key={f} className="border-b border-border/50">
                   <td className="py-3 text-sm text-foreground">{f}</td>
@@ -203,14 +203,14 @@ export default function Landing() {
       {/* PRICING */}
       <section className="bg-muted/30 py-20">
         <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-4">Planet dhe Çmimet</h2>
-          <p className="text-muted-foreground text-center mb-12">7 ditë falas. Pa kartë krediti. Anulo kurdo.</p>
+          <h2 className="text-3xl font-bold text-center mb-4">Plans and Pricing</h2>
+          <p className="text-muted-foreground text-center mb-12">7 days free. No credit card. Cancel anytime.</p>
           <div className="grid sm:grid-cols-3 gap-6">
             {PLANS.map(plan => (
               <div key={plan.name} className={`bg-card border rounded-xl p-6 ${plan.highlight ? "border-primary shadow-lg shadow-primary/10 relative" : "border-border"}`}>
                 {plan.highlight && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs font-semibold px-3 py-1 rounded-full">
-                    MÊ I POPULLARIZUAR
+                    MOST POPULAR
                   </div>
                 )}
                 <div className="text-sm text-muted-foreground mb-1">{plan.name}</div>
@@ -242,7 +242,7 @@ export default function Landing() {
 
       {/* TESTIMONIALS */}
       <section className="py-20 max-w-5xl mx-auto px-4">
-        <h2 className="text-3xl font-bold text-center mb-12">Çfarë thonë klientët</h2>
+        <h2 className="text-3xl font-bold text-center mb-12">What customers say</h2>
         <div className="grid sm:grid-cols-3 gap-6">
           {TESTIMONIALS.map(t => (
             <div key={t.name} className="bg-card border border-border rounded-xl p-6">
@@ -263,13 +263,13 @@ export default function Landing() {
       <section className="bg-primary py-20 text-center">
         <div className="max-w-2xl mx-auto px-4">
           <h2 className="text-3xl font-bold text-primary-foreground mb-4">
-            Gati të filloni?
+            Ready to get started?
           </h2>
           <p className="text-primary-foreground/80 mb-8">
-            7 ditë falas. Konfigurohesh brenda 15 minutave. Pa kartë krediti.
+            7 days free. Set up in 15 minutes. No credit card required.
           </p>
           <Button size="lg" variant="secondary" onClick={() => navigate("/register")} className="gap-2">
-            Fillo falas tani <ArrowRight className="h-5 w-5" />
+            Start free now <ArrowRight className="h-5 w-5" />
           </Button>
         </div>
       </section>
@@ -284,7 +284,7 @@ export default function Landing() {
         <div className="flex gap-4 justify-center mt-3 text-xs">
           <a href="/privacy" className="hover:text-foreground">Privacy</a>
           <a href="/terms" className="hover:text-foreground">Terms</a>
-          <a href="/contact" className="hover:text-foreground">Kontakt</a>
+          <a href="/contact" className="hover:text-foreground">Contact</a>
         </div>
       </footer>
     </div>
