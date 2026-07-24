@@ -250,11 +250,11 @@ export const businessNavGroups: NavGroup[] = [
 ];
 
 // ============================================================
-// FREELANCER — Menaxhim klientësh + AI tools
+// FREELANCER — Client management + AI tools
 // ============================================================
 export const freelancerNavGroups: NavGroup[] = [
   {
-    label: "Kryesor",
+    label: "Main",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
@@ -262,7 +262,7 @@ export const freelancerNavGroups: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: Inbox },
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
-      { href: "/campaigns", label: "Kampanji", icon: Megaphone },
+      { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
@@ -270,10 +270,10 @@ export const freelancerNavGroups: NavGroup[] = [
     label: "Content Studio",
     icon: Sparkles,
     items: [
-      { href: "/media-studio?tab=generate", label: "Krijo Përmbajtje", icon: Wand2 },
-      { href: "/media-studio?tab=generate&type=image", label: "Imazhe AI", icon: ImageIcon },
-      { href: "/content-calendar?tab=posts", label: "Postime AI", icon: FileText },
-      { href: "/content-calendar", label: "Kalendar", icon: CalendarDays },
+      { href: "/media-studio?tab=generate", label: "Create Content", icon: Wand2 },
+      { href: "/media-studio?tab=generate&type=image", label: "AI Images", icon: ImageIcon },
+      { href: "/content-calendar?tab=posts", label: "AI Posts", icon: FileText },
+      { href: "/content-calendar", label: "Calendar", icon: CalendarDays },
     ],
   },
   {
@@ -281,80 +281,80 @@ export const freelancerNavGroups: NavGroup[] = [
     icon: Radar,
     items: [
       { href: "/sources?type=website", label: "Website", icon: Globe },
-      { href: "/sources?type=social", label: "Rrjetet Sociale", icon: Radio },
-      { href: "/competitor-intelligence", label: "Konkurrenca", icon: Radar },
+      { href: "/sources?type=social", label: "Social Networks", icon: Radio },
+      { href: "/competitor-intelligence", label: "Competitors", icon: Radar },
     ],
   },
   {
-    label: "Klientët e Mi",
+    label: "My Clients",
     icon: Users,
     items: [
-      { href: "/managed-businesses", label: "Bizneset e Mia", icon: Building2 },
-      { href: "/automations", label: "Automatizimet", icon: Workflow },
-      { href: "/connections", label: "Integrimi", icon: Plug },
+      { href: "/managed-businesses", label: "My Businesses", icon: Building2 },
+      { href: "/automations", label: "Automations", icon: Workflow },
+      { href: "/connections", label: "Integrations", icon: Plug },
     ],
   },
   {
-    label: "Llogaria",
+    label: "Account",
     icon: Wallet,
     items: [
       { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/partner", label: "Partner", icon: Handshake },
-      { href: "/subscription", label: "Abonimi", icon: CreditCard },
-      { href: "/security", label: "Siguria", icon: Shield },
-      { href: "/help-center", label: "Ndihmë", icon: HelpCircle },
+      { href: "/subscription", label: "Subscription", icon: CreditCard },
+      { href: "/security", label: "Security", icon: Shield },
+      { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
 ];
 
 // ============================================================
-// AGENT / BASHKËPUNËTOR — Inbox + detyra
+// AGENT — Inbox + tasks
 // ============================================================
 export const agentNavGroups: NavGroup[] = [
   {
-    label: "Kryesor",
+    label: "Main",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/inbox", label: "Inbox", icon: Inbox, badge: "live" },
-      { href: "/crm", label: "Kontaktet", icon: Briefcase },
+      { href: "/crm", label: "Contacts", icon: Briefcase },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
-      { href: "/telephony", label: "Telefonia", icon: Phone },
+      { href: "/telephony", label: "Telephony", icon: Phone },
     ],
   },
   {
-    label: "Llogaria",
+    label: "Account",
     icon: Shield,
     items: [
-      { href: "/security", label: "Siguria", icon: Shield },
-      { href: "/help-center", label: "Ndihmë", icon: HelpCircle },
+      { href: "/security", label: "Security", icon: Shield },
+      { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
 ];
 
 // ============================================================
-// AMBASSADOR — Referime + wallet
+// AMBASSADOR — Referrals + wallet
 // ============================================================
 export const ambassadorNavGroups: NavGroup[] = [
   {
-    label: "Kryesor",
+    label: "Main",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/partner", label: "Programi Partner", icon: Handshake },
-      { href: "/wallet", label: "Wallet & Fitime", icon: Wallet },
+      { href: "/partner", label: "Partner Program", icon: Handshake },
+      { href: "/wallet", label: "Wallet & Earnings", icon: Wallet },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
   {
-    label: "Llogaria",
+    label: "Account",
     icon: Shield,
     items: [
-      { href: "/subscription", label: "Abonimi", icon: CreditCard },
-      { href: "/security", label: "Siguria", icon: Shield },
-      { href: "/help-center", label: "Ndihmë", icon: HelpCircle },
+      { href: "/subscription", label: "Subscription", icon: CreditCard },
+      { href: "/security", label: "Security", icon: Shield },
+      { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
 ];
