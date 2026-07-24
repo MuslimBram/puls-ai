@@ -73,34 +73,34 @@ export default function WaitingApproval() {
         </div>
 
         <h1 className="text-xl font-semibold text-foreground mb-2">
-          Pajisje e re e panjohur
+          New unrecognized device
         </h1>
         <p className="text-muted-foreground text-sm mb-6">
-          Sistemi i sigurisë zbuloi se po hyni nga një pajisje ose vendndodhje
-          e re. Administratori u njoftua dhe po shqyrton kërkesën tuaj.
+          Our security system detected a login from a new device or location.
+          The administrator has been notified and is reviewing your request.
         </p>
 
-        {/* Info kartë */}
+        {/* Info card */}
         <div className="bg-muted rounded-xl p-4 text-left space-y-3 mb-6">
           <div className="flex items-start gap-3">
             <Mail className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-sm text-muted-foreground">
-              Administratori mori email me buton{" "}
-              <strong className="text-foreground">APROVO / REFUZO</strong>.
-              Pasi të veprojë, ju do të njoftoheni menjëherë.
+              The administrator received an email with{" "}
+              <strong className="text-foreground">APPROVE / REJECT</strong>{" "}
+              buttons. You will be notified as soon as they act.
             </p>
           </div>
           <div className="flex items-start gap-3">
             <Clock className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
             <p className="text-sm text-muted-foreground">
-              Koha maksimale e pritjes:{" "}
-              <strong className="text-foreground">2 orë</strong>. Pas kësaj
-              kohe kërkesa skadon dhe duhet të provoni sërish.
+              Maximum waiting time:{" "}
+              <strong className="text-foreground">2 hours</strong>. After that
+              the request expires and you will need to try again.
             </p>
           </div>
         </div>
 
-        {/* Buton refresh */}
+        {/* Refresh button */}
         <Button
           variant="outline"
           className="w-full"
@@ -112,7 +112,7 @@ export default function WaitingApproval() {
           ) : (
             <RefreshCw className="mr-2 h-4 w-4" />
           )}
-          Kontrollo statusin {!checking && `(${countdown}s)`}
+          Check status {!checking && `(${countdown}s)`}
         </Button>
 
         <button
@@ -122,7 +122,7 @@ export default function WaitingApproval() {
             navigate("/login");
           }}
         >
-          Çkyçu dhe provo me llogari tjetër
+          Sign out and try a different account
         </button>
       </div>
     </div>

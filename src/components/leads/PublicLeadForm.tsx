@@ -27,26 +27,26 @@ interface PublicLeadFormProps {
 }
 
 const PLANS = [
-  { value: "starter", label: "Starter — Bazik" },
-  { value: "growth", label: "Growth — Biznese në rritje" },
-  { value: "pro", label: "Pro — Agjenci & Ekipe" },
-  { value: "enterprise", label: "Enterprise — Zgjidhje e personalizuar" },
+  { value: "starter", label: "Starter — Basic" },
+  { value: "growth", label: "Growth — Growing businesses" },
+  { value: "pro", label: "Pro — Agencies & Teams" },
+  { value: "enterprise", label: "Enterprise — Custom solution" },
 ];
 
 const TEAM_SIZES = [
-  { value: "1", label: "Vetëm unë" },
-  { value: "2-5", label: "2–5 persona" },
-  { value: "6-15", label: "6–15 persona" },
-  { value: "16-50", label: "16–50 persona" },
-  { value: "50+", label: "Mbi 50 persona" },
+  { value: "1", label: "Just me" },
+  { value: "2-5", label: "2–5 people" },
+  { value: "6-15", label: "6–15 people" },
+  { value: "16-50", label: "16–50 people" },
+  { value: "50+", label: "More than 50 people" },
 ];
 
 export function PublicLeadForm({
   targetWorkspaceId,
   source = "website",
   showPlanSelect = true,
-  title = "Fillo provën falas 7-ditore",
-  subtitle = "Pa kartë krediti. Konfigurohesh në 15 minuta.",
+  title = "Start your 7-day free trial",
+  subtitle = "No credit card required. Set up in 15 minutes.",
   onSuccess,
 }: PublicLeadFormProps) {
   const [form, setForm] = useState({
@@ -70,7 +70,7 @@ export function PublicLeadForm({
   const handleSubmit = async () => {
     setError("");
     if (!form.name.trim() || !form.email.trim()) {
-      setError("Emri dhe emaili janë të detyrueshëm.");
+      setError("Name and email are required.");
       return;
     }
     setLoading(true);
@@ -93,11 +93,11 @@ export function PublicLeadForm({
         }
       );
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Gabim i panjohur");
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
       setSuccess(true);
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gabim. Provo sërish.");
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -108,10 +108,10 @@ export function PublicLeadForm({
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <CheckCircle className="h-12 w-12 text-green-500" />
         <h3 className="text-lg font-medium text-foreground">
-          Faleminderit! Do t'ju kontaktojmë brenda 24 orëve.
+          Thanks! We'll contact you within 24 hours.
         </h3>
         <p className="text-sm text-muted-foreground">
-          Kontrolloni emailin tuaj për konfirmim.
+          Please check your email for confirmation.
         </p>
       </div>
     );
@@ -143,10 +143,10 @@ export function PublicLeadForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">
-            Emri i plotë *
+            Full name *
           </label>
           <Input
-            placeholder="Erion Hoxha"
+            placeholder="Jane Doe"
             value={form.name}
             onChange={set("name")}
           />
@@ -155,24 +155,24 @@ export function PublicLeadForm({
           <label className="text-xs text-muted-foreground">Email *</label>
           <Input
             type="email"
-            placeholder="erion@kompania.al"
+            placeholder="you@company.com"
             value={form.email}
             onChange={set("email")}
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Telefon</label>
+          <label className="text-xs text-muted-foreground">Phone</label>
           <Input
             type="tel"
-            placeholder="+355 69 xxx xxxx"
+            placeholder="+1 555 123 4567"
             value={form.phone}
             onChange={set("phone")}
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Emri i biznesit</label>
+          <label className="text-xs text-muted-foreground">Business name</label>
           <Input
-            placeholder="Kompania SH.P.K."
+            placeholder="Acme Inc."
             value={form.business_name}
             onChange={set("business_name")}
           />
@@ -183,7 +183,7 @@ export function PublicLeadForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              Paketa e interesuar
+              Interested plan
             </label>
             <Select
               value={form.interested_plan}
@@ -192,7 +192,7 @@ export function PublicLeadForm({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Zgjedh paketën" />
+                <SelectValue placeholder="Choose a plan" />
               </SelectTrigger>
               <SelectContent>
                 {PLANS.map((p) => (
@@ -205,7 +205,7 @@ export function PublicLeadForm({
           </div>
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              Madhësia e ekipit
+              Team size
             </label>
             <Select
               value={form.team_size}
@@ -214,7 +214,7 @@ export function PublicLeadForm({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Sa persona?" />
+                <SelectValue placeholder="How many people?" />
               </SelectTrigger>
               <SelectContent>
                 {TEAM_SIZES.map((t) => (
@@ -230,10 +230,10 @@ export function PublicLeadForm({
 
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">
-          Mesazhi (opsional)
+          Message (optional)
         </label>
         <Textarea
-          placeholder="Çfarë dëshironi të automatizoni? Çfarë problemi po zgjidhni?"
+          placeholder="What would you like to automate? What problem are you trying to solve?"
           rows={3}
           value={form.message}
           onChange={set("message")}
@@ -252,17 +252,17 @@ export function PublicLeadForm({
         {loading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Duke dërguar...
+            Sending...
           </>
         ) : (
-          "Fillo provën falas"
+          "Start free trial"
         )}
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">
-        Duke klikuar, pranoni{" "}
+        By clicking, you accept the{" "}
         <a href="/privacy" className="underline">
-          Politikën e Privatësisë
+          Privacy Policy
         </a>
         .
       </p>
