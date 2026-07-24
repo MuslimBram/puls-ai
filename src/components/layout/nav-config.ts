@@ -81,19 +81,19 @@ export const ownerNavGroups: NavGroup[] = [
     allowedRoles: ["super_admin"],
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
-      { href: "/admin/activation", label: "Aktivizimi", icon: Activity },
-      { href: "/deep-analytics", label: "Analytics i Plotë", icon: PieChart },
-      { href: "/saas-health", label: "Shëndeti SaaS", icon: Brain },
-      { href: "/admin/integration-hub", label: "Hub Integrimi", icon: Plug },
+      { href: "/admin/activation", label: "Activation", icon: Activity },
+      { href: "/deep-analytics", label: "Full Analytics", icon: PieChart },
+      { href: "/saas-health", label: "SaaS Health", icon: Brain },
+      { href: "/admin/integration-hub", label: "Integration Hub", icon: Plug },
     ],
   },
   {
-    label: "Të Gjitha Bizneset",
+    label: "All Businesses",
     icon: Building2,
     allowedRoles: ["super_admin"],
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/managed-businesses", label: "Bizneset", icon: Users },
+      { href: "/managed-businesses", label: "Businesses", icon: Users },
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
       { href: "/inbox", label: "Inbox", icon: Inbox },
@@ -102,16 +102,16 @@ export const ownerNavGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Platforma",
+    label: "Platform",
     icon: Rocket,
     allowedRoles: ["super_admin"],
     items: [
-      { href: "/subscription", label: "Planet & Billing", icon: CreditCard },
-      { href: "/partner", label: "Partnerët", icon: Handshake },
-      { href: "/reseller", label: "Reseller-ët", icon: Store },
+      { href: "/subscription", label: "Plans & Billing", icon: CreditCard },
+      { href: "/partner", label: "Partners", icon: Handshake },
+      { href: "/reseller", label: "Resellers", icon: Store },
       { href: "/wallet", label: "Wallet", icon: Wallet },
-      { href: "/system-status", label: "Statusi Sistemit", icon: Activity },
-      { href: "/security", label: "Siguria", icon: Shield },
+      { href: "/system-status", label: "System Status", icon: Activity },
+      { href: "/security", label: "Security", icon: Shield },
     ],
   },
 ];
@@ -127,14 +127,14 @@ export const adminNavGroups: NavGroup[] = [
     adminOnly: true,
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
-      { href: "/admin/activation", label: "Aktivizimi", icon: Activity },
-      { href: "/admin/integration-hub", label: "Hub Integrimi", icon: Plug },
-      { href: "/deep-analytics", label: "Analytics i Thellë", icon: PieChart },
-      { href: "/saas-health", label: "Shëndeti SaaS", icon: Brain },
+      { href: "/admin/activation", label: "Activation", icon: Activity },
+      { href: "/admin/integration-hub", label: "Integration Hub", icon: Plug },
+      { href: "/deep-analytics", label: "Deep Analytics", icon: PieChart },
+      { href: "/saas-health", label: "SaaS Health", icon: Brain },
     ],
   },
   {
-    label: "Kryesor",
+    label: "Main",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
@@ -142,19 +142,19 @@ export const adminNavGroups: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: Inbox, requiredPermission: "canRespondInbox" },
       { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
       { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
-      { href: "/campaigns", label: "Kampanji", icon: Megaphone, requiredPermission: "canManageCampaigns" },
+      { href: "/campaigns", label: "Campaigns", icon: Megaphone, requiredPermission: "canManageCampaigns" },
       { href: "/analytics", label: "Analytics", icon: BarChart3, requiredPermission: "canViewAnalytics" },
     ],
   },
   {
-    label: "Bizneset & Billing",
+    label: "Businesses & Billing",
     icon: Building2,
     items: [
-      { href: "/managed-businesses", label: "Bizneset", icon: Users },
+      { href: "/managed-businesses", label: "Businesses", icon: Users },
       { href: "/subscription", label: "Billing", icon: CreditCard },
-      { href: "/partner", label: "Partnerët", icon: Handshake },
+      { href: "/partner", label: "Partners", icon: Handshake },
       { href: "/wallet", label: "Wallet", icon: Wallet },
-      { href: "/security", label: "Siguria", icon: Shield },
+      { href: "/security", label: "Security", icon: Shield },
     ],
   },
 ];
@@ -164,7 +164,7 @@ export const adminNavGroups: NavGroup[] = [
 // ============================================================
 export const businessNavGroups: NavGroup[] = [
   {
-    label: "Kryesor",
+    label: "Main",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
@@ -173,7 +173,7 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
       { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
       { href: "/sales-engine", label: "Sales Engine", icon: Rocket, requiredPermission: "canViewCRM" },
-      { href: "/campaigns", label: "Kampanji", icon: Megaphone, requiredPermission: "canManageCampaigns" },
+      { href: "/campaigns", label: "Campaigns", icon: Megaphone, requiredPermission: "canManageCampaigns" },
       { href: "/analytics", label: "Analytics", icon: BarChart3, requiredPermission: "canViewAnalytics" },
     ],
   },
@@ -182,12 +182,12 @@ export const businessNavGroups: NavGroup[] = [
     icon: Sparkles,
     requiredPermission: "canManageCampaigns",
     items: [
-      { href: "/media-studio?tab=generate", label: "Krijo Përmbajtje", icon: Wand2 },
-      { href: "/media-studio?tab=generate&type=image", label: "Imazhe AI", icon: ImageIcon },
-      { href: "/media-studio?tab=generate&type=video", label: "Video AI", icon: Video },
-      { href: "/content-calendar?tab=posts", label: "Postime AI", icon: FileText },
-      { href: "/media-studio?tab=gallery", label: "Galeria", icon: Library },
-      { href: "/content-calendar", label: "Kalendar", icon: CalendarDays },
+      { href: "/media-studio?tab=generate", label: "Create Content", icon: Wand2 },
+      { href: "/media-studio?tab=generate&type=image", label: "AI Images", icon: ImageIcon },
+      { href: "/media-studio?tab=generate&type=video", label: "AI Video", icon: Video },
+      { href: "/content-calendar?tab=posts", label: "AI Posts", icon: FileText },
+      { href: "/media-studio?tab=gallery", label: "Gallery", icon: Library },
+      { href: "/content-calendar", label: "Calendar", icon: CalendarDays },
     ],
   },
   {
@@ -196,65 +196,65 @@ export const businessNavGroups: NavGroup[] = [
     requiredPermission: "canViewAnalytics",
     items: [
       { href: "/sources?type=website", label: "Website", icon: Globe },
-      { href: "/sources?type=product", label: "Produktet", icon: Package },
-      { href: "/sources?type=social", label: "Rrjetet Sociale", icon: Radio },
-      { href: "/seo-audit", label: "SEO Analiza", icon: Search },
-      { href: "/competitor-intelligence", label: "Konkurrenca", icon: Radar },
+      { href: "/sources?type=product", label: "Products", icon: Package },
+      { href: "/sources?type=social", label: "Social Networks", icon: Radio },
+      { href: "/seo-audit", label: "SEO Analysis", icon: Search },
+      { href: "/competitor-intelligence", label: "Competitors", icon: Radar },
     ],
   },
   {
-    label: "Këshilltar AI",
+    label: "AI Advisor",
     icon: Brain,
     requiredPermission: "canConfigureAutomations",
     items: [
-      { href: "/ai-decisions?focus=posts", label: "Postime të Sugjeruara", icon: FileText },
-      { href: "/ai-decisions?focus=offers", label: "Oferta të Sugjeruara", icon: Lightbulb },
-      { href: "/ai-decisions?focus=replies", label: "Përgjigje të Sugjeruara", icon: MessageSquare },
-      { href: "/ai-decisions?focus=campaigns", label: "Kampanji të Sugjeruara", icon: Megaphone },
+      { href: "/ai-decisions?focus=posts", label: "Suggested Posts", icon: FileText },
+      { href: "/ai-decisions?focus=offers", label: "Suggested Offers", icon: Lightbulb },
+      { href: "/ai-decisions?focus=replies", label: "Suggested Replies", icon: MessageSquare },
+      { href: "/ai-decisions?focus=campaigns", label: "Suggested Campaigns", icon: Megaphone },
     ],
   },
   {
-    label: "Automatizimet",
+    label: "Automations",
     icon: Workflow,
     requiredPermission: "canConfigureAutomations",
     items: [
-      { href: "/automations", label: "Automatizimet", icon: Workflow },
+      { href: "/automations", label: "Automations", icon: Workflow },
       { href: "/broadcast", label: "Broadcast", icon: Send },
-      { href: "/telephony", label: "Telefonia", icon: Phone },
+      { href: "/telephony", label: "Telephony", icon: Phone },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
     ],
   },
   {
-    label: "Integrimi",
+    label: "Integrations",
     icon: Plug,
     requiredPermission: "canConnectChannels",
     items: [
-      { href: "/connections", label: "Lidhjet", icon: Plug },
-      { href: "/channels", label: "Kanalet", icon: Radio },
-      { href: "/connected-accounts", label: "Llogaritë", icon: Link2 },
+      { href: "/connections", label: "Connections", icon: Plug },
+      { href: "/channels", label: "Channels", icon: Radio },
+      { href: "/connected-accounts", label: "Accounts", icon: Link2 },
     ],
   },
   {
-    label: "Biznesi & Billing",
+    label: "Business & Billing",
     icon: Building2,
     items: [
-      { href: "/business-profile", label: "Profili Biznesit", icon: Building2 },
+      { href: "/business-profile", label: "Business Profile", icon: Building2 },
       { href: "/branding", label: "Branding", icon: Paintbrush, requiredPermission: "canAccessBilling" },
       { href: "/wallet", label: "Wallet", icon: Wallet },
-      { href: "/subscription", label: "Abonimi", icon: CreditCard, requiredPermission: "canAccessBilling" },
-      { href: "/partner", label: "Partnerë", icon: Handshake },
-      { href: "/security", label: "Siguria", icon: Shield },
-      { href: "/help-center", label: "Ndihmë", icon: HelpCircle },
+      { href: "/subscription", label: "Subscription", icon: CreditCard, requiredPermission: "canAccessBilling" },
+      { href: "/partner", label: "Partners", icon: Handshake },
+      { href: "/security", label: "Security", icon: Shield },
+      { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
 ];
 
 // ============================================================
-// FREELANCER — Menaxhim klientësh + AI tools
+// FREELANCER — Client management + AI tools
 // ============================================================
 export const freelancerNavGroups: NavGroup[] = [
   {
-    label: "Kryesor",
+    label: "Main",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
@@ -262,7 +262,7 @@ export const freelancerNavGroups: NavGroup[] = [
       { href: "/inbox", label: "Inbox", icon: Inbox },
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
-      { href: "/campaigns", label: "Kampanji", icon: Megaphone },
+      { href: "/campaigns", label: "Campaigns", icon: Megaphone },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
@@ -270,10 +270,10 @@ export const freelancerNavGroups: NavGroup[] = [
     label: "Content Studio",
     icon: Sparkles,
     items: [
-      { href: "/media-studio?tab=generate", label: "Krijo Përmbajtje", icon: Wand2 },
-      { href: "/media-studio?tab=generate&type=image", label: "Imazhe AI", icon: ImageIcon },
-      { href: "/content-calendar?tab=posts", label: "Postime AI", icon: FileText },
-      { href: "/content-calendar", label: "Kalendar", icon: CalendarDays },
+      { href: "/media-studio?tab=generate", label: "Create Content", icon: Wand2 },
+      { href: "/media-studio?tab=generate&type=image", label: "AI Images", icon: ImageIcon },
+      { href: "/content-calendar?tab=posts", label: "AI Posts", icon: FileText },
+      { href: "/content-calendar", label: "Calendar", icon: CalendarDays },
     ],
   },
   {
@@ -281,80 +281,80 @@ export const freelancerNavGroups: NavGroup[] = [
     icon: Radar,
     items: [
       { href: "/sources?type=website", label: "Website", icon: Globe },
-      { href: "/sources?type=social", label: "Rrjetet Sociale", icon: Radio },
-      { href: "/competitor-intelligence", label: "Konkurrenca", icon: Radar },
+      { href: "/sources?type=social", label: "Social Networks", icon: Radio },
+      { href: "/competitor-intelligence", label: "Competitors", icon: Radar },
     ],
   },
   {
-    label: "Klientët e Mi",
+    label: "My Clients",
     icon: Users,
     items: [
-      { href: "/managed-businesses", label: "Bizneset e Mia", icon: Building2 },
-      { href: "/automations", label: "Automatizimet", icon: Workflow },
-      { href: "/connections", label: "Integrimi", icon: Plug },
+      { href: "/managed-businesses", label: "My Businesses", icon: Building2 },
+      { href: "/automations", label: "Automations", icon: Workflow },
+      { href: "/connections", label: "Integrations", icon: Plug },
     ],
   },
   {
-    label: "Llogaria",
+    label: "Account",
     icon: Wallet,
     items: [
       { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/partner", label: "Partner", icon: Handshake },
-      { href: "/subscription", label: "Abonimi", icon: CreditCard },
-      { href: "/security", label: "Siguria", icon: Shield },
-      { href: "/help-center", label: "Ndihmë", icon: HelpCircle },
+      { href: "/subscription", label: "Subscription", icon: CreditCard },
+      { href: "/security", label: "Security", icon: Shield },
+      { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
 ];
 
 // ============================================================
-// AGENT / BASHKËPUNËTOR — Inbox + detyra
+// AGENT — Inbox + tasks
 // ============================================================
 export const agentNavGroups: NavGroup[] = [
   {
-    label: "Kryesor",
+    label: "Main",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
       { href: "/inbox", label: "Inbox", icon: Inbox, badge: "live" },
-      { href: "/crm", label: "Kontaktet", icon: Briefcase },
+      { href: "/crm", label: "Contacts", icon: Briefcase },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
-      { href: "/telephony", label: "Telefonia", icon: Phone },
+      { href: "/telephony", label: "Telephony", icon: Phone },
     ],
   },
   {
-    label: "Llogaria",
+    label: "Account",
     icon: Shield,
     items: [
-      { href: "/security", label: "Siguria", icon: Shield },
-      { href: "/help-center", label: "Ndihmë", icon: HelpCircle },
+      { href: "/security", label: "Security", icon: Shield },
+      { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
 ];
 
 // ============================================================
-// AMBASSADOR — Referime + wallet
+// AMBASSADOR — Referrals + wallet
 // ============================================================
 export const ambassadorNavGroups: NavGroup[] = [
   {
-    label: "Kryesor",
+    label: "Main",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/partner", label: "Programi Partner", icon: Handshake },
-      { href: "/wallet", label: "Wallet & Fitime", icon: Wallet },
+      { href: "/partner", label: "Partner Program", icon: Handshake },
+      { href: "/wallet", label: "Wallet & Earnings", icon: Wallet },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },
     ],
   },
   {
-    label: "Llogaria",
+    label: "Account",
     icon: Shield,
     items: [
-      { href: "/subscription", label: "Abonimi", icon: CreditCard },
-      { href: "/security", label: "Siguria", icon: Shield },
-      { href: "/help-center", label: "Ndihmë", icon: HelpCircle },
+      { href: "/subscription", label: "Subscription", icon: CreditCard },
+      { href: "/security", label: "Security", icon: Shield },
+      { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
 ];

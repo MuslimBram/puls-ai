@@ -40,12 +40,12 @@ function getRoleLabel(roles: string[]): { label: string; color: string } {
   if (roles.includes("ambassador"))
     return { label: "Ambassador", color: "text-green-500" };
   if (roles.includes("agent"))
-    return { label: "Bashkëpunëtor", color: "text-sky-500" };
+    return { label: "Agent", color: "text-sky-500" };
   if (roles.includes("business_manager"))
     return { label: "Manager", color: "text-indigo-500" };
   if (roles.includes("business_owner"))
-    return { label: "Biznes", color: "text-primary" };
-  return { label: "Përdorues", color: "text-muted-foreground" };
+    return { label: "Business", color: "text-primary" };
+  return { label: "User", color: "text-muted-foreground" };
 }
 
 export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
