@@ -4,16 +4,14 @@ import { Navigate, useLocation } from "react-router-dom";
 import { Require2FASetup } from "@/components/Require2FASetup";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, CreditCard, Clock } from "lucide-react";
+import { AlertTriangle, CreditCard, X } from "lucide-react";
 import { differenceInDays } from "date-fns";
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
-  const [showTrialExpiredPopup, setShowTrialExpiredPopup] = useState(true);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const { data: subscription, isLoading: subLoading } = useQuery({
     queryKey: ["subscription-payment-status", user?.id],
@@ -30,7 +28,6 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     staleTime: 30000,
   });
 
-  // Check if user has admin/super_admin/owner role (bypass payment)
   const { data: userRoles, isLoading: rolesLoading } = useQuery({
     queryKey: ["user-roles-bypass", user?.id],
     queryFn: async () => {
@@ -53,15 +50,16 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!user) return <Navigate to="/login" replace />;
 
-  // Admin, super_admin, and owner bypass payment gate entirely
+  // Admin/super_admin: akses i plotë gjithmonë
   const bypassRoles = ["admin", "super_admin"];
   const hasBypassRole = userRoles?.some((role) => bypassRoles.includes(role)) ?? false;
 
-  // Check payment status
+  // Kontrollo nëse trial ka skaduar
+  let showBanner = false;
+  let daysUntilDeletion = 30;
+
   if (!hasBypassRole && subscription && location.pathname !== "/complete-payment") {
     const isPaid = subscription.payment_status === "paid";
     const isTrialActive =
@@ -70,75 +68,52 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       new Date(subscription.trial_end) > new Date();
 
     if (!isPaid && !isTrialActive) {
-      // Calculate days since registration
+      showBanner = true;
       const daysSinceRegistration = subscription.created_at
         ? differenceInDays(new Date(), new Date(subscription.created_at))
         : 0;
-      const daysUntilDeletion = Math.max(30 - daysSinceRegistration, 0);
-
-      // Show popup overlay instead of immediate redirect
-      if (showTrialExpiredPopup) {
-        return (
-          <div className="flex min-h-screen items-center justify-center bg-background px-4">
-            <Dialog open={true} onOpenChange={() => {}}>
-              <DialogContent className="max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-lg">
-                    <AlertTriangle className="h-5 w-5 text-amber-500" />
-                    Your Trial Has Expired
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">
-                    Your 7-day trial has ended. Select a plan to continue using the platform.
-                  </p>
-
-                  {daysUntilDeletion > 0 && (
-                    <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
-                      <Clock className="h-4 w-4 text-destructive shrink-0" />
-                      <p className="text-xs text-destructive">
-                        Your account will be automatically deleted in <strong>{daysUntilDeletion} days</strong> if no payment is made.
-                      </p>
-                    </div>
-                  )}
-
-                  {daysUntilDeletion === 0 && (
-                    <div className="flex items-center gap-2 rounded-md border border-destructive bg-destructive/10 px-3 py-2">
-                      <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
-                      <p className="text-xs text-destructive font-medium">
-                        Deadline passed! Your account may be deleted at any moment.
-                      </p>
-                    </div>
-                  )}
-
-                  <Button
-                    className="w-full"
-                    onClick={() => {
-                      setShowTrialExpiredPopup(false);
-                      window.location.href = "/complete-payment";
-                    }}
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Select a Plan
-                  </Button>
-
-                  <p className="text-[11px] text-muted-foreground text-center">
-                    You can earn from referrals and pay from your wallet.
-                  </p>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        );
-      }
-
-      return <Navigate to="/complete-payment" replace />;
+      daysUntilDeletion = Math.max(30 - daysSinceRegistration, 0);
     }
   }
 
   return (
     <Require2FASetup>
-      {children}
+      <>
+        {/* Banner informativ — NUK bllokon aksesin */}
+        {showBanner && !bannerDismissed && (
+          <div className="sticky top-0 z-50 w-full bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2.5">
+            <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>
+                  <strong>Trialu skadoi.</strong>{" "}
+                  {daysUntilDeletion > 0
+                    ? `Llogaria fshihet automatikisht pas ${daysUntilDeletion} ditësh.`
+                    : "Llogaria mund të fshihet çdo moment."}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button
+                  size="sm"
+                  className="h-7 text-xs bg-amber-600 hover:bg-amber-700 text-white"
+                  onClick={() => window.location.href = "/complete-payment"}
+                >
+                  <CreditCard className="h-3.5 w-3.5 mr-1" />
+                  Zgjedh Plan
+                </Button>
+                <button
+                  onClick={() => setBannerDismissed(true)}
+                  className="text-amber-600 hover:text-amber-800 p-1 rounded"
+                  aria-label="Mbyll"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {children}
+      </>
     </Require2FASetup>
   );
 };
