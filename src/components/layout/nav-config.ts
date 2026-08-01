@@ -111,7 +111,7 @@ export const ownerNavGroups: NavGroup[] = [
       { href: "/reseller", label: "Resellers", icon: Store },
       { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/system-status", label: "System Status", icon: Activity },
-      { href: "/security", label: "Security", icon: Shield },
+      { href: "/session-security", label: "Security", icon: Shield },
     ],
   },
 ];
@@ -154,7 +154,7 @@ export const adminNavGroups: NavGroup[] = [
       { href: "/subscription", label: "Billing", icon: CreditCard },
       { href: "/partner", label: "Partners", icon: Handshake },
       { href: "/wallet", label: "Wallet", icon: Wallet },
-      { href: "/security", label: "Security", icon: Shield },
+      { href: "/session-security", label: "Security", icon: Shield },
     ],
   },
 ];
@@ -243,7 +243,7 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/subscription", label: "Subscription", icon: CreditCard, requiredPermission: "canAccessBilling" },
       { href: "/partner", label: "Partners", icon: Handshake },
-      { href: "/security", label: "Security", icon: Shield },
+      { href: "/session-security", label: "Security", icon: Shield },
       { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
@@ -301,7 +301,7 @@ export const freelancerNavGroups: NavGroup[] = [
       { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/partner", label: "Partner", icon: Handshake },
       { href: "/subscription", label: "Subscription", icon: CreditCard },
-      { href: "/security", label: "Security", icon: Shield },
+      { href: "/session-security", label: "Security", icon: Shield },
       { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
@@ -327,7 +327,7 @@ export const agentNavGroups: NavGroup[] = [
     label: "Account",
     icon: Shield,
     items: [
-      { href: "/security", label: "Security", icon: Shield },
+      { href: "/session-security", label: "Security", icon: Shield },
       { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
@@ -353,7 +353,7 @@ export const ambassadorNavGroups: NavGroup[] = [
     icon: Shield,
     items: [
       { href: "/subscription", label: "Subscription", icon: CreditCard },
-      { href: "/security", label: "Security", icon: Shield },
+      { href: "/session-security", label: "Security", icon: Shield },
       { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
