@@ -43,5 +43,13 @@
     <changefreq>monthly</changefreq>
     <priority>0.4</priority>
   </url>
+  <!-- Legal & trust pages -->
+  <url><loc>https://kohablerjeve.top/privacy</loc><lastmod>2026-07-31</lastmod><changefreq>yearly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://kohablerjeve.top/terms</loc><lastmod>2026-07-31</lastmod><changefreq>yearly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://kohablerjeve.top/security</loc><lastmod>2026-07-31</lastmod><changefreq>yearly</changefreq><priority>0.6</priority></url>
+  <url><loc>https://kohablerjeve.top/cookies</loc><lastmod>2026-07-31</lastmod><changefreq>yearly</changefreq><priority>0.4</priority></url>
+  <url><loc>https://kohablerjeve.top/refund</loc><lastmod>2026-07-31</lastmod><changefreq>yearly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://kohablerjeve.top/affiliate-terms</loc><lastmod>2026-07-31</lastmod><changefreq>yearly</changefreq><priority>0.5</priority></url>
+  <url><loc>https://kohablerjeve.top/dpa</loc><lastmod>2026-07-31</lastmod><changefreq>yearly</changefreq><priority>0.4</priority></url>
 
 </urlset>
