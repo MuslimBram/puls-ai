@@ -12,6 +12,17 @@ import { AdminRoute } from "@/components/AdminRoute";
 import { PermissionRoute } from "@/components/PermissionRoute";
 import type { RolePermissions } from "@/hooks/useRolePermissions";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
+import { CookieConsentBanner } from "@/components/legal/CookieConsentBanner";
+
+// Public legal pages
+const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
+const TermsOfService = lazy(() => import("./pages/legal/TermsOfService"));
+const SecurityOverview = lazy(() => import("./pages/legal/SecurityOverview"));
+const CookiePolicy = lazy(() => import("./pages/legal/CookiePolicy"));
+const RefundPolicy = lazy(() => import("./pages/legal/RefundPolicy"));
+const AffiliateTerms = lazy(() => import("./pages/legal/AffiliateTerms"));
+const DPA = lazy(() => import("./pages/legal/DPA"));
+const TermsAndPayments = lazy(() => import("./pages/TermsAndPayments"));
 
 // Eagerly loaded (critical path)
 import Login from "./pages/Login";
@@ -174,6 +185,16 @@ const App = () => (
                 <Route path="/auth/callback" element={<Suspense fallback={<LazyFallback />}><AuthCallback /></Suspense>} />
                 <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<LazyFallback />}><OAuthConsent /></Suspense>} />
                 <Route path="/pricing" element={<Pricing />} />
+
+                {/* Public legal pages */}
+                <Route path="/privacy" element={<Suspense fallback={<LazyFallback />}><PrivacyPolicy /></Suspense>} />
+                <Route path="/terms" element={<Suspense fallback={<LazyFallback />}><TermsOfService /></Suspense>} />
+                <Route path="/security" element={<Suspense fallback={<LazyFallback />}><SecurityOverview /></Suspense>} />
+                <Route path="/cookies" element={<Suspense fallback={<LazyFallback />}><CookiePolicy /></Suspense>} />
+                <Route path="/refund" element={<Suspense fallback={<LazyFallback />}><RefundPolicy /></Suspense>} />
+                <Route path="/affiliate-terms" element={<Suspense fallback={<LazyFallback />}><AffiliateTerms /></Suspense>} />
+                <Route path="/dpa" element={<Suspense fallback={<LazyFallback />}><DPA /></Suspense>} />
+                <Route path="/terms-and-payments" element={<Suspense fallback={<LazyFallback />}><TermsAndPayments /></Suspense>} />
                 <Route path="/complete-payment" element={<ProtectedRoute><Suspense fallback={<LazyFallback />}><CompletePayment /></Suspense></ProtectedRoute>} />
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
@@ -198,7 +219,7 @@ const App = () => (
                 <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
                 <Route path="/subscription" element={<PermissionPage permission="canAccessBilling"><Subscription /></PermissionPage>} />
                 <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
-                <Route path="/security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
+                <Route path="/session-security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
                 <Route path="/branding" element={<PermissionPage permission="canAccessBilling"><Branding /></PermissionPage>} />
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
                 <Route path="/admin/businesses/:businessId/scan-insights" element={<AdminPage><AdminBusinessScanInsights /></AdminPage>} />
