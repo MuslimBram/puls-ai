@@ -281,12 +281,18 @@ export default function Landing() {
           <span className="font-semibold text-foreground">Pulse AI</span>
         </div>
         <p>Business Operating System AI · kohablerjeve.top</p>
-        <div className="flex gap-4 justify-center mt-3 text-xs">
-          <a href="/privacy" className="hover:text-foreground">Privacy</a>
-          <a href="/terms" className="hover:text-foreground">Terms</a>
-          <a href="/contact" className="hover:text-foreground">Contact</a>
+        <div className="flex flex-wrap gap-x-4 gap-y-2 justify-center mt-3 text-xs px-4">
+          <a href="/privacy" className="hover:text-foreground">Privacy Policy</a>
+          <a href="/terms" className="hover:text-foreground">Terms of Service</a>
+          <a href="/security" className="hover:text-foreground">Security</a>
+          <a href="/cookies" className="hover:text-foreground">Cookies</a>
+          <a href="/refund" className="hover:text-foreground">Refund</a>
+          <a href="/affiliate-terms" className="hover:text-foreground">Partner Terms</a>
+          <a href="/dpa" className="hover:text-foreground">DPA</a>
+          <a href="mailto:info@mso.re" className="hover:text-foreground">Contact</a>
         </div>
       </footer>
+
     </div>
   );
 }
