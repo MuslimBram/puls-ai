@@ -66,9 +66,9 @@ export const Require2FASetup = ({
           const totpEnabled = totp?.is_enabled && totp?.is_verified;
 
           if (!totpEnabled && !cancelled) {
-            // Ridrejto te faqja e sigurisë me mesazh të qartë
+            // Redirect to the protected session security page
             navigate(
-              "/security?require_2fa=true&reason=admin_role",
+              "/session-security?require_2fa=true&reason=admin_role",
               { replace: true }
             );
             return;
