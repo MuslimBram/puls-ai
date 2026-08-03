@@ -11,8 +11,16 @@ import { Input } from "@/components/ui/input";
 import {
   CheckCircle, Zap, Brain, Shield, BarChart3,
   MessageSquare, Users, Star, ArrowRight, Phone,
-  Instagram, Inbox, Sparkles, Target, TrendingUp
+  Instagram, Inbox, Sparkles, Target, TrendingUp, ChevronDown
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LEGAL_LINKS } from "@/components/legal/LegalLayout";
+
 
 const FEATURES = [
   { icon: Inbox, title: "Unified Inbox", desc: "WhatsApp, Instagram, Facebook, SMS — everything in one place. AI replies 24/7." },
