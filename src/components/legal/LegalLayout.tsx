@@ -1,7 +1,14 @@
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Download, Zap, Mail, ArrowRight } from "lucide-react";
+import { Download, Zap, Mail, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 export const LEGAL_LAST_UPDATED = "31 July 2026";
 
