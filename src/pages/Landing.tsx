@@ -11,8 +11,16 @@ import { Input } from "@/components/ui/input";
 import {
   CheckCircle, Zap, Brain, Shield, BarChart3,
   MessageSquare, Users, Star, ArrowRight, Phone,
-  Instagram, Inbox, Sparkles, Target, TrendingUp
+  Instagram, Inbox, Sparkles, Target, TrendingUp, ChevronDown
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LEGAL_LINKS } from "@/components/legal/LegalLayout";
+
 
 const FEATURES = [
   { icon: Inbox, title: "Unified Inbox", desc: "WhatsApp, Instagram, Facebook, SMS — everything in one place. AI replies 24/7." },
@@ -282,15 +290,21 @@ export default function Landing() {
         </div>
         <p>Business Operating System AI · kohablerjeve.top</p>
         <div className="flex flex-wrap gap-x-4 gap-y-2 justify-center mt-3 text-xs px-4">
-          <a href="/privacy" className="hover:text-foreground">Privacy Policy</a>
-          <a href="/terms" className="hover:text-foreground">Terms of Service</a>
-          <a href="/security" className="hover:text-foreground">Security</a>
-          <a href="/cookies" className="hover:text-foreground">Cookies</a>
-          <a href="/refund" className="hover:text-foreground">Refund</a>
-          <a href="/affiliate-terms" className="hover:text-foreground">Partner Terms</a>
-          <a href="/dpa" className="hover:text-foreground">DPA</a>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex items-center gap-1 hover:text-foreground">
+              Legal &amp; Trust <ChevronDown className="h-3 w-3" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="center" className="w-56">
+              {LEGAL_LINKS.map((l) => (
+                <DropdownMenuItem key={l.href} asChild>
+                  <a href={l.href}>{l.label}</a>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
           <a href="mailto:info@mso.re" className="hover:text-foreground">Contact</a>
         </div>
+
       </footer>
 
     </div>

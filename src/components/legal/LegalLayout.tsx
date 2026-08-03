@@ -1,7 +1,14 @@
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
-import { Download, Zap, Mail, ArrowRight } from "lucide-react";
+import { Download, Zap, Mail, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
 
 export const LEGAL_LAST_UPDATED = "31 July 2026";
 
@@ -180,13 +187,21 @@ export function LegalFooter() {
         <div className="flex items-center gap-2 mb-4 text-foreground font-semibold">
           <Zap className="h-4 w-4 text-primary" /> Pulse AI
         </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-2 mb-5">
-          {LEGAL_LINKS.map((l) => (
-            <Link key={l.href} to={l.href} className="hover:text-foreground">
-              {l.label}
-            </Link>
-          ))}
+        <div className="mb-5">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="inline-flex items-center gap-1 hover:text-foreground">
+              Legal &amp; Trust <ChevronDown className="h-3.5 w-3.5" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-60">
+              {LEGAL_LINKS.map((l) => (
+                <DropdownMenuItem key={l.href} asChild>
+                  <Link to={l.href}>{l.label}</Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
+
         <p>
           Pulse AI · kohablerjeve.top ·{" "}
           <a href="mailto:info@mso.re" className="hover:text-foreground underline">
