@@ -460,7 +460,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
               >
                 {purchaseBusiness.isPending
                   ? "Submitting..."
-                  : `Purchase Business — €${totalPrice.toFixed(2)}`}
+                  : `Purchase Business — ${formatALL(totalPrice)}`}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
                 Payment is verified by AI and approved by Admin

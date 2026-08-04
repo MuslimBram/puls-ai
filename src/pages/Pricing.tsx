@@ -323,7 +323,7 @@ const Pricing = () => {
                   currency="EUR"
                   paymentType="donation"
                   description="Pulse AI One-time Support"
-                  label="Donate €5 via PayPal"
+                  label="Donate 500 ALL via PayPal"
                   variant="outline"
                 />
                 <PayPalCheckoutButton
@@ -331,7 +331,7 @@ const Pricing = () => {
                   currency="EUR"
                   paymentType="donation"
                   description="Pulse AI Monthly Support"
-                  label="Donate €10 via PayPal"
+                  label="Donate 1,000 ALL via PayPal"
                   variant="outline"
                 />
               </div>

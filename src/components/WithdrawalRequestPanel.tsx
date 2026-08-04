@@ -108,7 +108,7 @@ export const WithdrawalRequestPanel = () => {
             <p className="text-sm font-medium text-foreground">Request Withdrawal</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Amount (€)</Label>
+                <Label className="text-xs">Amount (ALL)</Label>
                 <Input
                   type="number"
                   placeholder="0.00"
