@@ -105,12 +105,12 @@ const FreelancerDashboardWidget = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-lg border border-border p-3 text-center">
               <Wallet className="h-4 w-4 mx-auto mb-1 text-primary" />
-              <p className="text-lg font-bold text-foreground">{formatALL(wallet?.current_balance?.toFixed(2) ?? "0.00")}</p>
+              <p className="text-lg font-bold text-foreground">{formatALL(wallet?.current_balance ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Balance</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary" />
-              <p className="text-lg font-bold text-primary">{formatALL(wallet?.lifetime_earnings?.toFixed(2) ?? "0.00")}</p>
+              <p className="text-lg font-bold text-primary">{formatALL(wallet?.lifetime_earnings ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Total earned</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
