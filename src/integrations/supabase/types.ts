@@ -10360,6 +10360,7 @@ export type Database = {
           channels_limit: number | null
           conversation_history_days: number | null
           cta_label: string | null
+          currency: string
           daily_image_limit: number
           daily_video_limit: number
           daily_video_seconds_limit: number
@@ -10395,6 +10396,7 @@ export type Database = {
           channels_limit?: number | null
           conversation_history_days?: number | null
           cta_label?: string | null
+          currency?: string
           daily_image_limit?: number
           daily_video_limit?: number
           daily_video_seconds_limit?: number
@@ -10430,6 +10432,7 @@ export type Database = {
           channels_limit?: number | null
           conversation_history_days?: number | null
           cta_label?: string | null
+          currency?: string
           daily_image_limit?: number
           daily_video_limit?: number
           daily_video_seconds_limit?: number
@@ -13342,6 +13345,117 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      white_label_packages: {
+        Row: {
+          created_at: string
+          currency: string
+          description: string | null
+          features: Json
+          highlighted: boolean
+          id: string
+          included_clients: number
+          is_public: boolean
+          monthly_licence: number
+          name: string
+          package_key: string
+          revenue_share_percent: number
+          setup_fee: number
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json
+          highlighted?: boolean
+          id?: string
+          included_clients?: number
+          is_public?: boolean
+          monthly_licence?: number
+          name: string
+          package_key: string
+          revenue_share_percent?: number
+          setup_fee?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          description?: string | null
+          features?: Json
+          highlighted?: boolean
+          id?: string
+          included_clients?: number
+          is_public?: boolean
+          monthly_licence?: number
+          name?: string
+          package_key?: string
+          revenue_share_percent?: number
+          setup_fee?: number
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      white_label_partners: {
+        Row: {
+          admin_notes: string | null
+          brand_name: string
+          contact_email: string
+          contact_name: string
+          created_at: string
+          desired_domain: string | null
+          expected_clients: number | null
+          id: string
+          message: string | null
+          package_key: string | null
+          phone: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          admin_notes?: string | null
+          brand_name: string
+          contact_email: string
+          contact_name: string
+          created_at?: string
+          desired_domain?: string | null
+          expected_clients?: number | null
+          id?: string
+          message?: string | null
+          package_key?: string | null
+          phone?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          admin_notes?: string | null
+          brand_name?: string
+          contact_email?: string
+          contact_name?: string
+          created_at?: string
+          desired_domain?: string | null
+          expected_clients?: number | null
+          id?: string
+          message?: string | null
+          package_key?: string | null
+          phone?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       withdrawal_requests: {
         Row: {
