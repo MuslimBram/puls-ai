@@ -102,7 +102,7 @@ export const PricingPlanCard = ({
               <p className="text-xs text-muted-foreground">
                 7-day trial, then {formatALL(totalPrice)} total billed for {commitmentLabel.toLowerCase()}
               </p>
-              {savings > 0 ? <p className="text-xs font-medium text-primary">You save {formatALL(savings.toFixed(2))} on this term</p> : null}
+              {savings > 0 ? <p className="text-xs font-medium text-primary">You save {formatALL(savings)} on this term</p> : null}
             </>
           )}
         </div>

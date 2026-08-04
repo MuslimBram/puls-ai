@@ -179,19 +179,19 @@ export const AdminPlatformWallet = () => {
             <div className="rounded-lg bg-muted/50 p-4 text-center">
               <p className="text-sm text-muted-foreground">Balance</p>
               <p className="text-2xl font-bold text-foreground">
-                {formatALL(((wallet as any)?.balance ?? 0).toFixed(2))}
+                {formatALL(((wallet as any)?.balance ?? 0))}
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-center">
               <p className="text-sm text-muted-foreground">Total Revenue</p>
               <p className="text-2xl font-bold text-primary">
-                {formatALL(((wallet as any)?.total_revenue ?? 0).toFixed(2))}
+                {formatALL(((wallet as any)?.total_revenue ?? 0))}
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-center">
               <p className="text-sm text-muted-foreground">Total Withdrawn</p>
               <p className="text-2xl font-bold text-foreground">
-                {formatALL(((wallet as any)?.total_withdrawn ?? 0).toFixed(2))}
+                {formatALL(((wallet as any)?.total_withdrawn ?? 0))}
               </p>
             </div>
           </div>
@@ -219,7 +219,7 @@ export const AdminPlatformWallet = () => {
                     <div className="flex items-center gap-3">
                       <Icon className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium">{formatALL(Number(w.amount).toFixed(2))}</p>
+                        <p className="text-sm font-medium">{formatALL(Number(w.amount))}</p>
                         {w.reason && <p className="text-xs text-muted-foreground">{w.reason}</p>}
                         <p className="text-xs text-muted-foreground">
                           {new Date(w.created_at).toLocaleDateString("en")}

@@ -106,7 +106,7 @@ export const PipelineBoard = ({ stages, deals, isLoading, onNewDeal, onSelectDea
                     {stageDeals.length}
                   </Badge>
                 </div>
-                <span className="text-xs text-muted-foreground">{formatALL(stageValue.toLocaleString())}</span>
+                <span className="text-xs text-muted-foreground">{formatALL(stageValue)}</span>
               </div>
               <div className="space-y-2 min-h-[80px]">
                 {stageDeals.length === 0 && (
@@ -143,7 +143,7 @@ export const PipelineBoard = ({ stages, deals, isLoading, onNewDeal, onSelectDea
                           )}
                           <div className="mt-2 flex items-center justify-between">
                             <span className="text-xs font-medium text-foreground">
-                              {formatALL((deal.deal_value || 0).toLocaleString())}
+                              {formatALL((deal.deal_value || 0))}
                             </span>
                             <Badge variant="outline" className="text-[10px]">
                               {deal.source_channel}

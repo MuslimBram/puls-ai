@@ -160,7 +160,7 @@ const ReferralProgram = () => {
               <div className="flex items-center gap-3">
                 <DollarSign className="h-8 w-8 text-green-600" />
                 <div>
-                  <p className="text-2xl font-bold text-foreground">{formatALL(totalRewards.toFixed(2))}</p>
+                  <p className="text-2xl font-bold text-foreground">{formatALL(totalRewards)}</p>
                   <p className="text-xs text-muted-foreground">Total Earned</p>
                 </div>
               </div>
@@ -192,7 +192,7 @@ const ReferralProgram = () => {
                       </div>
                       <div className="flex items-center gap-2">
                         {r.reward_amount > 0 && (
-                          <Badge className={rs.color}>{formatALL(Number(r.reward_amount).toFixed(2))}</Badge>
+                          <Badge className={rs.color}>{formatALL(Number(r.reward_amount))}</Badge>
                         )}
                         <Badge className={st.color}>{st.label}</Badge>
                       </div>

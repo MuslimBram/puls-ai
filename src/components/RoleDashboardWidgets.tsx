@@ -167,12 +167,12 @@ const FreelancerDashboardWidget = () => {
                     <div>
                       <p className="text-xs font-medium text-foreground">{c.plan_name}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {c.commission_percent}% of {formatALL(c.gross_amount.toFixed(2))}
+                        {c.commission_percent}% of {formatALL(c.gross_amount)}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-primary">+{formatALL(c.commission_amount.toFixed(2))}</p>
+                    <p className="text-sm font-bold text-primary">+{formatALL(c.commission_amount)}</p>
                     <Badge variant={c.commission_status === "approved" ? "default" : "secondary"} className="text-[10px]">
                       {c.commission_status}
                     </Badge>
@@ -202,7 +202,7 @@ const FreelancerDashboardWidget = () => {
                     <span className="text-xs text-foreground truncate max-w-[180px]">{t.description || t.type}</span>
                   </div>
                   <span className={`text-xs font-medium ${t.amount >= 0 ? "text-primary" : "text-destructive"}`}>
-                    {t.amount >= 0 ? "+" : ""}{formatALL(t.amount.toFixed(2))}
+                    {t.amount >= 0 ? "+" : ""}{formatALL(t.amount)}
                   </span>
                 </div>
               ))}
