@@ -86,15 +86,15 @@ export const WithdrawalRequestPanel = () => {
         <CardContent>
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="rounded-lg border border-border p-3 text-center">
-              <p className="text-lg font-bold text-foreground">{formatALL(wallet.current_balance?.toFixed(2) ?? "0.00")}</p>
+              <p className="text-lg font-bold text-foreground">{formatALL(wallet.current_balance ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Available</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
-              <p className="text-lg font-bold text-primary">{formatALL(wallet.lifetime_earnings?.toFixed(2) ?? "0.00")}</p>
+              <p className="text-lg font-bold text-primary">{formatALL(wallet.lifetime_earnings ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Total Earned</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
-              <p className="text-lg font-bold text-muted-foreground">{formatALL(wallet.pending_amount?.toFixed(2) ?? "0.00")}</p>
+              <p className="text-lg font-bold text-muted-foreground">{formatALL(wallet.pending_amount ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Pending</p>
             </div>
           </div>
