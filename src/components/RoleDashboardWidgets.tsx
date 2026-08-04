@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { formatALL } from "@/lib/currency";
 
 // ─── Business Owner Dashboard ───
 const BusinessDashboardWidget = () => {
@@ -35,7 +36,7 @@ const BusinessDashboardWidget = () => {
           </div>
           <div className="rounded-lg border border-border p-3 text-center">
             <p className="text-lg font-bold text-primary">
-              €{plan?.monthlyPrice ?? 0}/mo
+              {formatALL(plan?.monthlyPrice ?? 0)}/mo
             </p>
             <p className="text-xs text-muted-foreground">Monthly price</p>
           </div>
@@ -104,12 +105,12 @@ const FreelancerDashboardWidget = () => {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="rounded-lg border border-border p-3 text-center">
               <Wallet className="h-4 w-4 mx-auto mb-1 text-primary" />
-              <p className="text-lg font-bold text-foreground">€{wallet?.current_balance?.toFixed(2) ?? "0.00"}</p>
+              <p className="text-lg font-bold text-foreground">{formatALL(wallet?.current_balance ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Balance</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <TrendingUp className="h-4 w-4 mx-auto mb-1 text-primary" />
-              <p className="text-lg font-bold text-primary">€{wallet?.lifetime_earnings?.toFixed(2) ?? "0.00"}</p>
+              <p className="text-lg font-bold text-primary">{formatALL(wallet?.lifetime_earnings ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Total earned</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
@@ -166,12 +167,12 @@ const FreelancerDashboardWidget = () => {
                     <div>
                       <p className="text-xs font-medium text-foreground">{c.plan_name}</p>
                       <p className="text-[10px] text-muted-foreground">
-                        {c.commission_percent}% of €{c.gross_amount.toFixed(2)}
+                        {c.commission_percent}% of {formatALL(c.gross_amount)}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-bold text-primary">+€{c.commission_amount.toFixed(2)}</p>
+                    <p className="text-sm font-bold text-primary">+{formatALL(c.commission_amount)}</p>
                     <Badge variant={c.commission_status === "approved" ? "default" : "secondary"} className="text-[10px]">
                       {c.commission_status}
                     </Badge>
@@ -201,7 +202,7 @@ const FreelancerDashboardWidget = () => {
                     <span className="text-xs text-foreground truncate max-w-[180px]">{t.description || t.type}</span>
                   </div>
                   <span className={`text-xs font-medium ${t.amount >= 0 ? "text-primary" : "text-destructive"}`}>
-                    {t.amount >= 0 ? "+" : ""}€{t.amount.toFixed(2)}
+                    {t.amount >= 0 ? "+" : ""}{formatALL(t.amount)}
                   </span>
                 </div>
               ))}

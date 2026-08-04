@@ -10,6 +10,7 @@ import { usePartnerAccount } from "@/hooks/usePartner";
 import { usePartnerWallet, usePayoutRequests, useRequestPayout } from "@/hooks/usePartnerWallet";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { formatALL } from "@/lib/currency";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: React.ElementType }> = {
   pending: { label: "Pending", variant: "secondary", icon: Clock },
@@ -85,15 +86,15 @@ export const WithdrawalRequestPanel = () => {
         <CardContent>
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="rounded-lg border border-border p-3 text-center">
-              <p className="text-lg font-bold text-foreground">€{wallet.current_balance?.toFixed(2) ?? "0.00"}</p>
+              <p className="text-lg font-bold text-foreground">{formatALL(wallet.current_balance ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Available</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
-              <p className="text-lg font-bold text-primary">€{wallet.lifetime_earnings?.toFixed(2) ?? "0.00"}</p>
+              <p className="text-lg font-bold text-primary">{formatALL(wallet.lifetime_earnings ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Total Earned</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
-              <p className="text-lg font-bold text-muted-foreground">€{wallet.pending_amount?.toFixed(2) ?? "0.00"}</p>
+              <p className="text-lg font-bold text-muted-foreground">{formatALL(wallet.pending_amount ?? 0)}</p>
               <p className="text-xs text-muted-foreground">Pending</p>
             </div>
           </div>
@@ -107,7 +108,7 @@ export const WithdrawalRequestPanel = () => {
             <p className="text-sm font-medium text-foreground">Request Withdrawal</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label className="text-xs">Amount (€)</Label>
+                <Label className="text-xs">Amount (ALL)</Label>
                 <Input
                   type="number"
                   placeholder="0.00"
@@ -167,7 +168,7 @@ export const WithdrawalRequestPanel = () => {
                     <div className="flex items-center gap-2">
                       <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium text-foreground">€{p.requested_amount.toFixed(2)}</p>
+                        <p className="text-sm font-medium text-foreground">{formatALL(p.requested_amount)}</p>
                         <p className="text-[10px] text-muted-foreground">
                           {format(new Date(p.created_at), "dd MMM yyyy, HH:mm")}
                         </p>

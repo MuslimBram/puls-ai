@@ -25,8 +25,20 @@ export const PACKAGE_VARIANTS = [
 /** Freelancer/Referral partners use the same package discounts as everyone */
 export const FREELANCER_PACKAGE_VARIANTS = PACKAGE_VARIANTS;
 
-/** Freelancer referral commission: 35% lifetime on referred business payments */
-export const FREELANCER_COMMISSION_RATE = 35;
+/** Referral commission: 15% of the net subscription value */
+export const FREELANCER_COMMISSION_RATE = 15;
+
+/** Freelancer share of the management fee charged to the client: 20% */
+export const FREELANCER_MANAGEMENT_FEE_RATE = 20;
+
+/** Ambassador: 15% lifetime on every payment of a referred business */
+export const AMBASSADOR_LIFETIME_RATE = 15;
+
+/** Ambassador: extra 15% one-off bonus on a referred business' first payment */
+export const AMBASSADOR_FIRST_PAYMENT_BONUS_RATE = 15;
+
+/** Business referrer: 15% of the referred client's first payment (one time only) */
+export const BUSINESS_FIRST_PAYMENT_RATE = 15;
 
 /** Business referral discount: 15% on subscription for referred businesses */
 export const BUSINESS_REFERRAL_COMMISSION_RATE = 15;

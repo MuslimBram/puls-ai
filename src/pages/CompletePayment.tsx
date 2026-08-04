@@ -11,6 +11,7 @@ import { useUserWallets } from "@/hooks/useUserWallet";
 import { usePricingSettings } from "@/hooks/usePricingSettings";
 import { cn } from "@/lib/utils";
 import type { PlanKey } from "@/types/monetization";
+import { formatALL } from "@/lib/currency";
 
 interface PlanTier {
   key: PlanKey;
@@ -281,7 +282,7 @@ const CompletePayment = () => {
                       </div>
                     )}
                     <span className="text-sm font-bold text-foreground">{tier.name}</span>
-                    <span className="text-lg font-semibold text-primary">€{tier.basePrice}</span>
+                    <span className="text-lg font-semibold text-primary">{formatALL(tier.basePrice)}</span>
                     <span className="text-[10px] text-muted-foreground">/mo</span>
                   </button>
                 );
@@ -327,11 +328,11 @@ const CompletePayment = () => {
                     <div className="text-right">
                       {isTrialOpt ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground">€0</span>
+                          <span className="text-sm font-semibold text-foreground">{formatALL(0)}</span>
                           <Badge className="text-[10px] px-1.5 py-0">Free</Badge>
                         </div>
                       ) : (
-                        <span className="text-sm font-semibold text-foreground">€{price}/mo</span>
+                        <span className="text-sm font-semibold text-foreground">{formatALL(price)}/mo</span>
                       )}
                     </div>
                   </button>
@@ -354,13 +355,13 @@ const CompletePayment = () => {
               <span className="text-sm text-muted-foreground">Price:</span>
               <div className="flex items-center gap-2">
                 {!isTrial && (currentDuration?.discountPercent ?? 0) > 0 && (
-                  <span className="text-sm text-muted-foreground line-through">€{basePrice}</span>
+                  <span className="text-sm text-muted-foreground line-through">{formatALL(basePrice)}</span>
                 )}
                 <span className="font-bold text-lg text-foreground">
                   {isTrial ? (
-                    <><span>€0</span> <Badge className="ml-1 text-[10px]">Free 7 days</Badge></>
+                    <><span>{formatALL(0)}</span> <Badge className="ml-1 text-[10px]">Free 7 days</Badge></>
                   ) : (
-                    <>€{discountedPrice.toFixed(0)}<span className="text-xs font-normal">/mo</span></>
+                    <>{formatALL(discountedPrice)}<span className="text-xs font-normal">/mo</span></>
                   )}
                 </span>
               </div>
@@ -369,7 +370,7 @@ const CompletePayment = () => {
               <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
                 <span className="text-sm text-muted-foreground">Total:</span>
                 <span className="font-bold text-foreground">
-                  €{totalPrice.toFixed(0)}
+                  {formatALL(totalPrice)}
                   <span className="text-xs font-normal text-muted-foreground"> for {currentDuration?.months} months</span>
                 </span>
               </div>
@@ -452,7 +453,7 @@ const CompletePayment = () => {
                   </div>
                   <Wallet className="h-5 w-5 text-emerald-500" />
                   <span className="text-sm font-medium text-foreground">Wallet</span>
-                  <Badge variant="secondary" className="ml-auto">€{walletBalance.toFixed(2)}</Badge>
+                  <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance)}</Badge>
                 </button>
               )}
 
@@ -472,7 +473,7 @@ const CompletePayment = () => {
                 {selectedPaymentMethod === "wallet" && <Wallet className="mr-2 h-5 w-5" />}
                 {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod
-                  ? `Pay €${totalPrice.toFixed(0)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
+                  ? `Pay ${formatALL(totalPrice)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
                   : "Choose payment method"
                 }
                 <ArrowRight className="ml-auto h-4 w-4" />

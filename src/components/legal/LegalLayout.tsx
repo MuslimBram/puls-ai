@@ -74,6 +74,7 @@ export function LegalLayout({
           </Link>
           <nav className="hidden md:flex items-center gap-5 text-sm text-muted-foreground">
             <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
+            <Link to="/white-label" className="hover:text-foreground">White-Label</Link>
             <Link to="/login" className="hover:text-foreground">Sign in</Link>
             <Button size="sm" asChild>
               <Link to="/register">Start free</Link>

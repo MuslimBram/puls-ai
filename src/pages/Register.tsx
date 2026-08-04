@@ -7,12 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Users } from "lucide-react";
+import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Users, Palette } from "lucide-react";
+import { formatALL } from "@/lib/currency";
 import { lovable } from "@/integrations/lovable/index";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 
-type AccountType = "business" | "freelancer" | "ambassador" | null;
+type AccountType = "business" | "freelancer" | "ambassador" | "white_label" | null;
 type Step = "account-type" | "plan-selection" | "credentials";
 
 interface PlanTier {
@@ -42,7 +43,7 @@ const getDiscountedPrice = (base: number, discountPercent: number) =>
 
 const formatPrice = (base: number, discountPercent: number) => {
   const price = getDiscountedPrice(base, discountPercent);
-  return `€${price}`;
+  return formatALL(price);
 };
 
 const Register = () => {
@@ -191,7 +192,7 @@ const Register = () => {
                 className={cn(
                   "h-2 rounded-full transition-all",
                   s === step ? "w-8 bg-primary" : "w-2 bg-muted",
-                  (step === "credentials" && (accountType === "freelancer" || accountType === "ambassador") && s === "plan-selection") && "hidden"
+                  (step === "credentials" && (accountType !== "business") && s === "plan-selection") && "hidden"
                 )}
               />
             ))}
@@ -201,7 +202,7 @@ const Register = () => {
         {/* STEP 1: Account Type */}
         {step === "account-type" && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <button
                 type="button"
                 onClick={() => setAccountType("business")}
@@ -236,8 +237,8 @@ const Register = () => {
                 <span className="text-base font-semibold">Freelancer</span>
                 <span className="text-xs opacity-70 text-center">Manage client businesses — earn from referrals and management</span>
                 <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
-                  <li>✓ 35% referral commission</li>
-                  <li>✓ 40% from management fee</li>
+                  <li>✓ 15% referral commission</li>
+                  <li>✓ 20% of the management fee</li>
                   <li>✓ Purchase plan per business</li>
                   <li>✓ 7-day free trial</li>
                 </ul>
@@ -256,10 +257,30 @@ const Register = () => {
                 <span className="text-base font-semibold">Ambassador</span>
                 <span className="text-xs opacity-70 text-center">Referrals only — earn lifetime commission without managing businesses</span>
                 <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
-                  <li>✓ 35% lifetime commission</li>
-                  <li>✓ Min. 3 referrals/month</li>
+                  <li>✓ 15% lifetime + 15% first payment</li>
+                  <li>✓ Min. 3 valid referrals</li>
                   <li>✓ No plan purchases needed</li>
                   <li>✓ 7-day free trial</li>
+                </ul>
+              </button>
+              <button
+                type="button"
+                onClick={() => setAccountType("white_label")}
+                className={cn(
+                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
+                  accountType === "white_label"
+                    ? "border-primary bg-primary/5 text-primary shadow-md"
+                    : "border-border text-muted-foreground hover:border-primary/50"
+                )}
+              >
+                <Palette className="h-9 w-9" />
+                <span className="text-base font-semibold">White-Label</span>
+                <span className="text-xs opacity-70 text-center">Resell Pulse AI under your own brand, logo and domain</span>
+                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
+                  <li>✓ Your brand & domain</li>
+                  <li>✓ Unlimited client accounts</li>
+                  <li>✓ Setup + monthly licence</li>
+                  <li>✓ Reviewed by our team</li>
                 </ul>
               </button>
             </div>
@@ -292,7 +313,7 @@ const Register = () => {
                       <Crown className="absolute -top-2 right-2 h-4 w-4 text-primary" />
                     )}
                     <span className="text-sm font-bold text-foreground">{tier.name}</span>
-                    <span className="text-lg font-semibold text-primary">€{tier.basePrice}</span>
+                    <span className="text-lg font-semibold text-primary">{formatALL(tier.basePrice)}</span>
                     <span className="text-[10px] text-muted-foreground">/mo</span>
                   </button>
                 ))}
@@ -337,11 +358,11 @@ const Register = () => {
                         <div className="text-right">
                           {isTrial ? (
                             <div className="flex items-center gap-2">
-                              <span className="text-sm font-semibold text-foreground">€0</span>
+                              <span className="text-sm font-semibold text-foreground">{formatALL(0)}</span>
                               <Badge className="text-[10px] px-1.5 py-0">Free</Badge>
                             </div>
                           ) : (
-                            <span className="text-sm font-semibold text-foreground">€{price}/mo</span>
+                            <span className="text-sm font-semibold text-foreground">{formatALL(price)}/mo</span>
                           )}
                         </div>
                       </button>
@@ -494,7 +515,7 @@ const Register = () => {
                   type="button"
                   variant="outline"
                   className="flex-1"
-                  onClick={() => setStep((accountType === "freelancer" || accountType === "ambassador") ? "account-type" : "plan-selection")}
+                  onClick={() => setStep(accountType !== "business" ? "account-type" : "plan-selection")}
                 >
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
