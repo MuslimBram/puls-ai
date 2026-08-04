@@ -28,7 +28,7 @@ export default function AffiliateTerms() {
     <LegalLayout
       title="Ambassador & Freelancer Terms"
       subtitle="How partners earn with Pulse AI: commission rules, eligibility thresholds, payouts and prohibited practices."
-      description="Pulse AI partner terms for Ambassadors and Freelancers: 35% commission on a referred client's first payment, minimum referral thresholds, payouts and conduct rules."
+      description="Pulse AI partner terms for Ambassadors and Freelancers: 15% commission on the net subscription value, minimum referral thresholds, payouts and conduct rules."
       path="/affiliate-terms"
       sections={sections}
     >
@@ -45,8 +45,8 @@ export default function AffiliateTerms() {
             <tbody>
               {[
                 ["Main benefit", "Cash commission on referrals", "Discounted access to manage client workspaces"],
-                ["Commission", "35% of the referred client's first payment", "Not applicable"],
-                ["Discount", "Not applicable", "40% off own subscription"],
+                ["Commission", "15% lifetime + 15% bonus on the first payment", "15% of the net subscription value"],
+                ["Management fee", "Not applicable", "20% of the management fee charged to the client"],
                 ["Minimum activity", "At least 3 referrals per month", "At least 3 active referred businesses"],
                 ["Self-referral", "Not allowed", "Not allowed"],
                 ["Client ownership", "Client owns their workspace", "Client owns their workspace; freelancer manages with permission"],
@@ -99,7 +99,7 @@ export default function AffiliateTerms() {
           </div>
           <div className="rounded-lg bg-muted/50 p-4">
             <div className="text-xs uppercase tracking-wide text-muted-foreground">
-              Estimated commission (35% of first payments)
+              Estimated commission (15% of net subscription value)
             </div>
             <div className="text-2xl font-semibold text-foreground">
               {formatALL(earnings)}
