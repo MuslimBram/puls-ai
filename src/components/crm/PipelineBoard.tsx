@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Deal } from "@/hooks/useCRM";
 import { Plus, GripVertical } from "lucide-react";
+import { formatALL } from "@/lib/currency";
 
 interface PipelineBoardProps {
   stages: any[];
@@ -105,7 +106,7 @@ export const PipelineBoard = ({ stages, deals, isLoading, onNewDeal, onSelectDea
                     {stageDeals.length}
                   </Badge>
                 </div>
-                <span className="text-xs text-muted-foreground">€{stageValue.toLocaleString()}</span>
+                <span className="text-xs text-muted-foreground">{formatALL(stageValue.toLocaleString())}</span>
               </div>
               <div className="space-y-2 min-h-[80px]">
                 {stageDeals.length === 0 && (
@@ -142,7 +143,7 @@ export const PipelineBoard = ({ stages, deals, isLoading, onNewDeal, onSelectDea
                           )}
                           <div className="mt-2 flex items-center justify-between">
                             <span className="text-xs font-medium text-foreground">
-                              €{(deal.deal_value || 0).toLocaleString()}
+                              {formatALL((deal.deal_value || 0).toLocaleString())}
                             </span>
                             <Badge variant="outline" className="text-[10px]">
                               {deal.source_channel}

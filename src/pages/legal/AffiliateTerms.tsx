@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LegalLayout, Section, InfoCard, type LegalSection } from "@/components/legal/LegalLayout";
+import { formatALL } from "@/lib/currency";
 
 const sections: LegalSection[] = [
   { id: "roles", title: "1. Ambassador vs Freelancer" },
@@ -101,7 +102,7 @@ export default function AffiliateTerms() {
               Estimated commission (35% of first payments)
             </div>
             <div className="text-2xl font-semibold text-foreground">
-              €{earnings.toFixed(2)}
+              {formatALL(earnings.toFixed(2))}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {qualifies
