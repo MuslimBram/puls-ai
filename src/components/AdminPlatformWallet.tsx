@@ -11,6 +11,7 @@ import { toast } from "@/components/ui/sonner";
 import { Wallet, ArrowDownToLine, ShieldCheck, Clock, CheckCircle2, XCircle, AlertTriangle } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { formatALL } from "@/lib/currency";
 
 const statusConfig: Record<string, { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: any }> = {
   pending_ai_review: { label: "Pending AI", variant: "secondary", icon: Clock },
@@ -178,19 +179,19 @@ export const AdminPlatformWallet = () => {
             <div className="rounded-lg bg-muted/50 p-4 text-center">
               <p className="text-sm text-muted-foreground">Balance</p>
               <p className="text-2xl font-bold text-foreground">
-                €{((wallet as any)?.balance ?? 0).toFixed(2)}
+                {formatALL(((wallet as any)?.balance ?? 0).toFixed(2))}
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-center">
               <p className="text-sm text-muted-foreground">Total Revenue</p>
               <p className="text-2xl font-bold text-primary">
-                €{((wallet as any)?.total_revenue ?? 0).toFixed(2)}
+                {formatALL(((wallet as any)?.total_revenue ?? 0).toFixed(2))}
               </p>
             </div>
             <div className="rounded-lg bg-muted/50 p-4 text-center">
               <p className="text-sm text-muted-foreground">Total Withdrawn</p>
               <p className="text-2xl font-bold text-foreground">
-                €{((wallet as any)?.total_withdrawn ?? 0).toFixed(2)}
+                {formatALL(((wallet as any)?.total_withdrawn ?? 0).toFixed(2))}
               </p>
             </div>
           </div>
@@ -218,7 +219,7 @@ export const AdminPlatformWallet = () => {
                     <div className="flex items-center gap-3">
                       <Icon className="h-4 w-4 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium">€{Number(w.amount).toFixed(2)}</p>
+                        <p className="text-sm font-medium">{formatALL(Number(w.amount).toFixed(2))}</p>
                         {w.reason && <p className="text-xs text-muted-foreground">{w.reason}</p>}
                         <p className="text-xs text-muted-foreground">
                           {new Date(w.created_at).toLocaleDateString("en")}

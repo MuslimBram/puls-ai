@@ -12,6 +12,7 @@ import {
   getPackageTotalPrice,
 } from "@/lib/packagePricing";
 import {
+import { formatALL } from "@/lib/currency";
   formatLimitValue,
   getPlanActionLabel,
   getPlanChangeIntent,
@@ -89,7 +90,7 @@ export const PricingPlanCard = ({
           ) : (
             <>
               <div className="flex items-end gap-2">
-                <span className="text-4xl font-semibold tracking-tight text-foreground">€{displayPrice}</span>
+                <span className="text-4xl font-semibold tracking-tight text-foreground">{formatALL(displayPrice)}</span>
                 <span className="pb-1 text-sm text-muted-foreground">/mo</span>
               </div>
 
@@ -99,9 +100,9 @@ export const PricingPlanCard = ({
               </div>
 
               <p className="text-xs text-muted-foreground">
-                7-day trial, then €{totalPrice} total billed for {commitmentLabel.toLowerCase()}
+                7-day trial, then {formatALL(totalPrice)} total billed for {commitmentLabel.toLowerCase()}
               </p>
-              {savings > 0 ? <p className="text-xs font-medium text-primary">You save €{savings.toFixed(2)} on this term</p> : null}
+              {savings > 0 ? <p className="text-xs font-medium text-primary">You save {formatALL(savings.toFixed(2))} on this term</p> : null}
             </>
           )}
         </div>
