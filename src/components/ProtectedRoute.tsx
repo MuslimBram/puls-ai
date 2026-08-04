@@ -52,11 +52,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Admin/super_admin: akses i plotë gjithmonë
-  const bypassRoles = ["admin", "super_admin"];
+  // Owner + Owner-appointed admins: lifetime access, no trial window, no payment required.
+  const bypassRoles = ["admin", "super_admin", "business_owner"];
   const hasBypassRole = userRoles?.some((role) => bypassRoles.includes(role)) ?? false;
 
-  // Kontrollo nëse trial ka skaduar
+  // Check whether the trial has expired
   let showBanner = false;
   let daysUntilDeletion = 30;
 
