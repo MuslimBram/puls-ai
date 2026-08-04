@@ -24,6 +24,7 @@ const BASE_PRICES: Record<string, number> = {
 };
 
 import { useFreelancerPricing } from "@/hooks/useFreelancerPricing";
+import { formatALL } from "@/lib/currency";
 
 const FREELANCER_DISCOUNT = 40;
 
@@ -304,10 +305,10 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                   <Select value={form.plan} onValueChange={(v) => setForm((f) => ({ ...f, plan: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard">Start - €{BASE_PRICES.standard}/mo</SelectItem>
-                      <SelectItem value="professional">Growth - €{BASE_PRICES.professional}/mo</SelectItem>
-                      <SelectItem value="advanced">Pro - €{BASE_PRICES.advanced}/mo</SelectItem>
-                      <SelectItem value="enterprise">Enterprise - €{BASE_PRICES.enterprise}/mo</SelectItem>
+                      <SelectItem value="standard">Start - {formatALL(BASE_PRICES.standard)}/mo</SelectItem>
+                      <SelectItem value="professional">Growth - {formatALL(BASE_PRICES.professional)}/mo</SelectItem>
+                      <SelectItem value="advanced">Pro - {formatALL(BASE_PRICES.advanced)}/mo</SelectItem>
+                      <SelectItem value="enterprise">Enterprise - {formatALL(BASE_PRICES.enterprise)}/mo</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -343,12 +344,12 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span>Base price:</span>
-                  <span>€{basePrice}/mo</span>
+                  <span>{formatALL(basePrice)}/mo</span>
                 </div>
                 {effectiveFreelancerDiscount > 0 ? (
                   <div className="flex justify-between text-sm text-primary">
                     <span>Freelancer discount ({effectiveFreelancerDiscount}%):</span>
-                    <span>-€{(basePrice * effectiveFreelancerDiscount / 100).toFixed(2)}</span>
+                    <span>-{formatALL((basePrice * effectiveFreelancerDiscount / 100))}</span>
                   </div>
                 ) : (
                   <div className="flex justify-between text-sm text-muted-foreground">
@@ -359,12 +360,12 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 {durationDiscount > 0 && (
                   <div className="flex justify-between text-sm text-primary">
                     <span>Duration discount ({durationDiscount}%):</span>
-                    <span>-€{(freelancerMonthlyPrice * durationDiscount / 100).toFixed(2)}/mo</span>
+                    <span>-{formatALL((freelancerMonthlyPrice * durationDiscount / 100))}/mo</span>
                   </div>
                 )}
                 <div className="border-t border-border pt-1 flex justify-between font-semibold">
                   <span>Total ({durationMonths} months):</span>
-                  <span>€{totalPrice.toFixed(2)}</span>
+                  <span>{formatALL(totalPrice)}</span>
                 </div>
               </div>
 
@@ -434,7 +435,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                     <Wallet className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-foreground">Wallet</span>
                     <Badge variant="secondary" className="ml-auto text-xs">
-                      €{(selectedWallet?.current_balance ?? 0).toFixed(2)}
+                      {formatALL((selectedWallet?.current_balance ?? 0))}
                     </Badge>
                   </button>
                 )}
@@ -459,7 +460,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
               >
                 {purchaseBusiness.isPending
                   ? "Submitting..."
-                  : `Purchase Business — €${totalPrice.toFixed(2)}`}
+                  : `Purchase Business — ${formatALL(totalPrice)}`}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
                 Payment is verified by AI and approved by Admin

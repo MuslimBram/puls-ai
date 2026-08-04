@@ -22,6 +22,7 @@ import { AIToolsSection } from "@/components/landing/AIToolsSection";
 import { IndustriesSection } from "@/components/landing/IndustriesSection";
 import { IntelligenceToolsSection } from "@/components/landing/IntelligenceToolsSection";
 import { BusinessScanWidget } from "@/components/landing/BusinessScanWidget";
+import { formatALL } from "@/lib/currency";
 
 const COMMUNITY_PHOTOS = [
   "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
@@ -192,7 +193,7 @@ const Index = () => {
                   <CardContent className="pt-6 text-center">
                     {plan.highlighted && <Badge className="mb-2">{t("landing.recommended")}</Badge>}
                     <h3 className="font-semibold text-foreground">{plan.name}</h3>
-                    <p className="my-1 text-2xl font-bold text-foreground">{plan.key === "enterprise" ? t("landing.custom") : `€${plan.monthlyPrice}`}</p>
+                    <p className="my-1 text-2xl font-bold text-foreground">{plan.key === "enterprise" ? t("landing.custom") : formatALL(plan.monthlyPrice)}</p>
                     <p className="mb-3 text-xs text-muted-foreground">{plan.description}</p>
                   </CardContent>
                 </Card>

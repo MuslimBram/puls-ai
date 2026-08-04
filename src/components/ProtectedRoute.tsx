@@ -52,11 +52,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Admin/super_admin: akses i plotë gjithmonë
-  const bypassRoles = ["admin", "super_admin"];
+  // Owner + Owner-appointed admins: lifetime access, no trial window, no payment required.
+  const bypassRoles = ["admin", "super_admin", "business_owner"];
   const hasBypassRole = userRoles?.some((role) => bypassRoles.includes(role)) ?? false;
 
-  // Kontrollo nëse trial ka skaduar
+  // Check whether the trial has expired
   let showBanner = false;
   let daysUntilDeletion = 30;
 
@@ -79,17 +79,17 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return (
     <Require2FASetup>
       <>
-        {/* Banner informativ — NUK bllokon aksesin */}
+        {/* Informational banner — does NOT block access */}
         {showBanner && !bannerDismissed && (
           <div className="sticky top-0 z-50 w-full bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2.5">
             <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm text-amber-800 dark:text-amber-200">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>
-                  <strong>Trialu skadoi.</strong>{" "}
+                  <strong>Your trial has ended.</strong>{" "}
                   {daysUntilDeletion > 0
-                    ? `Llogaria fshihet automatikisht pas ${daysUntilDeletion} ditësh.`
-                    : "Llogaria mund të fshihet çdo moment."}
+                    ? `The account is deleted automatically in ${daysUntilDeletion} days.`
+                    : "The account may be deleted at any moment."}
                 </span>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -99,12 +99,12 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
                   onClick={() => window.location.href = "/complete-payment"}
                 >
                   <CreditCard className="h-3.5 w-3.5 mr-1" />
-                  Zgjedh Plan
+                  Choose Plan
                 </Button>
                 <button
                   onClick={() => setBannerDismissed(true)}
                   className="text-amber-600 hover:text-amber-800 p-1 rounded"
-                  aria-label="Mbyll"
+                  aria-label="Close"
                 >
                   <X className="h-4 w-4" />
                 </button>

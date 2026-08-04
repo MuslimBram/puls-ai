@@ -42,7 +42,7 @@ const PROBLEMS = [
   "No sales system", "No online presence",
 ];
 
-const BUDGETS = ["< €50", "€50–150", "€150–500", "€500+"];
+const BUDGETS = ["< 5,000 ALL", "5,000–15,000 ALL", "15,000–50,000 ALL", "50,000+ ALL"];
 
 const STEP_ORDER: Step[] = ["intro", "business", "state", "goals", "problems", "budget", "result"];
 
@@ -54,9 +54,9 @@ function calcScore(a: Answers): number {
   if (a.usesAds) s += 3; else s += 1;
   s += a.goals.length * 2;
   s += a.problems.length * 2;
-  if (a.budget === "€500+") s += 4;
-  else if (a.budget === "€150–500") s += 3;
-  else if (a.budget === "€50–150") s += 2;
+  if (a.budget === "50,000+ ALL") s += 4;
+  else if (a.budget === "15,000–50,000 ALL") s += 3;
+  else if (a.budget === "5,000–15,000 ALL") s += 2;
   else s += 1;
   if (a.website) s += 2;
   if (a.instagram || a.facebook) s += 2;
@@ -71,7 +71,7 @@ function getLevel(score: number) {
 
 function getRoute(a: Answers): { route: string; message: string; cta: string } {
   // Route to Pulse AI in most cases — no external service names exposed
-  if ((a.getsClientsFromIG || a.usesCRM) && a.goals.includes("Automation") && a.budget !== "< €50") {
+  if ((a.getsClientsFromIG || a.usesCRM) && a.goals.includes("Automation") && a.budget !== "< 5,000 ALL") {
     return {
       route: "pulse_ai",
       message: "Your business is ready for automation and growth with AI-powered tools.",

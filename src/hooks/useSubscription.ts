@@ -46,7 +46,7 @@ const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = 
 
 export const useSubscription = () => {
   const { user } = useAuth();
-  const { isSuperAdmin, hasRole, permissions } = useRolePermissions();
+  const { isAdmin, isSuperAdmin, hasRole, permissions } = useRolePermissions();
   const { plansByKey, planOrder, defaultPlanKey } = useMonetizationCatalog();
 
   const dbQuery = useQuery({
@@ -87,7 +87,8 @@ export const useSubscription = () => {
 
   const stripeData = stripeQuery.data;
   const fallbackPlanKey = defaultPlanKey;
-  const privilegedBypass = isSuperAdmin || hasRole("business_owner") || permissions.bypassSubscription;
+  // Owner + any admin the Owner appoints have lifetime access — never trial-limited, never billed.
+  const privilegedBypass = isSuperAdmin || isAdmin || hasRole("business_owner") || permissions.bypassSubscription;
   const selectedPlan = normalizePlanKey(stripeData?.selected_plan ?? stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
 
   if (privilegedBypass) {

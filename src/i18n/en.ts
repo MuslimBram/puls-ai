@@ -204,7 +204,7 @@ export default {
         },
         howMuch: {
           q: "How much does it cost?",
-          a: "Plans start at €49/month (Start), €99/month (Growth), €199/month (PRO), and €399+/month (Enterprise). You get discounts for longer commitments: 5% for 3 months, 10% for 6 months, 15% yearly.",
+          a: "Plans start at 9,900 ALL/month (Start), 19,900 ALL/month (Growth), 39,900 ALL/month (Pro), and 79,900 ALL/month (Enterprise). You get discounts for longer commitments: 5% for 3 months, 10% for 6 months, 15% yearly.",
         },
         freeTrial: {
           q: "Can I try it for free?",
@@ -234,19 +234,19 @@ export default {
   billing: {
     trial: "7-Day Trial",
     trialDesc: "Free trial",
-    trialPrice: "€0",
+    trialPrice: "0 ALL",
     monthly: "Monthly",
     monthlyDesc: "No commitment",
-    monthlyPrice: "€49/mo",
+    monthlyPrice: "9,900 ALL/mo",
     threeMonth: "3 Months",
     threeMonthDesc: "Save 5%",
-    threeMonthPrice: "€46.55/mo",
+    threeMonthPrice: "9,405 ALL/mo",
     sixMonth: "6 Months",
     sixMonthDesc: "Save 10%",
-    sixMonthPrice: "€44.10/mo",
+    sixMonthPrice: "8,910 ALL/mo",
     yearly: "Yearly",
     yearlyDesc: "Save 15%",
-    yearlyPrice: "€41.65/mo",
+    yearlyPrice: "8,415 ALL/mo",
   },
 
   // Navigation

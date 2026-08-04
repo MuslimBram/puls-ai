@@ -92,10 +92,10 @@ const ROWS: ComparisonRow[] = [
   },
   {
     category: "Pricing",
-    crisp: { status: "text", text: "€45–295" },
+    crisp: { status: "text", text: "4,500–29,500 ALL" },
     respondio: { status: "text", text: "$79–279" },
-    hubspot: { status: "text", text: "€800–3000+" },
-    pulse: { status: "text", text: "€49–699+" },
+    hubspot: { status: "text", text: "80,000–300,000+ ALL" },
+    pulse: { status: "text", text: "9,900–79,900 ALL" },
   },
 ];
 

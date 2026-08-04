@@ -18,7 +18,7 @@ export default function TermsAndPayments() {
             <div className="border border-border rounded-xl p-5">
               <div className="font-medium mb-2">A — Pulse AI Subscription (the platform)</div>
               <p className="text-sm text-muted-foreground leading-relaxed">
-                Monthly/annual payment for access to the Pulse AI platform (Starter €50/mo, Growth €70/mo, Pro €120/mo).
+                Monthly/annual payment for access to the Pulse AI platform (Starter 9,900 ALL/mo, Growth 19,900 ALL/mo, Pro 39,900 ALL/mo).
                 This payment covers: infrastructure, AI (Gemini + Claude), Supabase, hosting, and support.
               </p>
             </div>
@@ -35,7 +35,7 @@ export default function TermsAndPayments() {
                   ["Twilio (SMS + Calls)", "Cost per SMS and call minutes — paid directly to Twilio."],
                   ["Resend / SendGrid (Email)", "Emails above the free tier — paid directly to Resend."],
                   ["Google Workspace", "Drive, Calendar, Gmail — paid to Google. Pulse AI only syncs."],
-                  ["Stripe processing fee", "1.4% + €0.25 per transaction — paid to Stripe, not Pulse AI."],
+                  ["Stripe processing fee", "2.9% + 30 ALL per transaction — paid to Stripe, not Pulse AI."],
                 ].map(([name, desc]) => (
                   <li key={name} className="flex gap-2">
                     <span className="text-amber-500 mt-0.5">⚠</span>
@@ -119,9 +119,9 @@ export default function TermsAndPayments() {
               </thead>
               <tbody className="text-muted-foreground">
                 {[
-                  ["Starter subscription €50/mo", "Pulse AI", "✓ within 7 days"],
-                  ["Growth subscription €70/mo", "Pulse AI", "✓ within 7 days"],
-                  ["Pro subscription €120/mo", "Pulse AI", "✓ within 7 days"],
+                  ["Starter subscription 9,900 ALL/mo", "Pulse AI", "✓ within 7 days"],
+                  ["Growth subscription 19,900 ALL/mo", "Pulse AI", "✓ within 7 days"],
+                  ["Pro subscription 39,900 ALL/mo", "Pulse AI", "✓ within 7 days"],
                   ["Meta Ads budget", "Meta (Facebook)", "✗ — third party"],
                   ["Google Ads budget", "Google", "✗ — third party"],
                   ["WhatsApp template msgs", "Meta / BSP", "✗ — third party"],
