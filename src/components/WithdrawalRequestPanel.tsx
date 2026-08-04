@@ -168,7 +168,7 @@ export const WithdrawalRequestPanel = () => {
                     <div className="flex items-center gap-2">
                       <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                       <div>
-                        <p className="text-sm font-medium text-foreground">{formatALL(p.requested_amount.toFixed(2))}</p>
+                        <p className="text-sm font-medium text-foreground">{formatALL(p.requested_amount)}</p>
                         <p className="text-[10px] text-muted-foreground">
                           {format(new Date(p.created_at), "dd MMM yyyy, HH:mm")}
                         </p>

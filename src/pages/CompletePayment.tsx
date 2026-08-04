@@ -361,7 +361,7 @@ const CompletePayment = () => {
                   {isTrial ? (
                     <><span>{formatALL(0)}</span> <Badge className="ml-1 text-[10px]">Free 7 days</Badge></>
                   ) : (
-                    <>{formatALL(discountedPrice.toFixed(0))}<span className="text-xs font-normal">/mo</span></>
+                    <>{formatALL(discountedPrice)}<span className="text-xs font-normal">/mo</span></>
                   )}
                 </span>
               </div>
@@ -370,7 +370,7 @@ const CompletePayment = () => {
               <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
                 <span className="text-sm text-muted-foreground">Total:</span>
                 <span className="font-bold text-foreground">
-                  {formatALL(totalPrice.toFixed(0))}
+                  {formatALL(totalPrice)}
                   <span className="text-xs font-normal text-muted-foreground"> for {currentDuration?.months} months</span>
                 </span>
               </div>
@@ -453,7 +453,7 @@ const CompletePayment = () => {
                   </div>
                   <Wallet className="h-5 w-5 text-emerald-500" />
                   <span className="text-sm font-medium text-foreground">Wallet</span>
-                  <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance.toFixed(2))}</Badge>
+                  <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance)}</Badge>
                 </button>
               )}
 

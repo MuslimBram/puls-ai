@@ -102,7 +102,7 @@ export default function AffiliateTerms() {
               Estimated commission (35% of first payments)
             </div>
             <div className="text-2xl font-semibold text-foreground">
-              {formatALL(earnings.toFixed(2))}
+              {formatALL(earnings)}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               {qualifies

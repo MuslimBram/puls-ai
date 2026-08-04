@@ -349,7 +349,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 {effectiveFreelancerDiscount > 0 ? (
                   <div className="flex justify-between text-sm text-primary">
                     <span>Freelancer discount ({effectiveFreelancerDiscount}%):</span>
-                    <span>-{formatALL((basePrice * effectiveFreelancerDiscount / 100).toFixed(2))}</span>
+                    <span>-{formatALL((basePrice * effectiveFreelancerDiscount / 100))}</span>
                   </div>
                 ) : (
                   <div className="flex justify-between text-sm text-muted-foreground">
@@ -360,12 +360,12 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 {durationDiscount > 0 && (
                   <div className="flex justify-between text-sm text-primary">
                     <span>Duration discount ({durationDiscount}%):</span>
-                    <span>-{formatALL((freelancerMonthlyPrice * durationDiscount / 100).toFixed(2))}/mo</span>
+                    <span>-{formatALL((freelancerMonthlyPrice * durationDiscount / 100))}/mo</span>
                   </div>
                 )}
                 <div className="border-t border-border pt-1 flex justify-between font-semibold">
                   <span>Total ({durationMonths} months):</span>
-                  <span>{formatALL(totalPrice.toFixed(2))}</span>
+                  <span>{formatALL(totalPrice)}</span>
                 </div>
               </div>
 
@@ -435,7 +435,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                     <Wallet className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-foreground">Wallet</span>
                     <Badge variant="secondary" className="ml-auto text-xs">
-                      {formatALL((selectedWallet?.current_balance ?? 0).toFixed(2))}
+                      {formatALL((selectedWallet?.current_balance ?? 0))}
                     </Badge>
                   </button>
                 )}
