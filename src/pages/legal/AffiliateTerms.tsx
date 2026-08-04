@@ -13,7 +13,7 @@ const sections: LegalSection[] = [
   { id: "termination", title: "6. Termination" },
 ];
 
-const COMMISSION_RATE = 0.35;
+const COMMISSION_RATE = 0.15;
 
 export default function AffiliateTerms() {
   const [referrals, setReferrals] = useState(5);
