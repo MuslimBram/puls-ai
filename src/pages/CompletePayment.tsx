@@ -328,7 +328,7 @@ const CompletePayment = () => {
                     <div className="text-right">
                       {isTrialOpt ? (
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-foreground">€0</span>
+                          <span className="text-sm font-semibold text-foreground">{formatALL(0)}</span>
                           <Badge className="text-[10px] px-1.5 py-0">Free</Badge>
                         </div>
                       ) : (
@@ -359,7 +359,7 @@ const CompletePayment = () => {
                 )}
                 <span className="font-bold text-lg text-foreground">
                   {isTrial ? (
-                    <><span>€0</span> <Badge className="ml-1 text-[10px]">Free 7 days</Badge></>
+                    <><span>{formatALL(0)}</span> <Badge className="ml-1 text-[10px]">Free 7 days</Badge></>
                   ) : (
                     <>{formatALL(discountedPrice.toFixed(0))}<span className="text-xs font-normal">/mo</span></>
                   )}
@@ -473,7 +473,7 @@ const CompletePayment = () => {
                 {selectedPaymentMethod === "wallet" && <Wallet className="mr-2 h-5 w-5" />}
                 {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod
-                  ? `Pay €${totalPrice.toFixed(0)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
+                  ? `Pay ${formatALL(totalPrice)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
                   : "Choose payment method"
                 }
                 <ArrowRight className="ml-auto h-4 w-4" />

@@ -204,7 +204,7 @@ export default {
         },
         howMuch: {
           q: "Sa kushton?",
-          a: "Planet fillojnë nga €49/muaj (Start), €99/muaj (Growth), €199/muaj (PRO) dhe €399+/muaj (Enterprise). Merrni zbritje për angazhime më të gjata: 5% për 3 muaj, 10% për 6 muaj, 15% vjetore.",
+          a: "Planet fillojnë nga 9,900 ALL/muaj (Start), 19,900 ALL/muaj (Growth), 39,900 ALL/muaj (Pro) dhe 79,900 ALL/muaj (Enterprise). Merrni zbritje për angazhime më të gjata: 5% për 3 muaj, 10% për 6 muaj, 15% vjetore.",
         },
         freeTrial: {
           q: "A mund ta provoj falas?",
@@ -234,19 +234,19 @@ export default {
   billing: {
     trial: "7-Ditore Provë",
     trialDesc: "Provë falas",
-    trialPrice: "€0",
+    trialPrice: "0 ALL",
     monthly: "Mujore",
     monthlyDesc: "Pa angazhim",
-    monthlyPrice: "€49/muaj",
+    monthlyPrice: "9,900 ALL/muaj",
     threeMonth: "3 Muaj",
     threeMonthDesc: "Kurseni 5%",
-    threeMonthPrice: "€46.55/muaj",
+    threeMonthPrice: "9,405 ALL/muaj",
     sixMonth: "6 Muaj",
     sixMonthDesc: "Kurseni 10%",
-    sixMonthPrice: "€44.10/muaj",
+    sixMonthPrice: "8,910 ALL/muaj",
     yearly: "Vjetore",
     yearlyDesc: "Kurseni 15%",
-    yearlyPrice: "€41.65/muaj",
+    yearlyPrice: "8,415 ALL/muaj",
   },
 
   // Navigation

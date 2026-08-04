@@ -33,19 +33,19 @@ const FEATURES = [
 
 const PLANS = [
   {
-    name: "Starter", price: "€50", period: "/mo",
+    name: "Starter", price: "9,900 ALL", period: "/mo",
     desc: "For small businesses",
     features: ["1 channel (IG or WA)", "1,000 AI messages/mo", "Basic CRM", "Dashboard"],
     cta: "Start 7-day free trial", highlight: false,
   },
   {
-    name: "Growth", price: "€70", period: "/mo",
+    name: "Growth", price: "19,900 ALL", period: "/mo",
     desc: "For growing businesses",
     features: ["3 channels (IG+WA+FB)", "5,000 AI messages/mo", "Revenue Intelligence", "Automated sequences", "Email campaigns", "Online bookings"],
     cta: "Start 7-day free trial", highlight: true,
   },
   {
-    name: "Pro", price: "€120", period: "/mo",
+    name: "Pro", price: "39,900 ALL", period: "/mo",
     desc: "For agencies and teams",
     features: ["Unlimited channels", "20,000 AI messages/mo", "Live CEO Dashboard", "Ads sync (Meta+Google)", "PDF Invoices + Contracts", "Business Memory Engine", "Partner program"],
     cta: "Contact for demo", highlight: false,
