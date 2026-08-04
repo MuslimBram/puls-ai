@@ -23,6 +23,7 @@ const RefundPolicy = lazy(() => import("./pages/legal/RefundPolicy"));
 const AffiliateTerms = lazy(() => import("./pages/legal/AffiliateTerms"));
 const DPA = lazy(() => import("./pages/legal/DPA"));
 const TermsAndPayments = lazy(() => import("./pages/TermsAndPayments"));
+const WhiteLabel = lazy(() => import("./pages/WhiteLabel"));
 
 // Eagerly loaded (critical path)
 import Login from "./pages/Login";
@@ -185,6 +186,7 @@ const App = () => (
                 <Route path="/auth/callback" element={<Suspense fallback={<LazyFallback />}><AuthCallback /></Suspense>} />
                 <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<LazyFallback />}><OAuthConsent /></Suspense>} />
                 <Route path="/pricing" element={<Pricing />} />
+                <Route path="/white-label" element={<WhiteLabel />} />
 
                 {/* Public legal pages */}
                 <Route path="/privacy" element={<Suspense fallback={<LazyFallback />}><PrivacyPolicy /></Suspense>} />
