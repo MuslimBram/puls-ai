@@ -1,45 +1,38 @@
+# Fix blank preview and endless loading
 
-# Complete Project Audit — Plan
+## Confirmed diagnosis
 
-Deliverable: a single PDF draft at `/mnt/documents/project-audit-v1.pdf` (plus the source markdown at `/mnt/documents/project-audit-v1.md` for future revisions). All 18 sections, full depth, every page / table / edge function listed individually. Sources = current codebase + chat history.
+- The frontend dev server is running and returns HTTP 200; a clean browser can load the app and reach the login page.
+- The affected browser is failing to refresh its saved login session: the auth refresh request returned `504 upstream request timeout`.
+- Lovable Cloud reports the backend as active, but both database health metrics and a read-only performance query timed out. This matches the very slow custom domain and endless loading.
+- `AuthContext` waits for `ensure_current_user_bootstrap` before clearing the global loading state. When the backend stalls, every protected route can remain on its spinner.
+- The PWA service worker is registered immediately in all environments, including Lovable preview. Its document and asset caches can preserve a stale/broken preview response.
 
-## Process
+## Recovery and fix
 
-### Phase 1 — Data collection (parallel, read-only)
-Spawn 6 background subagents in parallel, each writing its findings to a JSON file in `/tmp/audit/`:
+1. **Recover the backend**
+   - Restart the Lovable Cloud backend because auth and database requests are timing out despite the lifecycle status appearing active.
+   - Re-check backend health and verify that token refresh and a simple database read respond normally.
 
-1. **Pages & routes agent** — enumerate `src/App.tsx` routes + every file in `src/pages/`. For each: route path, guard (Protected/Permission), hooks used, tables touched, edge functions called, TODO/placeholder markers, line count.
-2. **Database agent** — for each of the ~230 tables: columns, RLS status, policy count, referenced-by (grep across `src/` and `supabase/functions/`), foreign keys via `supabase--read_query` on `information_schema`. Flag orphan / unused tables.
-3. **Edge functions agent** — list every dir under `supabase/functions/`, read each `index.ts` header, classify (auth required? cron? webhook?), check `config.toml` for JWT settings, find call sites.
-4. **Integrations agent** — inspect `unified_connections`, `external_integrations`, `channel_registry`, `src/integrations/external/providers/*`, Meta/Telegram/Twilio/PayPal/Stripe code paths. Mark Implemented / Mock / Missing per provider.
-5. **Billing & commissions agent** — verify `pricing_settings`, `subscriptions`, `partner_commissions` (first-payment-only rule), `paypal_transactions`, Stripe webhook, wallet flows, refunds, freelancer 40% discount.
-6. **Security agent** — run `supabase--linter` + `security--get_scan_results`, cross-check `user_roles`, `has_role()` definer functions, RLS coverage, 2FA (`totp_secrets`, `Require2FASetup`), session/auto-logout, audit logs, secrets handling.
+2. **Prevent authentication from freezing the UI**
+   - Update `AuthContext` so the local session is applied and `loading` is cleared immediately.
+   - Run user bootstrap after session hydration as non-blocking work, with guarded error handling and no duplicate concurrent call.
+   - Keep protected-route behavior secure: unresolved/invalid sessions still redirect to login; backend bootstrap failure will not expose protected content.
 
-In parallel with subagents, I directly run:
-- `chat_search--recall_chat_history` queries for original feature requests (sweep in 4 windows of ~500 msgs each) to populate Section 2 "Requested by user".
-- `supabase--linter` for fresh security findings.
+3. **Make PWA caching safe for preview**
+   - Do not register the app-shell service worker in development or Lovable preview contexts.
+   - Clean up existing Pulse AI service-worker registrations and stale app-shell caches in preview only.
+   - Preserve installability and offline support on the published/custom-domain app.
 
-### Phase 2 — Report synthesis
-Merge all 6 JSON files + chat-history findings into one master markdown with the exact 18 sections the user listed. Use real numbers; never assume functionality exists if grep finds no implementation. Per-feature status uses: Completed / Partially Completed / Started / Not Started / Missing. Section 16 scorecard derived from counts (e.g. Backend % = working edge functions ÷ total).
+4. **Bound loading states**
+   - Ensure subscription and role checks cannot show an infinite spinner when the backend is temporarily unavailable.
+   - Show a recoverable error/retry state or return safely to login instead of leaving a blank page.
 
-### Phase 3 — PDF generation + QA
-Render markdown → PDF using ReportLab Platypus (US Letter, 1" margins, Arial-equivalent, monospace code blocks, page numbers, TOC). Then per the pdf skill QA rules:
-1. `pdftoppm -jpeg -r 150` → inspect every page image, not just the first.
-2. Fix overflow, broken tables, clipped headings. Re-render until clean.
-3. Write final to `/mnt/documents/project-audit-v1.pdf` and emit `<presentation-artifact>` tag.
+5. **End-to-end verification**
+   - Test public pages, `/login`, `/admin`, and another protected route in a fresh browser.
+   - Test the custom domain with both a clean session and an existing saved session.
+   - Confirm no reload loop, stale service worker, blank screen, or permanent spinner remains.
 
-## Technical details
+## Expected result
 
-- Subagents are read-only; nothing in the project is modified.
-- Output files live under `/mnt/documents/` (persistent) and `/tmp/audit/` (scratch).
-- Total expected length: ~60–100 PDF pages.
-- No code changes, no migrations, no secret reads.
-- Estimated runtime: 4–8 minutes wall clock (subagents run in parallel).
-
-## What the report will NOT do
-
-- Will not auto-fix any issue it finds — the user can ask for fixes per-item afterward.
-- Will not invent features. If a page is a stub, it is reported as a stub.
-- Will not include service-role keys, DB passwords, or other secrets.
-
-After approval I switch to build mode and execute Phase 1 immediately.
+Preview pages load without browser errors, public pages open immediately, expired/stale sessions recover to login, protected pages no longer spin forever, and `kohablerjeve.top` remains usable during temporary backend delays.
