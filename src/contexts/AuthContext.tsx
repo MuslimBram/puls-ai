@@ -25,21 +25,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let isMounted = true;
+    let bootstrappingUserId: string | null = null;
 
-    const syncSession = async (nextSession: Session | null) => {
-      try {
-        if (nextSession?.user) {
-          const { error } = await supabase.rpc("ensure_current_user_bootstrap" as any);
-          if (error) {
-            console.error("[Auth] ensure_current_user_bootstrap failed:", error.message);
-          }
-        }
-      } finally {
-        if (!isMounted) return;
-        setSession(nextSession);
-        setUser(nextSession?.user ?? null);
-        setLoading(false);
+    const bootstrapUser = async (nextSession: Session) => {
+      if (bootstrappingUserId === nextSession.user.id) return;
+      bootstrappingUserId = nextSession.user.id;
+      const { error } = await supabase.rpc("ensure_current_user_bootstrap" as any);
+      if (error) {
+        console.error("[Auth] ensure_current_user_bootstrap failed:", error.message);
       }
+    };
+
+    const syncSession = (nextSession: Session | null) => {
+      if (!isMounted) return;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      setLoading(false);
+      if (nextSession?.user) void bootstrapUser(nextSession);
     };
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -49,16 +51,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           window.location.href = "/reset-password";
           return;
         }
-        void syncSession(nextSession);
+        syncSession(nextSession);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
-      void syncSession(nextSession);
-    });
+    const sessionTimeout = window.setTimeout(() => syncSession(null), 8000);
+    supabase.auth.getSession()
+      .then(({ data: { session: nextSession } }) => {
+        window.clearTimeout(sessionTimeout);
+        syncSession(nextSession);
+      })
+      .catch((error: unknown) => {
+        window.clearTimeout(sessionTimeout);
+        console.error("[Auth] Session recovery failed:", error);
+        syncSession(null);
+      });
 
     return () => {
       isMounted = false;
+      window.clearTimeout(sessionTimeout);
       subscription.unsubscribe();
     };
   }, []);

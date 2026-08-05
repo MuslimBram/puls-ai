@@ -55,7 +55,8 @@ export default defineConfig(({ mode }) => ({
     react(),
     VitePWA({
       registerType: "autoUpdate",
-      injectRegister: "auto",
+      injectRegister: null,
+      devOptions: { enabled: false },
       includeAssets: [
         "robots.txt",
         "favicon.ico",
