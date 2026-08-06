@@ -92,33 +92,18 @@ const BASE_PERMISSIONS: RolePermissions = {
   canManageBusinessScopedIntegrations: false,
 };
 
-const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
-  super_admin: {
-    ...BASE_PERMISSIONS,
-    canCreateAdmin: true,
-    canCreateController: true,
-    canCreateWorker: true,
-    canReviewBusinesses: true,
-    canApprovePayouts: true,
-    canManageCommissions: true,
-    canViewAllWorkspaces: true,
-    canSuspendUsers: true,
-    canChangePlans: true,
-    bypassSubscription: true,
-    bypassFeatureGating: true,
-    bypassUsageLimits: true,
-    canViewCRM: true,
-    canViewAnalytics: true,
-    canMonitorConnections: true,
-    canManagePlatformProviders: true,
-    canViewConnectionLogs: true,
-    canRotateSecrets: true,
-    canManageBusinessScopedIntegrations: true,
-    // super_admin monitors but does NOT connect on behalf of businesses
-    canConnectChannels: false,
-    canConnectOAuth: false,
-    canConnectApiToken: false,
+const ALL_PERMISSIONS: RolePermissions = Object.keys(BASE_PERMISSIONS).reduce(
+  (acc, key) => {
+    (acc as any)[key] = true;
+    return acc;
   },
+  {} as RolePermissions,
+);
+
+const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
+  // Platform owner: unrestricted access to every area of the platform.
+  super_admin: { ...ALL_PERMISSIONS },
+
   admin: {
     ...BASE_PERMISSIONS,
     canCreateAdmin: true,
