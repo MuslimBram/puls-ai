@@ -6,7 +6,7 @@
 // ============================================================
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 interface Props {
@@ -15,15 +15,34 @@ interface Props {
   requiredForRoles?: string[];
 }
 
+/** Stable module-level default so the effect below does not re-run every render. */
+const DEFAULT_ROLES = ["admin", "super_admin"];
+
+/** Pages that must stay reachable, otherwise the redirect loops forever. */
+const EXEMPT_PATHS = ["/session-security", "/login", "/logout", "/complete-payment"];
+
 export const Require2FASetup = ({
   children,
-  requiredForRoles = ["admin", "super_admin"],
+  requiredForRoles = DEFAULT_ROLES,
 }: Props) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+
+    // Never enforce on the very page the user is redirected to.
+    if (EXEMPT_PATHS.some((p) => location.pathname.startsWith(p))) {
+      setChecked(true);
+      return;
+    }
+
+    // Safety net: never keep the app on a spinner for more than 6s.
+    const failSafe = setTimeout(() => {
+      if (!cancelled) setChecked(true);
+    }, 6000);
+
 
     async function check() {
       try {
@@ -66,13 +85,20 @@ export const Require2FASetup = ({
           const totpEnabled = totp?.is_enabled && totp?.is_verified;
 
           if (!totpEnabled && !cancelled) {
-            // Redirect to the protected session security page
-            navigate(
-              "/session-security?require_2fa=true&reason=admin_role",
-              { replace: true }
-            );
+            setChecked(true);
+            // Prompt once per browser session, then stop blocking navigation so
+            // the platform owner/admins keep full access to the dashboard.
+            const PROMPTED_KEY = "pulse_2fa_prompted";
+            if (!sessionStorage.getItem(PROMPTED_KEY)) {
+              sessionStorage.setItem(PROMPTED_KEY, "1");
+              navigate(
+                "/session-security?require_2fa=true&reason=admin_role",
+                { replace: true }
+              );
+            }
             return;
           }
+
         }
 
         if (!cancelled) setChecked(true);
@@ -84,8 +110,12 @@ export const Require2FASetup = ({
     }
 
     check();
-    return () => { cancelled = true; };
-  }, [navigate, requiredForRoles]);
+    return () => {
+      cancelled = true;
+      clearTimeout(failSafe);
+    };
+  }, [navigate, requiredForRoles, location.pathname]);
+
 
   // Mos shfaq asgjë derisa kontrolli përfundon (parandalon flash)
   if (!checked) {

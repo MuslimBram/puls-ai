@@ -4,7 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-    <meta http-equiv="X-Frame-Options" content="DENY" />
+    <!-- X-Frame-Options must be an HTTP header, not a meta tag. Set via hosting headers instead;
+         as a meta tag it is ignored by browsers and breaks the Lovable preview iframe. -->
+
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>Pulse AI — AI-Powered Lead Discovery & Unified Inbox</title>
     <meta name="description" content="Pulse AI unifies your inbox, CRM, telephony, and marketing automation in one AI-native dashboard so small teams can capture leads, reply faster, and grow revenue." />
