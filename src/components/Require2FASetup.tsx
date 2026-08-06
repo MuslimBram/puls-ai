@@ -86,6 +86,7 @@ export const Require2FASetup = ({
 
           if (!totpEnabled && !cancelled) {
             // Redirect to the protected session security page
+            setChecked(true);
             navigate(
               "/session-security?require_2fa=true&reason=admin_role",
               { replace: true }
@@ -103,8 +104,12 @@ export const Require2FASetup = ({
     }
 
     check();
-    return () => { cancelled = true; };
-  }, [navigate, requiredForRoles]);
+    return () => {
+      cancelled = true;
+      clearTimeout(failSafe);
+    };
+  }, [navigate, requiredForRoles, location.pathname]);
+
 
   // Mos shfaq asgjë derisa kontrolli përfundon (parandalon flash)
   if (!checked) {
