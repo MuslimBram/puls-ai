@@ -85,14 +85,20 @@ export const Require2FASetup = ({
           const totpEnabled = totp?.is_enabled && totp?.is_verified;
 
           if (!totpEnabled && !cancelled) {
-            // Redirect to the protected session security page
             setChecked(true);
-            navigate(
-              "/session-security?require_2fa=true&reason=admin_role",
-              { replace: true }
-            );
+            // Prompt once per browser session, then stop blocking navigation so
+            // the platform owner/admins keep full access to the dashboard.
+            const PROMPTED_KEY = "pulse_2fa_prompted";
+            if (!sessionStorage.getItem(PROMPTED_KEY)) {
+              sessionStorage.setItem(PROMPTED_KEY, "1");
+              navigate(
+                "/session-security?require_2fa=true&reason=admin_role",
+                { replace: true }
+              );
+            }
             return;
           }
+
         }
 
         if (!cancelled) setChecked(true);
