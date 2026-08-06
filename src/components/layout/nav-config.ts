@@ -362,9 +362,29 @@ export const ambassadorNavGroups: NavGroup[] = [
 // ============================================================
 // HELPER: Zgjedh nav-groups sipas roleve
 // ============================================================
+function mergeGroups(...sets: NavGroup[][]): NavGroup[] {
+  const merged: NavGroup[] = [];
+  for (const group of sets.flat()) {
+    const existing = merged.find((g) => g.label === group.label);
+    if (!existing) {
+      merged.push({ ...group, items: [...group.items] });
+      continue;
+    }
+    for (const item of group.items) {
+      if (!existing.items.some((i) => i.href === item.href)) {
+        existing.items.push(item);
+      }
+    }
+  }
+  return merged;
+}
+
 export function getNavGroupsForRoles(roles: string[]): NavGroup[] {
-  if (roles.includes("super_admin")) return [...ownerNavGroups];
-  if (roles.includes("admin")) return [...adminNavGroups];
+  // Platform owner sees the Owner Panel plus every business/admin area.
+  if (roles.includes("super_admin"))
+    return mergeGroups(ownerNavGroups, adminNavGroups, businessNavGroups);
+  if (roles.includes("admin"))
+    return mergeGroups(adminNavGroups, businessNavGroups);
   if (roles.includes("freelancer")) return [...freelancerNavGroups];
   if (roles.includes("agent") || roles.includes("business_manager")) return [...agentNavGroups];
   if (roles.includes("ambassador")) return [...ambassadorNavGroups];
@@ -372,3 +392,4 @@ export function getNavGroupsForRoles(roles: string[]): NavGroup[] {
   // Default: business
   return [...businessNavGroups];
 }
+
