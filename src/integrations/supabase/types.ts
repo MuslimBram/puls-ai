@@ -319,6 +319,109 @@ export type Database = {
           },
         ]
       }
+      ai_agent_configs: {
+        Row: {
+          agent_name: string
+          agent_tone: string
+          auto_reply_enabled: boolean
+          business_description: string | null
+          business_hours: Json
+          created_at: string
+          custom_instructions: string | null
+          enabled_agents: Json
+          id: string
+          language: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          agent_name?: string
+          agent_tone?: string
+          auto_reply_enabled?: boolean
+          business_description?: string | null
+          business_hours?: Json
+          created_at?: string
+          custom_instructions?: string | null
+          enabled_agents?: Json
+          id?: string
+          language?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          agent_name?: string
+          agent_tone?: string
+          auto_reply_enabled?: boolean
+          business_description?: string | null
+          business_hours?: Json
+          created_at?: string
+          custom_instructions?: string | null
+          enabled_agents?: Json
+          id?: string
+          language?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_configs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_agent_tasks: {
+        Row: {
+          agent_name: string
+          completed_at: string | null
+          created_at: string
+          error: string | null
+          id: string
+          input: Json
+          output: Json | null
+          started_at: string | null
+          status: string
+          task_type: string
+          workspace_id: string
+        }
+        Insert: {
+          agent_name: string
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          output?: Json | null
+          started_at?: string | null
+          status?: string
+          task_type: string
+          workspace_id: string
+        }
+        Update: {
+          agent_name?: string
+          completed_at?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input?: Json
+          output?: Json | null
+          started_at?: string | null
+          status?: string
+          task_type?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_agent_tasks_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_content_library: {
         Row: {
           body: string
@@ -609,6 +712,56 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "ai_suggested_actions_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_training_data: {
+        Row: {
+          answer: string
+          category: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          language: string
+          priority: number
+          question: string
+          type: string
+          updated_at: string
+          workspace_id: string | null
+        }
+        Insert: {
+          answer: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          priority?: number
+          question: string
+          type?: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Update: {
+          answer?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          language?: string
+          priority?: number
+          question?: string
+          type?: string
+          updated_at?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_training_data_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -1317,6 +1470,48 @@ export type Database = {
           },
         ]
       }
+      blocked_content: {
+        Row: {
+          blocked_by: string
+          content: string | null
+          created_at: string
+          id: string
+          reason: string
+          source: string
+          source_id: string | null
+          unblocked: boolean
+          unblocked_at: string | null
+          unblocked_by: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          blocked_by?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          reason: string
+          source: string
+          source_id?: string | null
+          unblocked?: boolean
+          unblocked_at?: string | null
+          unblocked_by?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          blocked_by?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          reason?: string
+          source?: string
+          source_id?: string | null
+          unblocked?: boolean
+          unblocked_at?: string | null
+          unblocked_by?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       brand_improvement_actions: {
         Row: {
           action_text: string
@@ -1858,6 +2053,50 @@ export type Database = {
           {
             foreignKeyName: "business_ai_content_workspace_id_fkey"
             columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_memory: {
+        Row: {
+          business_id: string
+          confidence: number
+          created_at: string
+          entity_type: string
+          id: string
+          memory_key: string
+          memory_value: Json
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          confidence?: number
+          created_at?: string
+          entity_type: string
+          id?: string
+          memory_key: string
+          memory_value?: Json
+          source?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          confidence?: number
+          created_at?: string
+          entity_type?: string
+          id?: string
+          memory_key?: string
+          memory_value?: Json
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_memory_business_id_fkey"
+            columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
@@ -4100,6 +4339,39 @@ export type Database = {
           },
         ]
       }
+      content_scan_log: {
+        Row: {
+          content_hash: string
+          created_at: string
+          id: string
+          source: string
+          source_id: string | null
+          threat_found: boolean
+          threats: Json
+          workspace_id: string | null
+        }
+        Insert: {
+          content_hash: string
+          created_at?: string
+          id?: string
+          source: string
+          source_id?: string | null
+          threat_found?: boolean
+          threats?: Json
+          workspace_id?: string | null
+        }
+        Update: {
+          content_hash?: string
+          created_at?: string
+          id?: string
+          source?: string
+          source_id?: string | null
+          threat_found?: boolean
+          threats?: Json
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       content_style_recommendations: {
         Row: {
           adopted_at: string | null
@@ -4459,6 +4731,44 @@ export type Database = {
           {
             foreignKeyName: "custom_channel_adapters_workspace_id_fkey"
             columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_journey: {
+        Row: {
+          business_id: string
+          communication_style: string | null
+          created_at: string
+          current_phase: string
+          customer_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          business_id: string
+          communication_style?: string | null
+          created_at?: string
+          current_phase?: string
+          customer_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          business_id?: string
+          communication_style?: string | null
+          created_at?: string
+          current_phase?: string
+          customer_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_journey_business_id_fkey"
+            columns: ["business_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
@@ -4994,6 +5304,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "demand_forecasts_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_approval_requests: {
+        Row: {
+          created_at: string
+          device_label: string | null
+          expires_at: string
+          id: string
+          ip_address: string | null
+          status: string
+          user_agent: string | null
+          user_id: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_label?: string | null
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_label?: string | null
+          expires_at?: string
+          id?: string
+          ip_address?: string | null
+          status?: string
+          user_agent?: string | null
+          user_id?: string
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_approval_requests_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
             referencedRelation: "workspaces"
@@ -6298,6 +6652,41 @@ export type Database = {
         }
         Relationships: []
       }
+      google_sync_log: {
+        Row: {
+          created_at: string
+          details: Json
+          id: string
+          status: string
+          sync_type: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          id?: string
+          status?: string
+          sync_type?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          id?: string
+          status?: string
+          sync_type?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "google_sync_log_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       growth_action_items: {
         Row: {
           category: string | null
@@ -6919,6 +7308,44 @@ export type Database = {
             columns: ["integration_id"]
             isOneToOne: false
             referencedRelation: "external_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      integration_status: {
+        Row: {
+          created_at: string
+          id: string
+          integrations: Json
+          last_checked: string | null
+          onboarding_done: boolean
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          integrations?: Json
+          last_checked?: string | null
+          onboarding_done?: boolean
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          integrations?: Json
+          last_checked?: string | null
+          onboarding_done?: boolean
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "integration_status_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -9477,6 +9904,45 @@ export type Database = {
           },
         ]
       }
+      payment_fraud_flags: {
+        Row: {
+          created_at: string
+          details: Json
+          flag_type: string
+          id: string
+          payment_id: string | null
+          reviewed_by: string | null
+          risk_score: number
+          status: string
+          user_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          details?: Json
+          flag_type: string
+          id?: string
+          payment_id?: string | null
+          reviewed_by?: string | null
+          risk_score?: number
+          status?: string
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          details?: Json
+          flag_type?: string
+          id?: string
+          payment_id?: string | null
+          reviewed_by?: string | null
+          risk_score?: number
+          status?: string
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       payment_notifications: {
         Row: {
           created_at: string | null
@@ -11760,6 +12226,81 @@ export type Database = {
         }
         Relationships: []
       }
+      security_incidents: {
+        Row: {
+          action_taken: string
+          auto_blocked: boolean
+          blocked_reason: string | null
+          category: string
+          created_at: string
+          detected_text: string | null
+          id: string
+          incident_type: string
+          ip_address: string | null
+          matched_pattern: string | null
+          review_action: string | null
+          review_note: string | null
+          reviewed: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          severity: string
+          source: string
+          source_id: string | null
+          threat_score: number
+          user_agent: string | null
+          user_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          action_taken?: string
+          auto_blocked?: boolean
+          blocked_reason?: string | null
+          category: string
+          created_at?: string
+          detected_text?: string | null
+          id?: string
+          incident_type: string
+          ip_address?: string | null
+          matched_pattern?: string | null
+          review_action?: string | null
+          review_note?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: string
+          source: string
+          source_id?: string | null
+          threat_score?: number
+          user_agent?: string | null
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          action_taken?: string
+          auto_blocked?: boolean
+          blocked_reason?: string | null
+          category?: string
+          created_at?: string
+          detected_text?: string | null
+          id?: string
+          incident_type?: string
+          ip_address?: string | null
+          matched_pattern?: string | null
+          review_action?: string | null
+          review_note?: string | null
+          reviewed?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: string
+          source?: string
+          source_id?: string | null
+          threat_score?: number
+          user_agent?: string | null
+          user_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
       security_scan_results: {
         Row: {
           created_at: string
@@ -11967,6 +12508,59 @@ export type Database = {
             foreignKeyName: "source_scans_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sso_configs: {
+        Row: {
+          allowed_domains: string[]
+          client_id: string | null
+          client_secret_encrypted: string | null
+          created_at: string
+          enforce_sso: boolean
+          id: string
+          is_active: boolean
+          issuer_url: string | null
+          provider: string
+          tenant_id: string | null
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          allowed_domains?: string[]
+          client_id?: string | null
+          client_secret_encrypted?: string | null
+          created_at?: string
+          enforce_sso?: boolean
+          id?: string
+          is_active?: boolean
+          issuer_url?: string | null
+          provider: string
+          tenant_id?: string | null
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          allowed_domains?: string[]
+          client_id?: string | null
+          client_secret_encrypted?: string | null
+          created_at?: string
+          enforce_sso?: boolean
+          id?: string
+          is_active?: boolean
+          issuer_url?: string | null
+          provider?: string
+          tenant_id?: string | null
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sso_configs_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: true
             referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
@@ -14093,6 +14687,10 @@ export type Database = {
         Returns: string
       }
       billing_consistency_report: { Args: never; Returns: Json }
+      boost_memory_confidence: {
+        Args: { p_boost?: number; p_business_id: string; p_memory_key: string }
+        Returns: undefined
+      }
       bootstrap_user_account_for: {
         Args: { _user_id: string }
         Returns: undefined
@@ -14238,6 +14836,7 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      decay_memory_confidence: { Args: { p_days?: number }; Returns: number }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -14316,9 +14915,18 @@ export type Database = {
               isSetofReturn: false
             }
           }
+      generate_daily_kpi: { Args: { p_workspace_id: string }; Returns: Json }
       get_active_referral_count: {
         Args: { _referrer_user_id: string }
         Returns: number
+      }
+      get_legal_training_response: {
+        Args: { p_language?: string; p_query: string }
+        Returns: {
+          answer: string
+          priority: number
+          question: string
+        }[]
       }
       get_media_usage_policy_for_user: {
         Args: { _user_id: string }
@@ -14330,6 +14938,13 @@ export type Database = {
           daily_video_seconds_limit: number
           max_video_seconds: number
           plan_key: string
+        }[]
+      }
+      get_prohibited_rules: {
+        Args: { p_language?: string }
+        Returns: {
+          answer: string
+          question: string
         }[]
       }
       has_role: {
@@ -14358,6 +14973,17 @@ export type Database = {
       is_workspace_owner: {
         Args: { _user_id: string; _workspace_id: string }
         Returns: boolean
+      }
+      log_audit: {
+        Args: {
+          p_action?: string
+          p_new_values?: Json
+          p_resource_type?: string
+          p_severity?: string
+          p_user_id?: string
+          p_workspace_id?: string
+        }
+        Returns: undefined
       }
       move_to_dlq: {
         Args: {
