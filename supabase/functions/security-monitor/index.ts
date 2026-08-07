@@ -105,10 +105,10 @@ function staticScan(content: string): ThreatResult[] {
 async function aiDeepScan(content: string, context: string): Promise<ThreatResult | null> {
   try {
     const result = await askAI(
-      `Ti je analizues sigurie i nivelit enterprise. Analize këtë content dhe kthe VETËM JSON.
+      `You are an enterprise-grade security analyst. Analyze this content and return ONLY JSON.
 Kategoritë e mundshme: malware,phishing,sql_injection,xss,prompt_injection,command_injection,spam,scam,fraud,brute_force,bot_activity,api_abuse,account_takeover,dangerous_link,clean
-Kthe: {"found":boolean,"category":"...","severity":"low|medium|high|critical","score":0.0-1.0,"reason":"...","action":"allow|flag|block|quarantine"}`,
-      `Content: "${content.slice(0, 800)}"\nKontekst: ${context}`,
+Return: {"found":boolean,"category":"...","severity":"low|medium|high|critical","score":0.0-1.0,"reason":"...","action":"allow|flag|block|quarantine"}`,
+      `Content: "${content.slice(0, 800)}"\nContext: ${context}`,
       200
     );
     const p = JSON.parse(result.replace(/```json|```/g, "").trim());
@@ -152,11 +152,11 @@ async function notifyAdmins(
           <table>
             <tr><td><b>Kategoria:</b></td><td>${incident.category}</td></tr>
             <tr><td><b>Burimi:</b></td><td>${incident.source}</td></tr>
-            <tr><td><b>Veprimi:</b></td><td>${incident.action_taken}</td></tr>
+            <tr><td><b>Action taken:</b></td><td>${incident.action_taken}</td></tr>
             <tr><td><b>Arsyeja:</b></td><td>${incident.blocked_reason}</td></tr>
             <tr><td><b>IP:</b></td><td>${incident.ip_address ?? "N/A"}</td></tr>
           </table>
-          <p><a href="https://kohablerjeve.top/security">Shiko Security Dashboard →</a></p>
+          <p><a href="https://kohablerjeve.top/security">Open Security Dashboard →</a></p>
         </div>`,
       }),
     }).catch(() => {});
@@ -253,7 +253,7 @@ serve(async (req: Request): Promise<Response> => {
         severity: "high", score: 0.75,
         matched: `Shumë: $${amount}`,
         action: "flag",
-        reason: "Shumë e madhe — kërkon rishikim manual",
+        reason: "Too large — requires manual review",
       });
     }
   }

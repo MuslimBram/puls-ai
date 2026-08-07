@@ -21,13 +21,13 @@ serve(async(req:Request)=>{
     sb.from("business_memory").select("id").eq("business_id",wsId).limit(1).maybeSingle(),
   ]);
   const checks={
-    instagram:{name:"Instagram",required:true,plan_required:"starter",status:ig.data?"connected":"not_started",details:ig.data?.handle_or_url?`@${ig.data.handle_or_url}`:"OAuth 1 klikim",action_url:"/connected-accounts?connect=instagram"},
+    instagram:{name:"Instagram",required:true,plan_required:"starter",status:ig.data?"connected":"not_started",details:ig.data?.handle_or_url?`@${ig.data.handle_or_url}`:"One-click OAuth",action_url:"/connected-accounts?connect=instagram"},
     whatsapp:{name:"WhatsApp Business",required:true,plan_required:"starter",status:wa.data?"connected":"not_started",action_url:"/connections?connect=whatsapp"},
     facebook:{name:"Facebook",required:false,plan_required:"starter",status:fb.data?"connected":"not_started",action_url:"/connected-accounts?connect=facebook"},
     google_workspace:{name:"Google Workspace",required:false,plan_required:"growth",status:gSync.data?"connected":"not_started",action_url:"/connections?connect=google"},
     meta_ads:{name:"Meta Ads",required:false,plan_required:"growth",status:metaAds.data?"connected":"not_started",action_url:"/connections?connect=meta_ads"},
     email:{name:"Email (Resend)",required:true,plan_required:"starter",status:Deno.env.get("RESEND_API_KEY")?"connected":"not_started",action_url:"/connections?connect=email"},
-    ai_memory:{name:"AI Memory (Skanim)",required:true,plan_required:"starter",status:mc.data?"connected":"not_started",action_url:"/sources?action=scan"},
+    ai_memory:{name:"AI Memory (Scan)",required:true,plan_required:"starter",status:mc.data?"connected":"not_started",action_url:"/sources?action=scan"},
   };
   const vals=Object.values(checks);
   const connected=vals.filter((c:Record<string,unknown>)=>c.status==="connected").length;
