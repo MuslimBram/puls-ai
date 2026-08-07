@@ -17,7 +17,7 @@ serve(async(req:Request)=>{
     sb.from("integration_status").select("*").eq("workspace_id",wsId).maybeSingle(),
     sb.from("ai_agent_configs").select("business_description").eq("workspace_id",wsId).maybeSingle(),
     sb.from("business_memory").select("*",{count:"exact",head:true}).eq("business_id",wsId),
-    sb.from("subscriptions").select("plan").eq("user_id",user.id).eq("status","active").maybeSingle(),
+    sb.from("subscriptions").select("plan").eq("user_id",user.id).maybeSingle(),
   ]);
   const plan=(sub.data?.plan??"starter") as string;
   const ints=(intStatus.data?.integrations??{}) as Record<string,{status:string}>;

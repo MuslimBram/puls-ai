@@ -163,7 +163,7 @@ async function notifyAdmins(
   }
 
   // In-app notification
-  await supabase.from("audit_log").insert({
+  await supabase.from("audit_logs").insert({
     workspace_id: workspaceId,
     user_id: null,
     action: "security_incident",

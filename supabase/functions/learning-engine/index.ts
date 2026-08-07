@@ -58,7 +58,7 @@ serve(async(req:Request)=>{
       feedback_type:"approval",applied:true,applied_at:new Date().toISOString()
     }).catch(()=>{});
     // Rrit confidence te memories perkatese
-    await sb.rpc("boost_memory_confidence",{p_business_id:wsId,p_text_match:body.original_reply.slice(0,50)}).catch(()=>{});
+    await sb.rpc("boost_memory_confidence",{p_business_id:wsId,p_memory_key:`correction_${wsId}`,p_boost:0.05}).catch(()=>{});
     learned=1;
 
   }else if(body.source==="document"&&body.document_text){
