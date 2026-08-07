@@ -1,12 +1,15 @@
 // supabase/functions/workspace-scheduler/index.ts
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { requireCronAuth } from "../_shared/cron-auth.ts";
 
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{"Content-Type":"application/json"}});
 const BASE=Deno.env.get("SUPABASE_URL")!,KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const call=async(fn:string,body:Record<string,unknown>)=>(await fetch(`${BASE}/functions/v1/${fn}`,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${KEY}`},body:JSON.stringify(body)})).ok;
 
-serve(async()=>{
+serve(async(req:Request)=>{
+  const fail=requireCronAuth(req);
+  if(fail) return new Response(fail.body,{status:fail.status,headers:{"Content-Type":"application/json"}});
   const sb=createClient(BASE,KEY,{auth:{persistSession:false}});
   const now=new Date(),h=now.getUTCHours(),m=now.getUTCMinutes();
   const half=m<5||(m>=30&&m<35),top=m<5,morn=h===7&&m<5,night=h===0&&m<5;
