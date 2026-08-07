@@ -211,6 +211,9 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/ai-decisions?focus=offers", label: "Suggested Offers", icon: Lightbulb },
       { href: "/ai-decisions?focus=replies", label: "Suggested Replies", icon: MessageSquare },
       { href: "/ai-decisions?focus=campaigns", label: "Suggested Campaigns", icon: Megaphone },
+      { href: "/ai-marketplace", label: "AI Marketplace", icon: Zap },
+      { href: "/ai-training", label: "AI Training Center", icon: Brain },
+      { href: "/integration-wizard", label: "Integration Wizard", icon: Plug },
     ],
   },
   {
