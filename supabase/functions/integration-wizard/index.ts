@@ -10,7 +10,7 @@ serve(async(req:Request)=>{
   const{data:{user}}=await sb.auth.getUser(auth.replace("Bearer ",""));if(!user) return json({error:"Unauthorized"},401);
   let body:{workspace_id?:string}={};if(req.method==="POST"){try{body=await req.json();}catch{}}
   const wsId=body.workspace_id??user.id;
-  const{data:sub}=await sb.from("subscriptions").select("plan").eq("user_id",user.id).eq("status","active").maybeSingle();
+  const{data:sub}=await sb.from("subscriptions").select("plan").eq("user_id",user.id).maybeSingle();
   const plan=sub?.plan??"free";
   const[ig,wa,fb,gSync,metaAds,mc]=await Promise.all([
     sb.from("channels").select("id,handle_or_url").eq("business_id",wsId).eq("platform","instagram").maybeSingle(),

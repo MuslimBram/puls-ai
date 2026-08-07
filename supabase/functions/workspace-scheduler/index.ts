@@ -33,9 +33,9 @@ serve(async()=>{
     await sb.rpc("decay_memory_confidence");log.push("memory-decay ✓");
     const{data:all}=await sb.from("workspaces").select("id").eq("status","active");
     for(const w of all??[]) await sb.rpc("generate_daily_kpi",{p_workspace_id:w.id}).catch(()=>{});
-    await sb.from("audit_log").delete().lt("created_at",new Date(Date.now()-90*86400_000).toISOString());
+    await sb.from("audit_logs").delete().lt("created_at",new Date(Date.now()-90*86400_000).toISOString());
     log.push(`kpi+audit-cleanup ✓ (${all?.length??0}ws)`);
   }
-  await sb.from("audit_log").insert({action:"scheduler_run",resource_type:"system",severity:"info",metadata:{log,h,m}}).catch(()=>{});
+  await sb.from("audit_logs").insert({action:"scheduler_run",resource_type:"system",severity:"info",metadata:{log,h,m}}).catch(()=>{});
   return json({success:true,ts:now.toISOString(),log});
 });

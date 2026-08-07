@@ -14,8 +14,8 @@ const AGENTS:{[k:string]:{name:string;taskType:string;prompt:string}}={
 };
 async function getCtx(sb:ReturnType<typeof createClient>,wsId:string):Promise<string>{
   const[leads,convs]=await Promise.all([
-    sb.from("public_leads").select("*",{count:"exact",head:true}).eq("target_workspace_id",wsId),
-    sb.from("conversations").select("*",{count:"exact",head:true}).eq("business_id",wsId),
+    sb.from("leads").select("*",{count:"exact",head:true}).eq("workspace_id",wsId),
+    sb.from("conversation_threads").select("*",{count:"exact",head:true}).eq("workspace_id",wsId),
   ]);
   return `Leads:${leads.count??0} | Bisedat:${convs.count??0}`;
 }
