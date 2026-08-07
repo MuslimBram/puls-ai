@@ -64,6 +64,10 @@ const BroadcastMessaging = lazy(() => import("./pages/BroadcastMessaging"));
 const Automations = lazy(() => import("./pages/Automations"));
 const DeepAnalytics = lazy(() => import("./pages/DeepAnalytics"));
 const MediaStudio = lazy(() => import("./pages/MediaStudio"));
+const AIMarketplace = lazy(() => import("./pages/AIMarketplace"));
+const AITrainingCenter = lazy(() => import("./pages/AITrainingCenter"));
+const AISetupAssistant = lazy(() => import("./pages/AISetupAssistant"));
+const IntegrationWizard = lazy(() => import("./pages/IntegrationWizard"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const PublicApi = lazy(() => import("./pages/PublicApi"));
 const Telephony = lazy(() => import("./pages/Telephony"));
@@ -211,6 +215,10 @@ const App = () => (
                 <Route path="/seo-audit" element={<PermissionPage permission="canViewAnalytics"><SEOAudit /></PermissionPage>} />
                 <Route path="/knowledge-base" element={<PermissionPage permission="canViewAnalytics"><KnowledgeBase /></PermissionPage>} />
                 <Route path="/media-studio" element={<PermissionPage permission="canManageCampaigns"><MediaStudio /></PermissionPage>} />
+                <Route path="/ai-marketplace" element={<PermissionPage permission="canConfigureAutomations"><AIMarketplace /></PermissionPage>} />
+                <Route path="/ai-training" element={<PermissionPage permission="canConfigureAutomations"><AITrainingCenter /></PermissionPage>} />
+                <Route path="/ai-setup" element={<PermissionPage permission="canConfigureAutomations"><AISetupAssistant /></PermissionPage>} />
+                <Route path="/integration-wizard" element={<PermissionPage permission="canConnectChannels"><IntegrationWizard /></PermissionPage>} />
                 <Route path="/broadcast" element={<PermissionPage permission="canManageCampaigns"><BroadcastMessaging /></PermissionPage>} />
                 <Route path="/helpdesk" element={<PermissionPage permission="canRespondInbox"><Helpdesk /></PermissionPage>} />
                 <Route path="/telephony" element={<PermissionPage permission="canRespondInbox"><Telephony /></PermissionPage>} />
