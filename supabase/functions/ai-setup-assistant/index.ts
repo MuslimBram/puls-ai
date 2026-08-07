@@ -4,7 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { askAI } from "../_shared/ai-client.ts";
 const CORS={"Access-Control-Allow-Origin":Deno.env.get("ALLOWED_ORIGIN")??"","Access-Control-Allow-Headers":"authorization, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...CORS,"Content-Type":"application/json"}});
-const STEPS=[{id:1,title:"Profili i Biznesit",action:"complete_profile",url:"/business-profile"},{id:2,title:"Lidh Instagram",action:"connect_instagram",url:"/connected-accounts?connect=instagram"},{id:3,title:"Lidh WhatsApp",action:"connect_whatsapp",url:"/connections?connect=whatsapp"},{id:4,title:"Skanim AI",action:"run_scan",url:"/sources?action=scan"},{id:5,title:"Test AI Reply",action:"test_ai",url:"/inbox"},{id:6,title:"Konfigurim Kanaleve",action:"configure_channels",url:"/channels"}];
+const STEPS=[{id:1,title:"Business Profile",action:"complete_profile",url:"/business-profile"},{id:2,title:"Connect Instagram",action:"connect_instagram",url:"/connected-accounts?connect=instagram"},{id:3,title:"Connect WhatsApp",action:"connect_whatsapp",url:"/connections?connect=whatsapp"},{id:4,title:"AI Scan",action:"run_scan",url:"/sources?action=scan"},{id:5,title:"Test AI Reply",action:"test_ai",url:"/inbox"},{id:6,title:"Configure Channels",action:"configure_channels",url:"/channels"}];
 const COSTS:{[k:string]:number}={starter:99,growth:149,pro:249,agency:349,enterprise:799,ultimate:999};
 serve(async(req:Request)=>{
   if(req.method==="OPTIONS") return new Response(null,{headers:CORS});
@@ -33,14 +33,14 @@ serve(async(req:Request)=>{
   const current=STEPS.find(s=>!completed.find(c=>c.id===s.id))??STEPS[STEPS.length-1];
   const pct=Math.round(completed.length/STEPS.length*100);
   let guidance="";
-  try{guidance=await askAI("Ti je asistenti i onboarding-ut te Pulse AI. Jep udhezim konkret (max 2 fjali).",`Hapi: "${current.title}". Progres: ${pct}%.`,100);}
-  catch{guidance=`Hapi tjetër: ${current.title}. Kliko butonin për të vazhduar.`;}
+  try{guidance=await askAI("You are the Pulse AI onboarding assistant. Give one concrete instruction (max 2 sentences), in English.",`Step: "${current.title}". Progress: ${pct}%.`,100);}
+  catch{guidance=`Next step: ${current.title}. Click the button to continue.`;}
   const agents=[];
   if(ints.instagram?.status==="connected"||ints.whatsapp?.status==="connected"){
-    agents.push({id:"sales_manager",name:"AI Sales Manager",reason:"Kap leads automatikisht nga DM-të"});
-    agents.push({id:"marketing_manager",name:"AI Marketing Manager",reason:"Gjeneron content dhe menaxhon kampanjat"});
+    agents.push({id:"sales_manager",name:"AI Sales Manager",reason:"Captures leads automatically from DMs"});
+    agents.push({id:"marketing_manager",name:"AI Marketing Manager",reason:"Generates content and manages campaigns"});
   }
-  if(mc>10) agents.push({id:"customer_success",name:"AI Customer Success",reason:"Redukton churn dhe rrit retention"});
-  if(["pro","enterprise","ultimate"].includes(plan)) agents.push({id:"ceo_assistant",name:"AI CEO Assistant",reason:"Brief ditor me KPI"});
-  return json({success:true,workspace_id:wsId,plan,progress:{pct,completed_steps:completed.length,total_steps:STEPS.length,current_step:current,completed:completed.map(s=>s.id),is_complete:pct===100},ai_guidance:guidance,suggested_agents:agents,costs_transparency:{pulse_ai_monthly:COSTS[plan]??99,third_party_costs:{"Meta Ads":"sipas buxhetit — direkt te Meta","WhatsApp API":"$0.005/msg","Stripe":"2.9%+$0.30/tx","Twilio SMS":"$0.0079/SMS","Resend":"Falas 3K/muaj"},note:"Kostot e palëve të treta paguhen DREJTPËRDREJT te ato kompani, jo te Pulse AI."}});
+  if(mc>10) agents.push({id:"customer_success",name:"AI Customer Success",reason:"Reduces churn and increases retention"});
+  if(["pro","enterprise","ultimate"].includes(plan)) agents.push({id:"ceo_assistant",name:"AI CEO Assistant",reason:"Daily KPI brief"});
+  return json({success:true,workspace_id:wsId,plan,progress:{pct,completed_steps:completed.length,total_steps:STEPS.length,current_step:current,completed:completed.map(s=>s.id),is_complete:pct===100},ai_guidance:guidance,suggested_agents:agents,costs_transparency:{pulse_ai_monthly:COSTS[plan]??99,third_party_costs:{"Meta Ads":"depends on budget — paid directly to Meta","WhatsApp API":"$0.005/msg","Stripe":"2.9%+$0.30/tx","Twilio SMS":"$0.0079/SMS","Resend":"Free up to 3K/month"},note:"Third-party costs are paid DIRECTLY to those providers, not to Pulse AI."}});
 });

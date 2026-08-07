@@ -12,13 +12,13 @@ async function classify(trigger:string){
   if(d) return{agents:[],priority:"urgent",requires_approval:true,approval_action:d};
   try{
     const r=await askAI(
-      "Klasifiko trigger-in dhe zgjedh agjentët nga: sales_manager,marketing_manager,customer_success,ceo_assistant,coach. Kthe JSON:{agents:[],priority:urgent|normal|low}",
+      "Classify the trigger and pick agents from: sales_manager,marketing_manager,customer_success,ceo_assistant,coach. Return JSON:{agents:[],priority:urgent|normal|low}",
       `Trigger: ${trigger}`,100);
     const p=JSON.parse(r.replace(/```json|```/g,"").trim());
     return{agents:p.agents??["marketing_manager"],priority:p.priority??"normal",requires_approval:false};
   }catch{
-    if(/blerje|deal|çmim/i.test(trigger)) return{agents:["sales_manager"],priority:"normal",requires_approval:false};
-    if(/churn|ankesë/i.test(trigger)) return{agents:["customer_success"],priority:"urgent",requires_approval:false};
+    if(/buy|purchase|deal|price|pricing/i.test(trigger)) return{agents:["sales_manager"],priority:"normal",requires_approval:false};
+    if(/churn|complaint|refund/i.test(trigger)) return{agents:["customer_success"],priority:"urgent",requires_approval:false};
     return{agents:["marketing_manager"],priority:"low",requires_approval:false};
   }
 }
@@ -34,14 +34,14 @@ serve(async(req:Request)=>{
   try{body=await req.json();}catch{return json({error:"Body invalid"},400);}
   const wsId=body.workspace_id??user.id;
   const{agents,priority,requires_approval,approval_action}=await classify(body.trigger);
-  if(requires_approval) return json({requires_approval:true,action:approval_action,message:`Veprimi "${approval_action}" kërkon aprovim.`},202);
+  if(requires_approval) return json({requires_approval:true,action:approval_action,message:`The action "${approval_action}" requires approval.`},202);
   const selected=body.force_agents??agents;
   const PROMPTS:Record<string,string>={
-    sales_manager:`Sales Manager AI. Kthe JSON:{actions:[{priority:1,action:"",why:""}],deals_at_risk:[]}`,
-    marketing_manager:`Marketing Manager AI. Kthe JSON:{intent:"interest|inquiry|other",recommended_content:"",next_agent:"sales_manager|none"}`,
-    customer_success:`CSM AI. Kthe JSON:{risk_level:"high|medium|low",action:"",message_template:""}`,
-    ceo_assistant:`CEO Assistant. Kthe JSON:{decision:"",priority_action:"",risks:[]}`,
-    coach:`Business Coach. Kthe JSON:{lesson:"",training_point:""}`,
+    sales_manager:`Sales Manager AI. Return JSON:{actions:[{priority:1,action:"",why:""}],deals_at_risk:[]}`,
+    marketing_manager:`Marketing Manager AI. Return JSON:{intent:"interest|inquiry|other",recommended_content:"",next_agent:"sales_manager|none"}`,
+    customer_success:`CSM AI. Return JSON:{risk_level:"high|medium|low",action:"",message_template:""}`,
+    ceo_assistant:`CEO Assistant. Return JSON:{decision:"",priority_action:"",risks:[]}`,
+    coach:`Business Coach. Return JSON:{lesson:"",training_point:""}`,
   };
   const results:Record<string,unknown>={};
   for(const k of selected){

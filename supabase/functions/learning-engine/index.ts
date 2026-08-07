@@ -9,7 +9,7 @@ const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{
 async function extractKnowledge(text:string):Promise<Array<{entity_type:string;key:string;value:Record<string,unknown>;confidence:number}>>{
   try{
     const r=await askAI(
-      "Nxjerr njohuri te strukturuara nga teksti i biznesit. Kthe VETEM JSON array: [{entity_type:'product|faq_answer|business_hour|policy',key:string,value:{},confidence:0.0-1.0}]. Nese nuk ka, kthe [].",
+      "Extract structured knowledge from this business text. Return ONLY a JSON array: [{entity_type:'product|faq_answer|business_hour|policy',key:string,value:{},confidence:0.0-1.0}]. If there is nothing, return [].",
       text.slice(0,2000),600
     );
     const p=JSON.parse(r.replace(/```json|```/g,"").trim());
@@ -31,8 +31,8 @@ serve(async(req:Request)=>{
 
   if(body.source==="staff_correction"&&body.original_reply&&body.correction){
     const lesson=await askAI(
-      "Analize korrigjimin e stafit ndaj AI. Kthe JSON: {lesson:string,entity_type:string,confidence:number}",
-      `AI tha:"${body.original_reply.slice(0,300)}"\nStafi korrigjoi:"${body.correction.slice(0,300)}"\nKontekst:"${(body.context??"").slice(0,100)}"`,150
+      "Analyze the staff correction of the AI reply. Return JSON: {lesson:string,entity_type:string,confidence:number}",
+      `AI said:"${body.original_reply.slice(0,300)}"\nStaff corrected:"${body.correction.slice(0,300)}"\nContext:"${(body.context??"").slice(0,100)}"`,150
     ).catch(()=>"{}");
     try{
       const p=JSON.parse(lesson.replace(/```json|```/g,"").trim());
@@ -44,7 +44,7 @@ serve(async(req:Request)=>{
       });
       if(!error){
         learned=1;
-        // Shto edhe te ai_feedback per historik
+        // Also record in ai_feedback for history
         await sb.from("ai_feedback").insert({
           workspace_id:wsId,original_reply:body.original_reply,corrected_reply:body.correction,
           feedback_type:"correction",applied:true,applied_at:new Date().toISOString()
@@ -57,7 +57,7 @@ serve(async(req:Request)=>{
       workspace_id:wsId,original_reply:body.original_reply,corrected_reply:body.original_reply,
       feedback_type:"approval",applied:true,applied_at:new Date().toISOString()
     }).catch(()=>{});
-    // Rrit confidence te memories perkatese
+    // Boost confidence of related memories
     await sb.rpc("boost_memory_confidence",{p_business_id:wsId,p_memory_key:`correction_${wsId}`,p_boost:0.05}).catch(()=>{});
     learned=1;
 
@@ -97,5 +97,5 @@ serve(async(req:Request)=>{
   }
 
   await sb.rpc("log_audit",{p_workspace_id:wsId,p_user_id:user.id,p_action:`learn_from_${body.source}`,p_resource_type:"business_memory",p_severity:"info",p_new_values:{learned_items:learned,source:body.source}}).catch(()=>{});
-  return json({success:true,source:body.source,items_learned:learned,message:`AI mesoi ${learned} njohuri nga ${body.source}`});
+  return json({success:true,source:body.source,items_learned:learned,message:`AI learned ${learned} item(s) from ${body.source}`});
 });

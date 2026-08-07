@@ -21,7 +21,7 @@ serve(async(req:Request)=>{
     let body:{workspace_id?:string;provider:string;client_id:string;client_secret:string;tenant_id?:string;allowed_domains:string[];enforce_sso?:boolean};
     try{body=await req.json();}catch{return json({error:"Body invalid"},400);}
     const{data:s}=await sb.from("subscriptions").select("plan").eq("user_id",user.id).maybeSingle();
-    if(!["enterprise","ultimate"].includes(s?.plan??"")) return json({error:"SSO kërkon Enterprise ose Ultimate",upgrade_url:"/subscription"},403);
+    if(!["enterprise","ultimate"].includes(s?.plan??"")) return json({error:"SSO requires the Enterprise or Ultimate plan",upgrade_url:"/subscription"},403);
     const wsId=body.workspace_id??user.id;
     const{error}=await sb.from("sso_configs").upsert({workspace_id:wsId,provider:body.provider,client_id:body.client_id,client_secret_encrypted:body.client_secret,tenant_id:body.tenant_id??null,allowed_domains:body.allowed_domains,is_active:true,enforce_sso:body.enforce_sso??false,updated_at:new Date().toISOString()},{onConflict:"workspace_id"});
     if(error) return json({error:error.message},500);
