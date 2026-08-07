@@ -164,12 +164,10 @@ async function notifyAdmins(
 
   // In-app notification
   await supabase.from("audit_logs").insert({
-    workspace_id: workspaceId,
-    user_id: null,
     action: "security_incident",
-    resource_type: "security",
-    severity: incident.severity === "critical" || incident.severity === "high" ? "security" : "warning",
-    metadata: incident,
+    target_type: "security",
+    target_id: workspaceId,
+    metadata: { ...incident, severity: incident.severity },
   }).catch(() => {});
 }
 
