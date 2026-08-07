@@ -18,24 +18,24 @@ serve(async()=>{
     log.push("approvals-cleanup ✓");
   }
   if(top){
-    const{data:ws}=await sb.from("workspaces").select("id").eq("status","active").limit(50);
+    const{data:ws}=await sb.from("workspaces").select("id").limit(50);
     for(const w of ws??[]) await call("score-and-rank-leads",{business_id:w.id,trigger:"cron"});
     await call("journey-engine",{action:"batch_update"});
     log.push(`scoring+journey ✓ (${ws?.length??0}ws)`);
   }
   if(morn){
-    const{data:pro}=await sb.from("subscriptions").select("user_id").in("plan",["pro","enterprise","ultimate"]).eq("status","active");
+    const{data:pro}=await sb.from("subscriptions").select("user_id").in("plan",["pro","enterprise","ultimate"]).eq("subscription_status","active");
     for(const s of pro??[]) await call("agent-orchestrator",{trigger:"CEO morning brief",workspace_id:s.user_id,force_agents:["sales_manager","marketing_manager","customer_success","ceo_assistant"]});
     await call("sync-meta-ads",{});
     log.push(`morning-brief ✓ (${pro?.length??0}ws)`);
   }
   if(night){
     await sb.rpc("decay_memory_confidence");log.push("memory-decay ✓");
-    const{data:all}=await sb.from("workspaces").select("id").eq("status","active");
+    const{data:all}=await sb.from("workspaces").select("id");
     for(const w of all??[]) await sb.rpc("generate_daily_kpi",{p_workspace_id:w.id}).catch(()=>{});
     await sb.from("audit_logs").delete().lt("created_at",new Date(Date.now()-90*86400_000).toISOString());
     log.push(`kpi+audit-cleanup ✓ (${all?.length??0}ws)`);
   }
-  await sb.from("audit_logs").insert({action:"scheduler_run",resource_type:"system",severity:"info",metadata:{log,h,m}}).catch(()=>{});
+  await sb.from("audit_logs").insert({action:"scheduler_run",target_type:"system",metadata:{log,h,m}}).catch(()=>{});
   return json({success:true,ts:now.toISOString(),log});
 });
