@@ -44,18 +44,13 @@ serve(async(req:Request)=>{
       });
       if(!error){
         learned=1;
-        // Also record in ai_feedback for history
-        await sb.from("ai_feedback").insert({
-          workspace_id:wsId,original_reply:body.original_reply,corrected_reply:body.correction,
-          feedback_type:"correction",applied:true,applied_at:new Date().toISOString()
-        }).catch(()=>{});
       }
     }catch{}
 
   }else if(body.source==="approval"&&body.original_reply){
-    await sb.from("ai_feedback").insert({
-      workspace_id:wsId,original_reply:body.original_reply,corrected_reply:body.original_reply,
-      feedback_type:"approval",applied:true,applied_at:new Date().toISOString()
+    await sb.from("business_memory").insert({
+      business_id:wsId,entity_type:"approval",memory_key:`approval_${Date.now()}`,
+      memory_value:{original:body.original_reply.slice(0,300)},confidence:0.9,source:"approval"
     }).catch(()=>{});
     // Boost confidence of related memories
     await sb.rpc("boost_memory_confidence",{p_business_id:wsId,p_memory_key:`correction_${wsId}`,p_boost:0.05}).catch(()=>{});
