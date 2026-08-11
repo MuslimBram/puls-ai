@@ -5,6 +5,8 @@ import createLeadTool from "./tools/create-lead";
 import listInboxMessagesTool from "./tools/list-inbox-messages";
 import listDealsTool from "./tools/list-deals";
 import listBusinessProfilesTool from "./tools/list-business-profiles";
+import listInboxThreadsTool from "./tools/list-inbox-threads";
+import searchKnowledgeTool from "./tools/search-knowledge";
 
 // Issuer MUST be the direct Supabase host, not the .lovable.cloud proxy.
 const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
@@ -26,5 +28,7 @@ export default defineMcp({
     listInboxMessagesTool,
     listDealsTool,
     listBusinessProfilesTool,
+    listInboxThreadsTool,
+    searchKnowledgeTool,
   ],
 });
