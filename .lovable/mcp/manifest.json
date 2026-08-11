@@ -180,6 +180,73 @@
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
+      },
+      {
+        "name": "list_inbox_threads",
+        "title": "List inbox threads",
+        "description": "List unified inbox conversation threads for the signed-in user, most recently active first.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "channel_type": {
+              "type": "string",
+              "description": "Filter by channel type (whatsapp, instagram, email, sms, ...)."
+            },
+            "status": {
+              "type": "string",
+              "description": "Filter by thread status (new, open, pending, resolved, closed)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "search_knowledge",
+        "title": "Search knowledge base",
+        "description": "Full-text search over the signed-in user's knowledge base chunks (scan results, documents, FAQs).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 2,
+              "description": "Text to search for inside knowledge chunks."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            },
+            "business_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Restrict the search to one business."
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
       }
     ]
   }
