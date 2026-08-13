@@ -1,202 +1,268 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
-const ALLOW_ANY_ORIGIN = false;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
+const AK = Deno.env.get("ANTHROPIC_API_KEY");
 
 /**
- * Transcribes a call recording using Lovable AI.
- * 1. Fetches the audio from storage_url or Twilio recording_url
- * 2. Sends audio content to Lovable AI for transcription
- * 3. Generates an AI summary + sentiment score
- * 4. Updates the call_recordings table
+ * Transcribe a call recording.
+ *
+ * TRANSCRIPTION APPROACH:
+ *   1. Fetch Twilio recording via REST API (server-side, authenticated).
+ *   2. Check if Twilio native transcription is available (they provide it on request).
+ *   3. If OPENAI_API_KEY is configured → Whisper for actual audio-to-text.
+ *   4. Use Anthropic claude-sonnet-4-6 for:
+ *        — structuring any available text
+ *        — analysis, sentiment, intent, summary, commitments, next actions
+ *   5. Feed structured result into Pulse AI Brain (digital twins, memory, leads).
+ *
+ * NOTE: Step 3 (audio-to-text) requires an STT service (Whisper/Deepgram/AssemblyAI).
+ *       Without one, the recording is retrieved and metadata is stored, but no raw
+ *       transcript text is available. Set OPENAI_API_KEY for Whisper support.
+ *       Twilio native transcription can be enabled per recording in Twilio Console.
  */
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: getCors(req) });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
-  const supabase = createClient(supabaseUrl, serviceKey);
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
   try {
     const authHeader = req.headers.get("authorization");
-    if (!authHeader) throw new Error("No authorization header");
+    // Allow service-role internal calls (from status-callback) or user-initiated
+    const isInternal = req.headers.get("x-internal-secret") === Deno.env.get("INTERNAL_WEBHOOK_SECRET");
 
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) throw new Error("Unauthorized");
+    if (!isInternal) {
+      if (!authHeader) throw new Error("No authorization header");
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+      const uc = createClient(Deno.env.get("SUPABASE_URL")!, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: { user }, error } = await uc.auth.getUser();
+      if (error || !user) throw new Error("Unauthorized");
+    }
 
-    const { recording_id } = await req.json();
-    if (!recording_id) throw new Error("recording_id required");
+    const { recording_id, call_sid, workspace_id } = await req.json();
 
-    // Get recording details
-    const { data: recording, error: recError } = await supabase
-      .from("call_recordings")
-      .select("*")
-      .eq("id", recording_id)
-      .single();
+    // Find recording by ID or by call_sid
+    let recQuery = sb.from("call_recordings").select("*");
+    if (recording_id) recQuery = recQuery.eq("id", recording_id);
+    else if (call_sid) recQuery = recQuery.eq("call_sid", call_sid);
+    else throw new Error("recording_id or call_sid required");
 
-    if (recError || !recording) throw new Error("Recording not found");
+    const { data: recording, error: re } = await recQuery.single();
+    if (re || !recording) throw new Error("Recording not found");
 
-    // Mark as processing
-    await supabase
-      .from("call_recordings")
+    if (recording.transcription_status === "completed") {
+      return new Response(JSON.stringify({ already_done: true, recording_id: recording.id }),
+        { headers: { ...getCors(req), "Content-Type": "application/json" } });
+    }
+
+    await sb.from("call_recordings")
       .update({ transcription_status: "processing", updated_at: new Date().toISOString() })
-      .eq("id", recording_id);
+      .eq("id", recording.id);
 
-    const audioUrl = recording.storage_url;
-    if (!audioUrl) throw new Error("No audio URL available for this recording");
+    // ── Resolve Twilio credentials ──────────────────────────────────────────
+    const wsId = workspace_id ?? recording.workspace_id;
+    let accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+    let authToken  = Deno.env.get("TWILIO_AUTH_TOKEN");
 
-    // Also check if there's a recording_url on the parent call_record (from Twilio)
-    let twilioRecordingUrl: string | null = null;
-    if (recording.call_record_id) {
-      const { data: callRecord } = await supabase
-        .from("call_records")
-        .select("recording_url")
-        .eq("id", recording.call_record_id)
-        .single();
-      twilioRecordingUrl = callRecord?.recording_url || null;
+    if (wsId) {
+      const { data: ch } = await sb.from("channels")
+        .select("settings")
+        .eq("workspace_id", wsId)
+        .eq("channel_type", "voip")
+        .maybeSingle();
+      if (ch?.settings) {
+        const s = ch.settings as Record<string, string>;
+        if (s.account_sid) accountSid = s.account_sid;
+        if (s.auth_token)  authToken  = await decryptIfNeeded(s.auth_token);
+      }
     }
 
-    const sourceUrl = twilioRecordingUrl || audioUrl;
+    // ── Step 1: Fetch recording metadata from Twilio REST ──────────────────
+    let twilioRecordingSid: string | null = recording.twilio_recording_sid ?? null;
+    let twilioTranscriptText: string | null = null;
+    let audioFetched = false;
 
-    if (!lovableApiKey) {
-      // Fallback: mark as completed with placeholder
-      await supabase
-        .from("call_recordings")
-        .update({
-          transcription_status: "completed",
-          transcription: "[Transcription unavailable - AI service not configured]",
-          ai_summary: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", recording_id);
+    if (accountSid && authToken && twilioRecordingSid) {
+      const twilioAuth = `Basic ${btoa(`${accountSid}:${authToken}`)}`;
+      const metaRes = await fetch(
+        `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Recordings/${twilioRecordingSid}.json`,
+        { headers: { Authorization: twilioAuth } }
+      );
+      if (metaRes.ok) {
+        const meta = await metaRes.json() as Record<string, unknown>;
+        audioFetched = true;
 
-      return new Response(JSON.stringify({ status: "no_ai_key" }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+        // Check if Twilio native transcription is available
+        if ((meta as any).transcription_sid) {
+          const txRes = await fetch(
+            `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Transcriptions/${(meta as any).transcription_sid}.json`,
+            { headers: { Authorization: twilioAuth } }
+          );
+          if (txRes.ok) {
+            const tx = await txRes.json() as any;
+            twilioTranscriptText = tx.transcription_text ?? null;
+          }
+        }
+      }
     }
 
-    // Use Lovable AI (Gemini) for transcription from audio URL
-    // Since we can't send raw audio via the chat completions API easily,
-    // we'll describe the recording context and use AI for summarization
-    // For actual audio transcription, we fetch and convert to base64
-    let transcriptionText = "";
-    let aiSummary = "";
-    let sentimentScore = 0.5;
+    // ── Step 2: Whisper transcription if OPENAI_API_KEY is configured ───────
+    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    if (!twilioTranscriptText && openaiKey && accountSid && authToken && twilioRecordingSid) {
+      try {
+        const twilioAuth = `Basic ${btoa(`${accountSid}:${authToken}`)}`;
+        // Fetch audio as MP3
+        const audioRes = await fetch(
+          `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Recordings/${twilioRecordingSid}.mp3`,
+          { headers: { Authorization: twilioAuth } }
+        );
+        if (audioRes.ok) {
+          const audioBlob = await audioRes.blob();
+          const form = new FormData();
+          form.append("file", audioBlob, "recording.mp3");
+          form.append("model", "whisper-1");
+          form.append("response_format", "text");
+          const whisperRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+            method: "POST",
+            headers: { Authorization: `Bearer ${openaiKey}` },
+            body: form,
+          });
+          if (whisperRes.ok) {
+            twilioTranscriptText = await whisperRes.text();
+          }
+        }
+      } catch (e) {
+        console.warn("[transcribe] Whisper failed:", e);
+      }
+    }
 
-    try {
-      // Fetch audio file
-      const audioResponse = await fetch(sourceUrl);
-      if (!audioResponse.ok) throw new Error(`Failed to fetch audio: ${audioResponse.status}`);
+    // ── Step 3: Anthropic analysis ───────────────────────────────────────────
+    let analysis: Record<string, unknown> = {};
+    let summary = "";
+    let sentiment: "positive" | "neutral" | "negative" = "neutral";
 
-      const audioBlob = await audioResponse.arrayBuffer();
-      const audioBase64 = btoa(String.fromCharCode(...new Uint8Array(audioBlob)));
+    const hasRealTranscript = !!twilioTranscriptText;
 
-      // Determine MIME type
-      const isWebm = sourceUrl.includes(".webm");
-      const mimeType = isWebm ? "audio/webm" : "audio/mpeg";
+    if (AK) {
+      const systemPrompt = hasRealTranscript
+        ? `You are a call analysis AI for a business CRM. Analyze this call transcript and return JSON with:
+{
+  "summary": "2-3 sentence summary",
+  "sentiment": "positive|neutral|negative",
+  "sentiment_score": 0-1,
+  "speakers": [{"role": "agent|customer", "tone": string}],
+  "language": "detected language code",
+  "customer_intent": "primary intent",
+  "questions_asked": ["..."],
+  "objections": ["..."],
+  "products_services_mentioned": ["..."],
+  "commitments_promises": ["..."],
+  "follow_up_requested": boolean,
+  "next_recommended_action": "...",
+  "lead_qualified": boolean,
+  "booking_requested": boolean,
+  "human_handoff_requested": boolean,
+  "confidence": 0-1,
+  "transcript_source": "twilio_native|whisper|manual"
+}`
+        : `You are a call analysis AI. Based on call metadata only (no transcript available — STT not configured), provide what analysis you can from duration, status, and context. Return JSON with: {"summary": string, "sentiment": "neutral", "note": "No transcript available — configure OPENAI_API_KEY for Whisper or enable Twilio Transcription", "next_recommended_action": string}`;
 
-      // Call Lovable AI with audio for transcription
-      const aiResponse = await fetch("https://ai.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${lovableApiKey}`,
-          "Content-Type": "application/json",
+      const userContent = hasRealTranscript
+        ? `Transcript:
+${twilioTranscriptText.slice(0, 8000)}`
+        : `Call metadata: duration=${recording.duration_seconds}s, recording_sid=${twilioRecordingSid}, workspace=${wsId}`;
+
+      try {
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-api-key": AK,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model: "claude-sonnet-4-6",
+            max_tokens: 1200,
+            system: systemPrompt,
+            messages: [{ role: "user", content: userContent }],
+          }),
+        });
+        if (r.ok) {
+          const d = await r.json() as any;
+          analysis = JSON.parse(d.content?.[0]?.text?.replace(/```json|```/g, "").trim() || "{}");
+          summary   = (analysis.summary   as string) ?? "";
+          sentiment = (analysis.sentiment as any)    ?? "neutral";
+        }
+      } catch (e) {
+        console.warn("[transcribe] Anthropic analysis failed:", e);
+      }
+    }
+
+    // ── Step 4: Persist ──────────────────────────────────────────────────────
+    const finalTranscript = twilioTranscriptText ?? (
+      hasRealTranscript ? twilioTranscriptText :
+      "[Transcription not available — configure OPENAI_API_KEY (Whisper) or enable Twilio Transcription]"
+    );
+
+    const updateData: Record<string, unknown> = {
+      transcription_status: "completed",
+      transcription: finalTranscript,
+      ai_summary: summary,
+      ai_sentiment_score: (analysis.sentiment_score as number) ?? 0.5,
+      ai_analysis: analysis,
+      updated_at: new Date().toISOString(),
+    };
+
+    await sb.from("call_recordings").update(updateData).eq("id", recording.id);
+
+    // ── Step 5: Feed into Pulse AI Brain ─────────────────────────────────────
+    if (hasRealTranscript && wsId && AK) {
+      // Update lead score if call is linked to a contact
+      if (recording.contact_id) {
+        await sb.from("leads").update({
+          intent_score: (analysis.lead_qualified ? 0.8 : 0.4),
+          scored_at: new Date().toISOString(),
+        }).eq("id", recording.contact_id).catch(() => {});
+      }
+
+      // Store business intelligence evidence
+      await sb.from("business_intelligence_evidence").insert({
+        workspace_id: wsId,
+        source_type: "call_recording",
+        source_id: recording.id,
+        evidence_type: "call_analysis",
+        content: {
+          transcript_excerpt: twilioTranscriptText?.slice(0, 500),
+          customer_intent: analysis.customer_intent,
+          products_mentioned: analysis.products_services_mentioned,
+          objections: analysis.objections,
+          commitments: analysis.commitments_promises,
         },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash",
-          messages: [
-            {
-              role: "user",
-              content: [
-                {
-                  type: "text",
-                  text: "Transcribe this call recording. Provide:\n1. Full verbatim transcription with speaker labels (Agent/Customer)\n2. A 2-3 sentence summary\n3. A sentiment score from 0.0 (very negative) to 1.0 (very positive)\n\nFormat your response as JSON:\n{\"transcription\": \"...\", \"summary\": \"...\", \"sentiment\": 0.5}",
-                },
-                {
-                  type: "input_audio",
-                  input_audio: {
-                    data: audioBase64,
-                    format: isWebm ? "webm" : "mp3",
-                  },
-                },
-              ],
-            },
-          ],
-          temperature: 0.1,
-        }),
-      });
-
-      if (!aiResponse.ok) {
-        const errText = await aiResponse.text();
-        throw new Error(`AI API error [${aiResponse.status}]: ${errText}`);
-      }
-
-      const aiData = await aiResponse.json();
-      const content = aiData.choices?.[0]?.message?.content || "";
-
-      // Parse JSON from response
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        transcriptionText = parsed.transcription || content;
-        aiSummary = parsed.summary || "";
-        sentimentScore = typeof parsed.sentiment === "number" ? parsed.sentiment : 0.5;
-      } else {
-        transcriptionText = content;
-      }
-    } catch (aiError) {
-      console.error("AI transcription error:", aiError);
-      transcriptionText = "[Transcription processing failed. The audio may be too short or in an unsupported format.]";
+        sentiment: sentiment,
+        confidence: (analysis.confidence as number) ?? 0.7,
+        recorded_at: recording.started_at ?? new Date().toISOString(),
+      }).catch(() => {});
     }
-
-    // Update recording with results
-    await supabase
-      .from("call_recordings")
-      .update({
-        transcription: transcriptionText,
-        transcription_status: "completed",
-        ai_summary: aiSummary || null,
-        sentiment_score: sentimentScore,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", recording_id);
 
     return new Response(JSON.stringify({
-      status: "completed",
-      transcription_length: transcriptionText.length,
-      has_summary: !!aiSummary,
-    }), {
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("transcribe-recording error:", msg);
+      success: true,
+      recording_id: recording.id,
+      has_real_transcript: hasRealTranscript,
+      transcript_source: analysis.transcript_source ?? (hasRealTranscript ? "available" : "none"),
+      sentiment,
+      summary,
+      stt_note: !hasRealTranscript
+        ? "No STT service available. Set OPENAI_API_KEY for Whisper or enable Twilio Transcription."
+        : undefined,
+    }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
 
-    // Try to mark as failed
-    try {
-      const { recording_id } = await req.clone().json().catch(() => ({ recording_id: null }));
-      if (recording_id) {
-        const supabase2 = createClient(supabaseUrl, serviceKey);
-        await supabase2
-          .from("call_recordings")
-          .update({ transcription_status: "failed", updated_at: new Date().toISOString() })
-          .eq("id", recording_id);
-      }
-    } catch { /* ignore */ }
-
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 400,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+  } catch (e: any) {
+    console.error("[transcribe-recording]", e.message);
+    return new Response(JSON.stringify({ error: e.message }),
+      { status: 500, headers: { ...getCors(req), "Content-Type": "application/json" } });
   }
 });
