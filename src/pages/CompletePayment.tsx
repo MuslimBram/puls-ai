@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,22 +6,35 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign } from "lucide-react";
+import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign, AlertCircle } from "lucide-react";
 import { useUserWallets } from "@/hooks/useUserWallet";
 import { useCountryCurrency } from "@/hooks/useCountryCurrency";
 import { FeeDisclosure } from "@/components/FeeDisclosure";
 import { ManualPaymentFlow } from "@/components/ManualPaymentFlow";
-import { formatCurrency, type SupportedCurrency } from "@/lib/currency";
+import { formatCurrency, formatALL, type SupportedCurrency } from "@/lib/currency";
 import { usePricingSettings } from "@/hooks/usePricingSettings";
 import { cn } from "@/lib/utils";
 import type { PlanKey } from "@/types/monetization";
-// formatALL preserved for legacy display; formatCurrency used for payment amounts
 
 interface PlanTier {
   key: PlanKey;
   name: string;
-  basePrice: number;
+  basePrice: number;          // always ALL price — for plan picker display only
+  priceALL: number;           // explicit ALL price (= monthly_price, always set)
+  priceEUR: number | null;    // null = not yet configured → payment blocked
+  priceUSD: number | null;    // null = not yet configured → payment blocked
   highlighted?: boolean;
+}
+
+/** Return the configured payment price for a currency, or null if not set. */
+function getPlanPaymentPrice(tier: PlanTier | undefined, currency: SupportedCurrency): number | null {
+  if (!tier) return null;
+  switch (currency) {
+    case "ALL": return tier.priceALL;
+    case "EUR": return tier.priceEUR;
+    case "USD": return tier.priceUSD;
+    default:    return null;
+  }
 }
 
 interface DurationOption {
@@ -53,15 +66,18 @@ const CompletePayment = () => {
 
   // Build plan tiers dynamically from pricing_settings (single source of truth).
   // Highlight the second-cheapest plan as the "recommended" tier.
-  const PLAN_TIERS: PlanTier[] = (dbPlans || [])
+  const PLAN_TIERS: PlanTier[] = useMemo(() => (dbPlans || [])
     .slice()
     .sort((a, b) => Number(a.monthly_price) - Number(b.monthly_price))
     .map((p, i) => ({
       key: p.plan_key as PlanKey,
       name: (p as any).plan_label || p.plan_key,
-      basePrice: Number(p.monthly_price),
+      basePrice: Number(p.monthly_price),                          // ALL price for display
+      priceALL: Number((p as any).monthly_price_all ?? p.monthly_price), // always set
+      priceEUR: (p as any).monthly_price_eur != null ? Number((p as any).monthly_price_eur) : null,
+      priceUSD: (p as any).monthly_price_usd != null ? Number((p as any).monthly_price_usd) : null,
       highlighted: i === 1,
-    }));
+    })), [dbPlans]);
 
   const metaPlan = user?.user_metadata?.billing_plan;
   const metaDuration = user?.user_metadata?.billing_duration;
@@ -81,8 +97,10 @@ const CompletePayment = () => {
   const [paymentCurrency, setPaymentCurrency] = useState<SupportedCurrency>("EUR");
   const [loading, setLoading] = useState(false);
 
-  // Sync geo-detected currency once loaded
-  // useEffect(() => { if (detectedCurrency) setPaymentCurrency(detectedCurrency); }, [detectedCurrency]);
+  // Sync geo-detected currency once loaded (country routing active)
+  useEffect(() => {
+    if (detectedCurrency) setPaymentCurrency(detectedCurrency);
+  }, [detectedCurrency]);
   const [paypalCapturing, setPaypalCapturing] = useState(false);
   const [paypalResult, setPaypalResult] = useState<"success" | "failed" | null>(null);
 
@@ -126,9 +144,23 @@ const CompletePayment = () => {
 
   const currentTier = PLAN_TIERS.find((t) => t.key === selectedPlan);
   const currentDuration = DURATION_OPTIONS.find((d) => d.key === selectedDuration);
-  const basePrice = currentTier?.basePrice ?? 49;
+  const basePrice = currentTier?.basePrice ?? 49;  // ALL price for plan picker display
   const isTrial = selectedDuration === "trial";
+
+  // ── CURRENCY-SAFE PRICE RESOLUTION ─────────────────────────────────────
+  // paymentBasePrice is the configured price for the selected payment currency.
+  // null = not yet configured → checkout is BLOCKED with an informative message.
+  const paymentBasePrice: number | null = isTrial ? 0 : getPlanPaymentPrice(currentTier, paymentCurrency);
+  const priceConfigured = isTrial || paymentBasePrice !== null;
+
+  // PayPal CANNOT use ALL currency (not a supported PayPal currency).
+  const paypalBlockedForALL = selectedPaymentMethod === "paypal" && paymentCurrency === "ALL";
+  // ALL display price (for plan picker / duration selector labels — always in ALL)
   const discountedPrice = isTrial ? 0 : getDiscountedPrice(basePrice, currentDuration?.discountPercent ?? 0);
+  // Payment price in selected currency (null if not configured)
+  const discountedPaymentPrice: number | null = (isTrial || paymentBasePrice === null)
+    ? (isTrial ? 0 : null)
+    : getDiscountedPrice(paymentBasePrice, currentDuration?.discountPercent ?? 0);
 
   const walletBalance = wallets?.[0]?.current_balance ?? 0;
   const canPayFromWallet = walletBalance >= discountedPrice && discountedPrice > 0;
@@ -168,10 +200,21 @@ const CompletePayment = () => {
     setLoading(true);
     try {
       if (method === "paypal") {
+        // SAFETY GUARDS
+        if (paymentCurrency === "ALL") {
+          toast.error("PayPal does not support ALL currency. Switch to EUR to use PayPal.");
+          setLoading(false);
+          return;
+        }
+        if (totalPrice === null) {
+          toast.error(`Price not configured for ${paymentCurrency}. Please contact support.`);
+          setLoading(false);
+          return;
+        }
         const { data, error } = await supabase.functions.invoke("create-paypal-order", {
           body: {
             amount: totalPrice,
-            currency: paymentCurrency,
+            currency: paymentCurrency,  // EUR or USD only — ALL blocked above
             paymentType: "one_time",
             planKey: selectedPlan,
             description: `${currentTier?.name} plan - ${currentDuration?.label}`,
@@ -215,7 +258,13 @@ const CompletePayment = () => {
     setLoading(false);
   };
 
-  const totalPrice = discountedPrice * (currentDuration?.months ?? 1);
+  // totalPrice for payment — uses payment currency price, NOT ALL price
+  // null if price not configured for selected currency → blocks checkout
+  const totalPrice: number | null = (discountedPaymentPrice === null)
+    ? null
+    : discountedPaymentPrice * (currentDuration?.months ?? 1);
+  // ALL total (for display in plan picker only)
+  const totalPriceALL = discountedPrice * (currentDuration?.months ?? 1);
 
   // Show PayPal processing/result overlay
   if (paypalCapturing || paypalResult) {
@@ -369,30 +418,97 @@ const CompletePayment = () => {
               <span className="font-semibold text-foreground">{currentDuration?.label ?? "Monthly"}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Price:</span>
+              <span className="text-sm text-muted-foreground">Price (ALL):</span>
               <div className="flex items-center gap-2">
                 {!isTrial && (currentDuration?.discountPercent ?? 0) > 0 && (
                   <span className="text-sm text-muted-foreground line-through">{formatALL(basePrice)}</span>
                 )}
                 <span className="font-bold text-lg text-foreground">
                   {isTrial ? (
-                    <><span>{formatALL(0)}</span> <Badge className="ml-1 text-[10px]">Free 7 days</Badge></>
+                    <><span>0 ALL</span> <Badge className="ml-1 text-[10px]">Free 7 days</Badge></>
                   ) : (
                     <>{formatALL(discountedPrice)}<span className="text-xs font-normal">/mo</span></>
                   )}
                 </span>
               </div>
             </div>
+            {paymentCurrency !== "ALL" && !isTrial && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Price ({paymentCurrency}):</span>
+                <span className="font-semibold text-foreground">
+                  {discountedPaymentPrice !== null
+                    ? <>{formatCurrency(discountedPaymentPrice, paymentCurrency)}<span className="text-xs font-normal">/mo</span></>
+                    : <span className="text-amber-600 text-sm">Not configured</span>
+                  }
+                </span>
+              </div>
+            )}
             {!isTrial && (currentDuration?.months ?? 0) > 1 && (
               <div className="flex items-center justify-between border-t border-border pt-2 mt-2">
-                <span className="text-sm text-muted-foreground">Total:</span>
+                <span className="text-sm text-muted-foreground">Total ({paymentCurrency}):</span>
                 <span className="font-bold text-foreground">
-                  {formatALL(totalPrice)}
-                  <span className="text-xs font-normal text-muted-foreground"> for {currentDuration?.months} months</span>
+                  {totalPrice !== null
+                    ? <>{formatCurrency(totalPrice, paymentCurrency)}<span className="text-xs font-normal text-muted-foreground"> for {currentDuration?.months} months</span></>
+                    : <span className="text-amber-600">Price not configured</span>
+                  }
                 </span>
               </div>
             )}
           </div>
+
+
+          {/* Currency selector — user can override detected currency */}
+          <div className="space-y-1.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+              Payment Currency{countryCode ? ` (detected: ${countryCode})` : ""}
+            </p>
+            <div className="flex gap-2">
+              {(["ALL", "EUR", "USD"] as SupportedCurrency[]).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setPaymentCurrency(c)}
+                  className={cn(
+                    "flex-1 rounded-lg border-2 py-2 text-sm font-medium transition-all",
+                    paymentCurrency === c
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border hover:border-primary/40 text-muted-foreground"
+                  )}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+            {!isExplicitMatch && (
+              <p className="text-[11px] text-muted-foreground">
+                Auto-detected from location. You can change this.
+              </p>
+            )}
+          </div>
+
+          {/* Price-not-configured warning block */}
+          {!isTrial && !priceConfigured && (
+            <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-4">
+              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-medium text-sm text-amber-700 dark:text-amber-300">
+                  Price not configured for {paymentCurrency}
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                  Payment in {paymentCurrency} is not yet available for this plan.
+                  Switch currency to ALL or EUR, or contact support.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* PayPal + ALL warning */}
+          {paypalBlockedForALL && (
+            <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+              <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+              <p>PayPal does not support ALL currency. Switch to EUR to use PayPal, or use Bank Transfer for ALL payments.</p>
+            </div>
+          )}
 
           {/* Payment methods */}
           {isTrial ? (
@@ -470,7 +586,7 @@ const CompletePayment = () => {
                   </div>
                   <Wallet className="h-5 w-5 text-emerald-500" />
                   <span className="text-sm font-medium text-foreground">Wallet</span>
-                  <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance)}</Badge>
+                  <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance)} ALL</Badge>
                 </button>
               )}
 
@@ -483,14 +599,16 @@ const CompletePayment = () => {
               <Button
                 className="w-full h-14 text-base"
                 onClick={() => selectedPaymentMethod && handlePayment(selectedPaymentMethod)}
-                disabled={loading || !selectedPaymentMethod}
+                disabled={loading || !selectedPaymentMethod || !priceConfigured || paypalBlockedForALL}
               >
                 {selectedPaymentMethod === "paypal" && <Globe className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod === "payoneer" && <DollarSign className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod === "wallet" && <Wallet className="mr-2 h-5 w-5" />}
                 {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod
-                  ? `Pay ${formatALL(totalPrice)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
+                  ? (totalPrice !== null
+                      ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
+                      : "Price not configured — select another currency")
                   : "Choose payment method"
                 }
                 <ArrowRight className="ml-auto h-4 w-4" />
