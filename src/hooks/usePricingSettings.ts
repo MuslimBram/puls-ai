@@ -7,6 +7,13 @@ export interface PricingSetting {
   plan_key: string;
   monthly_price: number;
   annual_price: number;
+  // Explicit per-currency prices (null = not configured → checkout blocked for that currency)
+  monthly_price_all: number | null;
+  monthly_price_eur: number | null;
+  monthly_price_usd: number | null;
+  annual_price_all: number | null;
+  annual_price_eur: number | null;
+  annual_price_usd: number | null;
   is_donation: boolean;
   donation_label: string | null;
   updated_at: string;
