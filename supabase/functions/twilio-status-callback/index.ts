@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
+import { extractCalledNumber, resolveWorkspaceFromCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -23,13 +24,26 @@ serve(async (req) => {
 
     const contentType = req.headers.get("content-type") || "";
     const rawBody = await req.text();
-    const sigCheck = await verifyTwilioSignature(req, rawBody, contentType);
+
+    // SECURITY: Resolve per-workspace credentials from the called/To number FIRST,
+    // then verify the Twilio signature with the correct workspace auth token.
+    // workspace_id query param alone is NEVER trusted as authorization.
+    const calledNumber = extractCalledNumber(rawBody, contentType);
+    const wsCreds = await resolveWorkspaceFromCalledNumber(calledNumber, ["voip","sms","voice"], supabase);
+
+    const sigCheck = await verifyTwilioSignature(
+      req, rawBody, contentType,
+      wsCreds?.decrypted_auth_token  // per-workspace token (falls back to env if null)
+    );
     if (!sigCheck.ok) {
-      console.warn(`[twilio-status-callback] Signature rejected: ${sigCheck.reason}`);
+      console.warn(`[twilio-status-callback] Signature rejected: ${sigCheck.reason} (called=${calledNumber})`);
       return new Response(JSON.stringify({ error: "invalid_signature" }), {
         status: 403, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
+
+    // Resolved workspace (from signed number), NOT from query param
+    const resolvedWorkspaceId = wsCreds?.workspace_id ?? workspaceId;
     const params: Record<string, string> = {};
     if (contentType.includes("application/x-www-form-urlencoded")) {
       new URLSearchParams(rawBody).forEach((value, key) => { params[key] = value; });
