@@ -169,7 +169,7 @@ var list_business_profiles_default = defineTool6({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "wllvvzzjhnmbydpbvump";
+var projectRef = "wlvlgghqwwhhqaqqopml";
 var mcp_default = defineMcp({
   name: "pulse-ai-mcp",
   title: "Pulse AI",
