@@ -38,7 +38,7 @@ const DURATION_OPTIONS: DurationOption[] = [
 const getDiscountedPrice = (base: number, discountPercent: number) =>
   Math.round(base * (1 - discountPercent / 100) * 100) / 100;
 
-type PaymentMethod = "paypal" | "payoneer" | "wallet";
+type PaymentMethod = "paypal" | "payoneer" | "wallet" | "bank_transfer";
 
 const CompletePayment = () => {
   const navigate = useNavigate();
@@ -178,7 +178,13 @@ const CompletePayment = () => {
         throw new Error("PayPal checkout URL not received");
       }
 
-      // Fallback to Stripe for other methods
+      if (method === "bank_transfer" || method === "payoneer") {
+        // Route to ManualPaymentFlow — handled by the UI component rendered below
+        setSelectedPaymentMethod(method);
+        return;
+      }
+
+      // Stripe fallback (disabled in Albania — will return stripe_unavailable)
       const { data, error } = await supabase.functions.invoke("create-checkout", {
         body: {
           planKey: selectedPlan,
@@ -189,6 +195,8 @@ const CompletePayment = () => {
       if (error) throw error;
       if (data?.url) {
         window.location.href = data.url;
+      } else if (data?.error === "stripe_unavailable") {
+        toast.info("Card payments not available. Please use Bank Transfer, Payoneer, or PayPal.");
       } else {
         toast.error("Payment link could not be created");
       }
