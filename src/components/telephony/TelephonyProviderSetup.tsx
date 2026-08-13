@@ -112,25 +112,44 @@ export const TelephonyProviderSetup = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const channelData: ChannelData = {
-        channel_type: "voip",
-        channel_name: `${selectedProvider?.label || provider} Telephony`,
-        settings: {
-          ...creds,
-          provider,
-          provider_label: selectedProvider?.label || provider,
-          webhook_url: webhookUrl,
-          connected_at: new Date().toISOString(),
-          verified: "true",
-        },
-      };
-      await addChannel.mutateAsync(channelData);
-      toast.success("Telephony provider connected!");
+      // SECURITY: Credentials saved and verified server-side via Edge Function.
+      // Encrypted with TOKEN_ENCRYPTION_KEY before storage.
+      // Frontend NEVER calls Twilio API directly or stores raw secrets.
+      const { data: session } = await supabase.auth.getSession();
+      if (!session?.session?.access_token) throw new Error("Not authenticated");
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-channel-credentials`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.session.access_token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            action: "save",
+            provider,
+            channel_type: "voip",
+            account_sid:    creds.account_sid,
+            auth_token:     creds.auth_token,
+            phone_number:   creds.phone_number,
+            twiml_app_sid:  creds.twiml_app_sid,
+            api_key_sid:    creds.api_key_sid,
+            api_key_secret: creds.api_key_secret,
+          }),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok || !result.ok) throw new Error(result.detail ?? result.error ?? "Failed to save");
+      setVerifyResult({ ok: true, detail: result.verification_detail ?? "Verified" });
       setDone(true);
-    } catch {
-      // handled by mutation
+      toast.success("Twilio credentials saved and verified securely");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save configuration");
+      setVerifyResult({ ok: false, detail: err.message });
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   const copyWebhook = () => {
