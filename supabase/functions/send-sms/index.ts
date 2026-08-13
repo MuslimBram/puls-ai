@@ -1,131 +1,110 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
-
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
-const ALLOW_ANY_ORIGIN = false;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
-
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/twilio";
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
+const json = (req: Request, body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status, headers: { ...getCors(req), "Content-Type": "application/json" },
+  });
 
 /**
- * Send SMS via Twilio Connector Gateway
- * 
- * Body: { to: string, body: string, from?: string, user_id: string }
- * 
- * Uses the Twilio connector gateway for auth — requires LOVABLE_API_KEY and TWILIO_API_KEY.
- * Falls back to channel settings for the "from" number if not provided.
+ * Send SMS via Twilio REST API (direct, no third-party gateway).
+ * Credentials retrieved server-side from encrypted channel settings.
+ * auth_token NEVER returned to client.
  */
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: getCors(req) });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) {
-    return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-      status: 500,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  }
-
-  const TWILIO_API_KEY = Deno.env.get("TWILIO_API_KEY");
-  if (!TWILIO_API_KEY) {
-    return new Response(JSON.stringify({ error: "TWILIO_API_KEY not configured. Connect Twilio in your project settings." }), {
-      status: 500,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  }
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  const sb = createClient(
+    Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
 
   try {
-    // SECURITY: verify JWT — never trust caller-supplied user_id
-    const authHeader = req.headers.get("Authorization") || "";
-    const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-    if (!token) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-    const { data: authData, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !authData?.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-    const user_id = authData.user.id;
+    const auth = req.headers.get("Authorization") ?? "";
+    if (!auth.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
+    const { data: { user }, error: ue } = await sb.auth.getUser(auth.slice(7));
+    if (ue || !user) return json(req, { error: "Unauthorized" }, 401);
 
-    const { to, body: messageBody, from } = await req.json();
+    const { to, body: messageBody, workspace_id, from: fromOverride } = await req.json();
+    if (!to || !messageBody) return json(req, { error: "to and body required" }, 400);
 
-    if (!to || !messageBody) {
-      return new Response(JSON.stringify({ error: "to and body are required" }), {
-        status: 400,
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
+    // ── Resolve workspace credentials ─────────────────────────────────────
+    const wsId = workspace_id ?? user.id;
+    const { data: ch } = await sb
+      .from("channels")
+      .select("settings")
+      .eq("workspace_id", wsId)
+      .eq("channel_type", "sms")
+      .eq("is_enabled", true)
+      .maybeSingle();
 
+    // Fall back to environment-level Twilio credentials
+    const settings = (ch?.settings as Record<string, string>) ?? {};
+    const accountSid  = settings.account_sid ?? Deno.env.get("TWILIO_ACCOUNT_SID");
+    const authTokenRaw = settings.auth_token  ?? Deno.env.get("TWILIO_AUTH_TOKEN");
+    const fromNumber   = fromOverride ?? settings.phone_number ?? Deno.env.get("TWILIO_PHONE_NUMBER");
 
-    // Determine "from" number: explicit param or from channel settings
-    let fromNumber = from;
-    if (!fromNumber && user_id) {
-      const { data: smsChannel } = await supabase
-        .from("channels")
-        .select("settings")
-        .eq("user_id", user_id)
-        .eq("channel_type", "sms")
-        .eq("is_enabled", true)
-        .limit(1)
-        .maybeSingle();
-
-      const settings = smsChannel?.settings as Record<string, any> | null;
-      fromNumber = settings?.phone_number || settings?.twilio_phone;
+    if (!accountSid || !authTokenRaw || !fromNumber) {
+      return json(req, {
+        error: "Twilio not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER.",
+        missing: {
+          account_sid:   !accountSid,
+          auth_token:    !authTokenRaw,
+          phone_number:  !fromNumber,
+        },
+      }, 503);
     }
 
-    if (!fromNumber) {
-      return new Response(JSON.stringify({ error: "No 'from' number available. Configure SMS channel first." }), {
-        status: 400,
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
+    // Decrypt if stored encrypted (uses TOKEN_ENCRYPTION_KEY)
+    const authToken = await decryptIfNeeded(authTokenRaw);
 
-    // Send via Twilio Connector Gateway
-    const response = await fetch(`${GATEWAY_URL}/Messages.json`, {
+    // ── Direct Twilio REST API ────────────────────────────────────────────
+    const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
+    const res = await fetch(twilioUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": TWILIO_API_KEY,
+        Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams({
-        To: to,
-        From: fromNumber,
-        Body: messageBody,
-      }),
+      body: new URLSearchParams({ To: to, From: fromNumber, Body: messageBody }).toString(),
     });
 
-    const data = await response.json();
-    if (!response.ok) {
-      console.error("[SEND-SMS] Twilio error:", data);
-      return new Response(
-        JSON.stringify({ error: `Twilio API error [${response.status}]`, details: data }),
-        { status: response.status, headers: { ...getCors(req), "Content-Type": "application/json" } },
-      );
+    const twilioData = await res.json() as Record<string, unknown>;
+
+    if (!res.ok) {
+      console.error("[send-sms] Twilio error", twilioData);
+      return json(req, {
+        error: `Twilio error: ${(twilioData as any).message ?? res.status}`,
+        code:  (twilioData as any).code,
+      }, 400);
     }
 
-    return new Response(
-      JSON.stringify({ ok: true, sid: data.sid, status: data.status }),
-      { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } },
-    );
-  } catch (e) {
-    console.error("[SEND-SMS] Error:", e);
-    return new Response(
-      JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }),
-      { status: 500, headers: { ...getCors(req), "Content-Type": "application/json" } },
-    );
+    // Log outbound message (no auth_token in log)
+    await sb.from("inbox_messages").insert({
+      user_id: user.id,
+      workspace_id: wsId,
+      channel_type: "sms",
+      source_name: "SMS",
+      sender_name: fromNumber,
+      sender_identifier: fromNumber,
+      message_content: messageBody,
+      message_timestamp: new Date().toISOString(),
+      direction: "outbound",
+      status: "sent",
+      delivery_status: "sent",
+      provider_message_id: twilioData.sid as string,
+    }).catch(() => {});
+
+    return json(req, {
+      success: true,
+      message_sid: twilioData.sid,
+      to,
+      status: twilioData.status,
+    });
+  } catch (e: any) {
+    return json(req, { error: e.message }, 500);
   }
 });
