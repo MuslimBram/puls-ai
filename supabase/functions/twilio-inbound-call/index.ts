@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
+import { extractCalledNumber, resolveWorkspaceFromCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -33,14 +34,25 @@ serve(async (req) => {
   try {
     const contentType = req.headers.get("content-type") || "";
     const rawBody = await req.text();
-    const sigCheck = await verifyTwilioSignature(req, rawBody, contentType);
+
+    // SECURITY: Resolve per-workspace credentials from signed To/Called number.
+    // workspace_id query param alone is NEVER authorization.
+    const calledNumber = extractCalledNumber(rawBody, contentType);
+    const wsCreds = await resolveWorkspaceFromCalledNumber(calledNumber, ["voip","voice"], supabase);
+
+    const sigCheck = await verifyTwilioSignature(
+      req, rawBody, contentType,
+      wsCreds?.decrypted_auth_token
+    );
     if (!sigCheck.ok) {
-      console.warn(`[twilio-inbound-call] Signature rejected: ${sigCheck.reason}`);
+      console.warn(`[twilio-inbound-call] Signature rejected: ${sigCheck.reason} (called=${calledNumber})`);
       return new Response(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`,
         { status: 403, headers: { ...getCors(req), "Content-Type": "application/xml" } },
       );
     }
+    // Use workspace resolved from signed To number, NOT from query param
+    const resolvedWorkspaceId = wsCreds?.workspace_id ?? workspaceId;
     const params: Record<string, string> = {};
     if (contentType.includes("application/x-www-form-urlencoded")) {
       new URLSearchParams(rawBody).forEach((value, key) => { params[key] = value; });
@@ -56,7 +68,7 @@ serve(async (req) => {
     const workspaceId = url.searchParams.get("workspace_id");
     const ivrNodeId = url.searchParams.get("ivr_node"); // Current IVR node
 
-    if (!workspaceId) {
+    if (!resolvedWorkspaceId) {
       return new Response(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, this number is not configured.</Say><Hangup/></Response>`,
         { headers: { ...getCors(req), "Content-Type": "application/xml" } }
@@ -66,7 +78,7 @@ serve(async (req) => {
     const { data: workspace } = await supabase
       .from("workspaces")
       .select("owner_id")
-      .eq("id", workspaceId)
+      .eq("id", resolvedWorkspaceId)
       .single();
 
     if (!workspace) {
@@ -118,7 +130,7 @@ serve(async (req) => {
     const { data: ivrFlow } = await supabase
       .from("ivr_flows")
       .select("*")
-      .eq("workspace_id", workspaceId)
+      .eq("workspace_id", resolvedWorkspaceId)
       .eq("is_active", true)
       .single();
 
@@ -176,7 +188,7 @@ async function handleIvrNode(
   const { data: ivrFlow } = await supabase
     .from("ivr_flows")
     .select("*")
-    .eq("workspace_id", workspaceId)
+    .eq("workspace_id", resolvedWorkspaceId)
     .eq("is_active", true)
     .single();
 
@@ -411,7 +423,7 @@ async function routeToAgent(
   const { data: queues } = await supabase
     .from("call_queues")
     .select("*")
-    .eq("workspace_id", workspaceId)
+    .eq("workspace_id", resolvedWorkspaceId)
     .eq("is_active", true)
     .order("priority", { ascending: false });
 
@@ -419,7 +431,7 @@ async function routeToAgent(
   const { data: agents } = await supabase
     .from("agent_telephony_state")
     .select("user_id, sip_extension, telephony_status, calls_handled_today")
-    .eq("workspace_id", workspaceId)
+    .eq("workspace_id", resolvedWorkspaceId)
     .eq("telephony_status", "online");
 
   if (!agents || agents.length === 0) {
