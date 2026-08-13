@@ -294,9 +294,9 @@ const PublicApiPage = () => {
                   <p className="text-sm font-medium">Base URL</p>
                   <div className="flex gap-2 items-center">
                     <code className="bg-background px-3 py-1.5 rounded text-xs font-mono flex-1 overflow-x-auto">
-                      {`https://oazqhnibgfkuiuczzikq.supabase.co/functions/v1/public-api`}
+                      {`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-api`}
                     </code>
-                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(`https://oazqhnibgfkuiuczzikq.supabase.co/functions/v1/public-api`)}>
+                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-api`)}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>
