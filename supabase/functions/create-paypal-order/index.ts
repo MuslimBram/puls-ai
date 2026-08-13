@@ -60,6 +60,8 @@ serve(async (req) => {
     const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
 
     const body = await req.json();
+    // BUSINESS ENFORCEMENT: set PAYPAL_MERCHANT_EMAIL secret to route to business account
+    const MERCHANT_EMAIL = Deno.env.get("PAYPAL_MERCHANT_EMAIL");
     const { amount, currency = "USD", paymentType = "one_time", planKey, description } = body;
 
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
