@@ -31,8 +31,20 @@ serve(async (req) => {
     const { to, body: messageBody, workspace_id, from: fromOverride } = await req.json();
     if (!to || !messageBody) return json(req, { error: "to and body required" }, 400);
 
-    // ── Resolve workspace credentials ─────────────────────────────────────
+    // ── Workspace membership enforcement ───────────────────────────────────
+    // Reject cross-workspace use — user must be a member of the requested workspace
     const wsId = workspace_id ?? user.id;
+    if (workspace_id && workspace_id !== user.id) {
+      const { data: isMember } = await sb.rpc("is_workspace_member",
+        { _user_id: user.id, _workspace_id: workspace_id });
+      const { data: isOwned } = await sb.from("workspaces")
+        .select("id").eq("id", workspace_id).eq("owner_id", user.id).maybeSingle();
+      if (!isMember && !isOwned) {
+        return json(req, { error: "Forbidden: not a member of this workspace" }, 403);
+      }
+    }
+
+    // ── Resolve workspace credentials ─────────────────────────────────────
     const { data: ch } = await sb
       .from("channels")
       .select("settings")
