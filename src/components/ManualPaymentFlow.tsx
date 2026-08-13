@@ -1,17 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useManualPayment } from "@/hooks/useManualPayment";
-import type { ManualPaymentMethod } from "@/hooks/useManualPayment";
-import type { SupportedCurrency } from "@/lib/currency";
-import { formatCurrency } from "@/lib/currency";
+import type { ManualPaymentMethod, PaymentMethodConfig } from "@/hooks/useManualPayment";
+import {
+  type SupportedCurrency,
+  formatCurrency,
+  getPaymentMethodPriority,
+} from "@/lib/currency";
+import { FeeDisclosure } from "@/components/FeeDisclosure";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
-import { Check, Copy, Landmark, Loader2, AlertCircle } from "lucide-react";
+import { AlertCircle, Check, Copy, Landmark, Loader2 } from "lucide-react";
 
 interface ManualPaymentFlowProps {
   planKey: string;
+  planName: string;
   packageType: string;
   chargedCurrency: SupportedCurrency;
   chargedAmount: number;
@@ -19,36 +25,63 @@ interface ManualPaymentFlowProps {
   onSuccess?: (referenceId: string) => void;
 }
 
-const METHOD_LABELS: Record<string, { label: string; icon: string; category: "bank" | "payoneer" }> = {
+const METHOD_META: Record<string, { label: string; icon: string; category: "bank" | "payoneer" }> = {
   bank_transfer_ALL: { label: "Transfertë Bankare (ALL)", icon: "🏦", category: "bank" },
   bank_transfer_EUR: { label: "Bank Transfer / SEPA (EUR)", icon: "🏦", category: "bank" },
-  bank_transfer_USD: { label: "Wire Transfer (USD)", icon: "🏦", category: "bank" },
-  payoneer_EUR:      { label: "Payoneer (EUR)", icon: "💳", category: "payoneer" },
-  payoneer_USD:      { label: "Payoneer (USD)", icon: "💳", category: "payoneer" },
+  bank_transfer_USD: { label: "Wire Transfer (USD)",        icon: "🏦", category: "bank" },
+  payoneer_EUR:      { label: "Payoneer (EUR)",              icon: "💳", category: "payoneer" },
+  payoneer_USD:      { label: "Payoneer (USD)",              icon: "💳", category: "payoneer" },
 };
 
 export function ManualPaymentFlow({
-  planKey, packageType, chargedCurrency, chargedAmount, workspaceId, onSuccess,
+  planKey, planName, packageType,
+  chargedCurrency, chargedAmount, workspaceId, onSuccess,
 }: ManualPaymentFlowProps) {
-  const { createPayment, submitConfirmation, loading } = useManualPayment();
-  const [step, setStep] = useState<"select" | "instructions" | "submitted">("select");
+  const { createPayment, submitConfirmation, getOptions, loading } = useManualPayment();
+
+  const [availableMethods, setAvailableMethods] = useState<PaymentMethodConfig[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState<ManualPaymentMethod | null>(null);
-  const [paymentResult, setPaymentResult] = useState<{ payment_id: string; reference_id: string; instructions: string } | null>(null);
+  const [step, setStep] = useState<"select" | "confirm" | "instructions" | "submitted">("select");
+  const [paymentResult, setPaymentResult] = useState<{
+    payment_id: string; reference_id: string; instructions: string;
+  } | null>(null);
   const [customerNote, setCustomerNote] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // Determine which methods make sense for this currency
-  const methodOrder: ManualPaymentMethod[] =
-    chargedCurrency === "ALL" ? ["bank_transfer_ALL", "payoneer_EUR"]
-    : chargedCurrency === "EUR" ? ["bank_transfer_EUR", "payoneer_EUR"]
-    : ["bank_transfer_USD", "payoneer_USD"];
+  // Load available methods filtered and ordered by currency
+  useEffect(() => {
+    setOptionsLoading(true);
+    getOptions(chargedCurrency).then(({ available }) => {
+      // Priority order for this currency
+      const priority = getPaymentMethodPriority(chargedCurrency);
+      // Filter to methods that match this currency (or are universal like payoneer)
+      const filtered = available.filter(m =>
+        m.currency === chargedCurrency ||
+        m.method_type.startsWith("payoneer") // Payoneer accepts multiple currencies
+      );
+      // Sort by priority
+      const sorted = [...filtered].sort((a, b) => {
+        const ai = priority.indexOf(a.method_type);
+        const bi = priority.indexOf(b.method_type);
+        return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+      });
+      setAvailableMethods(sorted);
+      if (sorted.length > 0) setSelectedMethod(sorted[0].method_type as ManualPaymentMethod);
+    }).catch(() => {}).finally(() => setOptionsLoading(false));
+  }, [chargedCurrency]);
+
+  const selectedConfig = availableMethods.find(m => m.method_type === selectedMethod);
+  // Receiving currency: same as method currency for bank transfers
+  const receivingCurrency = selectedConfig
+    ? (selectedConfig.currency as SupportedCurrency)
+    : null;
 
   const handleCreate = async () => {
     if (!selectedMethod) return;
     try {
       const result = await createPayment({
-        plan_key: planKey,
-        package_type: packageType,
+        plan_key: planKey, package_type: packageType,
         payment_method: selectedMethod,
         charged_currency: chargedCurrency,
         charged_amount: chargedAmount,
@@ -83,6 +116,9 @@ export function ManualPaymentFlow({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  // No methods available for this currency
+  const noBankAccount = !optionsLoading && availableMethods.length === 0;
+
   if (step === "submitted") {
     return (
       <Card className="border-emerald-200 bg-emerald-50 dark:bg-emerald-900/20">
@@ -93,7 +129,7 @@ export function ManualPaymentFlow({
           <CardTitle className="text-emerald-700 dark:text-emerald-400">Payment Submitted</CardTitle>
           <CardDescription>
             Reference: <span className="font-mono font-bold text-foreground">{paymentResult?.reference_id}</span>
-            <br />We will verify your payment and activate your subscription within 1 business day.
+            <br />Your subscription will activate within 1 business day after verification.
           </CardDescription>
         </CardContent>
       </Card>
@@ -105,17 +141,15 @@ export function ManualPaymentFlow({
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Landmark className="h-5 w-5" />
-            Payment Instructions
+            <Landmark className="h-5 w-5" /> Payment Instructions
           </CardTitle>
-          <CardDescription>
-            Amount: <strong>{formatCurrency(chargedAmount, chargedCurrency)}</strong>
-          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Reference ID — most important */}
+          {/* Reference ID */}
           <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4">
-            <p className="text-xs font-medium text-muted-foreground mb-1">YOUR PAYMENT REFERENCE (include in transfer)</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+              Payment Reference — include in transfer
+            </p>
             <div className="flex items-center justify-between gap-2">
               <span className="font-mono text-xl font-bold tracking-wider text-primary">
                 {paymentResult.reference_id}
@@ -125,22 +159,30 @@ export function ManualPaymentFlow({
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              ⚠️ This reference must appear in your transfer description or memo field.
+              ⚠️ This reference must appear in your transfer description / memo field.
             </p>
           </div>
 
-          {/* Instructions from admin config */}
+          {/* Admin-configured instructions (from payment_method_config) */}
           <div className="rounded-md bg-muted/50 p-3 text-sm text-muted-foreground whitespace-pre-line">
             {paymentResult.instructions}
           </div>
 
-          <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-400">
-            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>After completing your transfer, click &quot;I Have Paid&quot; below. Your subscription activates after admin verification (max 1 business day).</span>
-          </div>
+          {/* Fee disclosure */}
+          <FeeDisclosure
+            planName={planName}
+            planPrice={chargedAmount}
+            chargedCurrency={chargedCurrency}
+            paymentMethod={selectedMethod ?? ""}
+            receivingCurrency={receivingCurrency ?? undefined}
+            isProviderHandled={false}
+            compact
+          />
 
           <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Check className="mr-2 h-4 w-4" />}
+            {loading
+              ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              : <Check className="mr-2 h-4 w-4" />}
             I Have Paid — Submit for Verification
           </Button>
         </CardContent>
@@ -148,62 +190,82 @@ export function ManualPaymentFlow({
     );
   }
 
-  // Step: select method
+  // step === "select"
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Manual Payment</CardTitle>
+        <CardTitle>Bank Transfer / Payoneer</CardTitle>
         <CardDescription>
-          Select your preferred payment method. Bank transfer has zero commission.
+          Zero Pulse AI fees — direct payment in {chargedCurrency}.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          {methodOrder.map((method) => {
-            const meta = METHOD_LABELS[method];
-            if (!meta) return null;
-            const isSelected = selectedMethod === method;
-            return (
-              <button
-                key={method}
-                onClick={() => setSelectedMethod(method)}
-                className={`w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors
-                  ${isSelected ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/40"}`}
-              >
-                <span className="text-2xl">{meta.icon}</span>
-                <div className="flex-1">
-                  <p className="font-medium text-sm">{meta.label}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {meta.category === "bank" ? "No commission • 1-2 business days" : "Low commission • 1-2 business days"}
-                  </p>
-                </div>
-                {isSelected && <Badge variant="default" className="text-xs">Selected</Badge>}
-              </button>
-            );
-          })}
-        </div>
+        {optionsLoading ? (
+          <div className="space-y-2">
+            {[1,2].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
+          </div>
+        ) : noBankAccount ? (
+          <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>
+              A direct bank account in <strong>{chargedCurrency}</strong> is not yet configured.
+              Please use <strong>PayPal</strong> or <strong>Payoneer</strong> for this currency.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {availableMethods.map((m) => {
+              const meta = METHOD_META[m.method_type];
+              if (!meta) return null;
+              const isSelected = selectedMethod === m.method_type;
+              const showConversionHint = m.currency !== chargedCurrency;
+              return (
+                <button key={m.method_type} onClick={() => setSelectedMethod(m.method_type as ManualPaymentMethod)}
+                  className={`w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors
+                    ${isSelected ? "border-primary bg-primary/5" : "border-muted hover:border-muted-foreground/40"}`}>
+                  <span className="text-2xl">{meta.icon}</span>
+                  <div className="flex-1">
+                    <p className="font-medium text-sm">{m.display_name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {meta.category === "bank" ? "No commission from Pulse AI" : "Low commission from provider"}
+                      {showConversionHint && " · Conversion may apply"}
+                    </p>
+                  </div>
+                  {isSelected && <Badge variant="default" className="text-xs">Selected</Badge>}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
-        <Textarea
-          placeholder="Optional: leave a note (e.g. your name or business name)"
-          value={customerNote}
-          onChange={(e) => setCustomerNote(e.target.value)}
-          rows={2}
-          className="text-sm"
-        />
+        {!noBankAccount && selectedMethod && (
+          <>
+            <Textarea
+              placeholder="Optional: your name or business name for the transfer"
+              value={customerNote}
+              onChange={(e) => setCustomerNote(e.target.value)}
+              rows={2} className="text-sm"
+            />
 
-        <Button
-          className="w-full"
-          onClick={handleCreate}
-          disabled={!selectedMethod || loading}
-        >
-          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Landmark className="mr-2 h-4 w-4" />}
-          Get Payment Instructions
-        </Button>
+            {/* Pre-confirmation fee disclosure */}
+            <FeeDisclosure
+              planName={planName}
+              planPrice={chargedAmount}
+              chargedCurrency={chargedCurrency}
+              paymentMethod={selectedMethod}
+              receivingCurrency={receivingCurrency ?? undefined}
+              isProviderHandled={false}
+            />
 
-        <p className="text-xs text-center text-muted-foreground">
-          Amount: {formatCurrency(chargedAmount, chargedCurrency)} •
-          Subscription activates after verification
-        </p>
+            <Button className="w-full" onClick={handleCreate}
+              disabled={loading}>
+              {loading
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <Landmark className="mr-2 h-4 w-4" />}
+              Get Bank Details &amp; Reference ID
+            </Button>
+          </>
+        )}
       </CardContent>
     </Card>
   );
