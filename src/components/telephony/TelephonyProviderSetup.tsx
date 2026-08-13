@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -57,6 +58,8 @@ export const TelephonyProviderSetup = () => {
       { key: "account_sid", label: "Account SID", type: "text" as const, required: true, placeholder: "ACxxxxxxxx" },
       { key: "auth_token", label: "Auth Token", type: "password" as const, required: true, placeholder: "Your auth token" },
       { key: "twiml_app_sid", label: "TwiML App SID", type: "text" as const, required: false, placeholder: "APxxxxxxxx", help: "Required for browser-based calling" },
+      { key: "api_key_sid", label: "API Key SID (for WebRTC)", type: "text" as const, required: false, placeholder: "SKxxxxxxxx", help: "Twilio API Key SID — required for browser calling. Create at console.twilio.com/project/api-keys" },
+      { key: "api_key_secret", label: "API Key Secret (for WebRTC)", type: "password" as const, required: false, placeholder: "Your API Key Secret", help: "Never shown after saving. Required for browser calling." },
       { key: "phone_number", label: "Phone Number", type: "text" as const, required: true, placeholder: "+1234567890" },
     ];
     if (provider === "custom_sip") return [
@@ -91,24 +94,15 @@ export const TelephonyProviderSetup = () => {
   };
 
   const handleVerify = async () => {
-    setVerifying(true);
-    setVerifyResult(null);
-    try {
-      if (provider === "twilio" && creds.account_sid && creds.auth_token) {
-        const res = await fetch(
-          `https://api.twilio.com/2010-04-01/Accounts/${creds.account_sid}.json`,
-          { headers: { Authorization: "Basic " + btoa(`${creds.account_sid}:${creds.auth_token}`) } }
-        );
-        const data = await res.json();
-        if (data.sid) {
-          setVerifyResult({ ok: true, detail: `Verified: ${data.friendly_name || data.sid}` });
-        } else {
-          setVerifyResult({ ok: false, detail: data.message || "Invalid credentials" });
-        }
-      } else {
-        await new Promise((r) => setTimeout(r, 1500));
-        setVerifyResult({ ok: true, detail: "Credentials format validated" });
-      }
+    // Verification happens server-side during save.
+    // Credentials are verified with Twilio API before being encrypted and stored.
+    // The result is shown via verifyResult state set during handleSave.
+    if (verifyResult?.ok) {
+      toast.success("Credentials verified: " + (verifyResult.detail ?? "OK"));
+    } else {
+      toast.error("Please save credentials first to trigger server-side verification.");
+    }
+  };
     } catch {
       setVerifyResult({ ok: false, detail: "Connection failed" });
     }
