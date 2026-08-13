@@ -13,12 +13,14 @@ import {
   ExternalLink, Shield, Phone, Headphones, Eye, EyeOff, Zap, Settings2,
 } from "lucide-react";
 
+// Only Twilio has a verified backend implementation.
+// Other providers are listed as Coming Soon — do not claim functionality not implemented.
 const VOIP_PROVIDERS = [
-  { value: "twilio", label: "Twilio", docsUrl: "https://console.twilio.com/" },
-  { value: "vonage", label: "Vonage (Nexmo)", docsUrl: "https://dashboard.nexmo.com/" },
-  { value: "plivo", label: "Plivo", docsUrl: "https://console.plivo.com/" },
-  { value: "telnyx", label: "Telnyx", docsUrl: "https://portal.telnyx.com/" },
-  { value: "custom_sip", label: "Custom SIP Provider", docsUrl: "" },
+  { value: "twilio", label: "Twilio", docsUrl: "https://console.twilio.com/", available: true },
+  { value: "vonage", label: "Vonage (Nexmo)", docsUrl: "https://dashboard.nexmo.com/", available: false },
+  { value: "plivo", label: "Plivo", docsUrl: "https://console.plivo.com/", available: false },
+  { value: "telnyx", label: "Telnyx", docsUrl: "https://portal.telnyx.com/", available: false },
+  { value: "custom_sip", label: "Custom SIP Provider", docsUrl: "", available: false },
 ];
 
 const STEPS = ["Provider", "Credentials", "Webhook", "Verify"] as const;
@@ -28,6 +30,15 @@ export const TelephonyProviderSetup = () => {
   const { channels, addChannel } = useChannels();
   const voipChannel = channels.find((c) => c.channel_type === "voip");
 
+
+  // Correct Twilio webhook URLs — DO NOT mix up voice and SMS
+  const baseUrl = import.meta.env.VITE_SUPABASE_URL + "/functions/v1";
+  const TWILIO_WEBHOOKS = {
+    voice_inbound:           `${baseUrl}/twilio-inbound-call`,
+    voice_status_callback:   `${baseUrl}/twilio-status-callback`,
+    sms_inbound:             `${baseUrl}/sms-webhook`,
+    voice_ai_relay:          `${baseUrl}/voice-ai-relay`,  // ConversationRelay (voice_ai_enabled=true only)
+  };
   const [step, setStep] = useState<Step>("Provider");
   const [provider, setProvider] = useState("");
   const [creds, setCreds] = useState<Record<string, string>>({});
@@ -39,7 +50,7 @@ export const TelephonyProviderSetup = () => {
 
   const stepIndex = STEPS.indexOf(step);
   const selectedProvider = VOIP_PROVIDERS.find((p) => p.value === provider);
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sms-webhook`;
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/twilio-inbound-call`;
 
   const getCredFields = () => {
     if (provider === "twilio") return [
