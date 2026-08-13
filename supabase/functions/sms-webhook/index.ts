@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
+import { extractCalledNumber, resolveWorkspaceFromCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -51,13 +52,23 @@ serve(async (req) => {
     const contentType = req.headers.get("content-type") || "";
     const rawBody = await req.text();
 
-    const sigCheck = await verifyTwilioSignature(req, rawBody, contentType);
+    // SECURITY: Resolve per-workspace credentials from signed To number.
+    // workspace_id query param is NEVER trusted alone.
+    const calledNumber = extractCalledNumber(rawBody, contentType);
+    const wsCreds = await resolveWorkspaceFromCalledNumber(calledNumber, ["sms","voip"], supabase);
+
+    const sigCheck = await verifyTwilioSignature(
+      req, rawBody, contentType,
+      wsCreds?.decrypted_auth_token
+    );
     if (!sigCheck.ok) {
-      console.warn(`[SMS] Twilio signature rejected: ${sigCheck.reason}`);
+      console.warn(`[SMS] Twilio signature rejected: ${sigCheck.reason} (to=${calledNumber})`);
       return new Response("<Response></Response>", {
         status: 403, headers: { ...getCors(req), "Content-Type": "text/xml" },
       });
     }
+    // Workspace is authoritative from signed To number, NOT query param
+    const resolvedWorkspaceId = wsCreds?.workspace_id;
 
     let from = "", to = "", body = "", messageSid = "", numMedia = 0;
     let messageStatus = "", errorCode = "", errorMessage = "";
