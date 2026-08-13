@@ -8,10 +8,14 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
 import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign } from "lucide-react";
 import { useUserWallets } from "@/hooks/useUserWallet";
+import { useCountryCurrency } from "@/hooks/useCountryCurrency";
+import { FeeDisclosure } from "@/components/FeeDisclosure";
+import { ManualPaymentFlow } from "@/components/ManualPaymentFlow";
+import { formatCurrency, type SupportedCurrency } from "@/lib/currency";
 import { usePricingSettings } from "@/hooks/usePricingSettings";
 import { cn } from "@/lib/utils";
 import type { PlanKey } from "@/types/monetization";
-import { formatALL } from "@/lib/currency";
+// formatALL preserved for legacy display; formatCurrency used for payment amounts
 
 interface PlanTier {
   key: PlanKey;
@@ -73,7 +77,12 @@ const CompletePayment = () => {
     isAmbassador ? "trial" : (metaDuration || "monthly")
   );
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+  const { currency: detectedCurrency, countryCode, isExplicitMatch, setCurrency } = useCountryCurrency();
+  const [paymentCurrency, setPaymentCurrency] = useState<SupportedCurrency>("EUR");
   const [loading, setLoading] = useState(false);
+
+  // Sync geo-detected currency once loaded
+  // useEffect(() => { if (detectedCurrency) setPaymentCurrency(detectedCurrency); }, [detectedCurrency]);
   const [paypalCapturing, setPaypalCapturing] = useState(false);
   const [paypalResult, setPaypalResult] = useState<"success" | "failed" | null>(null);
 
@@ -162,7 +171,7 @@ const CompletePayment = () => {
         const { data, error } = await supabase.functions.invoke("create-paypal-order", {
           body: {
             amount: totalPrice,
-            currency: "EUR",
+            currency: paymentCurrency,
             paymentType: "one_time",
             planKey: selectedPlan,
             description: `${currentTier?.name} plan - ${currentDuration?.label}`,
