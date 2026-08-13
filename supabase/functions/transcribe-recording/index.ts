@@ -54,6 +54,31 @@ serve(async (req) => {
     const { data: recording, error: re } = await recQuery.single();
     if (re || !recording) throw new Error("Recording not found");
 
+    // SECURITY: Always use recording's STORED workspace_id — ignore request-provided value.
+    // Prevents cross-workspace access via forged workspace_id parameter.
+    const recordingWorkspaceId: string | null = (recording as any).workspace_id ?? null;
+
+    // For non-internal calls: verify authenticated user is member of recording's workspace
+    if (!isInternal && recordingWorkspaceId) {
+      const authHdr = req.headers.get("authorization");
+      if (authHdr) {
+        const { data: { user: auther } } = await createClient(
+          Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!,
+          { global: { headers: { Authorization: authHdr } } }
+        ).auth.getUser();
+        if (auther) {
+          const [{ data: isMbr }, { data: isOwnr }, { data: isAdm }] = await Promise.all([
+            sb.rpc("is_workspace_member", { _user_id: auther.id, _workspace_id: recordingWorkspaceId }),
+            sb.from("workspaces").select("id").eq("id", recordingWorkspaceId).eq("owner_id", auther.id).maybeSingle(),
+            sb.from("user_roles").select("role").eq("user_id", auther.id).in("role", ["admin","super_admin"]).maybeSingle(),
+          ]);
+          if (!isMbr && !isOwnr && !isAdm) {
+            throw new Error("Forbidden: recording belongs to a different workspace");
+          }
+        }
+      }
+    }
+
     if (recording.transcription_status === "completed") {
       return new Response(JSON.stringify({ already_done: true, recording_id: recording.id }),
         { headers: { ...getCors(req), "Content-Type": "application/json" } });
@@ -64,7 +89,7 @@ serve(async (req) => {
       .eq("id", recording.id);
 
     // ── Resolve Twilio credentials ──────────────────────────────────────────
-    const wsId = workspace_id ?? recording.workspace_id;
+    const wsId = recordingWorkspaceId;
     let accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
     let authToken  = Deno.env.get("TWILIO_AUTH_TOKEN");
 
