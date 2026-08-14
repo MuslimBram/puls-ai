@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { requireCronAuth } from "../_shared/cron-auth.ts";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/telegram";
 const MAX_RUNTIME_MS = 55_000;
