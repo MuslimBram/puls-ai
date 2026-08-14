@@ -52,6 +52,17 @@ serve(async (req) => {
   try {
     const update = await req.json();
 
+  const update_id = body?.update_id;
+  if (update_id) {
+    const iKey = `telegram:${update_id}`;
+    const { data: dup } = await supabase.from("processed_webhook_events")
+      .select("id").eq("provider","telegram").eq("event_id",iKey).maybeSingle();
+    if (dup) return new Response(JSON.stringify({ status:"duplicate" }), { status:200 });
+    await supabase.from("processed_webhook_events")
+      .insert({ provider:"telegram", event_id:iKey }).catch(()=>{});
+  }
+
+
     const msg = update.message || update.channel_post;
     if (!msg || !msg.text) {
       return new Response(JSON.stringify({ ok: true, skipped: true }), {
