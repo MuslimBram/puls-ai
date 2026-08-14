@@ -1,22 +1,18 @@
 /**
- * builder-adapter-router — Pulse AI Builder Adapter Layer
+ * builder-adapter-router v2 — Pulse AI Generic Multi-Builder Foundation
  *
- * Routes Pulse Orchestrator commands to external builder platforms:
- *   - Lovable MCP  (https://mcp.lovable.dev)     auth: OAuth (external_oauth_required)
- *   - Emergent MCP (https://mcp.emergent.sh/)    auth: OAuth (external_oauth_required)
+ * Supported adapters (zero-cost validation phase):
+ *   lovable_mcp   → https://mcp.lovable.dev        (OAuth)
+ *   emergent_mcp  → https://mcp.emergent.sh/        (OAuth)
+ *   base44_mcp    → https://app.base44.com/mcp      (OAuth)
+ *   replit_mcp    → https://replit-mcp.com/server/mcp (OAuth 2.1/PKCE, Streamable HTTP)
+ *   claude_code   → agent_sdk (NOT MCP OAuth — isolated sandbox execution)
  *
- * Architecture contract:
- *   Pulse Orchestrator
- *   └── builder-adapter-router
- *       ├── lovable_mcp adapter
- *       └── emergent_mcp adapter
+ * Normalized BuilderResult contract is the ONLY shape returned to orchestrators.
+ * No platform-specific response leaks past this adapter layer.
  *
- * IMPORTANT:
- *   - Does NOT mix with ai-router (AI providers are separate)
- *   - Does NOT execute paid builds in this validation pass
- *   - Does NOT store plaintext OAuth tokens
- *   - DOES use unified_connections for connection state
- *   - DOES log every action to integration_event_logs with idempotency
+ * verify_jwt=true — all requests require a valid Supabase JWT.
+ * Internal calls: use x-internal-secret + valid workspace_id for UUID actor resolution.
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
@@ -30,8 +26,6 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 
 // ── ADAPTER REGISTRY ──────────────────────────────────────────────────────────
-// These are tool/builder adapters — NOT AI providers.
-// Auth is OAuth-only; no server-side API keys.
 const ADAPTERS = {
   lovable_mcp: {
     adapter_key:     "lovable_mcp",
@@ -39,14 +33,18 @@ const ADAPTERS = {
     category:        "builder",
     connection_type: "mcp_oauth",
     endpoint:        "https://mcp.lovable.dev",
-    auth_mode:       "oauth",               // OAuth only — no API key
-    oauth_flow:      "client_driven",       // must be completed by client
+    auth_mode:       "oauth",
+    oauth_flow:      "client_driven",
+    transport:       "http",
+    // Capability discovery via MCP toolset — not a closed static list.
+    // Core known capabilities; full set is discoverable via the MCP protocol.
     capabilities: [
       "create_project", "send_message", "deploy_project",
-      "list_projects", "read_file", "list_files",
-      "query_database", "get_project",
+      "list_projects", "read_file", "list_files", "write_file",
+      "query_database", "get_project", "get_diff", "list_edits",
     ],
-    docs: "https://mcp.lovable.dev/docs",
+    capability_discovery: true,
+    mutating_actions: ["create_project", "send_message", "deploy_project", "write_file"],
   },
   emergent_mcp: {
     adapter_key:     "emergent_mcp",
@@ -56,15 +54,91 @@ const ADAPTERS = {
     endpoint:        "https://mcp.emergent.sh/",
     auth_mode:       "oauth",
     oauth_flow:      "client_driven",
+    transport:       "http",
+    // Exact public capabilities per Emergent MCP spec
     capabilities: [
-      "create_app", "execute_action", "get_status",
-      "list_apps", "get_logs", "deploy",
+      "create_job", "wait_for_job", "send_message", "list_jobs",
+      "get_job_status", "get_recent_trajectories", "get_job_preview", "pause_job",
     ],
-    docs: "https://mcp.emergent.sh/docs",
+    capability_discovery: false,
+    mutating_actions: ["create_job", "send_message", "pause_job"],
+  },
+  base44_mcp: {
+    adapter_key:     "base44_mcp",
+    display_name:    "Base44 MCP",
+    category:        "builder",
+    connection_type: "mcp_oauth",
+    endpoint:        "https://app.base44.com/mcp",
+    auth_mode:       "oauth",
+    oauth_flow:      "client_driven",
+    transport:       "http",
+    capabilities: [
+      "create_base44_app", "edit_base44_app", "list_user_apps",
+      "list_entity_schemas", "query_entities",
+    ],
+    capability_discovery: false,
+    mutating_actions: ["create_base44_app", "edit_base44_app"],
+  },
+  replit_mcp: {
+    adapter_key:     "replit_mcp",
+    display_name:    "Replit MCP",
+    category:        "builder",
+    connection_type: "mcp_oauth_pkce",    // OAuth 2.1 with PKCE
+    endpoint:        "https://replit-mcp.com/server/mcp",
+    auth_mode:       "oauth_pkce",         // OAuth 2.1 / PKCE
+    oauth_flow:      "pkce",
+    transport:       "streamable_http",    // Streamable HTTP transport
+    capabilities: [
+      "create_app_from_prompt", "update_app_using_prompt", "ask_question",
+    ],
+    capability_discovery: false,
+    mutating_actions: ["create_app_from_prompt", "update_app_using_prompt"],
+  },
+  claude_code: {
+    adapter_key:     "claude_code",
+    display_name:    "Claude Code",
+    category:        "builder",
+    connection_type: "agent_sdk",          // NOT MCP OAuth — agent/worker SDK
+    endpoint:        null,                 // no remote MCP endpoint — local SDK/CLI
+    auth_mode:       "anthropic_api_key",  // uses ANTHROPIC_API_KEY for the agent
+    oauth_flow:      null,
+    transport:       "local_sdk",
+    capabilities: [
+      "execute_task", "review_code", "run_tests",
+      "write_file", "read_file", "terminal",
+    ],
+    capability_discovery: false,
+    mutating_actions: ["execute_task", "write_file", "terminal"],
+    note: "Intended for Claude Code SDK/CLI execution in an isolated sandbox. Not yet active.",
   },
 } as const;
 
 type AdapterKey = keyof typeof ADAPTERS;
+const MUTATING_ACTIONS = new Set<string>();
+for (const ad of Object.values(ADAPTERS)) {
+  for (const a of (ad as any).mutating_actions ?? []) MUTATING_ACTIONS.add(`${ad.adapter_key}:${a}`);
+}
+
+// ── NORMALIZED BUILDER RESULT ─────────────────────────────────────────────────
+interface BuilderResult {
+  adapter_key:         string;
+  action?:             string;
+  connection_status:   "connected" | "disconnected" | "external_oauth_required";
+  run_status?:         "pending" | "running" | "completed" | "failed" | "cancelled" | null;
+  external_project_id?: string | null;
+  external_job_id?:    string | null;
+  branch_name?:        string | null;
+  commit_sha?:         string | null;
+  preview_url?:        string | null;
+  diff_summary?:       string | null;
+  build_status?:       string | null;
+  test_results?:       unknown;
+  latency_ms:          number;
+  error?:              string | null;
+  metadata?:           Record<string, unknown>;
+  oauth_instructions?: string;
+  idempotency_key?:    string;
+}
 
 // ── WORKSPACE RESOLUTION ──────────────────────────────────────────────────────
 async function resolveWorkspace(
@@ -80,63 +154,102 @@ async function resolveWorkspace(
       { _user_id: userId, _workspace_id: requestedId });
     return member ? requestedId : null;
   }
-  // Owned first
   const { data: ownedWs } = await sb.from("workspaces").select("id")
     .eq("owner_id", userId).order("created_at", { ascending: true }).limit(1).maybeSingle();
   if (ownedWs?.id) return ownedWs.id;
-  // Member fallback
   const { data: memWs } = await sb.from("workspace_members").select("workspace_id")
     .eq("user_id", userId).order("created_at", { ascending: true }).limit(1).maybeSingle();
   return memWs?.workspace_id ?? null;
 }
 
+// ── RESOLVE INTERNAL ACTOR (UUID — never "system") ────────────────────────────
+// Internal calls have no user JWT. Derive the actor UUID from the workspace owner.
+// If workspace cannot be resolved, internal audit is skipped entirely.
+async function resolveInternalActor(
+  sb: ReturnType<typeof createClient>,
+  workspaceId: string | null,
+): Promise<string | null> {
+  if (!workspaceId) return null;
+  const { data: ws } = await sb.from("workspaces")
+    .select("owner_id").eq("id", workspaceId).maybeSingle();
+  return ws?.owner_id ?? null;  // null = cannot determine actor → skip audit
+}
+
 // ── CONNECTION MANAGEMENT ─────────────────────────────────────────────────────
-// Looks up or creates a stub unified_connection for the adapter + workspace.
-// Returns the connection record.
 async function getOrCreateConnection(
   sb: ReturnType<typeof createClient>,
   adapterKey: AdapterKey,
   workspaceId: string,
   userId: string,
 ) {
-  const def = ADAPTERS[adapterKey];
-
-  // Look up existing connection
+  const def = ADAPTERS[adapterKey] as any;
   const { data: existing } = await sb.from("unified_connections")
-    .select("*")
-    .eq("workspace_id", workspaceId)
-    .eq("provider", adapterKey)
-    .eq("category", "builder")
-    .maybeSingle();
-
+    .select("*").eq("workspace_id", workspaceId).eq("provider", adapterKey)
+    .eq("category", "builder").maybeSingle();
   if (existing) return existing;
 
-  // Create a stub disconnected connection record
   const { data: created } = await sb.from("unified_connections").insert({
     user_id:               userId,
     workspace_id:          workspaceId,
     provider:              adapterKey,
     category:              "builder",
-    connection_type:       "mcp_oauth",
+    connection_type:       def.connection_type,
     status:                "disconnected",
     display_name:          def.display_name,
-    config_json:           { endpoint: def.endpoint, auth_mode: def.auth_mode, capabilities: def.capabilities },
-    credentials_encrypted: {},    // empty — OAuth tokens populated via client flow only
+    config_json: {
+      endpoint:            def.endpoint,
+      auth_mode:           def.auth_mode,
+      transport:           def.transport,
+      capabilities:        def.capabilities,
+      capability_discovery: def.capability_discovery ?? false,
+    },
+    credentials_encrypted: {},
     is_enabled:            false,
-    last_error:            "OAuth not yet completed",
+    last_error:            def.endpoint
+      ? "OAuth not yet completed"
+      : "Agent SDK — requires local configuration",
   }).select("*").single().catch(() => ({ data: null }));
-
   return created;
 }
 
+// ── PRE-DISPATCH IDEMPOTENCY CHECK ────────────────────────────────────────────
+// For mutating actions: check if idempotency_key was already claimed.
+// Returns the existing normalized result if already processed.
+async function checkIdempotency(
+  sb: ReturnType<typeof createClient>,
+  idempotencyKey: string,
+): Promise<{ alreadyProcessed: boolean; existingResult: BuilderResult | null }> {
+  const { data } = await sb.from("integration_event_logs")
+    .select("id, status, payload, metadata")
+    .eq("idempotency_key", idempotencyKey)
+    .maybeSingle();
+
+  if (!data) return { alreadyProcessed: false, existingResult: null };
+
+  // Already started or completed — return stored result
+  if (data.status === "completed" || data.status === "started" || data.status === "pending") {
+    const stored = (data.metadata as any)?.normalized_result as BuilderResult | null;
+    return {
+      alreadyProcessed: true,
+      existingResult: stored ?? {
+        adapter_key:       "unknown",
+        connection_status: "connected",
+        run_status:        data.status as any,
+        latency_ms:        0,
+        idempotency_key:   idempotencyKey,
+        metadata:          { note: "Already processed — idempotency key was previously claimed." },
+      },
+    };
+  }
+  return { alreadyProcessed: false, existingResult: null };
+}
+
 // ── EVENT LOGGING ─────────────────────────────────────────────────────────────
-// All adapter executions are logged with idempotency.
-// Never logs tokens or OAuth secrets — only sanitized metadata.
 async function logEvent(
   sb: ReturnType<typeof createClient>,
   opts: {
     integrationId: string;
-    userId: string;
+    userId: string;                 // must be a real UUID — never "system"
     adapterKey: AdapterKey;
     eventType: string;
     eventMessage: string;
@@ -145,35 +258,16 @@ async function logEvent(
     metadata?: Record<string, unknown>;
   },
 ): Promise<void> {
-  // Use unique idempotency index — duplicate keys are safe (silently ignored)
   await sb.from("integration_event_logs").insert({
     integration_id:  opts.integrationId,
-    user_id:         opts.userId,
+    user_id:         opts.userId,   // validated UUID from resolveInternalActor or auth user
     event_type:      opts.eventType,
     event_message:   opts.eventMessage,
     status:          opts.status,
     adapter_key:     opts.adapterKey,
     idempotency_key: opts.idempotencyKey,
-    metadata:        opts.metadata ?? {},
-  }).catch(() => {}); // idempotency conflict = already logged, safe to ignore
-}
-
-// ── NORMALIZED ADAPTER RESPONSE ───────────────────────────────────────────────
-interface AdapterResult {
-  adapter_key:         AdapterKey;
-  connection_status:   "connected" | "disconnected" | "external_oauth_required";
-  auth_mode:           string;
-  capabilities:        readonly string[];
-  action?:             string;
-  execute_action?:     string;
-  normalized_result?:  unknown;
-  latency_ms?:         number;
-  external_job_id?:    string | null;
-  external_project_id?: string | null;
-  preview_url?:        string | null;
-  error?:              string | null;
-  metadata?:           Record<string, unknown>;
-  oauth_instructions?: string;
+    metadata:        opts.metadata ?? {},  // NEVER log tokens or OAuth secrets
+  }).catch(() => {});
 }
 
 // ── MAIN HANDLER ──────────────────────────────────────────────────────────────
@@ -182,26 +276,30 @@ serve(async (req) => {
   if (req.method !== "POST" && req.method !== "GET")
     return json({ error: "POST or GET only" }, 405);
 
-  const supabase = createClient(
+  const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
 
-  // GET /registry — return adapter definitions (no auth required)
+  // GET /registry — return adapter definitions (JWT required, verify_jwt=true on gateway)
   if (req.method === "GET") {
     return json({
-      adapters: Object.values(ADAPTERS).map(a => ({
-        adapter_key:     a.adapter_key,
-        display_name:    a.display_name,
-        category:        a.category,
-        auth_mode:       a.auth_mode,
-        endpoint:        a.endpoint,
-        capabilities:    a.capabilities,
-        connection_type: a.connection_type,
+      adapters: Object.values(ADAPTERS).map((a: any) => ({
+        adapter_key:          a.adapter_key,
+        display_name:         a.display_name,
+        category:             a.category,
+        connection_type:      a.connection_type,
+        auth_mode:            a.auth_mode,
+        transport:            a.transport,
+        endpoint:             a.endpoint,
+        capabilities:         a.capabilities,
+        capability_discovery: a.capability_discovery,
+        mutating_actions:     a.mutating_actions,
       })),
-      architecture: "builder_adapter_layer",
-      note: "These are tool/builder adapters — NOT AI providers. AI routing is separate (ai-router).",
+      architecture: "builder_adapter_layer_v2",
+      contract:     "BuilderResult — normalized, no platform-specific leakage",
+      note: "Tool/builder adapters. AI providers are routed separately via ai-router.",
     });
   }
 
@@ -209,39 +307,30 @@ serve(async (req) => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
-  // Internal call support (for Pulse Orchestrator internal routing)
   const isInternal = (() => {
-    const secret = Deno.env.get("INTERNAL_WEBHOOK_SECRET");
-    return !!secret && req.headers.get("x-internal-secret") === secret;
+    const s = Deno.env.get("INTERNAL_WEBHOOK_SECRET");
+    return !!s && req.headers.get("x-internal-secret") === s;
   })();
 
   const { data: { user } } = isInternal
     ? { data: { user: null } }
-    : await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+    : await sb.auth.getUser(authHeader.replace("Bearer ", ""));
 
   if (!isInternal && !user) return json({ error: "Unauthorized" }, 401);
 
   let body: any;
   try { body = await req.json(); }
-  catch { return json({ error: "Invalid JSON body" }, 400); }
+  catch { return json({ error: "Invalid JSON" }, 400); }
 
   const {
-    adapter_key,
-    action,
-    params = {},
-    workspace_id: reqWorkspaceId,
-    idempotency_key,
-    dry_run = false,  // validation-only flag
+    adapter_key, action, workspace_id: reqWsId,
+    idempotency_key, dry_run = false,
   } = body as {
-    adapter_key?: string;
-    action?: string;
-    params?: Record<string, unknown>;
-    workspace_id?: string;
-    idempotency_key?: string;
-    dry_run?: boolean;
+    adapter_key?: string; action?: string; workspace_id?: string;
+    idempotency_key?: string; dry_run?: boolean;
   };
 
-  // Validate adapter_key
+  // Validate adapter_key — fail closed
   if (!adapter_key || !(adapter_key in ADAPTERS)) {
     return json({
       error: `Unknown adapter_key "${adapter_key}". Valid: ${Object.keys(ADAPTERS).join(", ")}`,
@@ -250,119 +339,132 @@ serve(async (req) => {
   }
 
   const adKey = adapter_key as AdapterKey;
-  const def = ADAPTERS[adKey];
+  const def = ADAPTERS[adKey] as any;
 
-  // Workspace resolution
-  const userId = user?.id ?? "system";
+  // Resolve workspace and actor UUID
   let workspaceId: string | null;
+  let actorUserId: string | null;
+
   if (isInternal) {
-    workspaceId = reqWorkspaceId ?? null;
+    // Internal: workspace_id must be provided; derive actor from workspace owner
+    workspaceId  = reqWsId ?? null;
+    actorUserId  = await resolveInternalActor(sb, workspaceId);
+    // If actor cannot be resolved, audit is skipped — but we still process
   } else if (user) {
-    workspaceId = await resolveWorkspace(supabase, user.id, reqWorkspaceId);
+    workspaceId = await resolveWorkspace(sb, user.id, reqWsId);
     if (!workspaceId) return json({ error: "No authorized workspace found" }, 403);
+    actorUserId = user.id;
   } else {
     return json({ error: "Unauthorized" }, 401);
   }
 
   const start = Date.now();
 
-  // Get/create connection record
-  const connection = workspaceId
-    ? await getOrCreateConnection(supabase, adKey, workspaceId, userId)
+  // Connection state
+  const connection = workspaceId && actorUserId
+    ? await getOrCreateConnection(sb, adKey, workspaceId, actorUserId)
     : null;
 
-  const connectionStatus = (() => {
-    if (!connection) return "external_oauth_required";
-    if (connection.status === "connected" && connection.is_enabled) return "connected";
-    return "external_oauth_required";
-  })() as AdapterResult["connection_status"];
+  const connectionStatus: BuilderResult["connection_status"] =
+    connection?.status === "connected" && connection?.is_enabled
+      ? "connected"
+      : "external_oauth_required";
 
-  const iKey = idempotency_key ?? `${adKey}:${action ?? "registry"}:${workspaceId}:${Date.now()}`;
+  // ── PRE-DISPATCH IDEMPOTENCY (mutating actions only) ──────────────────────
+  const isMutating = action && MUTATING_ACTIONS.has(`${adKey}:${action}`);
 
-  // Log this invocation
-  if (connection?.id) {
-    await logEvent(supabase, {
+  if (isMutating && !dry_run) {
+    // Mutating actions require an idempotency_key to prevent duplicate dispatch
+    if (!idempotency_key) {
+      return json({
+        error: "idempotency_key is required for mutating actions to prevent duplicate dispatch.",
+        adapter_key: adKey, action, is_mutating: true,
+      }, 422);
+    }
+
+    // Check if already processed — return existing result
+    const { alreadyProcessed, existingResult } = await checkIdempotency(sb, idempotency_key);
+    if (alreadyProcessed && existingResult) {
+      return json({ ...existingResult, duplicate: true, idempotency_key });
+    }
+  }
+
+  const iKey = idempotency_key
+    ?? `${adKey}:${action ?? "registry"}:${workspaceId ?? "no-ws"}:${Date.now()}`;
+
+  // Log this invocation (only when actor UUID is available)
+  if (connection?.id && actorUserId) {
+    await logEvent(sb, {
       integrationId:  connection.id,
-      userId,
+      userId:         actorUserId,  // real UUID from user JWT or workspace owner
       adapterKey:     adKey,
       eventType:      action ? "adapter_action_attempt" : "adapter_registry_check",
       eventMessage:   action
-        ? `Action "${action}" attempted on ${def.display_name} — status: ${connectionStatus}`
+        ? `Action "${action}" on ${def.display_name} — ${connectionStatus}`
         : `Registry check for ${def.display_name}`,
       status:         connectionStatus === "connected" ? "pending" : "blocked_oauth_required",
       idempotencyKey: iKey,
-      metadata: {
-        action,
-        dry_run,
-        connection_status: connectionStatus,
-        workspace_id:      workspaceId,
-        // Never log tokens, never log OAuth secrets
-      },
+      metadata: { action, dry_run, connection_status: connectionStatus, workspace_id: workspaceId },
     });
   }
 
   const latency_ms = Date.now() - start;
 
-  // Connection NOT established — return OAuth instructions
+  // ── DISCONNECTED / OAUTH REQUIRED ─────────────────────────────────────────
   if (connectionStatus !== "connected") {
-    const result: AdapterResult = {
-      adapter_key:       adKey,
+    const result: BuilderResult = {
+      adapter_key: adKey, action,
       connection_status: "external_oauth_required",
-      auth_mode:         def.auth_mode,
-      capabilities:      def.capabilities,
-      action,
-      normalized_result: null,
-      latency_ms,
-      external_job_id:    null,
-      external_project_id: null,
-      preview_url:        null,
-      error:             null,
+      run_status: null,
+      external_project_id: null, external_job_id: null,
+      branch_name: null, commit_sha: null, preview_url: null,
+      diff_summary: null, build_status: null, test_results: null,
+      latency_ms, error: null, idempotency_key: iKey,
       metadata: {
-        endpoint:         def.endpoint,
-        workspace_id:     workspaceId,
-        oauth_flow:       def.oauth_flow,
-        connection_id:    connection?.id ?? null,
+        endpoint:      def.endpoint,
+        connection_type: def.connection_type,
+        auth_mode:     def.auth_mode,
+        transport:     def.transport,
+        workspace_id:  workspaceId,
+        connection_id: connection?.id ?? null,
       },
-      oauth_instructions: [
-        `${def.display_name} requires OAuth authentication.`,
-        `OAuth flow must be completed via the client-driven flow.`,
-        `Endpoint: ${def.endpoint}`,
-        `Once authenticated, credentials are stored encrypted in unified_connections.`,
-        `No API keys — server-side OAuth token injection is not currently supported.`,
-      ].join(" | "),
+      oauth_instructions: def.endpoint
+        ? `${def.display_name} requires ${def.auth_mode.toUpperCase()} auth. `
+          + `Endpoint: ${def.endpoint}. Transport: ${def.transport}. `
+          + `Complete OAuth via the client-driven flow. `
+          + `Credentials are stored encrypted in unified_connections once authenticated.`
+        : `${def.display_name} is an agent SDK adapter (not a remote MCP endpoint). `
+          + `Configure via local agent SDK/CLI. `
+          + `No OAuth flow — requires ANTHROPIC_API_KEY and an isolated execution sandbox.`,
     };
     return json(result);
   }
 
-  // CONNECTED path — validate or execute
-  // In this validation pass: zero-cost actions only (no paid builds)
+  // ── CONNECTED — DRY RUN / VALIDATION ──────────────────────────────────────
   if (dry_run || !action) {
-    return json({
-      adapter_key:       adKey,
+    const result: BuilderResult = {
+      adapter_key: adKey, action,
       connection_status: "connected",
-      auth_mode:         def.auth_mode,
-      capabilities:      def.capabilities,
-      normalized_result: { validated: true, dry_run: true },
-      latency_ms,
-      external_job_id:    null,
-      external_project_id: null,
-      preview_url:        null,
-      error:             null,
-      metadata:          { workspace_id: workspaceId },
-    });
+      run_status:  dry_run ? null : undefined,
+      external_project_id: null, external_job_id: null,
+      branch_name: null, commit_sha: null, preview_url: null,
+      diff_summary: null, build_status: null, test_results: null,
+      latency_ms, error: null, idempotency_key: iKey,
+      metadata: { workspace_id: workspaceId, validated: true, dry_run },
+    };
+    return json(result);
   }
 
-  // Real action execution (future: implement per-capability dispatch)
-  // For now: return not_implemented with capability manifest
+  // ── CONNECTED — REAL ACTION (not implemented yet) ─────────────────────────
   return json({
-    adapter_key:       adKey,
+    adapter_key: adKey, action,
     connection_status: "connected",
-    auth_mode:         def.auth_mode,
-    capabilities:      def.capabilities,
-    action,
-    normalized_result: null,
+    run_status: null, external_project_id: null, external_job_id: null,
+    branch_name: null, commit_sha: null, preview_url: null,
+    diff_summary: null, build_status: null, test_results: null,
     latency_ms,
-    error: `Action "${action}" execution not yet implemented in this adapter version.`,
-    metadata: { workspace_id: workspaceId, note: "Implement per-capability dispatch in next phase" },
+    error: `Action "${action}" dispatch not yet implemented. Multi-Builder Router phase is next.`,
+    idempotency_key: iKey,
+    metadata: { workspace_id: workspaceId },
   }, 501);
 });
