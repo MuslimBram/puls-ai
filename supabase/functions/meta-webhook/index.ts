@@ -129,6 +129,24 @@ serve(async (req) => {
           try {
             if (!event.message) continue; // skip delivery/read receipts
 
+            // Idempotency: FB Messenger — BEFORE side effects
+            const fbMsgId = event.message?.mid ?? String(event.timestamp ?? Date.now());
+            const fbKey = `meta_fb:${fbMsgId}`;
+            const { data: fbDup } = await supabase.from("processed_webhook_events")
+              .select("id").eq("provider","meta").eq("event_id",fbKey).maybeSingle();
+            if (fbDup) continue;
+            await supabase.from("processed_webhook_events")
+              .insert({ provider:"meta", event_id:fbKey }).catch(()=>{});
+
+            // Idempotency: write BEFORE any side effects
+            const metaMsgId = event.message?.mid ?? String(event.timestamp ?? Date.now());
+            const iKey = `meta:${metaMsgId}`;
+            const { data: alreadyDone } = await supabase.from("processed_webhook_events")
+              .select("id").eq("provider","meta").eq("event_id",iKey).maybeSingle();
+            if (alreadyDone) continue;
+            await supabase.from("processed_webhook_events")
+              .insert({ provider:"meta", event_id:iKey }).catch(()=>{});
+
             const senderId = event.sender?.id;
             const messageText = event.message?.text || "";
             const attachments = event.message?.attachments || [];
