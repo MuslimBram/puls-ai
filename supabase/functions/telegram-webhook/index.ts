@@ -1,253 +1,227 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
+/**
+ * telegram-webhook — Security-hardened Telegram update handler
+ *
+ * IMPORTANT: This function is NOT the active ingestion path for this release.
+ * Active path: telegram-poll (cron) — do NOT register this webhook URL with Telegram.
+ * Future migration: smoke-test this function, then disable telegram-poll cron,
+ * then register with: POST https://api.telegram.org/bot{TOKEN}/setWebhook?url={URL}&secret_token={SECRET}
+ *
+ * SECURITY:
+ *   - TELEGRAM_WEBHOOK_SECRET must be set — fail closed if missing (503)
+ *   - X-Telegram-Bot-Api-Secret-Token must match — reject (401) if invalid
+ *   - update_id idempotency BEFORE any side effects
+ *   - workspace resolved from channel config — no global keyword routing
+ *   - AI through Pulse ai-router only — no direct Anthropic/Lovable calls
+ */
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyTelegramSecret } from "../_shared/webhook-signatures.ts";
 
-const ALLOW_ANY_ORIGIN = true;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 
-// Rate limiter - generous for Telegram (high-volume groups)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 300;
-const RATE_WINDOW = 60_000;
-
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(key);
   if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_WINDOW });
-    return true;
+    rateLimitMap.set(key, { count: 1, resetAt: now + 60_000 }); return true;
   }
-  if (entry.count >= RATE_LIMIT) return false;
+  if (entry.count >= 300) return false;
   entry.count++;
   return true;
+}
+
+async function callAIRouter(messages: Array<{role:string;content:string}>, system: string): Promise<string> {
+  try {
+    const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-router`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      body: JSON.stringify({ task_type: "lead_analysis", messages, system_prompt: system, max_tokens: 300 }),
+    });
+    if (!res.ok) return "";
+    const d = await res.json() as any;
+    return d.response ?? d.content ?? d.text ?? "";
+  } catch { return ""; }
 }
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
-  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "telegram";
-  if (!checkRateLimit(clientIp)) {
-    return new Response(JSON.stringify({ error: "Too many requests" }), {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "tg";
+  if (!checkRateLimit(ip)) {
+    return new Response(JSON.stringify({ error: "rate_limited" }), {
       status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
-  const secretCheck = verifyTelegramSecret(
-    req.headers.get("x-telegram-bot-api-secret-token"),
-  );
+  // FAIL-CLOSED: TELEGRAM_WEBHOOK_SECRET must be configured
+  const secretCheck = verifyTelegramSecret(req.headers.get("x-telegram-bot-api-secret-token"));
   if (!secretCheck.ok) {
-    console.warn(`[TELEGRAM] Secret token rejected: ${secretCheck.reason}`);
-    return new Response(JSON.stringify({ error: "invalid_secret" }), {
-      status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
+    const statusCode = secretCheck.reason === "secret_not_configured" ? 503 : 401;
+    console.warn(`[TG-WEBHOOK] Auth rejected (${statusCode}): ${secretCheck.reason}`);
+    return new Response(JSON.stringify({ error: secretCheck.reason }), {
+      status: statusCode, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
   );
 
   try {
     const update = await req.json();
+    const update_id = update?.update_id;
 
-  const update_id = body?.update_id;
-  if (update_id) {
+    if (!update_id) {
+      return new Response(JSON.stringify({ ok: true, skipped: "no_update_id" }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    // IDEMPOTENCY: BEFORE any side effects
     const iKey = `telegram:${update_id}`;
     const { data: dup } = await supabase.from("processed_webhook_events")
-      .select("id").eq("provider","telegram").eq("event_id",iKey).maybeSingle();
-    if (dup) return new Response(JSON.stringify({ status:"duplicate" }), { status:200 });
+      .select("id").eq("provider", "telegram").eq("event_id", iKey).maybeSingle();
+    if (dup) {
+      return new Response(JSON.stringify({ ok: true, status: "already_processed" }), {
+        status: 200, headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
     await supabase.from("processed_webhook_events")
-      .insert({ provider:"telegram", event_id:iKey }).catch(()=>{});
-  }
+      .insert({ provider: "telegram", event_id: iKey }).catch(() => {});
 
-
-    const msg = update.message || update.channel_post;
-    if (!msg || !msg.text) {
-      return new Response(JSON.stringify({ ok: true, skipped: true }), {
+    const msg = update.message ?? update.channel_post;
+    if (!msg?.text) {
+      return new Response(JSON.stringify({ ok: true, skipped: "no_message_text" }), {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
-    const text = msg.text;
-    if (text.length > 10000) {
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "too_long" }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
+    const chatId = msg.chat?.id;
+    const senderId = String(msg.from?.id ?? chatId ?? "unknown");
+    const senderName = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ") || senderId;
+    const msgDate = new Date((msg.date ?? 0) * 1000).toISOString();
 
-    const chatTitle = msg.chat?.title || msg.chat?.username || "Unknown";
-    const senderName = msg.from
-      ? [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ")
-      : "Unknown";
-    const senderId = msg.from?.id?.toString() || msg.chat?.id?.toString() || "";
-    const messageDate = new Date((msg.date || Math.floor(Date.now() / 1000)) * 1000).toISOString();
+    // Workspace resolution: look up channel by chat_id or bot (stored in channel settings)
+    // The telegram-poll function uses bot_token to match channels — webhook uses chat matching
+    const { data: channels } = await supabase.from("channels")
+      .select("id,workspace_id,user_id,settings")
+      .eq("channel_type", "telegram")
+      .eq("is_enabled", true);
 
-    // Fetch all active keywords
-    const { data: allKeywords, error: kwError } = await supabase
-      .from("keywords")
-      .select("id, keyword, user_id")
-      .eq("is_active", true);
+    let workspaceId: string | null = null;
+    let channelId: string | null = null;
 
-    if (kwError) { console.error("Error fetching keywords:", kwError); throw kwError; }
-    if (!allKeywords || allKeywords.length === 0) {
-      return new Response(JSON.stringify({ ok: true, no_keywords: true }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-
-    const textLower = text.toLowerCase();
-    const userMatches: Record<string, { keywords: string[]; userId: string }> = {};
-
-    for (const kw of allKeywords) {
-      if (textLower.includes(kw.keyword.toLowerCase())) {
-        if (!userMatches[kw.user_id]) {
-          userMatches[kw.user_id] = { keywords: [], userId: kw.user_id };
-        }
-        userMatches[kw.user_id].keywords.push(kw.keyword);
+    for (const ch of (channels ?? [])) {
+      const s = (ch.settings as any) ?? {};
+      // Match by allowed_chat_ids or default to first enabled telegram channel
+      const allowedChats: string[] = s.allowed_chat_ids ?? [];
+      if (allowedChats.length === 0 || allowedChats.includes(String(chatId))) {
+        workspaceId = ch.workspace_id;
+        channelId = ch.id;
+        break;
       }
     }
 
-    if (Object.keys(userMatches).length === 0) {
-      return new Response(JSON.stringify({ ok: true, no_matches: true }), {
+    if (!workspaceId) {
+      console.warn("[TG-WEBHOOK] No workspace resolved for chat", chatId);
+      return new Response(JSON.stringify({ ok: true, skipped: "no_workspace" }), {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
-    const results = [];
-    for (const [userId, match] of Object.entries(userMatches)) {
-      // Check if user is suspended
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_suspended")
-        .eq("user_id", userId)
-        .maybeSingle();
+    // Inbox message — store the message
+    const { data: inboxMsg } = await supabase.from("inbox_messages").insert({
+      workspace_id: workspaceId,
+      channel_id: channelId,
+      channel_type: "telegram",
+      source_name: msg.chat?.title ?? msg.chat?.username ?? "Telegram",
+      sender_name: senderName,
+      sender_identifier: senderId,
+      message_content: msg.text,
+      message_timestamp: msgDate,
+      direction: "inbound",
+      status: "received",
+      delivery_status: "delivered",
+      is_unread: true,
+      priority: "normal",
+      provider_message_id: String(update_id),
+      metadata: { chat_id: chatId, chat_type: msg.chat?.type, update_id },
+    }).select("id").single();
 
-      if (profile?.is_suspended) continue;
+    // AI analysis via Pulse ai-router (NOT direct Anthropic/Lovable)
+    let intentScore = 0.3;
+    let suggestedReply = "";
 
-      // Fetch business profile for AI context
-      const { data: bizProfile } = await supabase
-        .from("business_profiles")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
+    const aiRaw = await callAIRouter(
+      [{ role: "user", content: msg.text }],
+      `Analyze buying intent for this Telegram message. Reply JSON only:
+{"intent_score": 0-1, "is_lead": boolean, "suggested_reply": string}
+Keep suggested_reply under 200 chars. Language: detect from message.`
+    );
 
-      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-      let analysis = {
-        intent_score: 0.5,
-        detected_keyword: match.keywords[0],
-        suggested_reply: "",
-        is_lead: true,
-      };
+    try {
+      const parsed = JSON.parse(aiRaw.replace(/\`\`\`json|\`\`\`/g, "").trim()) as any;
+      intentScore = parsed.intent_score ?? 0.3;
+      suggestedReply = parsed.suggested_reply ?? "";
+    } catch { /* use defaults */ }
 
-      if (LOVABLE_API_KEY) {
-        try {
-          const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-3-flash-preview",
-              messages: [
-                {
-                  role: "system",
-                  content: `You are a lead analysis AI. Analyze buying intent for keywords: ${match.keywords.join(", ")}.\nBusiness: ${bizProfile?.business_name || "Unknown"}, Industry: ${bizProfile?.industry || "General"}, Services: ${bizProfile?.main_services || "Various"}.\nTone: ${bizProfile?.ai_tone || "professional"}, Language: ${bizProfile?.language || "en"}`,
-                },
-                { role: "user", content: `Analyze: "${text}"` },
-              ],
-              tools: [{
-                type: "function",
-                function: {
-                  name: "analyze_lead",
-                  description: "Return lead analysis",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      intent_score: { type: "number" },
-                      detected_keyword: { type: "string" },
-                      suggested_reply: { type: "string" },
-                      is_lead: { type: "boolean" },
-                    },
-                    required: ["intent_score", "detected_keyword", "suggested_reply", "is_lead"],
-                    additionalProperties: false,
-                  },
-                },
-              }],
-              tool_choice: { type: "function", function: { name: "analyze_lead" } },
-            }),
-          });
-
-          if (aiResponse.ok) {
-            const aiData = await aiResponse.json();
-            const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-            if (toolCall) analysis = JSON.parse(toolCall.function.arguments);
-          } else {
-            const errText = await aiResponse.text();
-            console.error("AI analysis failed:", aiResponse.status, errText);
-          }
-        } catch (aiErr) {
-          console.error("AI call error:", aiErr);
-        }
-      }
-
-      const { data: channel } = await supabase
-        .from("channels")
-        .select("id")
-        .eq("user_id", userId)
-        .eq("channel_type", "telegram")
-        .eq("is_enabled", true)
-        .maybeSingle();
-
-      if (analysis.is_lead && analysis.intent_score >= 0.3) {
-        const { data: lead, error: leadErr } = await supabase
-          .from("leads")
-          .insert({
-            user_id: userId,
-            message_content: text,
-            source_name: chatTitle,
-            source_type: "telegram",
-            message_date: messageDate,
-            detected_keyword: analysis.detected_keyword || match.keywords[0],
-            intent_score: analysis.intent_score,
-            suggested_reply: analysis.suggested_reply,
-            status: "new",
-          })
-          .select("id")
-          .single();
-
-        if (leadErr) console.error("Lead insert error:", leadErr);
-
-        const { error: inboxErr } = await supabase.from("inbox_messages").insert({
-          user_id: userId,
-          channel_id: channel?.id || null,
-          channel_type: "telegram",
-          source_name: chatTitle,
-          sender_name: senderName,
-          sender_identifier: senderId,
-          message_content: text,
-          message_timestamp: messageDate,
-          intent_score: analysis.intent_score,
-          lead_id: lead?.id || null,
-          matched_keywords: match.keywords,
-          is_unread: true,
-          priority: analysis.intent_score >= 0.7 ? "high" : analysis.intent_score >= 0.4 ? "medium" : "normal",
-          status: "new",
-        });
-
-        if (inboxErr) console.error("Inbox insert error:", inboxErr);
-        results.push({ userId, leadId: lead?.id, score: analysis.intent_score });
-      }
+    // Create lead only when intent threshold met
+    let leadId: string | null = null;
+    if (intentScore >= 0.3) {
+      const { data: lead } = await supabase.from("leads").insert({
+        workspace_id: workspaceId,
+        channel_type: "telegram",
+        contact_identifier: senderId,
+        message_content: msg.text,
+        source_name: msg.chat?.title ?? "Telegram",
+        source_type: "telegram",
+        message_date: msgDate,
+        intent_score: intentScore,
+        suggested_reply: suggestedReply,
+        status: "new",
+      }).select("id").single();
+      leadId = lead?.id ?? null;
     }
 
-    return new Response(JSON.stringify({ ok: true, processed: results.length, results }), {
+    // Customer Brain: message activity (not financial — messaging only)
+    if (leadId && workspaceId) {
+      fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
+        },
+        body: JSON.stringify({
+          action: "feedback",
+          workspace_id: workspaceId,
+          lead_id: leadId,
+          event_type: "replied",
+          channel: "telegram",
+          event_data: { update_id, chat_id: chatId },
+        }),
+      }).catch(() => {});
+    }
+
+    return new Response(JSON.stringify({
+      ok: true,
+      update_id,
+      workspace_id: workspaceId,
+      lead_id: leadId,
+      inbox_id: inboxMsg?.id,
+      intent_score: intentScore,
+    }), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
-  } catch (e) {
-    console.error("telegram-webhook error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
+
+  } catch (e: any) {
+    console.error("[TG-WEBHOOK] error:", e.message);
+    return new Response(JSON.stringify({ error: e.message }), {
       status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
