@@ -188,27 +188,31 @@ async function getOrCreateConnection(
     .eq("category", "builder").maybeSingle();
   if (existing) return existing;
 
-  const { data: created } = await sb.from("unified_connections").insert({
-    user_id:               userId,
-    workspace_id:          workspaceId,
-    provider:              adapterKey,
-    category:              "builder",
-    connection_type:       def.connection_type,
-    status:                "disconnected",
-    display_name:          def.display_name,
-    config_json: {
-      endpoint:            def.endpoint,
-      auth_mode:           def.auth_mode,
-      transport:           def.transport,
-      capabilities:        def.capabilities,
-      capability_discovery: def.capability_discovery ?? false,
-    },
-    credentials_encrypted: {},
-    is_enabled:            false,
-    last_error:            def.endpoint
-      ? "OAuth not yet completed"
-      : "Agent SDK — requires local configuration",
-  }).select("*").single().catch(() => ({ data: null }));
+  let created = null;
+  try {
+    const { data } = await sb.from("unified_connections").insert({
+      user_id:               userId,
+      workspace_id:          workspaceId,
+      provider:              adapterKey,
+      category:              "builder",
+      connection_type:       def.connection_type,
+      status:                "disconnected",
+      display_name:          def.display_name,
+      config_json: {
+        endpoint:            def.endpoint,
+        auth_mode:           def.auth_mode,
+        transport:           def.transport,
+        capabilities:        def.capabilities,
+        capability_discovery: def.capability_discovery ?? false,
+      },
+      credentials_encrypted: {},
+      is_enabled:            false,
+      last_error:            def.endpoint
+        ? "OAuth not yet completed"
+        : "Agent SDK — requires local configuration",
+    }).select("*").single();
+    created = data;
+  } catch { /* INSERT failed silently — connection will be null */ }
   return created;
 }
 
@@ -368,7 +372,7 @@ async function logEvent(
     adapter_key:     opts.adapterKey,
     idempotency_key: opts.idempotencyKey,
     metadata:        opts.metadata ?? {},  // NEVER log tokens or OAuth secrets
-  }).catch(() => {});
+  }).then(() => {}, () => {});  // ignore errors — log is best-effort
 }
 
 // ── MAIN HANDLER ──────────────────────────────────────────────────────────────
