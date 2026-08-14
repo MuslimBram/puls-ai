@@ -79,16 +79,42 @@ const PROVIDERS = {
   // ── Kimi / Moonshot ──────────────────────────────────────────────────────
   KIMI: {
     name: "Kimi (Moonshot AI)",
-    costIn: 0.15, costOut: 0.60,   // approximate — update when official pricing confirmed
+    costIn: 0.15, costOut: 0.60,
     endpoint: "https://api.moonshot.ai/v1/chat/completions",
-    // Model is configurable via KIMI_MODEL env var at runtime.
-    // Default: kimi-k2-5.5-preview (configurable without redeploy).
     model: "kimi-k2-5.5-preview",
     keyEnv: "KIMI_API_KEY",
-    keyEnvFallback: "MOONSHOT_API_KEY",  // compatibility alias
-    modelEnvOverride: "KIMI_MODEL",       // runtime model override
+    keyEnvFallback: "MOONSHOT_API_KEY",
+    modelEnvOverride: "KIMI_MODEL",
     type: "openai_compat",
-    timeoutMs: 30_000,                    // 30s provider timeout
+    timeoutMs: 30_000,
+  },
+  // ── Z.ai ─────────────────────────────────────────────────────────────────
+  // Configurable OpenAI-compatible provider.
+  // ZAI_BASE_URL overrides the base endpoint at runtime (no redeploy required).
+  // Default points to z.ai's OpenAI-compat endpoint.
+  ZAI: {
+    name: "Z.ai",
+    costIn: 0.20, costOut: 0.60,   // placeholder — override per plan
+    endpoint: "https://api.z.ai/v1/chat/completions",
+    model: "glm-4-flash",           // default; override with ZAI_MODEL env var
+    keyEnv: "ZAI_API_KEY",
+    modelEnvOverride: "ZAI_MODEL",
+    endpointEnvOverride: "ZAI_BASE_URL",  // full URL override
+    type: "openai_compat",
+    timeoutMs: 30_000,
+  },
+  // ── Replicate ─────────────────────────────────────────────────────────────
+  // Async prediction model — handled separately in callProviderReplicate().
+  // Uses polling (no streaming in current implementation).
+  REPLICATE: {
+    name: "Replicate",
+    costIn: 0.05, costOut: 0.05,   // token pricing varies by model
+    endpoint: "https://api.replicate.com/v1/models",
+    model: "meta/meta-llama-3-8b-instruct",  // default; override with REPLICATE_MODEL
+    keyEnv: "REPLICATE_API_TOKEN",
+    modelEnvOverride: "REPLICATE_MODEL",
+    type: "replicate",              // special handler
+    timeoutMs: 60_000,              // predictions can take longer
   },
   };
 
@@ -172,19 +198,28 @@ async function callProvider(
     timeoutMs?: number;
   };
 
-  // Key resolution: primary env → fallback env (e.g. KIMI_API_KEY → MOONSHOT_API_KEY)
+  // Key resolution: primary env → fallback env
   const apiKey = apiKeys[p.keyEnv]
     ?? Deno.env.get(p.keyEnv)
     ?? (p.keyEnvFallback ? Deno.env.get(p.keyEnvFallback) : undefined);
   if (!apiKey) throw new Error(`API key mungon: ${p.keyEnv}${p.keyEnvFallback ? ` (alias: ${p.keyEnvFallback})` : ""}`);
 
-  // Model override: KIMI_MODEL env var overrides the default model at runtime
+  // Model override via env var (KIMI_MODEL, ZAI_MODEL, REPLICATE_MODEL, etc.)
   const model = p.modelEnvOverride ? (Deno.env.get(p.modelEnvOverride) ?? p.model) : p.model;
+
+  // Endpoint override via env var (ZAI_BASE_URL etc.)
+  const endpoint = (p.endpointEnvOverride ? Deno.env.get(p.endpointEnvOverride) : null) ?? p.endpoint;
 
   // Provider timeout (default 25s)
   const timeoutMs = p.timeoutMs ?? 25_000;
   const abortCtrl = new AbortController();
   const timer = setTimeout(() => abortCtrl.abort(), timeoutMs);
+
+  // Replicate uses async prediction model — separate handler
+  if (p.type === "replicate") {
+    clearTimeout(timer);
+    return await callProviderReplicate(apiKey, model, messages, systemPrompt, maxTokens, p.timeoutMs ?? 60_000);
+  }
 
   if (p.type === "anthropic") {
     try {
@@ -228,14 +263,14 @@ async function callProvider(
     ...messages.filter(m => m.role !== "system"),
   ];
   try {
-    const res = await fetch(p.endpoint, {
+    const res = await fetch(endpoint, {  // uses resolved endpoint (with env override)
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model,              // resolved model (with KIMI_MODEL override support)
+        model,
         messages: allMessages,
         max_tokens: maxTokens,
         temperature: 0.7,
@@ -270,6 +305,94 @@ async function callProvider(
 }
 
 // ── MAIN HANDLER ──────────────────────────────────────────────
+// ── REPLICATE ASYNC PREDICTION HANDLER ───────────────────────────────────────
+// Replicate uses an async prediction model: create → poll → result.
+// Normalized to same return contract as callProvider.
+async function callProviderReplicate(
+  apiKey: string,
+  model: string,  // format: "owner/model" e.g. "meta/meta-llama-3-8b-instruct"
+  messages: Array<{ role: string; content: string }>,
+  systemPrompt: string,
+  maxTokens: number,
+  timeoutMs: number,
+): Promise<{ text: string; tokensIn: number; tokensOut: number; modelUsed?: string }> {
+  const headers = {
+    "Authorization": `Token ${apiKey}`,
+    "Content-Type": "application/json",
+    "Prefer": "wait",    // ask Replicate to wait synchronously (up to 60s)
+  };
+
+  // Build the prompt for text generation models
+  const lastMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
+  const prompt = systemPrompt
+    ? `[System: ${systemPrompt}]
+
+Human: ${lastMsg}
+
+Assistant:`
+    : lastMsg;
+
+  // POST to create prediction
+  const createRes = await fetch(
+    `https://api.replicate.com/v1/models/${model}/predictions`,
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        input: {
+          prompt,
+          max_tokens: maxTokens,
+          temperature: 0.01,
+        },
+      }),
+      signal: AbortSignal.timeout(timeoutMs),
+    },
+  );
+
+  if (!createRes.ok) {
+    const errText = await createRes.text().catch(() => "");
+    if (createRes.status === 401 || createRes.status === 403)
+      throw new Error(`Replicate: auth_failed (${createRes.status})`);
+    if (createRes.status === 422)
+      throw new Error(`Replicate: invalid_model_or_input (422) ${errText.slice(0, 150)}`);
+    throw new Error(`Replicate: create_failed (${createRes.status}) ${errText.slice(0, 150)}`);
+  }
+
+  const prediction = await createRes.json() as any;
+
+  // Replicate with "Prefer: wait" may return completed prediction immediately
+  if (prediction.status === "succeeded") {
+    const output = Array.isArray(prediction.output)
+      ? prediction.output.join("") : (prediction.output ?? "");
+    return { text: output.trim(), tokensIn: 0, tokensOut: 0, modelUsed: model };
+  }
+  if (prediction.status === "failed" || prediction.status === "canceled") {
+    throw new Error(`Replicate: prediction ${prediction.status} — ${prediction.error ?? "unknown"}`);
+  }
+
+  // Poll until complete (fallback if Prefer:wait not honoured)
+  const predId = prediction.id;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 1_500));
+    const pollRes = await fetch(
+      `https://api.replicate.com/v1/predictions/${predId}`,
+      { headers: { "Authorization": `Token ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
+    );
+    if (!pollRes.ok) break;
+    const poll = await pollRes.json() as any;
+    if (poll.status === "succeeded") {
+      const output = Array.isArray(poll.output) ? poll.output.join("") : (poll.output ?? "");
+      return { text: output.trim(), tokensIn: 0, tokensOut: 0, modelUsed: model };
+    }
+    if (poll.status === "failed" || poll.status === "canceled") {
+      throw new Error(`Replicate: prediction ${poll.status} — ${poll.error ?? "unknown"}`);
+    }
+  }
+  throw new Error(`Replicate: timeout after ${timeoutMs}ms (prediction ${predId})`);
+}
+
+
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -345,15 +468,23 @@ serve(async (req: Request): Promise<Response> => {
   if (explicitProvider) {
     const providerMap: Record<string, keyof typeof PROVIDERS> = {
       kimi:         "KIMI",
-      moonshot:     "KIMI",     // alias
+      moonshot:     "KIMI",
       claude:       "CLAUDE_SONNET",
+      anthropic:    "CLAUDE_SONNET",
       groq:         "GROQ_LLAMA8B",
       deepseek:     "DEEPSEEK_FLASH",
+      deepseek_pro: "DEEPSEEK_PRO",
       mistral:      "MISTRAL_SMALL",
       gemini:       "GEMINI_FLASH",
       openai:       "GPT_MINI",
+      gpt:          "GPT_MINI",
+      gpt4o:        "GPT4O",
       perplexity:   "PERPLEXITY",
       grok:         "GROK_FAST",
+      zai:          "ZAI",
+      "z.ai":       "ZAI",
+      zhipu:        "ZAI",
+      replicate:    "REPLICATE",
     };
     const providerKey = providerMap[explicitProvider.toLowerCase()];
     if (providerKey && providerKey in PROVIDERS) {
