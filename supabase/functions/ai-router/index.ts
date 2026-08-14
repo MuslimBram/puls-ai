@@ -76,6 +76,20 @@ const PROVIDERS = {
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
     model: "llama-3.3-70b-versatile", keyEnv: "GROQ_API_KEY", type: "openai_compat",
   },
+  // ── Kimi / Moonshot ──────────────────────────────────────────────────────
+  KIMI: {
+    name: "Kimi (Moonshot AI)",
+    costIn: 0.15, costOut: 0.60,   // approximate — update when official pricing confirmed
+    endpoint: "https://api.moonshot.ai/v1/chat/completions",
+    // Model is configurable via KIMI_MODEL env var at runtime.
+    // Default: kimi-k2-5.5-preview (configurable without redeploy).
+    model: "kimi-k2-5.5-preview",
+    keyEnv: "KIMI_API_KEY",
+    keyEnvFallback: "MOONSHOT_API_KEY",  // compatibility alias
+    modelEnvOverride: "KIMI_MODEL",       // runtime model override
+    type: "openai_compat",
+    timeoutMs: 30_000,                    // 30s provider timeout
+  },
   };
 
 // ── ROUTING DECISION MATRIX ───────────────────────────────────
@@ -152,57 +166,107 @@ async function callProvider(
   maxTokens: number,
   apiKeys: Record<string, string>
 ): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
-  const p = PROVIDERS[providerKey];
-  const apiKey = apiKeys[p.keyEnv] ?? Deno.env.get(p.keyEnv);
-  if (!apiKey) throw new Error(`API key mungon: ${p.keyEnv}`);
+  const p = PROVIDERS[providerKey] as typeof PROVIDERS[typeof providerKey] & {
+    keyEnvFallback?: string;
+    modelEnvOverride?: string;
+    timeoutMs?: number;
+  };
+
+  // Key resolution: primary env → fallback env (e.g. KIMI_API_KEY → MOONSHOT_API_KEY)
+  const apiKey = apiKeys[p.keyEnv]
+    ?? Deno.env.get(p.keyEnv)
+    ?? (p.keyEnvFallback ? Deno.env.get(p.keyEnvFallback) : undefined);
+  if (!apiKey) throw new Error(`API key mungon: ${p.keyEnv}${p.keyEnvFallback ? ` (alias: ${p.keyEnvFallback})` : ""}`);
+
+  // Model override: KIMI_MODEL env var overrides the default model at runtime
+  const model = p.modelEnvOverride ? (Deno.env.get(p.modelEnvOverride) ?? p.model) : p.model;
+
+  // Provider timeout (default 25s)
+  const timeoutMs = p.timeoutMs ?? 25_000;
+  const abortCtrl = new AbortController();
+  const timer = setTimeout(() => abortCtrl.abort(), timeoutMs);
 
   if (p.type === "anthropic") {
-    const res = await fetch(p.endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: p.model,
-        max_tokens: maxTokens,
-        system: systemPrompt,
-        messages: messages.filter(m => m.role !== "system"),
-      }),
-    });
-    if (!res.ok) throw new Error(`${p.name}: ${res.status}`);
-    const d = await res.json() as { content?: Array<{text?: string}>; usage?: { input_tokens?: number; output_tokens?: number } };
-    return {
-      text: d.content?.[0]?.text ?? "",
-      tokensIn: d.usage?.input_tokens ?? 0,
-      tokensOut: d.usage?.output_tokens ?? 0,
-    };
+    try {
+      const res = await fetch(p.endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,  // uses resolved model (with override support)
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          messages: messages.filter(m => m.role !== "system"),
+        }),
+        signal: abortCtrl.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        const errBody = await res.text().catch(() => "");
+        // 401/403 = permanent failure, no retry
+        if (res.status === 401 || res.status === 403)
+          throw new Error(`${p.name}: auth failed (${res.status})`);
+        // 429 = rate limit — throw with code for caller to handle
+        if (res.status === 429) throw new Error(`${p.name}: rate_limited (429)`);
+        throw new Error(`${p.name}: ${res.status} ${errBody.slice(0, 100)}`);
+      }
+      const d = await res.json() as { content?: Array<{text?: string}>; usage?: { input_tokens?: number; output_tokens?: number } };
+      return {
+        text: d.content?.[0]?.text ?? "",
+        tokensIn: d.usage?.input_tokens ?? 0,
+        tokensOut: d.usage?.output_tokens ?? 0,
+      };
+    } finally { clearTimeout(timer); }
   }
 
-  // OpenAI-compatible
+  // OpenAI-compatible (includes Kimi/Moonshot, Groq, DeepSeek, OpenAI, Gemini, Mistral, Grok)
   const allMessages = [
     { role: "system", content: systemPrompt },
     ...messages.filter(m => m.role !== "system"),
   ];
-  const res = await fetch(p.endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ model: p.model, messages: allMessages, max_tokens: maxTokens }),
-  });
-  if (!res.ok) throw new Error(`${p.name}: ${res.status} ${await res.text().then(t => t.slice(0,100))}`);
-  const d = await res.json() as {
-    choices?: Array<{ message?: { content?: string } }>;
-    usage?: { prompt_tokens?: number; completion_tokens?: number };
-  };
-  return {
-    text: d.choices?.[0]?.message?.content ?? "",
-    tokensIn: d.usage?.prompt_tokens ?? 0,
-    tokensOut: d.usage?.completion_tokens ?? 0,
-  };
+  try {
+    const res = await fetch(p.endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,              // resolved model (with KIMI_MODEL override support)
+        messages: allMessages,
+        max_tokens: maxTokens,
+        temperature: 0.7,
+      }),
+      signal: abortCtrl.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => "");
+      if (res.status === 401 || res.status === 403)
+        throw new Error(`${p.name}: auth_failed (${res.status})`);
+      if (res.status === 429)
+        throw new Error(`${p.name}: rate_limited (429)`);
+      // 5xx — transient provider error
+      throw new Error(`${p.name}: provider_error (${res.status}) ${errText.slice(0, 100)}`);
+    }
+    const d = await res.json() as {
+      choices?: Array<{ message?: { content?: string } }>;
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+      model?: string;  // actual model used (Kimi may return this)
+    };
+    return {
+      text: d.choices?.[0]?.message?.content ?? "",
+      tokensIn: d.usage?.prompt_tokens ?? 0,
+      tokensOut: d.usage?.completion_tokens ?? 0,
+    };
+  } catch (e: any) {
+    clearTimeout(timer);
+    if (e.name === "AbortError") throw new Error(`${p.name}: timeout after ${timeoutMs}ms`);
+    throw e;
+  }
 }
 
 // ── MAIN HANDLER ──────────────────────────────────────────────
@@ -219,8 +283,17 @@ serve(async (req: Request): Promise<Response> => {
     { auth: { persistSession: false } }
   );
 
-  const { data: { user } } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-  if (!user) return json({ error: "Unauthorized" }, 401);
+  const bearerToken = authHeader.replace("Bearer ", "");
+  const isInternal = (() => {
+    const secret = Deno.env.get("INTERNAL_WEBHOOK_SECRET");
+    return !!secret && req.headers.get("x-internal-secret") === secret;
+  })();
+
+  const { data: { user } } = isInternal
+    ? { data: { user: null } }  // internal path — no user JWT needed
+    : await supabase.auth.getUser(bearerToken);
+
+  if (!isInternal && !user) return json({ error: "Unauthorized" }, 401);
 
   let body: {
     messages: Array<{ role: string; content: string }>;
@@ -237,8 +310,10 @@ serve(async (req: Request): Promise<Response> => {
   // plan_tier from body is IGNORED — never trust client-supplied entitlements.
   // workspace_id may be provided but verified before credit deduction.
   // Accept both system_prompt (api) and system (customer-brain) for compatibility.
+  // provider: explicit provider key (e.g. "kimi") bypasses task classifier routing.
   const { messages, system_prompt: bodySystemPrompt, system: bodySystem,
-          task_type, max_tokens = 800, workspace_id, prefer_cheap = false } = body;
+          task_type, max_tokens = 800, workspace_id, prefer_cheap = false,
+          provider: explicitProvider } = body as typeof body & { provider?: string };
 
   // Normalize system prompt — accept either field name
   const system_prompt = bodySystemPrompt ?? bodySystem ?? "";
@@ -252,16 +327,84 @@ serve(async (req: Request): Promise<Response> => {
   // Workspace isolation: if workspace_id provided, verify user is a member
   // before logging/debiting that workspace
   const authorizedWorkspaceId = await (async () => {
+    if (isInternal) return workspace_id ?? "internal";  // internal calls trust provided workspace_id
+    if (!user) return null;
     if (!workspace_id) return user.id;  // default to user's own workspace
     const { data: member } = await supabase.rpc("is_workspace_member",
       { _user_id: user.id, _workspace_id: workspace_id });
     const { data: owned } = await supabase.from("workspaces")
       .select("id").eq("id", workspace_id).eq("owner_id", user.id).maybeSingle();
-    if (!member && !owned) return null;  // not authorized
+    if (!member && !owned) return null;
     return workspace_id;
   })();
 
   if (!authorizedWorkspaceId) return json({ error: "Forbidden: not a member of workspace" }, 403);
+
+  // Explicit provider override: body.provider="kimi" routes directly to KIMI
+  // bypassing the task classifier. Other providers can be added the same way.
+  if (explicitProvider) {
+    const providerMap: Record<string, keyof typeof PROVIDERS> = {
+      kimi:         "KIMI",
+      moonshot:     "KIMI",     // alias
+      claude:       "CLAUDE_SONNET",
+      groq:         "GROQ_LLAMA8B",
+      deepseek:     "DEEPSEEK_FLASH",
+      mistral:      "MISTRAL_SMALL",
+      gemini:       "GEMINI_FLASH",
+      openai:       "GPT_MINI",
+      perplexity:   "PERPLEXITY",
+      grok:         "GROK_FAST",
+    };
+    const providerKey = providerMap[explicitProvider.toLowerCase()];
+    if (providerKey && providerKey in PROVIDERS) {
+      const providerDef = PROVIDERS[providerKey] as typeof PROVIDERS[typeof providerKey] & { name: string };
+      const start = Date.now();
+      try {
+        const result = await callProvider(providerKey, messages, system_prompt, max_tokens, {});
+        const latencyMs = Date.now() - start;
+        const costUsd = (result.tokensIn / 1_000_000 * providerDef.costIn) +
+                        (result.tokensOut / 1_000_000 * providerDef.costOut);
+        const creditsUsed = Math.ceil(costUsd * 1000);
+        await supabase.from("ai_usage_log").insert({
+          workspace_id: authorizedWorkspaceId,
+          user_id:      user?.id ?? "internal",
+          provider:     providerDef.name,
+          task_type:    explicitProvider,
+          tokens_in:    result.tokensIn,
+          tokens_out:   result.tokensOut,
+          cost_usd:     costUsd,
+          credits_used: creditsUsed,
+          latency_ms:   latencyMs,
+          tier:         "explicit",
+        }).catch(() => {});
+        if (creditsUsed > 0) {
+          await supabase.rpc("deduct_ai_credits", {
+            p_workspace_id: authorizedWorkspaceId,
+            p_credits:      creditsUsed,
+          }).catch(() => {});
+        }
+        return json({
+          response:     result.text,
+          content:      result.text,
+          text:         result.text,
+          provider:     providerDef.name,
+          provider_key: providerKey,
+          task_type:    explicitProvider,
+          tier:         "explicit",
+          tokens:       { in: result.tokensIn, out: result.tokensOut },
+          cost_usd:     Math.round(costUsd * 10000) / 10000,
+          credits_used: creditsUsed,
+          latency_ms:   latencyMs,
+          workspace_id: authorizedWorkspaceId,
+          fallback_used: false,
+        });
+      } catch (e: any) {
+        return json({ error: `Provider ${explicitProvider} failed: ${e.message}` }, 503);
+      }
+    }
+    // Unknown provider key — fall through to task classifier
+    console.warn(`[ai-router] Unknown provider "${explicitProvider}", falling through to classifier`);
+  }
 
   // Classify task
   const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
