@@ -222,39 +222,57 @@ async function callProvider(
   }
 
   if (p.type === "anthropic") {
-    try {
-      const res = await fetch(p.endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,  // uses resolved model (with override support)
-          max_tokens: maxTokens,
-          system: systemPrompt,
-          messages: messages.filter(m => m.role !== "system"),
-        }),
-        signal: abortCtrl.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) {
-        const errBody = await res.text().catch(() => "");
-        // 401/403 = permanent failure, no retry
-        if (res.status === 401 || res.status === 403)
-          throw new Error(`${p.name}: auth failed (${res.status})`);
-        // 429 = rate limit — throw with code for caller to handle
-        if (res.status === 429) throw new Error(`${p.name}: rate_limited (429)`);
-        throw new Error(`${p.name}: ${res.status} ${errBody.slice(0, 100)}`);
+    let lastAnthErr: Error = new Error("unreachable");
+    for (let attempt = 0; attempt <= 2; attempt++) {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), timeoutMs);
+      try {
+        const res = await fetch(p.endpoint, {
+          method: "POST",
+          headers: {"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
+          body: JSON.stringify({model, max_tokens:maxTokens, system:systemPrompt,
+            messages: messages.filter(m => m.role !== "system")}),
+          signal: ctrl.signal,
+        });
+        clearTimeout(t);
+        if (!res.ok) {
+          const errBody = await res.text().catch(() => "");
+          if (res.status===400||res.status===401||res.status===402||res.status===403)
+            throw new Error(`${p.name}: permanent_failure (${res.status}) ${errBody.slice(0,80)}`);
+          if (res.status === 429) {
+            lastAnthErr = new Error(`${p.name}: rate_limited (429)`);
+            if (attempt < 2) {
+              const ra = parseInt(res.headers.get("Retry-After") ?? "2", 10);
+              await new Promise(r => setTimeout(r, Math.min(ra*1000, 8000)));
+              continue;
+            }
+            throw lastAnthErr;
+          }
+          if (res.status >= 500) {
+            lastAnthErr = new Error(`${p.name}: provider_error (${res.status}) ${errBody.slice(0,80)}`);
+            if (attempt < 2) { await new Promise(r => setTimeout(r, 1200*(attempt+1))); continue; }
+            throw lastAnthErr;
+          }
+          throw new Error(`${p.name}: http_error (${res.status}) ${errBody.slice(0,80)}`);
+        }
+        clearTimeout(timer);
+        const d = await res.json() as any;
+        return {text: d.content?.[0]?.text ?? "", tokensIn: d.usage?.input_tokens ?? 0,
+          tokensOut: d.usage?.output_tokens ?? 0, modelUsed: model};
+      } catch (e: any) {
+        clearTimeout(t);
+        if (e.name === "AbortError") {
+          lastAnthErr = new Error(`${p.name}: timeout after ${timeoutMs}ms`);
+          if (attempt < 2) continue;
+          throw lastAnthErr;
+        }
+        if (e.message?.includes("permanent_failure")) throw e;
+        lastAnthErr = e;
+        if (attempt >= 2) throw lastAnthErr;
       }
-      const d = await res.json() as { content?: Array<{text?: string}>; usage?: { input_tokens?: number; output_tokens?: number } };
-      return {
-        text: d.content?.[0]?.text ?? "",
-        tokensIn: d.usage?.input_tokens ?? 0,
-        tokensOut: d.usage?.output_tokens ?? 0,
-      };
-    } finally { clearTimeout(timer); }
+    }
+    clearTimeout(timer);
+    throw lastAnthErr!;
   }
 
   // OpenAI-compatible (includes Kimi/Moonshot, Groq, DeepSeek, OpenAI, Gemini, Mistral, Grok)
@@ -326,6 +344,17 @@ async function callProvider(
 // ── REPLICATE ASYNC PREDICTION HANDLER ───────────────────────────────────────
 // Replicate uses an async prediction model: create → poll → result.
 // Normalized to same return contract as callProvider.
+
+async function incrementAiReplies(
+  supabase: ReturnType<typeof createClient>,
+  ctx: {userId:string;newDay:boolean;effectiveUsed:number}
+): Promise<void> {
+  const newVal = ctx.newDay ? 1 : ctx.effectiveUsed + 1;
+  const upd: Record<string,unknown> = {ai_replies_today: newVal};
+  if (ctx.newDay) upd.ai_replies_reset_at = new Date().toISOString();
+  const {error} = await supabase.from("subscriptions").update(upd).eq("user_id", ctx.userId);
+  if (error) console.error("[ai-router] increment ai_replies failed:", error.message);
+}
 async function callProviderReplicate(
   apiKey: string,
   model: string,  // format: "owner/model" e.g. "meta/meta-llama-3-8b-instruct"
@@ -341,14 +370,16 @@ async function callProviderReplicate(
   };
 
   // Build the prompt for text generation models
-  const lastMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
-  const prompt = systemPrompt
-    ? `[System: ${systemPrompt}]
-
-Human: ${lastMsg}
-
-Assistant:`
-    : lastMsg;
+  function buildLlama3Prompt(msgs: Array<{role:string;content:string}>, sys: string): string {
+    let p = sys ? "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n" + sys + "<|eot_id|>" : "<|begin_of_text|>";
+    for (const m of msgs.filter(x => x.role !== "system")) {
+      const role = m.role === "assistant" ? "assistant" : "user";
+      p += "<|start_header_id|>" + role + "<|end_header_id|>\n\n" + m.content + "<|eot_id|>";
+    }
+    p += "<|start_header_id|>assistant<|end_header_id|>\n\n";
+    return p;
+  }
+  const prompt = buildLlama3Prompt(messages, systemPrompt);
 
   // POST to create prediction
   const createRes = await fetch(
@@ -359,6 +390,7 @@ Assistant:`
       body: JSON.stringify({
         input: {
           prompt,
+          system_prompt: systemPrompt || undefined,
           max_tokens: maxTokens,
           temperature: 0.01,
         },
@@ -470,7 +502,13 @@ serve(async (req: Request): Promise<Response> => {
   const authorizedWorkspaceId = await (async () => {
     if (isInternal) return workspace_id ?? null;  // null for system calls — never "internal" as UUID  // internal calls trust provided workspace_id
     if (!user) return null;
-    if (!workspace_id) return user.id;  // default to user's own workspace
+    if (!workspace_id) {
+      const { data: ws } = await supabase.from("workspaces")
+        .select("id").eq("owner_id", user.id)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+      if (!ws?.id) return null;
+      return ws.id;
+    }
     const { data: member } = await supabase.rpc("is_workspace_member",
       { _user_id: user.id, _workspace_id: workspace_id });
     const { data: owned } = await supabase.from("workspaces")
@@ -558,12 +596,14 @@ serve(async (req: Request): Promise<Response> => {
             workspace_id: wsId,
             user_id: user.id,
             amount: -creditsUsed,
+            balance_after: null,
             transaction_type: "ai_usage",
             description: `${providerDef.name} | ${explicitProvider} | ${result.tokensIn}in+${result.tokensOut}out tokens`,
             reference_id: `ai_${Date.now()}_${explicitProvider}`,
           });
           if (txErr) console.error("[ai-router] billing insert failed:", txErr.message);
         }
+        if (limitCtx) await incrementAiReplies(supabase, limitCtx);
         return json({
           response:     result.text,
           content:      result.text,
@@ -627,6 +667,7 @@ serve(async (req: Request): Promise<Response> => {
       workspace_id: wsId,
       user_id: user.id,
       amount: -creditsUsed,
+      balance_after: null,
       transaction_type: "ai_usage",
       description: `${provider.name} | ${taskType} | ${result.tokensIn}in+${result.tokensOut}out | ${latencyMs}ms`,
       reference_id: `ai_${Date.now()}_${taskType}`,
