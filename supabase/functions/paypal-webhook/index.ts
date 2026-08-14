@@ -66,6 +66,33 @@ async function verifyPayPalWebhook(
   return verifyData.verification_status === "SUCCESS";
 }
 
+
+async function notifyBrain(sb: ReturnType<typeof createClient>, opts: {
+  workspace_id: string; lead_id?: string; event_type: string;
+  channel?: string; broadcast_id?: string; event_data?: Record<string,unknown>;
+}): Promise<void> {
+  if (!opts.lead_id) return;  // can't notify without a lead
+  try {
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
+      },
+      body: JSON.stringify({
+        action: "feedback",
+        workspace_id: opts.workspace_id,
+        lead_id: opts.lead_id,
+        event_type: opts.event_type,
+        channel: opts.channel,
+        broadcast_id: opts.broadcast_id,
+        event_data: opts.event_data ?? {},
+      }),
+    });
+  } catch { /* non-critical — webhook must not fail if brain is down */ }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
@@ -215,6 +242,22 @@ serve(async (req) => {
             .select("status")
             .eq("paypal_order_id", orderId)
             .maybeSingle();
+    // Trusted payment confirmation → customer-brain feedback
+    if (eventData?.purchase_units?.[0]) {
+      const payerId = eventData.payer?.payer_id;
+      if (payerId) {
+        const { data: lead } = await supabase
+          .from("leads").select("id,workspace_id")
+          .eq("contact_identifier", payerId).maybeSingle();
+        if (lead) {
+          await notifyBrain(supabase, {
+            workspace_id: lead.workspace_id, lead_id: lead.id,
+            event_type: "purchased", channel: "paypal",
+            event_data: { paypal_event_id: eventId, amount: eventData?.purchase_units?.[0]?.amount },
+          });
+        }
+      }
+    }
 
           if (existing && existing.status !== "completed") {
             const amount = Number(event.resource?.amount?.value ?? 0);
