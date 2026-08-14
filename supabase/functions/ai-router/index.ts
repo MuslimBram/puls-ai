@@ -76,12 +76,7 @@ const PROVIDERS = {
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
     model: "llama-3.3-70b-versatile", keyEnv: "GROQ_API_KEY", type: "openai_compat",
   },
-  LOVABLE_GATEWAY: {
-    name: "Lovable Gateway (Gemini)", costIn: 0, costOut: 0,
-    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
-    model: "google/gemini-2.5-flash", keyEnv: "LOVABLE_API_KEY", type: "openai_compat",
-  },
-};
+  };
 
 // ── ROUTING DECISION MATRIX ───────────────────────────────────
 type TaskType =
@@ -101,7 +96,7 @@ const ROUTING_TABLE: Record<TaskType, { primary: keyof typeof PROVIDERS; fallbac
   multilingual:      { primary: "DEEPSEEK_FLASH",  fallback: "MISTRAL_SMALL", tier: "cheap" },
   sales_reply:       { primary: "MISTRAL_SMALL",   fallback: "GROQ_LLAMA70B", tier: "cheap" },
   marketing_copy:    { primary: "CLAUDE_SONNET",   fallback: "GPT4O",         tier: "premium" },
-  customer_support:  { primary: "LOVABLE_GATEWAY", fallback: "DEEPSEEK_FLASH",tier: "cheap" },
+  customer_support:  { primary: "CLAUDE_SONNET", fallback: "DEEPSEEK_FLASH",tier: "cheap" },
 };
 
 // ── TASK CLASSIFIER ───────────────────────────────────────────
