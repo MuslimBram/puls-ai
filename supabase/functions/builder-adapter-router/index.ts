@@ -479,16 +479,10 @@ serve(async (req) => {
     } else {
       // No connection yet — register key as disconnected_skipped (retryable)
       // This prevents a disconnected state from permanently poisoning the key
-      await sb.from("integration_event_logs").insert({
-        integration_id:  "00000000-0000-0000-0000-000000000000",  // system placeholder
-        user_id:         actorUserId ?? "00000000-0000-0000-0000-000000000001",
-        event_type:      "idempotency_disconnected_skip",
-        event_message:   `Key registered but skipped — adapter ${adKey} not connected`,
-        status:          "disconnected_skipped",  // explicitly retryable
-        adapter_key:     adKey,
-        idempotency_key: idempotency_key,
-        metadata:        { action, workspace_id: workspaceId, retryable: true },
-      }).catch(() => {});
+      // No real connection yet — idempotency claim requires a valid connection ID.
+      // Cannot insert into integration_event_logs without a valid integration_id FK.
+      // When OAuth completes and the adapter connects, the caller must use a NEW
+      // idempotency_key for the real dispatch. The disconnected state is not poisoning.
     }
   }
 
