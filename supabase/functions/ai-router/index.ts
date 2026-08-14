@@ -262,46 +262,64 @@ async function callProvider(
     { role: "system", content: systemPrompt },
     ...messages.filter(m => m.role !== "system"),
   ];
-  try {
-    const res = await fetch(endpoint, {  // uses resolved endpoint (with env override)
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages: allMessages,
-        max_tokens: maxTokens,
-        temperature: 0.7,
-      }),
-      signal: abortCtrl.signal,
-    });
-    clearTimeout(timer);
-    if (!res.ok) {
-      const errText = await res.text().catch(() => "");
-      if (res.status === 401 || res.status === 403)
-        throw new Error(`${p.name}: auth_failed (${res.status})`);
-      if (res.status === 429)
-        throw new Error(`${p.name}: rate_limited (429)`);
-      // 5xx — transient provider error
-      throw new Error(`${p.name}: provider_error (${res.status}) ${errText.slice(0, 100)}`);
+  // Bounded retry: max 2 retries for transient 429/5xx only.
+  // Permanent failures (400/401/402/403) are NOT retried.
+  let lastErr: Error = new Error("unreachable");
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        body: JSON.stringify({ model, messages: allMessages, max_tokens: maxTokens, temperature: 0.7 }),
+        signal: ctrl.signal,
+      });
+      clearTimeout(t);
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        // Permanent — never retry
+        if (res.status === 400 || res.status === 401 || res.status === 402 || res.status === 403)
+          throw new Error(`${p.name}: permanent_failure (${res.status}) ${errText.slice(0, 80)}`);
+        // Rate limit — honor Retry-After
+        if (res.status === 429) {
+          lastErr = new Error(`${p.name}: rate_limited (429)`);
+          if (attempt < 2) {
+            const ra = parseInt(res.headers.get("Retry-After") ?? "2", 10);
+            await new Promise(r => setTimeout(r, Math.min(ra * 1000, 8000)));
+            continue;
+          }
+          throw lastErr;
+        }
+        // 5xx transient
+        if (res.status >= 500) {
+          lastErr = new Error(`${p.name}: provider_error (${res.status}) ${errText.slice(0, 80)}`);
+          if (attempt < 2) { await new Promise(r => setTimeout(r, 1200 * (attempt + 1))); continue; }
+          throw lastErr;
+        }
+        throw new Error(`${p.name}: http_error (${res.status}) ${errText.slice(0, 80)}`);
+      }
+      const d = await res.json() as any;
+      return {
+        text: d.choices?.[0]?.message?.content ?? "",
+        tokensIn: d.usage?.prompt_tokens ?? 0,
+        tokensOut: d.usage?.completion_tokens ?? 0,
+        modelUsed: d.model,
+      };
+    } catch (e: any) {
+      clearTimeout(t);
+      if (e.name === "AbortError") {
+        lastErr = new Error(`${p.name}: timeout after ${timeoutMs}ms`);
+        if (attempt < 2) continue;
+        throw lastErr;
+      }
+      if (e.message?.includes("permanent_failure")) throw e;
+      lastErr = e;
+      if (attempt >= 2) throw lastErr;
     }
-    const d = await res.json() as {
-      choices?: Array<{ message?: { content?: string } }>;
-      usage?: { prompt_tokens?: number; completion_tokens?: number };
-      model?: string;  // actual model used (Kimi may return this)
-    };
-    return {
-      text: d.choices?.[0]?.message?.content ?? "",
-      tokensIn: d.usage?.prompt_tokens ?? 0,
-      tokensOut: d.usage?.completion_tokens ?? 0,
-    };
-  } catch (e: any) {
-    clearTimeout(timer);
-    if (e.name === "AbortError") throw new Error(`${p.name}: timeout after ${timeoutMs}ms`);
-    throw e;
   }
+  clearTimeout(timer);
+  throw lastErr;
 }
 
 // ── MAIN HANDLER ──────────────────────────────────────────────
@@ -532,23 +550,19 @@ serve(async (req: Request): Promise<Response> => {
         const costUsd = (result.tokensIn / 1_000_000 * providerDef.costIn) +
                         (result.tokensOut / 1_000_000 * providerDef.costOut);
         const creditsUsed = Math.ceil(costUsd * 1000);
-        await supabase.from("ai_usage_log").insert({
-          workspace_id: authorizedWorkspaceId,
-          user_id:      user?.id ?? "internal",
-          provider:     providerDef.name,
-          task_type:    explicitProvider,
-          tokens_in:    result.tokensIn,
-          tokens_out:   result.tokensOut,
-          cost_usd:     costUsd,
-          credits_used: creditsUsed,
-          latency_ms:   latencyMs,
-          tier:         "explicit",
-        }).catch(() => {});
-        if (creditsUsed > 0) {
-          await supabase.rpc("deduct_ai_credits", {
-            p_workspace_id: authorizedWorkspaceId,
-            p_credits:      creditsUsed,
-          }).catch(() => {});
+        // Persist to credit_transactions (real table). Skip for system/internal calls.
+        if (user?.id) {
+          const wsId = (authorizedWorkspaceId && authorizedWorkspaceId !== "internal")
+            ? authorizedWorkspaceId : null;
+          const { error: txErr } = await supabase.from("credit_transactions").insert({
+            workspace_id: wsId,
+            user_id: user.id,
+            amount: -creditsUsed,
+            transaction_type: "ai_usage",
+            description: `${providerDef.name} | ${explicitProvider} | ${result.tokensIn}in+${result.tokensOut}out tokens`,
+            reference_id: `ai_${Date.now()}_${explicitProvider}`,
+          });
+          if (txErr) console.error("[ai-router] billing insert failed:", txErr.message);
         }
         return json({
           response:     result.text,
@@ -569,8 +583,8 @@ serve(async (req: Request): Promise<Response> => {
         return json({ error: `Provider ${explicitProvider} failed: ${e.message}` }, 503);
       }
     }
-    // Unknown provider key — fall through to task classifier
-    console.warn(`[ai-router] Unknown provider "${explicitProvider}", falling through to classifier`);
+    // Unknown explicit provider key — fail closed with 400 (do NOT silently reroute)
+    return json({ error: `Unknown provider "${explicitProvider}". Valid explicit providers: kimi, moonshot, claude, anthropic, deepseek, mistral, gemini, openai, gpt, gpt4o, perplexity, grok, zai, replicate, groq.` }, 400);
   }
 
   // Classify task
@@ -605,26 +619,19 @@ serve(async (req: Request): Promise<Response> => {
   const costUsd = (result.tokensIn / 1_000_000 * provider.costIn) + (result.tokensOut / 1_000_000 * provider.costOut);
   const creditsUsed = Math.ceil(costUsd * 1000); // 1 credit = $0.001
 
-  // Log usage
-  await supabase.from("ai_usage_log").insert({
-    workspace_id: authorizedWorkspaceId,
-    user_id: user.id,
-    provider: provider.name,
-    task_type: taskType,
-    tokens_in: result.tokensIn,
-    tokens_out: result.tokensOut,
-    cost_usd: costUsd,
-    credits_used: creditsUsed,
-    latency_ms: latencyMs,
-    tier: route.tier,
-  }).catch(() => {});
-
-  // Deduct credits from AUTHORIZED workspace only
-  if (creditsUsed > 0) {
-    await supabase.rpc("deduct_ai_credits", {
-      p_workspace_id: authorizedWorkspaceId,  // server-verified, not body-provided
-      p_credits: creditsUsed,
-    }).catch(() => {});
+  // Persist usage to credit_transactions (real table). Skip for internal calls.
+  if (user?.id) {
+    const wsId = (authorizedWorkspaceId && authorizedWorkspaceId !== "internal")
+      ? authorizedWorkspaceId : null;
+    const { error: txErr } = await supabase.from("credit_transactions").insert({
+      workspace_id: wsId,
+      user_id: user.id,
+      amount: -creditsUsed,
+      transaction_type: "ai_usage",
+      description: `${provider.name} | ${taskType} | ${result.tokensIn}in+${result.tokensOut}out | ${latencyMs}ms`,
+      reference_id: `ai_${Date.now()}_${taskType}`,
+    });
+    if (txErr) console.error("[ai-router] billing insert failed:", txErr.message);
   }
 
   return json({
