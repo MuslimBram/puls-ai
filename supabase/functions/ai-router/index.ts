@@ -518,11 +518,17 @@ serve(async (req: Request): Promise<Response> => {
     if (isInternal) return workspace_id ?? null;  // null for system calls — never "internal" as UUID  // internal calls trust provided workspace_id
     if (!user) return null;
     if (!workspace_id) {
-      const { data: ws } = await supabase.from("workspaces")
+      // 1. First workspace owned by this user
+      const { data: ownedWs } = await supabase.from("workspaces")
         .select("id").eq("owner_id", user.id)
         .order("created_at", { ascending: true }).limit(1).maybeSingle();
-      if (!ws?.id) return null;
-      return ws.id;
+      if (ownedWs?.id) return ownedWs.id;
+      // 2. Fallback: first workspace where user is a member (but not owner)
+      const { data: memWs } = await supabase.from("workspace_members")
+        .select("workspace_id").eq("user_id", user.id)
+        .order("created_at", { ascending: true }).limit(1).maybeSingle();
+      if (memWs?.workspace_id) return memWs.workspace_id;
+      return null;  // user has no workspace
     }
     const { data: member } = await supabase.rpc("is_workspace_member",
       { _user_id: user.id, _workspace_id: workspace_id });
