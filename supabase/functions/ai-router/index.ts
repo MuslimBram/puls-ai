@@ -239,10 +239,34 @@ serve(async (req: Request): Promise<Response> => {
   try { body = await req.json(); }
   catch { return json({ error: "Body i pavlefshëm" }, 400); }
 
-  const { messages, system_prompt = "", task_type, max_tokens = 800,
-          workspace_id, prefer_cheap = false, plan_tier = "growth" } = body;
+  // plan_tier from body is IGNORED — never trust client-supplied entitlements.
+  // workspace_id may be provided but verified before credit deduction.
+  // Accept both system_prompt (api) and system (customer-brain) for compatibility.
+  const { messages, system_prompt: bodySystemPrompt, system: bodySystem,
+          task_type, max_tokens = 800, workspace_id, prefer_cheap = false } = body;
+
+  // Normalize system prompt — accept either field name
+  const system_prompt = bodySystemPrompt ?? bodySystem ?? "";
 
   if (!messages?.length) return json({ error: "messages janë të detyrueshme" }, 400);
+
+  // Server-side plan tier — do not trust plan_tier from body
+  // TODO: derive from workspace subscription table when available
+  const plan_tier = "growth";  // server-determined default
+
+  // Workspace isolation: if workspace_id provided, verify user is a member
+  // before logging/debiting that workspace
+  const authorizedWorkspaceId = await (async () => {
+    if (!workspace_id) return user.id;  // default to user's own workspace
+    const { data: member } = await supabase.rpc("is_workspace_member",
+      { _user_id: user.id, _workspace_id: workspace_id });
+    const { data: owned } = await supabase.from("workspaces")
+      .select("id").eq("id", workspace_id).eq("owner_id", user.id).maybeSingle();
+    if (!member && !owned) return null;  // not authorized
+    return workspace_id;
+  })();
+
+  if (!authorizedWorkspaceId) return json({ error: "Forbidden: not a member of workspace" }, 403);
 
   // Classify task
   const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
@@ -266,13 +290,8 @@ serve(async (req: Request): Promise<Response> => {
       result = await callProvider(route.fallback, messages, system_prompt, max_tokens, apiKeys);
       providerUsed = route.fallback;
     } catch (fallbackErr) {
-      // Last resort: Lovable Gateway
-      try {
-        result = await callProvider("LOVABLE_GATEWAY", messages, system_prompt, max_tokens, apiKeys);
-        providerUsed = "LOVABLE_GATEWAY";
-      } catch {
-        return json({ error: `Të gjithë providers dështuan: ${primaryErr}` }, 503);
-      }
+      // No Lovable Gateway — fail with 503
+      return json({ error: `All AI providers failed. Primary: ${primaryErr}. Fallback: ${fallbackErr}` }, 503);
     }
   }
 
@@ -283,7 +302,7 @@ serve(async (req: Request): Promise<Response> => {
 
   // Log usage
   await supabase.from("ai_usage_log").insert({
-    workspace_id: workspace_id ?? user.id,
+    workspace_id: authorizedWorkspaceId,
     user_id: user.id,
     provider: provider.name,
     task_type: taskType,
@@ -295,16 +314,18 @@ serve(async (req: Request): Promise<Response> => {
     tier: route.tier,
   }).catch(() => {});
 
-  // Deduct credits from workspace
+  // Deduct credits from AUTHORIZED workspace only
   if (creditsUsed > 0) {
     await supabase.rpc("deduct_ai_credits", {
-      p_workspace_id: workspace_id ?? user.id,
+      p_workspace_id: authorizedWorkspaceId,  // server-verified, not body-provided
       p_credits: creditsUsed,
     }).catch(() => {});
   }
 
   return json({
-    text: result.text,
+    response: result.text,    // customer-brain and other callers use 'response'
+    content:  result.text,    // compatibility alias
+    text:     result.text,    // legacy alias
     provider: provider.name,
     task_type: taskType,
     tier: route.tier,
@@ -312,5 +333,6 @@ serve(async (req: Request): Promise<Response> => {
     cost_usd: Math.round(costUsd * 10000) / 10000,
     credits_used: creditsUsed,
     latency_ms: latencyMs,
+    workspace_id: authorizedWorkspaceId,
   });
 });
