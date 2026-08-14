@@ -7,11 +7,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-const CORS = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
-  "Access-Control-Allow-Methods": "GET, OPTIONS",
-};
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+
+const ALLOW_ANY_ORIGIN = false;
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 function escapeCSV(val: unknown): string {
   if (val == null) return "";
@@ -26,6 +25,12 @@ function rowToCSV(headers: string[], obj: Record<string, unknown>): string {
 }
 
 serve(async (req: Request): Promise<Response> => {
+  const CORS = {
+    ...getCors(req),
+    "Access-Control-Allow-Headers": "authorization, content-type",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+  };
+
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "GET") {
     return new Response("GET only", { status: 405, headers: CORS });
@@ -45,6 +50,21 @@ serve(async (req: Request): Promise<Response> => {
     authHeader.replace("Bearer ", "")
   );
   if (authErr || !user) return new Response("Unauthorized", { status: 401 });
+
+  // Verifiko rolin: vetëm admin / super_admin / owner mund të eksportojnë leads (PII)
+  const { data: roleRows, error: roleErr } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id);
+  if (roleErr) {
+    return new Response(JSON.stringify({ error: roleErr.message }), {
+      status: 500,
+      headers: { ...CORS, "Content-Type": "application/json" },
+    });
+  }
+  const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
+  const isPrivileged = roles.some((r) => ["admin", "super_admin", "owner"].includes(r));
+  if (!isPrivileged) return new Response("Forbidden", { status: 403 });
 
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
