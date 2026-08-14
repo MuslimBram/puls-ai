@@ -104,8 +104,11 @@ serve(async (req) => {
     );
     if (!sigCheck.ok) {
       console.warn("[META-WEBHOOK] Signature check failed:", sigCheck.reason);
-      return new Response(JSON.stringify({ error: "Forbidden" }), {
-        status: 403,
+      // 503 = secret not configured (infrastructure error — fail closed)
+      // 403 = secret configured but sig wrong/missing (event rejected)
+      const statusCode = sigCheck.reason === "secret_not_configured" ? 503 : 403;
+      return new Response(JSON.stringify({ error: sigCheck.reason }), {
+        status: statusCode,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
