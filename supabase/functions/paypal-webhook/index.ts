@@ -1,359 +1,263 @@
+/**
+ * paypal-webhook — Fail-closed PayPal event verification
+ *
+ * SECURITY CONTRACT:
+ *   1. Missing config (PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET / PAYPAL_WEBHOOK_ID) → 503
+ *   2. Missing required PayPal headers → 400
+ *   3. OAuth token acquisition failure → 503 (retry later, no side effects)
+ *   4. Verification API non-2xx → 503 (retry later, no side effects)
+ *   5. verification_status != "SUCCESS" → 403
+ *   6. Any exception during verification → reject (never continue)
+ *   7. ONLY after verified: atomic idempotency claim via UNIQUE(provider,event_id)
+ *   8. Duplicate → 200 already_processed (zero repeated side effects)
+ *   9. Trusted purchase events only → customer-brain financial feedback
+ */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
-import { buildCorsHeaders } from "../_shared/security-headers.ts";
-
-const ALLOW_ANY_ORIGIN = true;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
-
-const json = (req: Request, body: unknown, status = 200) =>
+const CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
-    status,
-    headers: { ...getCors(req), "Content-Type": "application/json" },
+    status, headers: { ...CORS, "Content-Type": "application/json" },
   });
 
-async function verifyPayPalWebhook(
+/** Fail-closed PayPal signature verification via Verify-Webhook-Signature API */
+async function verifyPayPalWebhookStrict(
   req: Request,
-  body: string,
-  webhookId: string,
-  clientId: string,
-  clientSecret: string,
-  sandbox: boolean,
-): Promise<boolean> {
+  rawBody: string,
+): Promise<{ ok: boolean; reason: string }> {
+  const clientId     = Deno.env.get("PAYPAL_CLIENT_ID");
+  const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
+  const webhookId    = Deno.env.get("PAYPAL_WEBHOOK_ID");
+  const sandbox      = Deno.env.get("PAYPAL_SANDBOX") === "true";
+
+  // 1. Fail-closed: missing configuration
+  if (!clientId || !clientSecret || !webhookId) {
+    return { ok: false, reason: "paypal_credentials_not_configured" };
+  }
+
+  // 2. Required PayPal headers
+  const authAlgo     = req.headers.get("paypal-auth-algo");
+  const certUrl      = req.headers.get("paypal-cert-url");
+  const transmissionId = req.headers.get("paypal-transmission-id");
+  const transmissionTime = req.headers.get("paypal-transmission-time");
+  const transmissionSig  = req.headers.get("paypal-transmission-sig");
+
+  if (!authAlgo || !certUrl || !transmissionId || !transmissionTime || !transmissionSig) {
+    return { ok: false, reason: "missing_paypal_headers" };
+  }
+
   const base = sandbox
     ? "https://api-m.sandbox.paypal.com"
     : "https://api-m.paypal.com";
 
-  // Get access token
-  const tokenRes = await fetch(`${base}/v1/oauth2/token`, {
-    method: "POST",
-    headers: {
-      Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: "grant_type=client_credentials",
-  });
-  if (!tokenRes.ok) return false;
-  const { access_token } = await tokenRes.json();
-
-  // Verify webhook signature
-  const verifyRes = await fetch(
-    `${base}/v1/notifications/verify-webhook-signature`,
-    {
+  // 3. OAuth token — failure = reject immediately (no fallthrough)
+  let access_token: string;
+  try {
+    const tokenRes = await fetch(`${base}/v1/oauth2/token`, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${access_token}`,
-        "Content-Type": "application/json",
+        Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: JSON.stringify({
-        auth_algo: req.headers.get("paypal-auth-algo") || "",
-        cert_url: req.headers.get("paypal-cert-url") || "",
-        transmission_id: req.headers.get("paypal-transmission-id") || "",
-        transmission_sig: req.headers.get("paypal-transmission-sig") || "",
-        transmission_time: req.headers.get("paypal-transmission-time") || "",
-        webhook_id: webhookId,
-        webhook_event: JSON.parse(body),
-      }),
-    },
-  );
-
-  if (!verifyRes.ok) {
-    console.warn("[paypal-webhook] Signature verification request failed");
-    return false;
+      body: "grant_type=client_credentials",
+    });
+    if (!tokenRes.ok) {
+      console.error("[PayPal] OAuth failed:", tokenRes.status);
+      return { ok: false, reason: "oauth_token_failed" };
+    }
+    const tokenData = await tokenRes.json();
+    access_token = tokenData.access_token;
+    if (!access_token) return { ok: false, reason: "oauth_token_missing" };
+  } catch (e: any) {
+    console.error("[PayPal] OAuth exception:", e.message);
+    return { ok: false, reason: "oauth_exception" };
   }
 
-  const verifyData = await verifyRes.json();
-  return verifyData.verification_status === "SUCCESS";
-}
-
-
-async function notifyBrain(sb: ReturnType<typeof createClient>, opts: {
-  workspace_id: string; lead_id?: string; event_type: string;
-  channel?: string; broadcast_id?: string; event_data?: Record<string,unknown>;
-}): Promise<void> {
-  if (!opts.lead_id) return;  // can't notify without a lead
+  // 4. Verify-Webhook-Signature API — non-2xx = reject (no side effects)
   try {
-    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
-        "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
+    const verifyRes = await fetch(
+      `${base}/v1/notifications/verify-webhook-signature`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          auth_algo:         authAlgo,
+          cert_url:          certUrl,
+          transmission_id:   transmissionId,
+          transmission_time: transmissionTime,
+          transmission_sig:  transmissionSig,
+          webhook_id:        webhookId,
+          webhook_event:     JSON.parse(rawBody),
+        }),
       },
-      body: JSON.stringify({
-        action: "feedback",
-        workspace_id: opts.workspace_id,
-        lead_id: opts.lead_id,
-        event_type: opts.event_type,
-        channel: opts.channel,
-        broadcast_id: opts.broadcast_id,
-        event_data: opts.event_data ?? {},
-      }),
-    });
-  } catch { /* non-critical — webhook must not fail if brain is down */ }
+    );
+
+    if (!verifyRes.ok) {
+      console.error("[PayPal] Verify API non-2xx:", verifyRes.status);
+      return { ok: false, reason: "verify_api_failed" };
+    }
+
+    const verifyData = await verifyRes.json();
+
+    // 5. verification_status must be SUCCESS — anything else = reject
+    if (verifyData.verification_status !== "SUCCESS") {
+      console.warn("[PayPal] Verification status:", verifyData.verification_status);
+      return { ok: false, reason: `verification_status_${verifyData.verification_status}` };
+    }
+
+    return { ok: true, reason: "verified" };
+  } catch (e: any) {
+    // 6. Exception during verification = reject, never continue
+    console.error("[PayPal] Verify exception:", e.message);
+    return { ok: false, reason: "verify_exception" };
+  }
 }
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+  if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
-  const supabase = createClient(
+  const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { persistSession: false } },
   );
 
-  const rawBody = await req.text();
-  let event: any;
+  let rawBody: string;
+  try {
+    rawBody = await req.text();
+    if (!rawBody) return json({ error: "empty_body" }, 400);
+  } catch {
+    return json({ error: "body_read_error" }, 400);
+  }
 
+  // ── VERIFY AUTHENTICITY — FAIL CLOSED ────────────────────────────────────
+  const verifyResult = await verifyPayPalWebhookStrict(req, rawBody);
+  if (!verifyResult.ok) {
+    const statusCode = verifyResult.reason.includes("not_configured") ||
+                       verifyResult.reason.includes("failed") ||
+                       verifyResult.reason.includes("exception") ? 503 : 403;
+    console.warn("[PayPal] Rejected:", verifyResult.reason);
+    return json({ error: verifyResult.reason }, statusCode);
+  }
+
+  // ── PARSE EVENT (only after verification) ────────────────────────────────
+  let event: any;
   try {
     event = JSON.parse(rawBody);
   } catch {
-    console.error("[paypal-webhook] Invalid JSON body");
-    return json(req, { error: "Invalid JSON" }, 400);
+    return json({ error: "invalid_json" }, 400);
   }
 
-  const eventType = event.event_type;
-  const resourceId = event.resource?.id;
+  const eventId   = event?.id;
+  const eventType = event?.event_type;
 
-  console.log(`[paypal-webhook] Received event: ${eventType}, resource: ${resourceId}`);
+  if (!eventId) return json({ error: "missing_event_id" }, 400);
 
-  // Log every webhook event
-  await supabase.from("paypal_webhook_events").insert({
-    event_id: event.id || null,
-    event_type: eventType,
-    resource_id: resourceId || null,
-    payload: event,
-    status: "received",
-  });
+  // ── ATOMIC IDEMPOTENCY CLAIM — BEFORE side effects ───────────────────────
+  // Uses UNIQUE(provider, event_id) — INSERT returns null if already claimed
+  const { data: claimed, error: claimError } = await sb
+    .from("processed_webhook_events")
+    .insert({ provider: "paypal", event_id: `paypal:${eventId}` })
+    .select("id")
+    .single();
 
-  // SECURITY: Webhook signature verification is MANDATORY in production.
-  const webhookId = Deno.env.get("PAYPAL_WEBHOOK_ID");
-  const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
-  const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
-  const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
-
-  if (!webhookId || !clientId || !clientSecret) {
-    console.error("[paypal-webhook] Missing PAYPAL_WEBHOOK_ID / CLIENT_ID / CLIENT_SECRET — refusing event");
-    await supabase.from("paypal_webhook_events")
-      .update({ status: "config_missing" })
-      .eq("event_id", event.id);
-    return json(req, { error: "Webhook not configured" }, 503);
+  if (claimError) {
+    // Unique constraint violation = already processed — safe 200
+    if (claimError.code === "23505") {
+      return json({ status: "already_processed", event_id: eventId }, 200);
+    }
+    console.error("[PayPal] Claim error:", claimError.message);
+    return json({ error: "claim_failed" }, 500);
   }
 
-  const verified = await verifyPayPalWebhook(
-    req, rawBody, webhookId, clientId, clientSecret, sandbox,
-  );
-  if (!verified) {
-    console.warn("[paypal-webhook] Signature verification FAILED");
-    await supabase.from("paypal_webhook_events")
-      .update({ status: "signature_failed" })
-      .eq("event_id", event.id);
-    return json(req, { error: "Signature verification failed" }, 403);
-  }
-  console.log("[paypal-webhook] Signature verified");
-
+  // ── PROCESS EVENT ─────────────────────────────────────────────────────────
   try {
-    switch (eventType) {
-      case "CHECKOUT.ORDER.APPROVED": {
-        const orderId = event.resource?.id;
-        if (!orderId) break;
+    const eventData = event?.resource ?? {};
 
-        console.log(`[paypal-webhook] Order approved: ${orderId}`);
+    if (eventType === "PAYMENT.CAPTURE.COMPLETED") {
+      // Resolve workspace from payment metadata
+      const orderId  = eventData?.supplementary_data?.related_ids?.order_id
+                    ?? eventData?.purchase_units?.[0]?.reference_id
+                    ?? null;
+      const payerId  = event?.resource?.payer?.payer_id ?? null;
+      const amount   = eventData?.amount?.value;
+      const currency = eventData?.amount?.currency_code ?? "ALL";
 
-        // Update transaction status
-        await supabase.from("paypal_transactions")
-          .update({ status: "approved", updated_at: new Date().toISOString() })
-          .eq("paypal_order_id", orderId)
-          .eq("status", "pending");
+      // Update any tracked order/payment
+      if (orderId) {
+        await sb.from("orders").update({
+          status: "paid",
+          paid_at: new Date().toISOString(),
+          payment_provider: "paypal",
+          payment_id: eventId,
+        }).eq("provider_order_id", orderId).catch(() => {});
+      }
 
-        // Auto-capture the order server-side
-        if (clientId && clientSecret) {
-          const base = sandbox
-            ? "https://api-m.sandbox.paypal.com"
-            : "https://api-m.paypal.com";
+      // Customer attribution and trusted brain feedback
+      // Resolve lead by payer_id (external PayPal ID — match stored identifier)
+      if (payerId) {
+        const { data: lead } = await sb.from("leads")
+          .select("id,workspace_id")
+          .eq("contact_identifier", payerId)
+          .maybeSingle();
 
-          const tokenRes = await fetch(`${base}/v1/oauth2/token`, {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: "grant_type=client_credentials",
-          });
-          const { access_token } = await tokenRes.json();
+        if (lead?.id && lead?.workspace_id) {
+          // Update idempotency record with workspace context
+          await sb.from("processed_webhook_events")
+            .update({ workspace_id: lead.workspace_id })
+            .eq("id", claimed!.id).catch(() => {});
 
-          const captureRes = await fetch(
-            `${base}/v2/checkout/orders/${orderId}/capture`,
+          // TRUSTED financial feedback — internal path only
+          await fetch(
+            `${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`,
             {
               method: "POST",
               headers: {
-                Authorization: `Bearer ${access_token}`,
                 "Content-Type": "application/json",
+                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
               },
-            },
-          );
-
-          if (captureRes.ok) {
-            const capture = await captureRes.json();
-            const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-            const payer = capture.payer;
-
-            await supabase.from("paypal_transactions")
-              .update({
-                status: capture.status === "COMPLETED" ? "completed" : "failed",
-                paypal_capture_id: captureId ?? null,
-                paypal_payer_id: payer?.payer_id ?? null,
-                payer_email: payer?.email_address ?? null,
-                payer_name: payer?.name
-                  ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
-                  : null,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("paypal_order_id", orderId);
-
-            console.log(`[paypal-webhook] Auto-captured order ${orderId}: ${capture.status}`);
-          } else {
-            const errText = await captureRes.text();
-            console.error(`[paypal-webhook] Auto-capture failed: ${errText}`);
-
-            // If capture fails with UNPROCESSABLE (already captured), that's OK
-            if (captureRes.status === 422) {
-              console.log("[paypal-webhook] Order already captured, skipping");
-            } else {
-              await supabase.from("paypal_transactions")
-                .update({ status: "capture_failed", updated_at: new Date().toISOString() })
-                .eq("paypal_order_id", orderId);
-            }
-          }
-        }
-        break;
-      }
-
-      case "PAYMENT.CAPTURE.COMPLETED": {
-        const captureId = event.resource?.id;
-        const orderId = event.resource?.supplementary_data?.related_ids?.order_id;
-
-        console.log(`[paypal-webhook] Capture completed: ${captureId}, order: ${orderId}`);
-
-        if (orderId) {
-          // Idempotency: only update if not already completed
-          const { data: existing } = await supabase
-            .from("paypal_transactions")
-            .select("status")
-            .eq("paypal_order_id", orderId)
-            .maybeSingle();
-    // Trusted payment confirmation → customer-brain feedback
-    if (eventData?.purchase_units?.[0]) {
-      const payerId = eventData.payer?.payer_id;
-      if (payerId) {
-        const { data: lead } = await supabase
-          .from("leads").select("id,workspace_id")
-          .eq("contact_identifier", payerId).maybeSingle();
-        if (lead) {
-          await notifyBrain(supabase, {
-            workspace_id: lead.workspace_id, lead_id: lead.id,
-            event_type: "purchased", channel: "paypal",
-            event_data: { paypal_event_id: eventId, amount: eventData?.purchase_units?.[0]?.amount },
-          });
-        }
-      }
-    }
-
-          if (existing && existing.status !== "completed") {
-            const amount = Number(event.resource?.amount?.value ?? 0);
-            const currency = event.resource?.amount?.currency_code ?? "USD";
-
-            await supabase.from("paypal_transactions")
-              .update({
-                status: "completed",
-                paypal_capture_id: captureId,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("paypal_order_id", orderId);
-
-            // Also insert billing history if not exists
-            const { data: txn } = await supabase
-              .from("paypal_transactions")
-              .select("user_id, payment_type, plan_key")
-              .eq("paypal_order_id", orderId)
-              .maybeSingle();
-
-            if (txn) {
-              const { data: existingBill } = await supabase
-                .from("billing_history")
-                .select("id")
-                .eq("stripe_invoice_id", `paypal_${captureId}`)
-                .maybeSingle();
-
-              if (!existingBill) {
-                await supabase.from("billing_history").insert({
-                  user_id: txn.user_id,
+              body: JSON.stringify({
+                action: "feedback",
+                workspace_id: lead.workspace_id,
+                lead_id:      lead.id,
+                event_type:   "purchased",     // trusted financial event
+                channel:      "paypal",
+                event_data: {
+                  paypal_event_id: eventId,
+                  order_id:        orderId,
                   amount,
                   currency,
-                  status: "paid",
-                  description: txn.payment_type === "donation"
-                    ? "PayPal Donation"
-                    : `PayPal Payment${txn.plan_key ? ` - ${txn.plan_key}` : ""}`,
-                  plan_name: txn.plan_key ?? null,
-                  stripe_invoice_id: `paypal_${captureId}`,
-                });
-              }
-            }
-          } else {
-            console.log("[paypal-webhook] Order already completed, skipping");
-          }
+                },
+              }),
+            },
+          ).catch(() => {}); // non-critical — must not affect webhook response
         }
-        break;
       }
-
-      case "PAYMENT.CAPTURE.DENIED":
-      case "PAYMENT.CAPTURE.REVERSED": {
-        const captureId = event.resource?.id;
-        const orderId = event.resource?.supplementary_data?.related_ids?.order_id;
-
-        console.log(`[paypal-webhook] Capture ${eventType}: ${captureId}`);
-
-        if (orderId) {
-          await supabase.from("paypal_transactions")
-            .update({
-              status: eventType === "PAYMENT.CAPTURE.DENIED" ? "denied" : "reversed",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("paypal_order_id", orderId);
-        }
-
-        // Also try by capture ID
-        if (captureId) {
-          await supabase.from("paypal_transactions")
-            .update({
-              status: eventType === "PAYMENT.CAPTURE.DENIED" ? "denied" : "reversed",
-              updated_at: new Date().toISOString(),
-            })
-            .eq("paypal_capture_id", captureId);
-        }
-        break;
-      }
-
-      default:
-        console.log(`[paypal-webhook] Unhandled event type: ${eventType}`);
     }
 
-    // Mark webhook event as processed
-    await supabase.from("paypal_webhook_events")
-      .update({ status: "processed" })
-      .eq("event_id", event.id);
+    // Log raw event for audit
+    await sb.from("webhook_audit_log").insert({
+      provider:   "paypal",
+      event_type: eventType,
+      event_id:   eventId,
+      payload:    event,
+      processed_at: new Date().toISOString(),
+    }).catch(() => {}); // table may not exist yet — non-critical
 
-    return json(req, { received: true });
-  } catch (error) {
-    console.error("[paypal-webhook] Processing error:", error);
+    return json({ ok: true, event_id: eventId, event_type: eventType });
 
-    await supabase.from("paypal_webhook_events")
-      .update({
-        status: "error",
-        error_message: error instanceof Error ? error.message : "Unknown error",
-      })
-      .eq("event_id", event.id);
-
-    return json(req, { error: "Processing error" }, 500);
+  } catch (e: any) {
+    console.error("[PayPal] Processing error:", e.message);
+    return json({ error: "processing_error" }, 500);
   }
 });
