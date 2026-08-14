@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { requireCronAuth } from "../_shared/cron-auth.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
