@@ -27,6 +27,33 @@ async function loadProductMap(supabase: any) {
 const GRACE_PERIOD_DAYS = 7;
 const REFUND_WINDOW_DAYS = 7;
 
+
+async function notifyBrain(sb: ReturnType<typeof createClient>, opts: {
+  workspace_id: string; lead_id?: string; event_type: string;
+  channel?: string; broadcast_id?: string; event_data?: Record<string,unknown>;
+}): Promise<void> {
+  if (!opts.lead_id) return;  // can't notify without a lead
+  try {
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
+      },
+      body: JSON.stringify({
+        action: "feedback",
+        workspace_id: opts.workspace_id,
+        lead_id: opts.lead_id,
+        event_type: opts.event_type,
+        channel: opts.channel,
+        broadcast_id: opts.broadcast_id,
+        event_data: opts.event_data ?? {},
+      }),
+    });
+  } catch { /* non-critical — webhook must not fail if brain is down */ }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
@@ -581,6 +608,21 @@ serve(async (req) => {
       }
 
       case "checkout.session.completed": {
+          // Trusted purchase → customer-brain feedback
+          const session = event.data?.object as any;
+          const customerEmail = session?.customer_details?.email ?? session?.customer_email;
+          if (customerEmail) {
+            const { data: lead } = await supabase
+              .from("leads").select("id,workspace_id")
+              .eq("contact_identifier", customerEmail).maybeSingle();
+            if (lead) {
+              await notifyBrain(supabase, {
+                workspace_id: lead.workspace_id, lead_id: lead.id,
+                event_type: "purchased", channel: "stripe",
+                event_data: { stripe_session_id: session.id, amount_total: session.amount_total },
+              });
+            }
+          }
         const session = event.data.object as any;
         if (session.metadata?.addon_type && session.metadata?.user_id) {
           const addonType = session.metadata.addon_type;
