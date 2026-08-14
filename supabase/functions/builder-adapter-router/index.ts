@@ -274,21 +274,43 @@ async function atomicIdempotencyClaim(
 
     const status = existing?.status ?? "pending";
 
-    // Retryable states — caller may proceed with a NEW idempotency_key
-    const RETRYABLE = ["failed", "disconnected_skipped"];
-    if (RETRYABLE.includes(status)) {
-      return {
-        claimed: false, blocked: true,
+    // disconnected_skipped: adapter was not connected when key was first registered.
+    // Same key can be retried after OAuth completes via atomic UPDATE reclaim.
+    if (status === "disconnected_skipped") {
+      const { data: reclaimed, error: reclaimErr } = await sb.from("integration_event_logs")
+        .update({
+          status: "claiming",
+          metadata: { ...(existing?.metadata as any) ?? {},
+            reclaimed_at: new Date().toISOString(), reclaimed_after: "disconnected_skipped" },
+        })
+        .eq("id", existing!.id)
+        .eq("status", "disconnected_skipped")  // conditional — only wins if status hasn't changed
+        .select("id").single();
+      if (!reclaimErr && reclaimed?.id)
+        return { claimed: true, blocked: false, existingResult: null, claimId: reclaimed.id };
+      // Another concurrent caller won the reclaim
+      return { claimed: false, blocked: true,
         existingResult: {
           adapter_key: adapterKey, action,
-          connection_status: "external_oauth_required", run_status: null,
-          latency_ms: 0,
-          error: `Previous attempt had status "${status}" — this idempotency_key is retryable with a new key.`,
+          connection_status: "external_oauth_required", run_status: "claiming", latency_ms: 0,
+          error: "Concurrent retry in progress — wait for current attempt to complete.",
           idempotency_key: idempotencyKey,
-          metadata: { retryable: true, previous_status: status, note: "Use a new idempotency_key for retry." },
+          metadata: { note: "Concurrent reclaim conflict.", duplicate: true },
         } as BuilderResult,
-        claimId: existing?.id ?? null,
-      };
+        claimId: existing?.id ?? null };
+    }
+
+    // failed: prior dispatch failed — side effects possible — require a new idempotency_key
+    if (status === "failed") {
+      return { claimed: false, blocked: true,
+        existingResult: {
+          adapter_key: adapterKey, action,
+          connection_status: "disconnected", run_status: "failed", latency_ms: 0,
+          error: "Previous dispatch failed. Use a new idempotency_key to retry.",
+          idempotency_key: idempotencyKey,
+          metadata: { retryable: true, new_key_required: true, previous_status: "failed" },
+        } as BuilderResult,
+        claimId: existing?.id ?? null };
     }
 
     // Non-retryable: pending/claiming (in-flight) or completed
