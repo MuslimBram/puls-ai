@@ -531,14 +531,9 @@ serve(async (req) => {
         workspace_id:  workspaceId,
         connection_id: connection?.id ?? null,
       },
-      oauth_instructions: def.endpoint
-        ? `${def.display_name} requires ${def.auth_mode.toUpperCase()} auth. `
-          + `Endpoint: ${def.endpoint}. Transport: ${def.transport}. `
-          + `Complete OAuth via the client-driven flow. `
-          + `Credentials are stored encrypted in unified_connections once authenticated.`
-        : `${def.display_name} is an agent SDK adapter (not a remote MCP endpoint). `
-          + `Configure via local agent SDK/CLI. `
-          + `No OAuth flow — requires ANTHROPIC_API_KEY and an isolated execution sandbox.`,
+      oauth_instructions: isAgentSdk
+        ? `${def.display_name} requires agent SDK setup. No OAuth flow. Configure ANTHROPIC_API_KEY + isolated worker/sandbox. connection_type=agent_sdk.`
+        : `${def.display_name} requires ${def.auth_mode.toUpperCase()} OAuth. Endpoint: ${def.endpoint}. Transport: ${def.transport ?? "http"}. Complete OAuth via client-driven flow. Credentials stored encrypted in unified_connections.`,
     };
     return json(result);
   }
