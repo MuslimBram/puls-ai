@@ -288,7 +288,7 @@ const App = () => (
                 <Route path="/help-center" element={<ProtectedPage><HelpCenter /></ProtectedPage>} />
                 <Route path="/managed-businesses" element={<ProtectedPage><ManagedBusinesses /></ProtectedPage>} />
                 <Route path="/support" element={<ProtectedPage><SupportTickets /></ProtectedPage>} />
-                <Route path="/admin/support-tickets" element={<AdminRoute><AdminSupportTickets /></AdminRoute>} />
+                <Route path="/admin/support-tickets" element={<AdminPage><AdminSupportTickets /></AdminPage>} />
                 <Route path="/partner-clients" element={<Navigate to="/partner" replace />} />
                 <Route path="/business-insights" element={<Navigate to="/deep-analytics?tab=insights" replace />} />
 
