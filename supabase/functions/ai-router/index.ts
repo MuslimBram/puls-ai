@@ -27,7 +27,7 @@ const PROVIDERS = {
   DEEPSEEK_FLASH: {
     name: "DeepSeek V4 Flash", costIn: 0.14, costOut: 0.28,
     endpoint: "https://api.deepseek.com/v1/chat/completions",
-    model: "deepseek-chat", keyEnv: "DEEPSEEK_API_KEY", type: "openai_compat",
+    model: "deepseek-v4-flash", keyEnv: "DEEPSEEK_API_KEY", type: "openai_compat",
   },
   MISTRAL_SMALL: {
     name: "Mistral Small 4", costIn: 0.15, costOut: 0.60,
@@ -53,11 +53,11 @@ const PROVIDERS = {
   DEEPSEEK_PRO: {
     name: "DeepSeek V4 Pro", costIn: 0.435, costOut: 0.87,
     endpoint: "https://api.deepseek.com/v1/chat/completions",
-    model: "deepseek-reasoner", keyEnv: "DEEPSEEK_API_KEY", type: "openai_compat",
+    model: "deepseek-v4-pro", keyEnv: "DEEPSEEK_API_KEY", type: "openai_compat",
   },
   // Premium — 5% of traffic
   CLAUDE_SONNET: {
-    name: "Claude Sonnet 5", costIn: 3.00, costOut: 15.00,
+    name: "Claude Sonnet 4.6", costIn: 3.00, costOut: 15.00,
     endpoint: "https://api.anthropic.com/v1/messages",
     model: "claude-sonnet-4-6", keyEnv: "ANTHROPIC_API_KEY", type: "anthropic",
   },
@@ -95,8 +95,8 @@ const PROVIDERS = {
   ZAI: {
     name: "Z.ai",
     costIn: 0.20, costOut: 0.60,   // placeholder — override per plan
-    endpoint: "https://api.z.ai/v1/chat/completions",
-    model: "glm-4-flash",           // default; override with ZAI_MODEL env var
+    endpoint: "https://api.z.ai/api/paas/v4/chat/completions",
+    model: "glm-4.7-flash",           // default; override with ZAI_MODEL env var
     keyEnv: "ZAI_API_KEY",
     modelEnvOverride: "ZAI_MODEL",
     endpointEnvOverride: "ZAI_BASE_URL",  // full URL override
@@ -108,7 +108,7 @@ const PROVIDERS = {
   // Uses polling (no streaming in current implementation).
   REPLICATE: {
     name: "Replicate",
-    costIn: 0.05, costOut: 0.05,   // token pricing varies by model
+    costIn: 0.05, costOut: 0.25,   // token pricing varies by model
     endpoint: "https://api.replicate.com/v1/models",
     model: "meta/meta-llama-3-8b-instruct",  // default; override with REPLICATE_MODEL
     keyEnv: "REPLICATE_API_TOKEN",
@@ -450,7 +450,7 @@ serve(async (req: Request): Promise<Response> => {
   // Workspace isolation: if workspace_id provided, verify user is a member
   // before logging/debiting that workspace
   const authorizedWorkspaceId = await (async () => {
-    if (isInternal) return workspace_id ?? "internal";  // internal calls trust provided workspace_id
+    if (isInternal) return workspace_id ?? null;  // null for system calls — never "internal" as UUID  // internal calls trust provided workspace_id
     if (!user) return null;
     if (!workspace_id) return user.id;  // default to user's own workspace
     const { data: member } = await supabase.rpc("is_workspace_member",
@@ -462,6 +462,42 @@ serve(async (req: Request): Promise<Response> => {
   })();
 
   if (!authorizedWorkspaceId) return json({ error: "Forbidden: not a member of workspace" }, 403);
+
+  // ── AI REPLY LIMIT ENFORCEMENT (user calls only) ──────────────────────────
+  // Checks subscriptions.ai_replies_today vs pricing_settings.ai_replies_per_day_limit.
+  // Internal calls bypass limits (automated system operations).
+  if (!isInternal && user) {
+    const today = new Date().toDateString();
+    const { data: sub } = await supabase
+      .from("subscriptions")
+      .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (sub) {
+      const { data: pricingRow } = await supabase
+        .from("pricing_settings")
+        .select("ai_replies_per_day_limit")
+        .eq("plan_key", sub.plan ?? "standard")
+        .maybeSingle();
+
+      const dailyLimit = pricingRow?.ai_replies_per_day_limit ?? -1;
+      if (dailyLimit !== -1) {
+        const resetAt = sub.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at).toDateString() : null;
+        const effectiveUsed = (resetAt === today) ? (sub.ai_replies_today ?? 0) : 0;
+
+        if (effectiveUsed >= dailyLimit) {
+          return json({
+            error: "Daily AI reply limit reached. Upgrade your plan for more AI replies.",
+            limit: dailyLimit,
+            current: effectiveUsed,
+            allowed: false,
+          }, 429);
+        }
+      }
+    }
+  }
+
 
   // Explicit provider override: body.provider="kimi" routes directly to KIMI
   // bypassing the task classifier. Other providers can be added the same way.
