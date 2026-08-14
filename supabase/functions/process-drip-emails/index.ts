@@ -2,9 +2,11 @@
 // Runs every hour. Idempotent via drip_email_log unique (user_id, template_name).
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
+import { requireCronAuth } from "../_shared/cron-auth.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
 interface DripRule {
@@ -22,6 +24,9 @@ const RULES: DripRule[] = [
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const unauth = requireCronAuth(req);
+  if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
