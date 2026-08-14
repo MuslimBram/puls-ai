@@ -544,7 +544,7 @@ serve(async (req) => {
           normalized_result: null,
           transitioned_at: new Date().toISOString(),
         },
-      }).eq("id", activeMutatingClaimId).catch(() => {});
+      }).eq("id", activeMutatingClaimId).then(() => {}, () => {});  // ignore: best-effort transition
     }
     const result: BuilderResult = {
       adapter_key: adKey, action,
