@@ -519,39 +519,38 @@ serve(async (req: Request): Promise<Response> => {
 
   if (!authorizedWorkspaceId) return json({ error: "Forbidden: not a member of workspace" }, 403);
 
-  // ── AI REPLY LIMIT ENFORCEMENT (user calls only) ──────────────────────────
-  // Checks subscriptions.ai_replies_today vs pricing_settings.ai_replies_per_day_limit.
-  // Internal calls bypass limits (automated system operations).
+  // limitCtx: stores limit state for post-call increment (only on success, not on failure).
+  let limitCtx: {userId:string;newDay:boolean;effectiveUsed:number;dailyLimit:number}|null = null;
+
   if (!isInternal && user) {
     const today = new Date().toDateString();
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
+    const { data: sub } = await supabase.from("subscriptions")
+      .select("plan,ai_replies_today,ai_replies_reset_at")
+      .eq("user_id", user.id).maybeSingle();
     if (sub) {
-      const { data: pricingRow } = await supabase
-        .from("pricing_settings")
-        .select("ai_replies_per_day_limit")
-        .eq("plan_key", sub.plan ?? "standard")
-        .maybeSingle();
-
-      const dailyLimit = pricingRow?.ai_replies_per_day_limit ?? -1;
-      if (dailyLimit !== -1) {
-        const resetAt = sub.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at).toDateString() : null;
-        const effectiveUsed = (resetAt === today) ? (sub.ai_replies_today ?? 0) : 0;
-
-        if (effectiveUsed >= dailyLimit) {
-          return json({
-            error: "Daily AI reply limit reached. Upgrade your plan for more AI replies.",
-            limit: dailyLimit,
-            current: effectiveUsed,
-            allowed: false,
-          }, 429);
-        }
+      // Map legacy and unknown plans to "standard". Unknown plans are NEVER unlimited.
+      const PLAN_MAP: Record<string,string> = {free:"standard",basic:"standard"};
+      const resolvedPlan = PLAN_MAP[sub.plan ?? ""] ?? (sub.plan || "standard");
+      const { data: pr } = await supabase.from("pricing_settings")
+        .select("ai_replies_per_day_limit").eq("plan_key", resolvedPlan).maybeSingle();
+      let pricingRow = pr;
+      if (!pricingRow) {
+        const { data: std } = await supabase.from("pricing_settings")
+          .select("ai_replies_per_day_limit").eq("plan_key","standard").maybeSingle();
+        pricingRow = std;
       }
+      // Conservative default (50/day) if no pricing row found at all.
+      const dailyLimit = pricingRow?.ai_replies_per_day_limit ?? 50;
+      const resetAt = sub.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at).toDateString() : null;
+      const newDay = resetAt !== today;
+      const effectiveUsed = newDay ? 0 : (sub.ai_replies_today ?? 0);
+      if (effectiveUsed >= dailyLimit) {
+        return json({error:"Daily AI reply limit reached. Upgrade for more AI replies.",
+          limit:dailyLimit, current:effectiveUsed, allowed:false}, 429);
+      }
+      limitCtx = {userId:user.id, newDay, effectiveUsed, dailyLimit};
     }
+  }
   }
 
 
@@ -675,6 +674,7 @@ serve(async (req: Request): Promise<Response> => {
     if (txErr) console.error("[ai-router] billing insert failed:", txErr.message);
   }
 
+  if (limitCtx) await incrementAiReplies(supabase, limitCtx);
   return json({
     response: result.text,    // customer-brain and other callers use 'response'
     content:  result.text,    // compatibility alias
