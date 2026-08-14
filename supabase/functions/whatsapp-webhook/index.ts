@@ -87,7 +87,8 @@ serve(async (req) => {
       req.headers.get("x-hub-signature-256"),
     );
     if (!sigCheck.ok) {
-      console.warn(`[WHATSAPP] Signature rejected: ${sigCheck.reason}`);
+      const statusCode = sigCheck.reason === "secret_not_configured" ? 503 : 403;
+      console.warn(`[WHATSAPP] Signature rejected (${statusCode}): ${sigCheck.reason}`);
       return new Response(JSON.stringify({ error: "invalid_signature" }), {
         status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
