@@ -9,7 +9,29 @@ serve(async(req:Request)=>{
   const sb=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
   const{data:{user}}=await sb.auth.getUser(auth.replace("Bearer ",""));if(!user) return json({error:"Unauthorized"},401);
   let body:{workspace_id?:string}={};if(req.method==="POST"){try{body=await req.json();}catch{}}
-  const wsId=body.workspace_id??user.id;
+  // Workspace resolution: never substitute user.id as workspace UUID.
+  const wsId: string | null = await (async () => {
+    const requested = body.workspace_id;
+    if (requested) {
+      // Verify user is authorized for the requested workspace
+      const { data: owned } = await sb.from("workspaces").select("id")
+        .eq("id", requested).eq("owner_id", user.id).maybeSingle();
+      if (owned?.id) return owned.id;
+      const { data: member } = await sb.rpc("is_workspace_member",
+        { _user_id: user.id, _workspace_id: requested });
+      if (member) return requested;
+      return null;  // unauthorized
+    }
+    // Resolve deterministically: owned first, then member
+    const { data: ownedWs } = await sb.from("workspaces").select("id")
+      .eq("owner_id", user.id).order("created_at", { ascending: true }).limit(1).maybeSingle();
+    if (ownedWs?.id) return ownedWs.id;
+    const { data: memWs } = await sb.from("workspace_members").select("workspace_id")
+      .eq("user_id", user.id).order("created_at", { ascending: true }).limit(1).maybeSingle();
+    return memWs?.workspace_id ?? null;
+  })();
+  if (!wsId) return new Response(JSON.stringify({ error: "No authorized workspace found" }),
+    { status: 403, headers: { "Content-Type": "application/json" } });
   const{data:sub}=await sb.from("subscriptions").select("plan").eq("user_id",user.id).maybeSingle();
   const plan=sub?.plan??"free";
   const[ig,wa,fb,gSync,metaAds,mc]=await Promise.all([
