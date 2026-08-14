@@ -454,6 +454,7 @@ serve(async (req) => {
 
   // ── PRE-DISPATCH IDEMPOTENCY (mutating actions only) ──────────────────────
   const isMutating = action && MUTATING_ACTIONS.has(`${adKey}:${action}`);
+  let activeMutatingClaimId: string | null = null;  // set when claim acquired
 
   if (isMutating && !dry_run) {
     // Mutating actions require an idempotency_key to prevent duplicate dispatch
@@ -471,11 +472,10 @@ serve(async (req) => {
         sb, idempotency_key, connection.id, actorUserId, adKey, action!, workspaceId
       );
       if (claimResult.blocked) {
-        // Duplicate or in-flight — do NOT proceed to external dispatch
         return json({ ...(claimResult.existingResult ?? {}), duplicate: true, idempotency_key });
       }
-      // claimed=true — this request owns the key; proceed to dispatch
-      // The claim row will be updated to "completed"/"failed" after real dispatch
+      // claimed=true — store claimId to transition state if adapter is disconnected
+      activeMutatingClaimId = claimResult.claimId;
     } else {
       // No connection yet — register key as disconnected_skipped (retryable)
       // This prevents a disconnected state from permanently poisoning the key
@@ -509,6 +509,21 @@ serve(async (req) => {
 
   // ── DISCONNECTED / OAUTH REQUIRED ─────────────────────────────────────────
   if (connectionStatus !== "connected") {
+    // Transition any in-flight "claiming" → "disconnected_skipped" BEFORE returning.
+    // Prevents the key from being permanently stuck in "claiming" with no dispatch.
+    if (activeMutatingClaimId) {
+      await sb.from("integration_event_logs").update({
+        status: "disconnected_skipped",
+        metadata: {
+          adapter_key: adKey, action, workspace_id: workspaceId,
+          connection_status: connectionStatus,
+          reason: "adapter_not_connected_at_claim_time",
+          retryable: true,
+          normalized_result: null,
+          transitioned_at: new Date().toISOString(),
+        },
+      }).eq("id", activeMutatingClaimId).catch(() => {});
+    }
     const result: BuilderResult = {
       adapter_key: adKey, action,
       connection_status: connectionStatus,  // oauth_required or agent_setup_required
