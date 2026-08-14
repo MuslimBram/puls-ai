@@ -123,7 +123,7 @@ for (const ad of Object.values(ADAPTERS)) {
 interface BuilderResult {
   adapter_key:         string;
   action?:             string;
-  connection_status:   "connected" | "disconnected" | "external_oauth_required";
+  connection_status:   "connected" | "disconnected" | "external_oauth_required" | "agent_setup_required";
   run_status?:         "pending" | "running" | "completed" | "failed" | "cancelled" | null;
   external_project_id?: string | null;
   external_job_id?:    string | null;
@@ -215,33 +215,112 @@ async function getOrCreateConnection(
 // ── PRE-DISPATCH IDEMPOTENCY CHECK ────────────────────────────────────────────
 // For mutating actions: check if idempotency_key was already claimed.
 // Returns the existing normalized result if already processed.
-async function checkIdempotency(
+// ── ATOMIC IDEMPOTENCY CLAIM ─────────────────────────────────────────────
+// State policy for idempotency_key:
+//   "claiming"            = INSERT succeeded — this request owns the key, may proceed
+//   "pending"             = Concurrent duplicate — UNIQUE conflict, other request owns it, block dispatch
+//   "completed"           = Prior dispatch finished — return stored normalized result
+//   "failed"              = Prior dispatch failed — key IS RETRYABLE (not poisoned)
+//   "disconnected_skipped"= Key was registered but OAuth was not complete — RETRYABLE
+//
+// "disconnected_skipped" is explicitly retryable:
+//   When OAuth completes and action is retried with the SAME idempotency_key,
+//   the caller must use a NEW idempotency_key. This prevents stale disconnected state
+//   from poisoning a future real dispatch.
+interface IdempotencyResult {
+  claimed: boolean;                // true = this request atomically claimed the key
+  blocked: boolean;                // true = concurrent/completed claim — do not dispatch
+  existingResult: BuilderResult | null;  // set when blocked=true and result is stored
+  claimId: string | null;          // integration_event_log.id of the claim row
+}
+
+async function atomicIdempotencyClaim(
   sb: ReturnType<typeof createClient>,
   idempotencyKey: string,
-): Promise<{ alreadyProcessed: boolean; existingResult: BuilderResult | null }> {
-  const { data } = await sb.from("integration_event_logs")
-    .select("id, status, payload, metadata")
-    .eq("idempotency_key", idempotencyKey)
-    .maybeSingle();
+  integrationId: string,
+  userId: string,
+  adapterKey: AdapterKey,
+  action: string,
+  workspaceId: string | null,
+): Promise<IdempotencyResult> {
+  // Attempt atomic INSERT — only one concurrent request can succeed
+  const { data: claimed, error: insertErr } = await sb
+    .from("integration_event_logs")
+    .insert({
+      integration_id:  integrationId,
+      user_id:         userId,
+      event_type:      "adapter_idempotency_claim",
+      event_message:   `Idempotency claim for action "${action}" on ${adapterKey}`,
+      status:          "claiming",   // in-flight; updated to completed/failed after dispatch
+      adapter_key:     adapterKey,
+      idempotency_key: idempotencyKey,
+      metadata:        { action, workspace_id: workspaceId, claimed_at: new Date().toISOString() },
+    })
+    .select("id")
+    .single();
 
-  if (!data) return { alreadyProcessed: false, existingResult: null };
+  if (!insertErr && claimed?.id) {
+    // We own the key — caller may proceed to dispatch
+    return { claimed: true, blocked: false, existingResult: null, claimId: claimed.id };
+  }
 
-  // Already started or completed — return stored result
-  if (data.status === "completed" || data.status === "started" || data.status === "pending") {
-    const stored = (data.metadata as any)?.normalized_result as BuilderResult | null;
+  // UNIQUE conflict (code 23505) = another request already holds this key
+  if (insertErr?.code === "23505") {
+    const { data: existing } = await sb
+      .from("integration_event_logs")
+      .select("id, status, metadata")
+      .eq("idempotency_key", idempotencyKey)
+      .maybeSingle();
+
+    const status = existing?.status ?? "pending";
+
+    // Retryable states — caller may proceed with a NEW idempotency_key
+    const RETRYABLE = ["failed", "disconnected_skipped"];
+    if (RETRYABLE.includes(status)) {
+      return {
+        claimed: false, blocked: true,
+        existingResult: {
+          adapter_key: adapterKey, action,
+          connection_status: "external_oauth_required", run_status: null,
+          latency_ms: 0,
+          error: `Previous attempt had status "${status}" — this idempotency_key is retryable with a new key.`,
+          idempotency_key: idempotencyKey,
+          metadata: { retryable: true, previous_status: status, note: "Use a new idempotency_key for retry." },
+        } as BuilderResult,
+        claimId: existing?.id ?? null,
+      };
+    }
+
+    // Non-retryable: pending/claiming (in-flight) or completed
+    const storedResult = (existing?.metadata as any)?.normalized_result as BuilderResult | null;
     return {
-      alreadyProcessed: true,
-      existingResult: stored ?? {
-        adapter_key:       "unknown",
-        connection_status: "connected",
-        run_status:        data.status as any,
-        latency_ms:        0,
-        idempotency_key:   idempotencyKey,
-        metadata:          { note: "Already processed — idempotency key was previously claimed." },
-      },
+      claimed: false, blocked: true,
+      existingResult: storedResult ?? {
+        adapter_key: adapterKey, action,
+        connection_status: "connected", run_status: status as any,
+        latency_ms: 0,
+        error: null,
+        idempotency_key: idempotencyKey,
+        metadata: { note: `Duplicate request blocked. Status: ${status}.`, duplicate: true },
+      } as BuilderResult,
+      claimId: existing?.id ?? null,
     };
   }
-  return { alreadyProcessed: false, existingResult: null };
+
+  // Non-conflict insert error — do NOT proceed to dispatch (fail closed)
+  console.error("[builder-adapter-router] Idempotency claim INSERT failed:", insertErr?.message);
+  return {
+    claimed: false, blocked: true,
+    existingResult: {
+      adapter_key: adapterKey, action,
+      connection_status: "disconnected", run_status: null,
+      latency_ms: 0,
+      error: "Idempotency claim failed — dispatch blocked. Retry safely.",
+      idempotency_key: idempotencyKey,
+      metadata: { note: "Claim insert error — not a duplicate conflict." },
+    } as BuilderResult,
+    claimId: null,
+  };
 }
 
 // ── EVENT LOGGING ─────────────────────────────────────────────────────────────
@@ -365,10 +444,13 @@ serve(async (req) => {
     ? await getOrCreateConnection(sb, adKey, workspaceId, actorUserId)
     : null;
 
-  const connectionStatus: BuilderResult["connection_status"] =
-    connection?.status === "connected" && connection?.is_enabled
-      ? "connected"
-      : "external_oauth_required";
+  // claude_code is agent_sdk — uses "agent_setup_required" not OAuth flow
+  const isAgentSdk = def.connection_type === "agent_sdk";
+  const connectionStatus: BuilderResult["connection_status"] = (() => {
+    if (connection?.status === "connected" && connection?.is_enabled) return "connected";
+    if (isAgentSdk) return "agent_setup_required";
+    return "external_oauth_required";
+  })();
 
   // ── PRE-DISPATCH IDEMPOTENCY (mutating actions only) ──────────────────────
   const isMutating = action && MUTATING_ACTIONS.has(`${adKey}:${action}`);
@@ -382,10 +464,31 @@ serve(async (req) => {
       }, 422);
     }
 
-    // Check if already processed — return existing result
-    const { alreadyProcessed, existingResult } = await checkIdempotency(sb, idempotency_key);
-    if (alreadyProcessed && existingResult) {
-      return json({ ...existingResult, duplicate: true, idempotency_key });
+    // ATOMIC IDEMPOTENCY CLAIM before any future dispatch
+    // Must happen before logEvent to avoid logging a duplicate that was blocked
+    if (connection?.id && actorUserId) {
+      const claimResult = await atomicIdempotencyClaim(
+        sb, idempotency_key, connection.id, actorUserId, adKey, action!, workspaceId
+      );
+      if (claimResult.blocked) {
+        // Duplicate or in-flight — do NOT proceed to external dispatch
+        return json({ ...(claimResult.existingResult ?? {}), duplicate: true, idempotency_key });
+      }
+      // claimed=true — this request owns the key; proceed to dispatch
+      // The claim row will be updated to "completed"/"failed" after real dispatch
+    } else {
+      // No connection yet — register key as disconnected_skipped (retryable)
+      // This prevents a disconnected state from permanently poisoning the key
+      await sb.from("integration_event_logs").insert({
+        integration_id:  "00000000-0000-0000-0000-000000000000",  // system placeholder
+        user_id:         actorUserId ?? "00000000-0000-0000-0000-000000000001",
+        event_type:      "idempotency_disconnected_skip",
+        event_message:   `Key registered but skipped — adapter ${adKey} not connected`,
+        status:          "disconnected_skipped",  // explicitly retryable
+        adapter_key:     adKey,
+        idempotency_key: idempotency_key,
+        metadata:        { action, workspace_id: workspaceId, retryable: true },
+      }).catch(() => {});
     }
   }
 
@@ -402,7 +505,7 @@ serve(async (req) => {
       eventMessage:   action
         ? `Action "${action}" on ${def.display_name} — ${connectionStatus}`
         : `Registry check for ${def.display_name}`,
-      status:         connectionStatus === "connected" ? "pending" : "blocked_oauth_required",
+      status:         connectionStatus === "connected" ? "pending" : (isAgentSdk ? "blocked_agent_setup_required" : "blocked_oauth_required"),
       idempotencyKey: iKey,
       metadata: { action, dry_run, connection_status: connectionStatus, workspace_id: workspaceId },
     });
@@ -414,7 +517,7 @@ serve(async (req) => {
   if (connectionStatus !== "connected") {
     const result: BuilderResult = {
       adapter_key: adKey, action,
-      connection_status: "external_oauth_required",
+      connection_status: connectionStatus,  // oauth_required or agent_setup_required
       run_status: null,
       external_project_id: null, external_job_id: null,
       branch_name: null, commit_sha: null, preview_url: null,
