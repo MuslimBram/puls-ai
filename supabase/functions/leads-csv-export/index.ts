@@ -51,7 +51,8 @@ serve(async (req: Request): Promise<Response> => {
   );
   if (authErr || !user) return new Response("Unauthorized", { status: 401 });
 
-  // Verifiko rolin: vetëm admin / super_admin / owner mund të eksportojnë leads (PII)
+  // enterprise_leads are PLATFORM-LEVEL PII — only super_admin may export.
+  // Workspace admin/owner != platform admin. Do NOT grant access based on workspace role.
   const { data: roleRows, error: roleErr } = await supabase
     .from("user_roles")
     .select("role")
@@ -63,8 +64,9 @@ serve(async (req: Request): Promise<Response> => {
     });
   }
   const roles = (roleRows ?? []).map((r: { role: string }) => r.role);
-  const isPrivileged = roles.some((r) => ["admin", "super_admin", "owner"].includes(r));
-  if (!isPrivileged) return new Response("Forbidden", { status: 403 });
+  // Only super_admin may access platform-level enterprise leads
+  const isPlatformAdmin = roles.some((r) => ["super_admin"].includes(r));
+  if (!isPlatformAdmin) return new Response("Forbidden: platform admin role required", { status: 403 });
 
   const url = new URL(req.url);
   const status = url.searchParams.get("status");
