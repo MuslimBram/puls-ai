@@ -15,16 +15,21 @@
  *   - All actions: verify every referenced ID belongs to authorized workspace
  */
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
 
 const SVC = () => createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   { auth: { persistSession: false } }
 );
-const json = (body: unknown, status = 200) =>
+const cors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
+const json = (req_ctx: Request | null, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
-    status, headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
+    status, headers: { ...(req_ctx ? cors(req_ctx) : {}), "Content-Type": "application/json" },
   });
+
+// Req-aware shorthand used in most handlers
+let req: Request;  // set at entry of each Deno.serve call
 
 /** Pulse AI Router — AI provider NOT hardwired */
 async function ai(messages: Array<{role:string;content:string}>, system: string): Promise<string> {
@@ -65,7 +70,7 @@ async function verifyOwnership(
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, {
-    headers: { "Access-Control-Allow-Origin": "*",
+    headers: { ...cors(req),
       "Access-Control-Allow-Headers": "authorization,content-type,x-internal-secret",
       "Access-Control-Allow-Methods": "POST,OPTIONS" },
   });
@@ -89,27 +94,27 @@ Deno.serve(async (req) => {
 
   if (!isInternal) {
     const authHeader = req.headers.get("authorization") ?? "";
-    if (!authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+    if (!authHeader.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
     const { data: { user }, error: ue } = await sb.auth.getUser(authHeader.slice(7));
-    if (ue || !user) return json({ error: "Unauthorized" }, 401);
+    if (ue || !user) return json(req, { error: "Unauthorized" }, 401);
     authedUserId = user.id;
 
     // Verify workspace membership
-    if (!workspace_id) return json({ error: "workspace_id required" }, 400);
+    if (!workspace_id) return json(req, { error: "workspace_id required" }, 400);
     const isMember = await requireWorkspaceMember(sb, authedUserId, workspace_id);
-    if (!isMember) return json({ error: "Forbidden: not a member of this workspace" }, 403);
+    if (!isMember) return json(req, { error: "Forbidden: not a member of this workspace" }, 403);
   } else {
     // Internal path: workspace_id still required for scoping
-    if (!workspace_id) return json({ error: "workspace_id required" }, 400);
+    if (!workspace_id) return json(req, { error: "workspace_id required" }, 400);
   }
 
   // ── EVALUATE ───────────────────────────────────────────────────────────────
   if (action === "evaluate") {
-    if (!lead_id) return json({ error: "lead_id required" }, 400);
+    if (!lead_id) return json(req, { error: "lead_id required" }, 400);
 
     // Verify lead belongs to authorized workspace
     const ownedLead = await verifyOwnership(sb, "leads", lead_id, workspace_id);
-    if (!ownedLead) return json({ error: "Forbidden: lead not in workspace" }, 403);
+    if (!ownedLead) return json(req, { error: "Forbidden: lead not in workspace" }, 403);
 
     const [{ data: lead }, { data: twin }, { data: evidence }] = await Promise.all([
       sb.from("leads").select("*").eq("id", lead_id).eq("workspace_id", workspace_id).single(),
@@ -120,7 +125,7 @@ Deno.serve(async (req) => {
         .eq("workspace_id", workspace_id).eq("source_id", lead_id)
         .order("recorded_at", { ascending: false }).limit(10),
     ]);
-    if (!lead) return json({ error: "Lead not found" }, 404);
+    if (!lead) return json(req, { error: "Lead not found" }, 404);
 
     const { data: rules } = await sb.from("business_rules")
       .select("rule_type,config").eq("workspace_id", workspace_id).eq("is_enabled", true);
@@ -177,7 +182,7 @@ You cannot invent discounts, installment terms, rewards, or prices. When uncerta
       nba_calculated_at: new Date().toISOString(), inactivity_days,
     }).eq("id", lead_id).eq("workspace_id", workspace_id);
 
-    return json({ ok: true, nba_id: nba_record?.id, action_type: nba.action_type,
+    return json(req, { ok: true, nba_id: nba_record?.id, action_type: nba.action_type,
       reason: nba.reason, confidence: nba.confidence, rule_allows: rule_ok,
       offer_value: offer_val, suggested_channel: nba.suggested_channel });
   }
@@ -207,24 +212,24 @@ Criteria fields: purchase_count_min,purchase_count_max,is_vip,inactivity_min_day
       description: campaign_goal, criteria: seg.criteria, ai_reasoning: seg.reasoning,
     }).select("id").single();
 
-    return json({ ok: true, segment_id: saved?.id, ...seg });
+    return json(req, { ok: true, segment_id: saved?.id, ...seg });
   }
 
   // ── DELIVER ─────────────────────────────────────────────────────────────────
   if (action === "deliver") {
     const { broadcast_id, window_minutes = 60, message_type = "marketing" } = body;
-    if (!broadcast_id) return json({ error: "broadcast_id required" }, 400);
+    if (!broadcast_id) return json(req, { error: "broadcast_id required" }, 400);
 
     // Verify broadcast belongs to authorized workspace
     const ownedBroadcast = await verifyOwnership(sb, "broadcasts", broadcast_id, workspace_id);
-    if (!ownedBroadcast) return json({ error: "Forbidden: broadcast not in workspace" }, 403);
+    if (!ownedBroadcast) return json(req, { error: "Forbidden: broadcast not in workspace" }, 403);
 
     // SELECT includes lead_id (was missing — bug fix)
     const { data: recipients } = await sb.from("broadcast_recipients")
       .select("id,contact_identifier,channel_type,lead_id")
       .eq("broadcast_id", broadcast_id).eq("status", "pending").limit(10000);
 
-    if (!recipients?.length) return json({ ok: true, queued: 0, message: "No pending recipients" });
+    if (!recipients?.length) return json(req, { ok: true, queued: 0, message: "No pending recipients" });
 
     const window_sec = window_minutes * 60;
     let queued = 0;
@@ -251,21 +256,32 @@ Criteria fields: purchase_count_min,purchase_count_max,is_vip,inactivity_min_day
       queued++;
     }
 
-    return json({ ok: true, queued, total: recipients.length, window_minutes,
+    return json(req, { ok: true, queued, total: recipients.length, window_minutes,
       note: "Jitter for queue smoothing — NOT anti-spam bypass" });
   }
 
   // ── FEEDBACK ─────────────────────────────────────────────────────────────────
   if (action === "feedback") {
     const { event_type, nba_id, broadcast_id, channel, event_data } = body;
-    // Note: revenue_amount NOT trusted from client for financial events — log only
-    if (!lead_id || !event_type) return json({ error: "lead_id and event_type required" }, 400);
+    if (!lead_id || !event_type) return json(req, { error: "lead_id and event_type required" }, 400);
+
+    // FINANCIAL INTEGRITY: purchased/converted/payment events require trusted internal source.
+    // A normal authenticated user CANNOT fabricate purchases or revenue events.
+    const FINANCIAL_EVENTS = ["purchased", "converted", "payment_completed"];
+    if (FINANCIAL_EVENTS.includes(event_type) && !isInternal) {
+      return json(req, {
+        error: "Forbidden: financial/conversion events must come from a trusted server source",
+        detail: "Use INTERNAL_WEBHOOK_SECRET or CRON_SECRET for purchase confirmation events",
+      }, 403);
+    }
 
     // Verify all IDs belong to authorized workspace
     if (lead_id && !(await verifyOwnership(sb, "leads", lead_id, workspace_id)))
-      return json({ error: "Forbidden: lead not in workspace" }, 403);
+      return json(req, { error: "Forbidden: lead not in workspace" }, 403);
     if (nba_id && !(await verifyOwnership(sb, "next_best_actions", nba_id, workspace_id)))
-      return json({ error: "Forbidden: NBA not in workspace" }, 403);
+      return json(req, { error: "Forbidden: NBA not in workspace" }, 403);
+    if (broadcast_id && !(await verifyOwnership(sb, "broadcasts", broadcast_id, workspace_id)))
+      return json(req, { error: "Forbidden: broadcast not in workspace" }, 403);
 
     // Record event (revenue_amount not stored — must come from actual order system)
     await sb.from("conversion_events").insert({
@@ -308,7 +324,7 @@ Criteria fields: purchase_count_min,purchase_count_max,is_vip,inactivity_min_day
       workspace_id, lead_id, channel, message_type: "marketing", broadcast_id, nba_id,
     }).catch(() => {});
 
-    return json({ ok: true, event_type, memory_updated: true });
+    return json(req, { ok: true, event_type, memory_updated: true });
   }
 
   // ── LIFECYCLE ─────────────────────────────────────────────────────────────────
@@ -367,9 +383,9 @@ Criteria fields: purchase_count_min,purchase_count_max,is_vip,inactivity_min_day
       }
     }
 
-    return json({ ok: true, triggers_checked: (triggers||[]).length,
+    return json(req, { ok: true, triggers_checked: (triggers||[]).length,
       customers_checked: (customers||[]).length, fired });
   }
 
-  return json({ error: `Unknown action: ${action}` }, 400);
+  return json(req, { error: `Unknown action: ${action}` }, 400);
 });
