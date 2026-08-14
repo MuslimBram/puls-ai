@@ -381,32 +381,47 @@ async function callProviderReplicate(
   }
   const prompt = buildLlama3Prompt(messages, systemPrompt);
 
-  // POST to create prediction
-  const createRes = await fetch(
-    `https://api.replicate.com/v1/models/${model}/predictions`,
-    {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        input: {
-          prompt,
-          system_prompt: systemPrompt || undefined,
-          max_tokens: maxTokens,
-          temperature: 0.01,
-        },
-      }),
-      signal: AbortSignal.timeout(timeoutMs),
-    },
-  );
-
-  if (!createRes.ok) {
+  // Bounded retry for Replicate create: max 2 retries for 429/5xx.
+  // Never retry 400/401/402/403/422 (permanent failures).
+  const repBody = JSON.stringify({
+    input: { prompt, system_prompt: systemPrompt || undefined,
+      max_tokens: maxTokens, temperature: 0.01 },
+  });
+  let createRes!: Response;
+  let repLastErr: Error = new Error("unreachable");
+  for (let repAttempt = 0; repAttempt <= 2; repAttempt++) {
+    createRes = await fetch(
+      `https://api.replicate.com/v1/models/${model}/predictions`,
+      { method: "POST", headers, body: repBody, signal: AbortSignal.timeout(timeoutMs) },
+    );
+    if (createRes.ok) break;
     const errText = await createRes.text().catch(() => "");
-    if (createRes.status === 401 || createRes.status === 403)
-      throw new Error(`Replicate: auth_failed (${createRes.status})`);
-    if (createRes.status === 422)
-      throw new Error(`Replicate: invalid_model_or_input (422) ${errText.slice(0, 150)}`);
-    throw new Error(`Replicate: create_failed (${createRes.status}) ${errText.slice(0, 150)}`);
+    // Permanent — never retry
+    if (createRes.status === 400 || createRes.status === 401 ||
+        createRes.status === 402 || createRes.status === 403 || createRes.status === 422)
+      throw new Error(`Replicate: permanent_failure (${createRes.status}) ${errText.slice(0, 120)}`);
+    // 429 rate limit — honor Retry-After
+    if (createRes.status === 429) {
+      repLastErr = new Error(`Replicate: rate_limited (429)`);
+      if (repAttempt < 2) {
+        const ra = parseInt(createRes.headers.get("Retry-After") ?? "2", 10);
+        await new Promise(r => setTimeout(r, Math.min(ra * 1000, 8000)));
+        continue;
+      }
+      throw repLastErr;
+    }
+    // 5xx transient — backoff retry
+    if (createRes.status >= 500) {
+      repLastErr = new Error(`Replicate: provider_error (${createRes.status}) ${errText.slice(0, 80)}`);
+      if (repAttempt < 2) {
+        await new Promise(r => setTimeout(r, 1500 * (repAttempt + 1)));
+        continue;
+      }
+      throw repLastErr;
+    }
+    throw new Error(`Replicate: create_failed (${createRes.status}) ${errText.slice(0, 100)}`);
   }
+  if (!createRes.ok) throw repLastErr;
 
   const prediction = await createRes.json() as any;
 
