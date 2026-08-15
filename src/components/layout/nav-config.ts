@@ -81,6 +81,7 @@ export const ownerNavGroups: NavGroup[] = [
     allowedRoles: ["super_admin"],
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
+      { href: "/admin/lidhjet", label: "Lidhjet Moderation", icon: Shield },
       { href: "/admin/activation", label: "Activation", icon: Activity },
       { href: "/deep-analytics", label: "Full Analytics", icon: PieChart },
       { href: "/saas-health", label: "SaaS Health", icon: Brain },
@@ -93,6 +94,7 @@ export const ownerNavGroups: NavGroup[] = [
     allowedRoles: ["super_admin"],
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
       { href: "/managed-businesses", label: "Businesses", icon: Users },
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
@@ -127,6 +129,7 @@ export const adminNavGroups: NavGroup[] = [
     adminOnly: true,
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
+      { href: "/admin/lidhjet", label: "Lidhjet Moderation", icon: Shield },
       { href: "/admin/activation", label: "Activation", icon: Activity },
       { href: "/admin/integration-hub", label: "Integration Hub", icon: Plug },
       { href: "/deep-analytics", label: "Deep Analytics", icon: PieChart },
@@ -139,6 +142,7 @@ export const adminNavGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
       { href: "/inbox", label: "Inbox", icon: Inbox, requiredPermission: "canRespondInbox" },
       { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
       { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
@@ -169,6 +173,7 @@ export const businessNavGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
       { href: "/inbox", label: "Inbox", icon: Inbox, requiredPermission: "canRespondInbox" },
       { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
       { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
@@ -262,6 +267,7 @@ export const freelancerNavGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
       { href: "/inbox", label: "Inbox", icon: Inbox },
       { href: "/leads", label: "Leads", icon: Target },
       { href: "/crm", label: "CRM", icon: Briefcase },
@@ -320,6 +326,7 @@ export const agentNavGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
       { href: "/inbox", label: "Inbox", icon: Inbox, badge: "live" },
       { href: "/crm", label: "Contacts", icon: Briefcase },
       { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
@@ -346,6 +353,7 @@ export const ambassadorNavGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
       { href: "/partner", label: "Partner Program", icon: Handshake },
       { href: "/wallet", label: "Wallet & Earnings", icon: Wallet },
       { href: "/analytics", label: "Analytics", icon: BarChart3 },

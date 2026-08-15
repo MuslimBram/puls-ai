@@ -119,6 +119,11 @@ const SupportTickets = lazy(() => import("./pages/SupportTickets"));
 const AdminSupportTickets = lazy(() => import("./pages/AdminSupportTickets"));
 const SystemStatus = lazy(() => import("./pages/SystemStatus"));
 const ContentCalendar = lazy(() => import("./pages/ContentCalendar"));
+const LidhjetOverview = lazy(() => import("./pages/lidhjet/LidhjetOverview"));
+const LidhjetOnboarding = lazy(() => import("./pages/lidhjet/LidhjetOnboarding"));
+const LidhjetFeed = lazy(() => import("./pages/lidhjet/LidhjetFeed"));
+const LidhjetInterests = lazy(() => import("./pages/lidhjet/LidhjetInterests"));
+const LidhjetAdminModeration = lazy(() => import("./pages/lidhjet/LidhjetAdminModeration"));
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -232,6 +237,11 @@ const App = () => (
                 <Route path="/session-security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
                 <Route path="/branding" element={<PermissionPage permission="canAccessBilling"><Branding /></PermissionPage>} />
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
+                <Route path="/admin/lidhjet" element={<AdminPage><LidhjetAdminModeration /></AdminPage>} />
+                <Route path="/lidhjet" element={<ProtectedPage><LidhjetOverview /></ProtectedPage>} />
+                <Route path="/lidhjet/onboarding" element={<ProtectedPage><LidhjetOnboarding /></ProtectedPage>} />
+                <Route path="/lidhjet/feed" element={<ProtectedPage><LidhjetFeed /></ProtectedPage>} />
+                <Route path="/lidhjet/interests" element={<ProtectedPage><LidhjetInterests /></ProtectedPage>} />
                 <Route path="/admin/businesses/:businessId/scan-insights" element={<AdminPage><AdminBusinessScanInsights /></AdminPage>} />
                 <Route path="/admin/integration-hub" element={<AdminPage><AdminIntegrationHub /></AdminPage>} />
                 <Route path="/admin/activation" element={<AdminPage><ActivationDashboard /></AdminPage>} />
