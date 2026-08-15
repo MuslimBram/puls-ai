@@ -103,11 +103,6 @@ export const TelephonyProviderSetup = () => {
       toast.error("Please save credentials first to trigger server-side verification.");
     }
   };
-    } catch {
-      setVerifyResult({ ok: false, detail: "Connection failed" });
-    }
-    setVerifying(false);
-  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -144,9 +139,10 @@ export const TelephonyProviderSetup = () => {
       setVerifyResult({ ok: true, detail: result.verification_detail ?? "Verified" });
       setDone(true);
       toast.success("Twilio credentials saved and verified securely");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save configuration");
-      setVerifyResult({ ok: false, detail: err.message });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to save configuration";
+      toast.error(msg);
+      setVerifyResult({ ok: false, detail: msg });
     } finally {
       setSaving(false);
     }
