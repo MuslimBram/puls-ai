@@ -1,6 +1,6 @@
 /**
  * PULSE AI — AI SOFTWARE FACTORY
- * PHASE 3A & PHASE 3B ENGINE TYPES
+ * PHASE 3A, 3B & 3C ENGINE TYPES
  */
 
 export type TaskType =
@@ -178,4 +178,142 @@ export interface DispatchResult {
   status: "DISPATCH_NOT_ALLOWED_PHASE_3B" | "BLOCKED_BY_POLICY" | "DISPATCH_STUB";
   reason: string;
   timestamp: string;
+}
+
+// ── PHASE 3C QUALITY GATE TYPES ─────────────────────────────────────────────
+
+export interface BuildResultArtifact {
+  success: boolean;
+  output?: string;
+  errors?: string[];
+}
+
+export interface TestResultArtifact {
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  output?: string;
+}
+
+export interface LintResultArtifact {
+  errors: number;
+  warnings: number;
+  output?: string;
+}
+
+export interface SecurityResultArtifact {
+  secrets_detected: boolean;
+  findings?: string[];
+}
+
+export interface RuntimeResultArtifact {
+  passed: boolean;
+  details?: string;
+}
+
+export interface BrowserResultArtifact {
+  passed: boolean;
+  page_title?: string;
+  visual_diff_passed?: boolean;
+  details?: string;
+}
+
+export interface WorkerResult {
+  worker_id: WorkerType;
+  execution_id: string;
+  status: "success" | "failed" | "cancelled" | "timed_out" | "error";
+  branch_or_sandbox?: string;
+  changed_files?: string[];
+  build_result?: BuildResultArtifact;
+  test_result?: TestResultArtifact;
+  lint_result?: LintResultArtifact;
+  security_result?: SecurityResultArtifact;
+  runtime_result?: RuntimeResultArtifact;
+  browser_result?: BrowserResultArtifact;
+  screenshots?: string[];
+  logs?: string[];
+  warnings?: string[];
+  errors?: string[];
+  external_calls?: number;
+  credits_consumed?: number;
+  started_at?: string;
+  completed_at?: string;
+}
+
+export type GateDecision =
+  | "pass"
+  | "fail"
+  | "needs_repair"
+  | "needs_human_review"
+  | "insufficient_evidence";
+
+export type CheckType =
+  | "build"
+  | "tests"
+  | "lint"
+  | "security"
+  | "runtime"
+  | "browser"
+  | "screenshots"
+  | "acceptance_criteria"
+  | "forbidden_actions"
+  | "external_call_policy"
+  | "budget_policy"
+  | "isolation_integrity";
+
+export type CheckStatus =
+  | "pass"
+  | "fail"
+  | "warning"
+  | "not_applicable"
+  | "missing_evidence";
+
+export interface CheckResult {
+  check_id: string;
+  type: CheckType;
+  required: boolean;
+  status: CheckStatus;
+  score: number; // 0 to 100
+  evidence: string[];
+  reason: string;
+  blocking: boolean;
+}
+
+export interface ViolationDetail {
+  code: string;
+  severity: "critical" | "high" | "medium" | "low";
+  check_type: CheckType;
+  message: string;
+  worker_id?: WorkerType;
+}
+
+export interface WorkerQualityEvaluation {
+  worker_id: WorkerType;
+  worker_class: WorkerClass;
+  overall_score: number;
+  status: GateDecision;
+  eligible: boolean;
+  checks: CheckResult[];
+  violations: ViolationDetail[];
+  rank?: number;
+}
+
+export interface QualityReport {
+  quality_report_id: string;
+  execution_id: string;
+  task_id: string;
+  overall_status: GateDecision;
+  overall_score: number; // 0 to 100
+  gate_decision: GateDecision;
+  worker_results: WorkerQualityEvaluation[];
+  checks: CheckResult[];
+  evidence: Record<string, unknown>;
+  violations: ViolationDetail[];
+  warnings: string[];
+  recommended_action: string;
+  eligible_workers: WorkerType[];
+  rejected_workers: WorkerType[];
+  requires_human_review: boolean;
+  created_at: string;
 }
