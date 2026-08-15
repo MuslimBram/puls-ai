@@ -115,7 +115,7 @@ export function recommendRepairWorker(
 ): WorkerType {
   const text = problem.toLowerCase();
 
-  if (text.includes("debug") || text.includes("reproduce") || text.includes("build failure")) {
+  if (text.includes("debug") || text.includes("reproduce") || text.includes("build") || text.includes("syntax") || text.includes("compilation")) {
     return "antigravity_candidate";
   }
   if (text.includes("security") || text.includes("refactor") || text.includes("complex logic")) {
