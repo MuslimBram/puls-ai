@@ -1,6 +1,6 @@
 /**
  * PULSE AI — AI SOFTWARE FACTORY
- * PHASE 3A, 3B & 3C ENGINE TYPES
+ * PHASE 3A, 3B, 3C & 3D ENGINE TYPES
  */
 
 export type TaskType =
@@ -274,7 +274,7 @@ export interface CheckResult {
   type: CheckType;
   required: boolean;
   status: CheckStatus;
-  score: number; // 0 to 100
+  score: number;
   evidence: string[];
   reason: string;
   blocking: boolean;
@@ -304,7 +304,7 @@ export interface QualityReport {
   execution_id: string;
   task_id: string;
   overall_status: GateDecision;
-  overall_score: number; // 0 to 100
+  overall_score: number;
   gate_decision: GateDecision;
   worker_results: WorkerQualityEvaluation[];
   checks: CheckResult[];
@@ -315,5 +315,62 @@ export interface QualityReport {
   eligible_workers: WorkerType[];
   rejected_workers: WorkerType[];
   requires_human_review: boolean;
+  created_at: string;
+}
+
+// ── PHASE 3D PULSE JUDGE TYPES ───────────────────────────────────────────────
+
+export type JudgeDecisionValue =
+  | "select_base"
+  | "needs_repair"
+  | "needs_human_review"
+  | "no_viable_candidate"
+  | "insufficient_evidence";
+
+export interface RankedCandidateDetail {
+  worker_id: WorkerType;
+  worker_class: WorkerClass;
+  score: number; // Final deterministic judge score (0-100)
+  quality_score: number; // Quality Gate score
+  task_fit_score: number;
+  rank: number;
+  rationale: string;
+}
+
+export interface PatchCandidate {
+  source_worker: WorkerType;
+  target_area: string;
+  reason: string;
+  expected_benefit: string;
+  risk: string;
+  requires_review: boolean;
+  recommended_action: string;
+}
+
+export interface RepairCandidate {
+  problem: string;
+  source_worker: WorkerType;
+  recommended_repair_worker: WorkerType;
+  reason: string;
+  severity: "critical" | "high" | "medium" | "low";
+  required_evidence_after_repair: string[];
+}
+
+export interface JudgeDecision {
+  judge_decision_id: string;
+  execution_id: string;
+  task_id: string;
+  decision: JudgeDecisionValue;
+  selected_base_worker: WorkerType | null;
+  ranked_candidates: RankedCandidateDetail[];
+  patch_candidates: PatchCandidate[];
+  repair_candidates: RepairCandidate[];
+  rejected_candidates: WorkerType[];
+  selection_reason: string;
+  score_breakdown: Record<string, number>;
+  confidence: number; // 0.0 to 1.0
+  requires_human_review: boolean;
+  approval_reasons: string[];
+  next_action: string;
   created_at: string;
 }
