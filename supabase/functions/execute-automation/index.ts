@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { evaluateServerAdsRisk } from "../_shared/ai-guard-server.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
 interface CustomApprovalError extends Error {
   status?: string;
@@ -15,6 +16,10 @@ interface ActionPayload {
   provider?: "meta_ads" | "google_ads" | "tiktok_ads";
   ad_account_id?: string;
   campaign_id?: string;
+  channel_id?: string;
+  message_content?: string;
+  reply_to_message_id?: string;
+  webhook_url?: string;
 }
 
 interface TriggerData {
@@ -25,6 +30,8 @@ interface TriggerData {
   baseline_spend?: number;
   auth_anomaly?: boolean;
   token_anomaly?: boolean;
+  message_content?: string;
+  channel_id?: string;
 }
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
@@ -45,11 +52,6 @@ serve(async (req) => {
 
   try {
     // ── AUTHENTICATION BOUNDARY ───────────────────────────────────────────────
-    // Two trusted paths:
-    //   1. USER path:     JWT → getUser() → derive user_id from JWT (NEVER from body)
-    //   2. INTERNAL path: CRON_SECRET / INTERNAL_WEBHOOK_SECRET
-    // Client-provided user_id and workspace_id are NEVER trusted as identity.
-
     const authHeader = req.headers.get("Authorization") ?? "";
     const isInternal = requireCronAuth(req) === null; // null = auth OK
 
@@ -57,7 +59,6 @@ serve(async (req) => {
     let authedWorkspaceId: string | null = null;
 
     if (isInternal) {
-      // Internal/cron path: trust the body for routing context (not identity)
       const body = await req.json();
       const { trigger_type, trigger_data, workspace_id } = body;
       if (!workspace_id) return json(req, { error: "workspace_id required for internal path" }, 400);
@@ -117,7 +118,6 @@ async function handleExecution(
   req: Request,
   ctx: { trigger_type: string; trigger_data: TriggerData; workspace_id: string; userId: string | null; isInternal: boolean }
 ): Promise<Response> {
-  const getCors = (r: Request) => buildCorsHeaders(r, { allowAnyOrigin: false });
   const jsonRes = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
       status,
@@ -256,6 +256,81 @@ async function executeAction(
     }
     case "ads_optimize": {
       return `Ads optimization evaluated and allowed by AI Guard for workspace ${workspaceId}`;
+    }
+    case "discord_send_message": {
+      // ── REAL SERVER-SIDE DISCORD DISPATCH ──────────────────────────
+      const { data: channel } = await supabase
+        .from("channels")
+        .select("credentials_encrypted, provider_metadata")
+        .eq("workspace_id", workspaceId)
+        .eq("channel_type", "discord")
+        .eq("connection_status", "connected")
+        .maybeSingle();
+
+      if (!channel) {
+        throw new Error(`Discord integration not connected for workspace ${workspaceId}`);
+      }
+
+      let decryptedCreds: Record<string, string> = {};
+      if (channel.credentials_encrypted) {
+        try {
+          const rawCreds = await decryptIfNeeded(channel.credentials_encrypted);
+          if (typeof rawCreds === "string" && rawCreds.startsWith("{")) {
+            decryptedCreds = JSON.parse(rawCreds);
+          } else if (typeof rawCreds === "string") {
+            decryptedCreds = { bot_token: rawCreds };
+          }
+        } catch {
+          /* invalid format */
+        }
+      }
+
+      const metadata = channel.provider_metadata || {};
+      const botToken = decryptedCreds.bot_token ?? metadata.bot_token ?? null;
+      const webhookUrl = decryptedCreds.webhook_url ?? metadata.webhook_url ?? null;
+      const targetChannelId = action.channel_id ?? triggerData?.channel_id ?? metadata.channel_id ?? null;
+      const messageContent = action.message_content ?? triggerData?.message_content ?? "Automated message from Pulse AI";
+
+      if (botToken && targetChannelId) {
+        const url = `https://discord.com/api/v10/channels/${targetChannelId}/messages`;
+        const payload: Record<string, unknown> = { content: messageContent };
+        if (action.reply_to_message_id) {
+          payload.message_reference = { message_id: action.reply_to_message_id };
+        }
+
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${botToken}`,
+            "Content-Type": "application/json",
+            "User-Agent": "PulseAI (https://pulse.ai, v1.0)",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Discord Bot API dispatch failed (${res.status}): ${errText}`);
+        }
+
+        const resData = await res.json();
+        return `Discord Bot message sent successfully (message_id: ${resData.id})`;
+      } else if (webhookUrl) {
+        const res = await fetch(webhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ content: messageContent, username: metadata.username ?? "Pulse AI" }),
+        });
+
+        if (!res.ok) {
+          const errText = await res.text();
+          throw new Error(`Discord Webhook dispatch failed (${res.status}): ${errText}`);
+        }
+
+        return `Discord Webhook message sent successfully`;
+      }
+
+      throw new Error(`No valid Discord connection credentials found for workspace ${workspaceId}`);
     }
     default:
       return `Executed action ${action.type} for workspace ${workspaceId}`;
