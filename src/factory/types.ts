@@ -1,6 +1,6 @@
 /**
  * PULSE AI — AI SOFTWARE FACTORY
- * PHASE 3A: TASK PLANNER + CONTEXT PACK TYPES
+ * PHASE 3A & PHASE 3B ENGINE TYPES
  */
 
 export type TaskType =
@@ -24,6 +24,35 @@ export type WorkerType =
   | "replit_mcp"
   | "claude_code"
   | "antigravity_candidate";
+
+export type WorkerClass = "builder" | "engineering_agent";
+
+export type RoutingStrategy =
+  | "single_worker"
+  | "parallel_compare"
+  | "primary_plus_reviewer"
+  | "primary_plus_repair"
+  | "specialist_pair";
+
+export type WorkerRole =
+  | "primary_builder"
+  | "secondary_builder"
+  | "reviewer"
+  | "repair_agent"
+  | "inspection_agent";
+
+export type ExecutionMode =
+  | "planning"
+  | "locally_available"
+  | "connection_required"
+  | "credit_required"
+  | "blocked_by_budget";
+
+export type IsolationStrategy =
+  | "git_branch"
+  | "git_worktree"
+  | "sandbox"
+  | "remote_builder_project";
 
 export interface BudgetCostPolicy {
   allow_spend: boolean;
@@ -99,4 +128,54 @@ export interface SafetyValidationResult {
   passed: boolean;
   reason?: string;
   code?: string;
+}
+
+// ── PHASE 3B MULTI-BUILDER / AGENT ROUTER TYPES ─────────────────────────────
+
+export interface SelectedWorkerConfig {
+  worker_id: WorkerType;
+  worker_class: WorkerClass;
+  role: WorkerRole;
+  priority: number;
+  capabilities: string[];
+  reason_selected: string;
+  execution_mode: ExecutionMode;
+  requires_external_call: boolean;
+  requires_paid_credit: boolean;
+  requires_connection: boolean;
+  isolation_strategy: IsolationStrategy;
+  context_scope: string;
+  adapter_key: string | null;
+}
+
+export interface ExecutionPlan {
+  execution_id: string;
+  task_id: string;
+  workspace_id: string;
+  repository: string;
+  ref: string;
+  task_type: TaskType;
+  strategy: RoutingStrategy;
+  selected_workers: SelectedWorkerConfig[];
+  worker_order: string[];
+  parallel_groups: string[][];
+  context_pack_id: string;
+  expected_outputs: string[];
+  quality_requirements: string[];
+  budget_policy: BudgetCostPolicy;
+  estimated_external_calls: number;
+  human_approval_required: HumanApprovalRequirements;
+  production_allowed: boolean;
+  dispatch_allowed: boolean;
+  blocked_reason: string | null;
+  created_at: string;
+}
+
+export interface DispatchResult {
+  dispatched: boolean;
+  execution_id: string;
+  worker_id: WorkerType;
+  status: "DISPATCH_NOT_ALLOWED_PHASE_3B" | "BLOCKED_BY_POLICY" | "DISPATCH_STUB";
+  reason: string;
+  timestamp: string;
 }

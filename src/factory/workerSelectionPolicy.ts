@@ -61,8 +61,8 @@ export function recommendWorkers(
       break;
 
     case "security":
-      workers = ["claude_code", "emergent_mcp"];
-      rationale = "Security hardening and audits utilize Claude Code static analysis and Emergent environment checks.";
+      workers = ["claude_code", "antigravity_candidate"];
+      rationale = "Security hardening and audits utilize Claude Code static analysis and Antigravity candidate code inspection.";
       break;
 
     case "database":
