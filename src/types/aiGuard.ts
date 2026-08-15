@@ -29,25 +29,63 @@ export type AiGuardActionOutput =
   | "REQUIRE_HUMAN_APPROVAL"
   | "BLOCK_PULSE_AUTOMATION";
 
-export interface AiGuardRiskSignal {
-  id: string;
+export interface WorkspaceAdsThresholds {
   workspace_id: string;
-  provider: "meta_ads" | "google_ads" | "tiktok_ads";
-  campaign_id?: string;
-  signal_type: AiGuardSignalType;
-  risk_level: AiGuardRiskLevel;
-  action_recommended: AiGuardActionOutput;
-  details: string;
-  detected_at: string;
+  max_spend_increase_percent: number; // e.g. 50 (%)
+  max_budget_increase_percent: number; // e.g. 30 (%)
+  max_spend_velocity: number; // e.g. 500 currency units / day
+  require_approval_for_budget_change: boolean;
+  require_approval_for_new_campaign: boolean;
 }
 
-export interface AiGuardAssessmentResult {
+export interface AiGuardTelemetryInput {
   workspace_id: string;
   provider: "meta_ads" | "google_ads" | "tiktok_ads";
-  status: AiGuardActionOutput;
+  ad_account_id: string;
+  campaign_id?: string;
+  current_spend: number;
+  baseline_spend: number;
+  spend_velocity?: number; // spend per day or hour
+  current_budget?: number;
+  previous_budget?: number;
+  impressions?: number;
+  clicks?: number;
+  conversions?: number;
+  campaign_status?: string;
+  previous_campaign_status?: string;
+  is_known_account?: boolean;
+  is_known_campaign?: boolean;
+  auth_anomaly?: boolean;
+  token_anomaly?: boolean;
+  connection_anomaly?: boolean;
+  billing_signal?: "normal" | "failed" | "unsupported";
+}
+
+export interface AiGuardEvaluation {
+  workspace_id: string;
+  provider: "meta_ads" | "google_ads" | "tiktok_ads";
+  ad_account_id: string;
+  campaign_id?: string;
   risk_score: number; // 0 (safe) to 100 (critical risk)
-  signals: AiGuardRiskSignal[];
+  risk_level: AiGuardRiskLevel;
+  decision: AiGuardActionOutput;
+  triggered_rules: string[];
+  reasons: string[];
+  recommended_action: string;
+  evaluated_at: string;
   requires_human_approval: boolean;
   block_automation: boolean;
-  evaluated_at: string;
+}
+
+export interface HumanApprovalRequestPayload {
+  request_id: string;
+  workspace_id: string;
+  title: string;
+  description: string;
+  source: "AI_GUARD";
+  risk_score: number;
+  triggered_rules: string[];
+  reasons: string[];
+  status: "pending_review";
+  created_at: string;
 }
