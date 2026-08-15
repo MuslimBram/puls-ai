@@ -39,3 +39,27 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.webhook-ingest]
     verify_jwt = false
+  [functions.community-profile]
+    verify_jwt = true
+  [functions.community-feed]
+    verify_jwt = true
+  [functions.community-post-create]
+    verify_jwt = true
+  [functions.community-comment-create]
+    verify_jwt = true
+  [functions.community-rate-post]
+    verify_jwt = true
+  [functions.community-interest-create]
+    verify_jwt = true
+  [functions.community-tax-pay]
+    verify_jwt = true
+  [functions.community-message-create]
+    verify_jwt = true
+  [functions.community-report-create]
+    verify_jwt = true
+  [functions.community-moderation]
+    verify_jwt = true
+  [functions.community-assess-profile]
+    verify_jwt = true
+  [functions.community-scan-image]
+    verify_jwt = true
