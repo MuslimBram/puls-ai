@@ -217,6 +217,11 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
                         {item.badge === "live" && (
                           <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
                         )}
+                        {item.badge && item.badge !== "live" && (
+                          <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                            {item.badge}
+                          </span>
+                        )}
                       </Link>
                     ))}
                   </div>
