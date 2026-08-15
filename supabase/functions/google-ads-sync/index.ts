@@ -1,5 +1,7 @@
 // supabase/functions/google-ads-sync/index.ts
 // ============================================================
+// @deprecated Use sync-google-ads/index.ts as canonical function.
+// ============================================================
 // Sinkronizon të dhënat nga Google Ads API
 // Konfigurimi (Supabase Secrets):
 //   GOOGLE_ADS_DEVELOPER_TOKEN  — nga Google Ads API Center
