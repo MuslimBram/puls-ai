@@ -1,6 +1,6 @@
 /**
  * PULSE AI — AI SOFTWARE FACTORY
- * PHASE 3A, PHASE 3B, PHASE 3C & PHASE 3D MODULE EXPORTS
+ * PHASE 3A, 3B, 3C, 3D & 3E MODULE EXPORTS
  */
 
 export * from "./types";
@@ -15,3 +15,5 @@ export * from "./secretScanner";
 export * from "./scopeChecker";
 export * from "./qualityGate";
 export * from "./pulseJudge";
+export * from "./repairLoop";
+export * from "./factoryOrchestration";

@@ -39,3 +39,18 @@ export class NonExecutingBrokerDispatcher implements IBrokerDispatcher {
  * Singleton instance of the non-executing broker dispatcher stub.
  */
 export const defaultDispatcher = new NonExecutingBrokerDispatcher();
+
+export function dispatchWorkerStub(
+  workerId: SelectedWorkerConfig["worker_id"],
+  executionId: string,
+  plan: ExecutionPlan
+): DispatchResult {
+  return {
+    dispatched: false,
+    execution_id: executionId,
+    worker_id: workerId,
+    status: "DISPATCH_NOT_ALLOWED_PHASE_3B",
+    reason: `Phase 3B is PLANNING ONLY. Worker '${workerId}' dispatch blocked.`,
+    timestamp: new Date().toISOString(),
+  };
+}

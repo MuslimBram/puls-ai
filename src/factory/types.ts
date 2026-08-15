@@ -1,6 +1,6 @@
 /**
  * PULSE AI — AI SOFTWARE FACTORY
- * PHASE 3A, 3B, 3C & 3D ENGINE TYPES
+ * PHASE 3A, 3B, 3C, 3D & 3E ENGINE TYPES
  */
 
 export type TaskType =
@@ -372,5 +372,151 @@ export interface JudgeDecision {
   requires_human_review: boolean;
   approval_reasons: string[];
   next_action: string;
+  created_at: string;
+}
+
+// ── PHASE 3E REPAIR LOOP TYPES ───────────────────────────────────────────────
+
+export type RepairProblemCategory =
+  | "build_failure"
+  | "test_failure"
+  | "lint_failure"
+  | "security_failure"
+  | "runtime_failure"
+  | "browser_failure"
+  | "acceptance_failure"
+  | "scope_violation"
+  | "integration_failure"
+  | "database_failure"
+  | "missing_evidence";
+
+export interface RepairProblem {
+  problem_id: string;
+  category: RepairProblemCategory;
+  severity: "critical" | "high" | "medium" | "low";
+  source_worker: WorkerType;
+  affected_area: string;
+  evidence: string[];
+  expected_behavior: string;
+  actual_behavior: string;
+  recommended_action: string;
+}
+
+export interface RepairContextDelta {
+  failed_checks: string[];
+  relevant_logs: string[];
+  affected_files_or_areas: string[];
+  unmet_acceptance_criteria: string[];
+  previous_attempt_summary: string;
+  constraints: string[];
+  prohibited_actions: string[];
+  evidence_required_after_repair: string[];
+}
+
+export type RepairStopCondition =
+  | "all_problems_resolved"
+  | "max_attempts_exceeded"
+  | "repeated_repair_fingerprint"
+  | "no_meaningful_progress"
+  | "human_approval_required"
+  | "invalid_state_failed_safe"
+  | "not_required";
+
+export interface RepairPlan {
+  repair_plan_id: string;
+  execution_id: string;
+  task_id: string;
+  source_judge_decision_id: string;
+  repair_required: boolean;
+  repair_reason: string;
+  target_worker: WorkerType | null;
+  source_worker: WorkerType | null;
+  repair_strategy: string;
+  problems: RepairProblem[];
+  patches_to_consider: PatchCandidate[];
+  context_delta: RepairContextDelta;
+  required_evidence: string[];
+  attempt_number: number;
+  max_attempts: number; // default 2, hard max 3
+  budget_policy: BudgetCostPolicy;
+  estimated_external_calls: number;
+  human_approval_required: boolean;
+  dispatch_allowed: boolean;
+  blocked_reason: string | null;
+  stop_condition: RepairStopCondition | null;
+  created_at: string;
+}
+
+export type RepairLoopStatus =
+  | "not_required"
+  | "planned"
+  | "blocked"
+  | "awaiting_human_approval"
+  | "ready_for_dispatch"
+  | "awaiting_validation"
+  | "completed"
+  | "exhausted"
+  | "failed_safe";
+
+export interface RepairAttemptRecord {
+  attempt: number;
+  plan_id: string;
+  target_worker: WorkerType;
+  fingerprint: string;
+  quality_report_id: string;
+  judge_decision_id: string;
+  problems_count: number;
+  blockers_resolved: number;
+  score_delta: number;
+  made_meaningful_progress: boolean;
+  timestamp: string;
+}
+
+export interface RepairLoopState {
+  loop_id: string;
+  task_id: string;
+  execution_id: string;
+  status: RepairLoopStatus;
+  current_attempt: number;
+  max_attempts: number;
+  history: RepairAttemptRecord[];
+  current_plan: RepairPlan | null;
+  resolved_problems: string[];
+  remaining_problems: string[];
+  last_quality_report_id: string;
+  last_judge_decision_id: string;
+  requires_human_review: boolean;
+  stop_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+// ── FACTORY ORCHESTRATION CONTRACT TYPES ────────────────────────────────────
+
+export type FactoryStep =
+  | "TASK_PLANNING"
+  | "CONTEXT_PACKING"
+  | "MULTI_BUILDER_ROUTING"
+  | "WORKER_DISPATCH"
+  | "QUALITY_GATE_EVALUATION"
+  | "PULSE_JUDGE_EVALUATION"
+  | "REPAIR_LOOP_EVALUATION"
+  | "FINAL_VALIDATION"
+  | "HUMAN_APPROVAL_GATE"
+  | "MERGE_AND_DEPLOY";
+
+export interface FactoryPipelineResult {
+  factory_execution_id: string;
+  task_id: string;
+  current_step: FactoryStep;
+  task_plan: TaskPlannerOutput;
+  context_pack: ContextPack;
+  execution_plan: ExecutionPlan;
+  quality_report: QualityReport | null;
+  judge_decision: JudgeDecision | null;
+  repair_loop_state: RepairLoopState | null;
+  completed: boolean;
+  requires_human_approval: boolean;
+  blocked_reason: string | null;
   created_at: string;
 }
