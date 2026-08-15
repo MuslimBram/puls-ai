@@ -4,6 +4,29 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { evaluateServerAdsRisk } from "../_shared/ai-guard-server.ts";
 
+interface CustomApprovalError extends Error {
+  status?: string;
+  approval_reference?: string;
+  approval_payload?: Record<string, unknown>;
+}
+
+interface ActionPayload {
+  type: string;
+  provider?: "meta_ads" | "google_ads" | "tiktok_ads";
+  ad_account_id?: string;
+  campaign_id?: string;
+}
+
+interface TriggerData {
+  provider?: "meta_ads" | "google_ads" | "tiktok_ads";
+  ad_account_id?: string;
+  campaign_id?: string;
+  current_spend?: number;
+  baseline_spend?: number;
+  auth_anomaly?: boolean;
+  token_anomaly?: boolean;
+}
+
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -92,10 +115,10 @@ serve(async (req) => {
 async function handleExecution(
   supabase: ReturnType<typeof createClient>,
   req: Request,
-  ctx: { trigger_type: string; trigger_data: any; workspace_id: string; userId: string | null; isInternal: boolean }
+  ctx: { trigger_type: string; trigger_data: TriggerData; workspace_id: string; userId: string | null; isInternal: boolean }
 ): Promise<Response> {
   const getCors = (r: Request) => buildCorsHeaders(r, { allowAnyOrigin: false });
-  const json = (body: unknown, status = 200) =>
+  const jsonRes = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), {
       status,
       headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -112,23 +135,37 @@ async function handleExecution(
 
   const { data: workflows, error: wfErr } = await wfQuery;
   if (wfErr) throw wfErr;
-  if (!workflows?.length) return json({ executed: 0 });
+  if (!workflows?.length) return jsonRes({ executed: 0 });
 
   let executedCount = 0;
+  let lastApprovalRef: string | null = null;
+
   for (const workflow of workflows) {
     const startTime = Date.now();
-    const actionsExecuted: any[] = [];
+    const actionsExecuted: Array<{ type: string; result: string }> = [];
     let status = "success";
     let errorMessage: string | null = null;
+    let approvalPayload: Record<string, unknown> | null = null;
 
     try {
-      for (const action of workflow.actions || []) {
+      for (const action of (workflow.actions || []) as ActionPayload[]) {
         const result = await executeAction(supabase, action, trigger_data, workspace_id);
         actionsExecuted.push({ type: action.type, result });
       }
-    } catch (e) {
-      status = "error";
-      errorMessage = e instanceof Error ? e.message : "Unknown error";
+    } catch (e: unknown) {
+      const err = e as CustomApprovalError;
+      if (err?.status === "pending_review") {
+        status = "pending_review";
+        errorMessage = err.message;
+        approvalPayload = err.approval_payload ?? null;
+        lastApprovalRef = err.approval_reference ?? null;
+      } else if (err?.status === "blocked") {
+        status = "blocked";
+        errorMessage = err.message;
+      } else {
+        status = "error";
+        errorMessage = err instanceof Error ? err.message : "Unknown error";
+      }
     }
 
     await supabase.from("automation_logs").insert({
@@ -139,29 +176,34 @@ async function handleExecution(
       status,
       error_message: errorMessage,
       duration_ms: Date.now() - startTime,
-      metadata: { trigger_data },
+      metadata: { trigger_data, approval_payload: approvalPayload },
     });
 
-    await supabase
-      .from("automation_workflows")
-      .update({ execution_count: (workflow.execution_count || 0) + 1, last_executed_at: new Date().toISOString() })
-      .eq("id", workflow.id)
-      .eq("workspace_id", workspace_id);
-
-    executedCount++;
+    if (status === "success") {
+      await supabase
+        .from("automation_workflows")
+        .update({ execution_count: (workflow.execution_count || 0) + 1, last_executed_at: new Date().toISOString() })
+        .eq("id", workflow.id)
+        .eq("workspace_id", workspace_id);
+      executedCount++;
+    }
   }
 
-  return json({ executed: executedCount });
+  return jsonRes({
+    executed: executedCount,
+    approval_reference: lastApprovalRef,
+    requires_human_approval: Boolean(lastApprovalRef),
+  });
 }
 
 async function executeAction(
   supabase: ReturnType<typeof createClient>,
-  action: any,
-  triggerData: any,
+  action: ActionPayload,
+  triggerData: TriggerData,
   workspaceId: string
 ): Promise<string> {
   // ── SERVER-SIDE AI GUARD ENFORCEMENT FOR ADS AUTOMATION ──────────────────
-  if (action.type.startsWith("ads_")) {
+  if (action.type && String(action.type).startsWith("ads_")) {
     const provider = action.provider ?? triggerData?.provider ?? "meta_ads";
     const adAccountId = action.ad_account_id ?? triggerData?.ad_account_id ?? "unknown";
     const currentSpend = Number(triggerData?.current_spend ?? 0);
@@ -178,13 +220,33 @@ async function executeAction(
     });
 
     if (evaluation.decision === "BLOCK_PULSE_AUTOMATION") {
-      throw new Error(`Blocked by AI Guard: ${evaluation.reasons.join(" ")}`);
+      const err: CustomApprovalError = new Error(`Blocked by AI Guard: ${evaluation.reasons.join(" ")}`);
+      err.status = "blocked";
+      throw err;
     }
 
     if (evaluation.decision === "REQUIRE_HUMAN_APPROVAL") {
-      throw new Error(
-        `Paused by AI Guard: Human Approval Required (${evaluation.reasons.join(" ")})`
-      );
+      const approvalRef = `appr-${workspaceId}-${Date.now()}`;
+      const approvalPayload = {
+        approval_reference: approvalRef,
+        workspace_id: workspaceId,
+        provider,
+        ad_account_id: adAccountId,
+        campaign_id: action.campaign_id ?? triggerData?.campaign_id,
+        risk_score: evaluation.risk_score,
+        risk_level: evaluation.risk_level,
+        triggered_rules: evaluation.triggered_rules,
+        reasons: evaluation.reasons,
+        proposed_action: action.type,
+        status: "pending_review",
+        created_at: evaluation.evaluated_at,
+      };
+
+      const err: CustomApprovalError = new Error(`Paused by AI Guard: Human Approval Required (${approvalRef})`);
+      err.status = "pending_review";
+      err.approval_reference = approvalRef;
+      err.approval_payload = approvalPayload;
+      throw err;
     }
   }
 
