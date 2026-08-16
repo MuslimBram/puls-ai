@@ -1,0 +1,136 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { getCalcomWorkspaceCredentials, getCalcomEndpointVersion } from "../_shared/calcom-helper.ts";
+
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
+const json = (req: Request, body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCors(req), "Content-Type": "application/json" },
+  });
+
+export interface SyncCalcomPayload {
+  workspace_id: string;
+  operation: "GET_EVENT_TYPES" | "GET_SLOTS" | "GET_BOOKINGS" | "GET_BOOKING";
+  event_type_id?: number;
+  start_time?: string;
+  end_time?: string;
+  time_zone?: string;
+  booking_uid?: string;
+  status?: string;
+}
+
+serve(async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ")) {
+    return json(req, { error: "Unauthorized: Missing Bearer token" }, 401);
+  }
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } }
+  );
+
+  const {
+    data: { user },
+    error: authErr,
+  } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
+  if (authErr || !user) return json(req, { error: "Unauthorized" }, 401);
+
+  let body: SyncCalcomPayload;
+  try {
+    body = await req.json();
+  } catch {
+    return json(req, { error: "Invalid JSON body" }, 400);
+  }
+
+  const { workspace_id, operation } = body;
+  if (!workspace_id || !operation) {
+    return json(req, { error: "workspace_id and operation are required" }, 400);
+  }
+
+  // Workspace membership check (BEFORE any external call!)
+  const { data: member } = await supabase.rpc("is_workspace_member", {
+    _user_id: user.id,
+    _workspace_id: workspace_id,
+  });
+  const { data: owned } = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("id", workspace_id)
+    .eq("owner_id", user.id)
+    .maybeSingle();
+
+  if (!member && !owned) {
+    return json(req, { error: "Forbidden: Not authorized for this workspace" }, 403);
+  }
+
+  // Resolve credentials securely
+  const { accessToken } = await getCalcomWorkspaceCredentials(supabase, workspace_id);
+
+  let endpointKey = "";
+  let url = "";
+
+  switch (operation) {
+    case "GET_EVENT_TYPES": {
+      endpointKey = "GET /v2/event-types";
+      url = "https://api.cal.com/v2/event-types";
+      break;
+    }
+    case "GET_SLOTS": {
+      endpointKey = "GET /v2/slots";
+      const params = new URLSearchParams();
+      if (body.event_type_id) params.set("eventTypeId", String(body.event_type_id));
+      if (body.start_time) params.set("startTime", body.start_time);
+      if (body.end_time) params.set("endTime", body.end_time);
+      if (body.time_zone) params.set("timeZone", body.time_zone);
+      url = `https://api.cal.com/v2/slots/available?${params.toString()}`;
+      break;
+    }
+    case "GET_BOOKINGS": {
+      endpointKey = "GET /v2/bookings";
+      const params = new URLSearchParams();
+      if (body.status) params.set("status", body.status);
+      url = `https://api.cal.com/v2/bookings?${params.toString()}`;
+      break;
+    }
+    case "GET_BOOKING": {
+      endpointKey = "GET /v2/bookings/{bookingUid}";
+      if (!body.booking_uid) {
+        return json(req, { error: "booking_uid required for GET_BOOKING operation" }, 400);
+      }
+      url = `https://api.cal.com/v2/bookings/${encodeURIComponent(body.booking_uid)}`;
+      break;
+    }
+    default:
+      return json(req, { error: `Unsupported operation: ${operation}` }, 400);
+  }
+
+  const calApiVersion = getCalcomEndpointVersion(endpointKey);
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "cal-api-version": calApiVersion,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    return json(req, { error: `Cal.com API error (${response.status}): ${errText}` }, response.status);
+  }
+
+  const resData = await response.json();
+  return json(req, {
+    success: true,
+    operation,
+    workspace_id,
+    data: resData.data ?? resData,
+  });
+});
