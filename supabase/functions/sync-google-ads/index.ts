@@ -12,6 +12,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -114,7 +115,7 @@ serve(async (req: Request): Promise<Response> => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    getServiceKey()!,
     { auth: { persistSession: false } }
   );
 
