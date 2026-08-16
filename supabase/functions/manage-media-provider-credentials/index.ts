@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { z } from "npm:zod@3.25.76";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -27,7 +28,7 @@ const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
 const supabaseAdmin = createClient(
   Deno.env.get("SUPABASE_URL") ?? "",
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+  getServiceKey() ?? "",
   { auth: { persistSession: false } },
 );
 
@@ -212,7 +213,7 @@ export async function decryptSecret(payload: string) {
 }
 
 async function getEncryptionKey() {
-  const rootSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const rootSecret = getServiceKey();
   if (!rootSecret) throw new Error("Service role key is not configured");
 
   const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(rootSecret));
