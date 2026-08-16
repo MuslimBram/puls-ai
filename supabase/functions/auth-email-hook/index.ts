@@ -9,6 +9,7 @@ import { MagicLinkEmail } from '../_shared/email-templates/magic-link.tsx'
 import { RecoveryEmail } from '../_shared/email-templates/recovery.tsx'
 import { EmailChangeEmail } from '../_shared/email-templates/email-change.tsx'
 import { ReauthenticationEmail } from '../_shared/email-templates/reauthentication.tsx'
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 // Lovable-managed webhook: invoked server-to-server by the platform, no browser CORS concern.
 // Wildcard is safe here because there is no user credential context. The signature is verified.
@@ -239,7 +240,7 @@ async function handleWebhook(req: Request): Promise<Response> {
   // Enqueue email for async processing by the dispatcher (process-email-queue).
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+    getServiceKey()!
   )
 
   const messageId = crypto.randomUUID()
