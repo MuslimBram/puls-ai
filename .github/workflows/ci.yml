@@ -8,7 +8,7 @@ on:
 
 jobs:
   secret-scan:
-    name: Secret Scanning (gitleaks)
+    name: Secret Scanning (gitleaks full-history v8.30.0)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository (full history)
@@ -16,10 +16,24 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Run gitleaks secret scanner
-        uses: gitleaks/gitleaks-action@v3
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Canary Test (Verify Gitleaks Detection Capability)
+        run: |
+          mkdir -p /tmp/canary_dir
+          echo "sbp_0000000000000000000000000000000000000000" > /tmp/canary_dir/canary.txt
+          docker run --rm -v /tmp/canary_dir:/canary -v ${{ github.workspace }}:/repo ghcr.io/gitleaks/gitleaks:v8.30.0 detect --no-git --config /repo/.gitleaks.toml --source /canary/canary.txt > /tmp/canary.log 2>&1 || true
+          if grep -q "leaks found" /tmp/canary.log || grep -q "Finding:" /tmp/canary.log || grep -q "WRN" /tmp/canary.log; then
+            echo "CANARY_DETECTED: YES — Gitleaks scanner operational."
+            rm -rf /tmp/canary_dir /tmp/canary.log
+          else
+            echo "::error::CANARY DETECT FAILED — Gitleaks scanner failed to detect synthetic credential!"
+            cat /tmp/canary.log
+            rm -rf /tmp/canary_dir /tmp/canary.log
+            exit 1
+          fi
+
+      - name: Full-history Gitleaks Scan
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/path ghcr.io/gitleaks/gitleaks:v8.30.0 git --redact --verbose --log-opts="--all" --config /path/.gitleaks.toml /path
 
   build-and-test:
     name: Lint, Test, Validate, Build

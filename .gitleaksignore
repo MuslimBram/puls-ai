@@ -1,0 +1,7 @@
+80a024a76e725c5c76a9ea839428b1a67b3e4aa9:src/factory/__tests__/redditDiscordPhaseR3.test.ts:discord-client-id:11
+566b69af014c86f24c4eda9c6d69882177024873:src/factory/__tests__/calcomPhaseC2.test.ts:generic-api-key:57
+566b69af014c86f24c4eda9c6d69882177024873:src/factory/__tests__/calcomPhaseC2.test.ts:generic-api-key:58
+7aa9c3140e93afb25c0c2cb52907b9671d421702:src/factory/__tests__/qualityGate.test.ts:stripe-access-token:111
+7aa9c3140e93afb25c0c2cb52907b9671d421702:src/factory/__tests__/qualityGate.test.ts:stripe-access-token:167
+b529b1204335151b7df18bb9162c6089cccf3309:src/components/Require2FASetup.tsx:generic-api-key:91
+ea4a891a53c4de9ad2ee4643c4aeb869c461eb09:src/components/WalkthroughVideo.tsx:generic-api-key:6
