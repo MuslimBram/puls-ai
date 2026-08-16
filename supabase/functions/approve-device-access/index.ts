@@ -7,6 +7,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const DASHBOARD = Deno.env.get("DASHBOARD_URL") ?? "https://kohablerjeve.top";
 
@@ -24,7 +25,7 @@ serve(async (req: Request): Promise<Response> => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    getServiceKey()!,
     { auth: { persistSession: false } }
   );
 
@@ -99,7 +100,7 @@ serve(async (req: Request): Promise<Response> => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+          Authorization: `Bearer ${getServiceKey()}`,
         },
         body: JSON.stringify({
           to: userEmail,
