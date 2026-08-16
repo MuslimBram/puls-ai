@@ -1,0 +1,47 @@
+# Pulse AI — gitleaks configuration
+# Docs: https://github.com/gitleaks/gitleaks#configuration
+title = "Pulse AI Secret Scanner"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Allow placeholder values and safe env-var reference patterns"
+paths = [
+  # lock files contain hashes that trigger entropy detectors
+  "package-lock\\.json",
+  "bun\\.lock",
+]
+regexes = [
+  # .env.example placeholder values
+  "your-[a-z0-9-]+",
+  # Deno.env.get() references — variable names, not values
+  "Deno\\.env\\.get\\(\\\"[A-Z_]+\\\"\\)",
+  # process.env references — variable names, not values
+  "process\\.env\\.[A-Z_]+",
+]
+
+# Supabase-specific critical rules
+[[rules]]
+id          = "supabase-legacy-jwt"
+description = "Supabase legacy service_role or anon JWT committed to source"
+regex       = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\\.[A-Za-z0-9_\\-]+\\.[A-Za-z0-9_\\-]+"
+keywords    = ["eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"]
+severity    = "critical"
+tags        = ["supabase", "jwt", "credential"]
+
+[[rules]]
+id          = "supabase-mgmt-token"
+description = "Supabase Management API Access Token (sbp_...)"
+regex       = "sbp_[A-Za-z0-9_\\-]{20,}"
+keywords    = ["sbp_"]
+severity    = "critical"
+tags        = ["supabase", "management-token", "credential"]
+
+[[rules]]
+id          = "supabase-secret-key"
+description = "Supabase New Secret API Key (sb_secret_...)"
+regex       = "sb_secret_[A-Za-z0-9_\\-]{20,}"
+keywords    = ["sb_secret_"]
+severity    = "critical"
+tags        = ["supabase", "secret-key", "credential"]
