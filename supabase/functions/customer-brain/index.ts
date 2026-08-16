@@ -16,10 +16,11 @@
  */
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const SVC = () => createClient(
   Deno.env.get("SUPABASE_URL")!,
-  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  getServiceKey()!,
   { auth: { persistSession: false } }
 );
 const cors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
@@ -37,7 +38,7 @@ async function ai(messages: Array<{role:string;content:string}>, system: string)
     const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-router`, {
       method: "POST",
       headers: { "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        Authorization: `Bearer ${getServiceKey()}` },
       body: JSON.stringify({ task_type: "brain", messages, system_prompt: system, max_tokens: 800 }),
     });
     if (!res.ok) throw new Error(`ai-router ${res.status}`);
@@ -372,7 +373,7 @@ Criteria fields: purchase_count_min,purchase_count_max,is_vip,inactivity_min_day
             fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
               method: "POST",
               headers: { "Content-Type": "application/json",
-                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                Authorization: `Bearer ${getServiceKey()}`,
                 "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "" },
               body: JSON.stringify({ action: "evaluate", workspace_id, lead_id: c.id }),
             }).catch(() => {});
