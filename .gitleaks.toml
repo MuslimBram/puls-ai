@@ -1,27 +1,23 @@
 # Pulse AI — gitleaks configuration
-# Docs: https://github.com/gitleaks/gitleaks#configuration
+# Reference: https://github.com/gitleaks/gitleaks#configuration
+# NOTE: No allowlist for any credential pattern.
+# Commit 66b599f contains revoked credentials — gitleaks WILL report them.
+# That FAIL is expected and correct. Fix = git filter-repo to rewrite history.
 title = "Pulse AI Secret Scanner"
 
 [extend]
+# Use the full gitleaks default ruleset as the baseline
 useDefault = true
 
 [allowlist]
-description = "Allow placeholder values and safe env-var reference patterns"
+description = "Lock files contain high-entropy hashes — not credentials"
 paths = [
-  # lock files contain hashes that trigger entropy detectors
   "package-lock\\.json",
   "bun\\.lock",
 ]
-regexes = [
-  # .env.example placeholder values
-  "your-[a-z0-9-]+",
-  # Deno.env.get() references — variable names, not values
-  "Deno\\.env\\.get\\(\\\"[A-Z_]+\\\"\\)",
-  # process.env references — variable names, not values
-  "process\\.env\\.[A-Z_]+",
-]
+# NO regex allowlist — any token-shaped string in source is a real finding.
 
-# Supabase-specific critical rules
+# ── Supabase-specific detection rules (additional, not suppressive) ────────
 [[rules]]
 id          = "supabase-legacy-jwt"
 description = "Supabase legacy service_role or anon JWT committed to source"
