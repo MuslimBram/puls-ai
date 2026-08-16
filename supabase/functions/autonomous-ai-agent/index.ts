@@ -13,6 +13,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { callAI } from "../_shared/ai-client.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "",
@@ -161,7 +162,7 @@ function triggerLearning(
   if (msgCount % 3 === 0) {
     fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/extract-and-store-memory`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getServiceKey()}` },
       body: JSON.stringify({ conversation_id: conversationId, business_id: businessId, customer_id: customerId }),
     }).catch(() => {});
   }
@@ -169,7 +170,7 @@ function triggerLearning(
   // Journey update çdo mesazh
   fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/journey-engine`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+    headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getServiceKey()}` },
     body: JSON.stringify({
       action: "update",
       business_id: businessId,
@@ -185,7 +186,7 @@ function triggerLearning(
   if (msgCount % 5 === 0) {
     fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/score-and-rank-leads`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getServiceKey()}` },
       body: JSON.stringify({ business_id: businessId, customer_id: customerId, trigger: "post_conversation" }),
     }).catch(() => {});
   }
@@ -206,7 +207,7 @@ serve(async (req: Request): Promise<Response> => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    getServiceKey()!,
     { auth: { persistSession: false } }
   );
 
