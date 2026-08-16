@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -9,7 +10,7 @@ const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_
 const supabaseAdmin = () =>
   createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    getServiceKey() ?? "",
     { auth: { persistSession: false } }
   );
 
@@ -60,7 +61,7 @@ function withAutomationSummary(summaryJson: Record<string, unknown>, automation:
 
 async function triggerJobWorker() {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY");
+  const serviceRoleKey = getServiceKey() ?? Deno.env.get("SUPABASE_ANON_KEY");
 
   if (!supabaseUrl || !serviceRoleKey) return;
 
