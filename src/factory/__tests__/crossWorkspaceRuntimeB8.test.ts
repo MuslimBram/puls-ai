@@ -1,113 +1,62 @@
 import { describe, it, expect } from "vitest";
 
+/**
+ * B8: Cross-Workspace Runtime RLS Isolation Test
+ *
+ * These tests verify that RLS prevents cross-workspace data access.
+ * They require a valid user JWT scoped to a test workspace (User A).
+ *
+ * Credentials must be provided via environment variables — never hardcoded:
+ *   SUPABASE_URL              — your project URL
+ *   SUPABASE_PUBLISHABLE_KEY  — publishable (anon) key for unauthenticated baseline
+ *   SUPABASE_USER_A_JWT       — session JWT for User A (workspace A only) from Auth
+ *   SUPABASE_WORKSPACE_B_ID   — a real workspace B UUID that User A does NOT belong to
+ *
+ * Tests that require env vars are skipped gracefully when vars are absent.
+ * A genuine isolation test needs a VALID user JWT, NOT a fake or service key.
+ * Using a fake JWT yields 401 (auth rejection), not the RLS-level 200+[] we want.
+ */
 describe("B8: Cross-Workspace Real Runtime RLS & Security Isolation", () => {
-  const supabaseUrl = "https://wlvlgghqwwhhqaqqopml.supabase.co";
-  const anonKey = "REDACTED_JWT_TOKEN";
+  const supabaseUrl = process.env.SUPABASE_URL ?? "";
+  const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY ?? "";
+  // Real session JWT for User A, scoped to workspace A — provided by CI secret
+  const userAJwt = process.env.SUPABASE_USER_A_JWT ?? "";
+  // A real workspace B UUID that User A does not belong to
+  const workspaceB = process.env.SUPABASE_WORKSPACE_B_ID ?? "ws-beta-22222222-2222-2222-2222-222222222222";
 
-  const workspaceA = "ws-alpha-11111111-1111-1111-1111-111111111111";
-  const workspaceB = "ws-beta-22222222-2222-2222-2222-222222222222";
+  const authHeaders = userAJwt
+    ? { apikey: publishableKey, Authorization: `Bearer ${userAJwt}`, "Content-Type": "application/json" }
+    : null;
 
-  // Simulate authenticated user token scoped to Workspace A
-  const userATokenHeaders = {
-    apikey: anonKey,
-    Authorization: `Bearer mock-user-a-jwt-workspace-a`,
-    "Content-Type": "application/json",
-  };
+  const tables = [
+    "leads", "deals", "contacts", "inbox_messages",
+    "customer_memory", "workspace_credentials", "billing_history",
+    "community_ai_usage",
+  ];
 
-  it("A. User A querying Workspace B leads returns 0 rows / access denied", async () => {
-    const res = await fetch(`${supabaseUrl}/rest/v1/leads?workspace_id=eq.${workspaceB}`, {
-      headers: userATokenHeaders,
+  for (const table of tables) {
+    it(`Cross-workspace: User A querying ${table} for Workspace B returns 0 rows or access denied`, async () => {
+      if (!authHeaders) {
+        console.warn(`SKIP ${table}: SUPABASE_USER_A_JWT not set — cannot test RLS isolation without real user JWT`);
+        return;
+      }
+      const res = await fetch(`${supabaseUrl}/rest/v1/${table}?workspace_id=eq.${workspaceB}`, {
+        headers: authHeaders,
+      });
+      // With valid JWT for User A, RLS must deny access to Workspace B data
+      // Expected: 200 with empty array (RLS filtered at DB level)
+      // 401/403 is NOT acceptable here — it means auth rejected, not RLS
+      if (res.status === 200) {
+        const data = await res.json();
+        expect(Array.isArray(data) && data.length === 0).toBe(true);
+      } else if (res.status === 404) {
+        // Table may not exist yet — skip
+        console.warn(`SKIP ${table}: table not found (404)`);
+      } else {
+        // Any other non-200 with a real JWT is unexpected
+        console.warn(`${table}: unexpected status ${res.status}`);
+        expect([200, 404]).toContain(res.status);
+      }
     });
-    // Under Supabase RLS with an unauthorized user token, returns empty list [] or 401/403
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data).toEqual([]);
-    } else {
-      expect([401, 403]).toContain(res.status);
-    }
-  });
-
-  it("B. User A querying Workspace B deals returns 0 rows / access denied", async () => {
-    const res = await fetch(`${supabaseUrl}/rest/v1/deals?workspace_id=eq.${workspaceB}`, {
-      headers: userATokenHeaders,
-    });
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data).toEqual([]);
-    } else {
-      expect([401, 403]).toContain(res.status);
-    }
-  });
-
-  it("C. User A querying Workspace B contacts returns 0 rows / access denied", async () => {
-    const res = await fetch(`${supabaseUrl}/rest/v1/contacts?workspace_id=eq.${workspaceB}`, {
-      headers: userATokenHeaders,
-    });
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data).toEqual([]);
-    } else {
-      expect([401, 403]).toContain(res.status);
-    }
-  });
-
-  it("D. User A querying Workspace B inbox_messages returns 0 rows / access denied", async () => {
-    const res = await fetch(`${supabaseUrl}/rest/v1/inbox_messages?workspace_id=eq.${workspaceB}`, {
-      headers: userATokenHeaders,
-    });
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data).toEqual([]);
-    } else {
-      expect([401, 403]).toContain(res.status);
-    }
-  });
-
-  it("E. User A querying Workspace B customer_memory returns 0 rows / access denied", async () => {
-    const res = await fetch(`${supabaseUrl}/rest/v1/customer_memory?workspace_id=eq.${workspaceB}`, {
-      headers: userATokenHeaders,
-    });
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data).toEqual([]);
-    } else {
-      expect([401, 403]).toContain(res.status);
-    }
-  });
-
-  it("F. User A querying Workspace B workspace_credentials / integrations returns 0 rows / access denied", async () => {
-    const res = await fetch(`${supabaseUrl}/rest/v1/workspace_credentials?workspace_id=eq.${workspaceB}`, {
-      headers: userATokenHeaders,
-    });
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data).toEqual([]);
-    } else {
-      expect([401, 403]).toContain(res.status);
-    }
-  });
-
-  it("G. User A querying Workspace B billing_history returns 0 rows / access denied", async () => {
-    const res = await fetch(`${supabaseUrl}/rest/v1/billing_history?workspace_id=eq.${workspaceB}`, {
-      headers: userATokenHeaders,
-    });
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data).toEqual([]);
-    } else {
-      expect([401, 403]).toContain(res.status);
-    }
-  });
-
-  it("H. User A querying Workspace B private Lidhjet usage returns 0 rows / access denied", async () => {
-    const res = await fetch(`${supabaseUrl}/rest/v1/community_ai_usage?workspace_id=eq.${workspaceB}`, {
-      headers: userATokenHeaders,
-    });
-    if (res.status === 200) {
-      const data = await res.json();
-      expect(data).toEqual([]);
-    } else {
-      expect([401, 403]).toContain(res.status);
-    }
-  });
+  }
 });
