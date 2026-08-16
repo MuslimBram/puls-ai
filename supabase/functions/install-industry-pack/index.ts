@@ -1,6 +1,7 @@
 // Install Industry Pack — provisions pipeline stages, automations,
 // broadcast templates, knowledge base entries from a published industry pack.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -27,7 +28,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const serviceKey = getServiceKey()!;
   const authHeader = req.headers.get("Authorization") ?? "";
 
   // user-scoped client (for authz)
