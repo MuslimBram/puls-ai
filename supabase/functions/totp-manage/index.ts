@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -14,7 +15,7 @@ function generateCode(): string {
 async function sendEmailDirect(to: string, subject: string, htmlBody: string) {
   // Use Supabase Auth admin to send email via built-in email service
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const serviceKey = getServiceKey()!;
 
   // Try sending via the Lovable email callback if available
   const callbackUrl = Deno.env.get("LOVABLE_EMAIL_CALLBACK_URL");
@@ -81,7 +82,7 @@ Deno.serve(async (req) => {
     const { action, token } = await req.json();
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      getServiceKey()!
     );
 
     // ── enroll: Enroll TOTP factor via Supabase MFA ──
