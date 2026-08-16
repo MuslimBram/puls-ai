@@ -5,6 +5,7 @@ import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { evaluateServerAdsRisk } from "../_shared/ai-guard-server.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
 import { getCalcomWorkspaceCredentials, getCalcomEndpointVersion } from "../_shared/calcom-helper.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 interface CustomApprovalError extends Error {
   status?: string;
@@ -59,7 +60,7 @@ serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    getServiceKey()!,
     { auth: { persistSession: false } }
   );
 
