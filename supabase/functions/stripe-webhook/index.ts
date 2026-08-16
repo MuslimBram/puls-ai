@@ -8,6 +8,7 @@ const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 import { indexPlanPrices, indexPricingCatalogByProductId, loadPricingCatalogRows } from "../_shared/monetization-catalog.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 let PRODUCT_MAP: Record<string, string> = {};
 let PLAN_PRICES: Record<string, number> = {};
@@ -35,7 +36,7 @@ async function notifyBrain(sb: ReturnType<typeof createClient>, opts: {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+        Authorization: `Bearer ${getServiceKey()}`,
         "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
       },
       body: JSON.stringify({
@@ -62,7 +63,7 @@ serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    getServiceKey() ?? "",
     { auth: { persistSession: false } }
   );
 
