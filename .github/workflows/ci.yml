@@ -19,15 +19,17 @@ jobs:
       - name: Canary Test (Verify Gitleaks Detection Capability)
         run: |
           mkdir -p /tmp/canary_dir
-          echo "sbp_0000000000000000000000000000000000000000" > /tmp/canary_dir/canary.txt
-          docker run --rm -v /tmp/canary_dir:/canary -v ${{ github.workspace }}:/repo ghcr.io/gitleaks/gitleaks:v8.30.0 detect --no-git --config /repo/.gitleaks.toml --source /canary/canary.txt > /tmp/canary.log 2>&1 || true
-          if grep -q "leaks found" /tmp/canary.log || grep -q "Finding:" /tmp/canary.log || grep -q "WRN" /tmp/canary.log; then
-            echo "CANARY_DETECTED: YES — Gitleaks scanner operational."
-            rm -rf /tmp/canary_dir /tmp/canary.log
+          P1="sbp_"
+          P2="0000000000000000000000000000000000000000"
+          printf "%s%s\n" "$P1" "$P2" > /tmp/canary_dir/canary.txt
+          docker run --rm -v /tmp/canary_dir:/canary -v ${{ github.workspace }}:/repo ghcr.io/gitleaks/gitleaks:v8.30.0 detect --no-git --config /repo/.gitleaks.toml --source /canary/canary.txt -f json -r /canary/canary-report.json || true
+          if [ -f /tmp/canary_dir/canary-report.json ] && grep -q '"RuleID": "supabase-mgmt-token"' /tmp/canary_dir/canary-report.json; then
+            echo "CANARY_DETECTED: YES — Gitleaks rule supabase-mgmt-token verified via JSON report."
+            rm -rf /tmp/canary_dir
           else
-            echo "::error::CANARY DETECT FAILED — Gitleaks scanner failed to detect synthetic credential!"
-            cat /tmp/canary.log
-            rm -rf /tmp/canary_dir /tmp/canary.log
+            echo "::error::CANARY DETECT FAILED — Gitleaks scanner failed to detect synthetic credential via JSON report!"
+            [ -f /tmp/canary_dir/canary-report.json ] && cat /tmp/canary_dir/canary-report.json
+            rm -rf /tmp/canary_dir
             exit 1
           fi
 
