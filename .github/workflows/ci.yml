@@ -65,6 +65,12 @@ jobs:
           }
           console.log('Migration sequence valid.');
           "
+                - name: Run gitleaks secret scanner
+        uses: gitleaks/gitleaks-action@v3
+        with:
+          log-opts: --all
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Vite Production Bundle
         run: npm run build
