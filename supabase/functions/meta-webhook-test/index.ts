@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { requireCronAuth } from "../_shared/cron-auth.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -9,6 +10,12 @@ const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: getCors(req) });
+  }
+
+  // SECURITY: meta-webhook-test is an internal diagnostic tool and MUST NOT remain an unauthenticated public production endpoint.
+  const internalErr = requireCronAuth(req);
+  if (internalErr !== null) {
+    return internalErr;
   }
 
   const supabase = createClient(
@@ -123,7 +130,6 @@ serve(async (req) => {
       }
     }
 
-    // Count messages
     let messageCount = 0;
     for (const entry of entries) {
       messageCount += (entry.messaging || []).filter((e: any) => e.message).length;
@@ -131,7 +137,6 @@ serve(async (req) => {
 
     const processingTime = Date.now() - startTime;
 
-    // Log the test
     await supabase.from("webhook_activity_logs").insert({
       event_type: "test_payload",
       source: "meta_test",
