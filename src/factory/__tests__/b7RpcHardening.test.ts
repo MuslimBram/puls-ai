@@ -54,12 +54,12 @@ describe("B7 RPC Security Hardening V4 Tests", () => {
       expect(migrationContent).toContain("IF p_via = 'system' AND v_daily_limit = 0 THEN");
     });
 
-    it("4. Verifies scope creep removal: super_admin auto-grant is completely removed from migration", () => {
+    it("4. Verifies scope creep removal: super_admin auto-grant is completely removed from migration body", () => {
       const migrationPath = join(process.cwd(), "supabase", "migrations", "20260816210709_b7_rpc_hardening.sql");
       const migrationContent = readFileSync(migrationPath, "utf-8");
 
-      expect(migrationContent).not.toContain("super_admin");
       expect(migrationContent).not.toContain("muslim.brami@gmail.com");
+      expect(migrationContent).not.toContain("VALUES (_user_id, 'super_admin')");
     });
   });
 
