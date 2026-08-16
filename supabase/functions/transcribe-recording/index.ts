@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const AK = Deno.env.get("ANTHROPIC_API_KEY");
@@ -26,7 +27,7 @@ const AK = Deno.env.get("ANTHROPIC_API_KEY");
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
-  const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const sb = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
 
   try {
     const authHeader = req.headers.get("authorization");
