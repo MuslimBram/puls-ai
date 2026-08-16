@@ -2,9 +2,10 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{"Content-Type":"application/json"}});
-const BASE=Deno.env.get("SUPABASE_URL")!,KEY=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const BASE=Deno.env.get("SUPABASE_URL")!,KEY=getServiceKey()!;
 const call=async(fn:string,body:Record<string,unknown>)=>(await fetch(`${BASE}/functions/v1/${fn}`,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${KEY}`},body:JSON.stringify(body)})).ok;
 
 serve(async(req:Request)=>{
