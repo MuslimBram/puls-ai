@@ -1,0 +1,51 @@
+name: Pulse AI Production CI/CD Release Gate
+
+on:
+  push:
+    branches: [ main, feature/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint check
+        run: npx eslint src/ supabase/functions/ --ext .ts,.tsx
+
+      - name: Run Vitest test suite
+        run: npx vitest run
+
+      - name: Validate SQL Migrations Syntax & Sequence
+        run: |
+          node -e "
+          const fs = require('fs');
+          const files = fs.readdirSync('supabase/migrations').filter(f => f.endsWith('.sql'));
+          console.log('Validating ' + files.length + ' SQL migration files...');
+          let lastVersion = '';
+          for (const f of files.sort()) {
+            const version = f.split('_')[0];
+            if (version < lastVersion) {
+              console.error('Migration order anomaly: ' + f);
+              process.exit(1);
+            }
+            lastVersion = version;
+          }
+          console.log('Migration sequence valid.');
+          "
+
+      - name: Build Vite Production Bundle
+        run: npm run build
