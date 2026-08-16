@@ -28,8 +28,6 @@ export const WorkspaceTeamRoles = () => {
   const { isBusinessOwner, isAdmin } = useRolePermissions();
   const queryClient = useQueryClient();
 
-  if (!isBusinessOwner && !isAdmin) return null;
-
   const membersQuery = useQuery({
     queryKey: ["workspace-team-roles", workspace?.id],
     queryFn: async () => {
@@ -97,6 +95,8 @@ export const WorkspaceTeamRoles = () => {
   });
 
   const members = (membersQuery.data || []) as (WorkspaceMemberRow & { is_platform_admin: boolean })[];
+
+  if (!isBusinessOwner && !isAdmin) return null;
 
   return (
     <Card>

@@ -7,7 +7,7 @@ import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.22.2";
 
 // src/lib/mcp/tools/whoami.ts
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.22.2";
-var whoami_default = defineTool({
+const whoami_default = defineTool({
   name: "whoami",
   title: "Who am I",
   description: "Return the authenticated Pulse AI user id, email, and OAuth client id.",
@@ -32,7 +32,7 @@ function sb(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_leads_default = defineTool2({
+const list_leads_default = defineTool2({
   name: "list_leads",
   title: "List leads",
   description: "List the signed-in user's leads, most recent first.",
@@ -60,7 +60,7 @@ function sb2(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var create_lead_default = defineTool3({
+const create_lead_default = defineTool3({
   name: "create_lead",
   title: "Create lead",
   description: "Create a new lead in the signed-in user's CRM.",
@@ -97,7 +97,7 @@ function sb3(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_inbox_messages_default = defineTool4({
+const list_inbox_messages_default = defineTool4({
   name: "list_inbox_messages",
   title: "List inbox messages",
   description: "List recent unified inbox messages for the signed-in user.",
@@ -127,7 +127,7 @@ function sb4(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_deals_default = defineTool5({
+const list_deals_default = defineTool5({
   name: "list_deals",
   title: "List deals",
   description: "List the signed-in user's CRM deals.",
@@ -155,7 +155,7 @@ function sb5(ctx) {
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_business_profiles_default = defineTool6({
+const list_business_profiles_default = defineTool6({
   name: "list_business_profiles",
   title: "List business profiles",
   description: "List the signed-in user's Pulse AI business profiles.",
@@ -169,8 +169,8 @@ var list_business_profiles_default = defineTool6({
 });
 
 // src/lib/mcp/index.ts
-var projectRef = "wlvlgghqwwhhqaqqopml";
-var mcp_default = defineMcp({
+const projectRef = "wlvlgghqwwhhqaqqopml";
+const mcp_default = defineMcp({
   name: "pulse-ai-mcp",
   title: "Pulse AI",
   version: "0.1.0",

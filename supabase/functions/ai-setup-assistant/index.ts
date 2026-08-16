@@ -12,7 +12,7 @@ serve(async(req:Request)=>{
   const auth=req.headers.get("Authorization");if(!auth) return json({error:"Unauthorized"},401);
   const sb=createClient(Deno.env.get("SUPABASE_URL")!,getServiceKey()!,{auth:{persistSession:false}});
   const{data:{user}}=await sb.auth.getUser(auth.replace("Bearer ",""));if(!user) return json({error:"Unauthorized"},401);
-  let body:{workspace_id?:string}={};try{body=await req.json();}catch{}
+  let body:{workspace_id?:string}={};try{body=await req.json();}catch{/* ignore empty body */}
   const wsId=body.workspace_id??user.id;
   const[intStatus,agentCfg,memCount,sub]=await Promise.all([
     sb.from("integration_status").select("*").eq("workspace_id",wsId).maybeSingle(),

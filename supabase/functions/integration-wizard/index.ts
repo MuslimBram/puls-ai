@@ -9,7 +9,7 @@ serve(async(req:Request)=>{
   const auth=req.headers.get("Authorization");if(!auth) return json({error:"Unauthorized"},401);
   const sb=createClient(Deno.env.get("SUPABASE_URL")!,getServiceKey()!,{auth:{persistSession:false}});
   const{data:{user}}=await sb.auth.getUser(auth.replace("Bearer ",""));if(!user) return json({error:"Unauthorized"},401);
-  let body:{workspace_id?:string}={};if(req.method==="POST"){try{body=await req.json();}catch{}}
+  let body:{workspace_id?:string}={};if(req.method==="POST"){try{body=await req.json();}catch{/* ignore empty body */}}
   // Workspace resolution: never substitute user.id as workspace UUID.
   const wsId: string | null = await (async () => {
     const requested = body.workspace_id;

@@ -46,7 +46,7 @@ serve(async(req:Request)=>{
       if(!error){
         learned=1;
       }
-    }catch{}
+    }catch{/* ignore error */}
 
   }else if(body.source==="approval"&&body.original_reply){
     await sb.from("business_memory").insert({
@@ -82,7 +82,7 @@ serve(async(req:Request)=>{
         },{onConflict:"business_id,entity_type,memory_key"});
         if(!error)learned++;
       }
-    }catch{}
+    }catch{/* ignore error */}
 
   }else if(body.source==="odoo"){
     const r=await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/odoo-sync?action=sync_contacts`,{

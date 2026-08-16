@@ -157,7 +157,9 @@ const BusinessProfile = () => {
         body: { prompt },
       });
       if (data?.result) setter(data.result.trim());
-    } catch {} finally { setAiField(null); }
+    } catch {
+      /* ignore AI suggest error */
+    } finally { setAiField(null); }
   };
 
   if (isLoading) {

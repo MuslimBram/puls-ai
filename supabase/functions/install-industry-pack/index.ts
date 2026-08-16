@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
     await admin.rpc("noop").catch(() => {});
     await admin
       .from("industry_packs")
-      // @ts-ignore - increment via raw
+      // @ts-expect-error increment install count via raw object
       .update({ install_count: ((pack as any).install_count ?? 0) + 1 } as any)
       .eq("id", pack.id);
 

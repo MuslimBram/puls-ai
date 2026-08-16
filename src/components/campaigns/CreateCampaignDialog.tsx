@@ -84,7 +84,9 @@ export const CreateCampaignDialog = ({ open, onOpenChange, onCreate, isPending }
                     body: { prompt: `Suggest 1 campaign name for a ${profile?.industry || "general"} business. Objective: ${formObjective}. Return only the name.` },
                   });
                   if (data?.reply) setFormName(data.reply.trim());
-                } catch {} finally { setAiSuggestField(null); }
+                } catch {
+                  /* ignore AI suggest error */
+                } finally { setAiSuggestField(null); }
               }}
               isAiLoading={aiSuggestField === "campaign_name"}
             />
@@ -113,7 +115,9 @@ export const CreateCampaignDialog = ({ open, onOpenChange, onCreate, isPending }
                     body: { prompt: `Suggest a target audience description for a ${profile?.industry || "general"} business offering ${profile?.main_services || "services"}. Campaign objective: ${formObjective}. Return 1-2 sentences.` },
                   });
                   if (data?.reply) setFormAudience(data.reply.trim());
-                } catch {} finally { setAiSuggestField(null); }
+                } catch {
+                  /* ignore AI suggest error */
+                } finally { setAiSuggestField(null); }
               }}
               isAiLoading={aiSuggestField === "campaign_audience"}
             />

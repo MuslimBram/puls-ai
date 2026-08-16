@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
-// @ts-ignore - pdf-parse for Deno
+// @ts-expect-error pdf-parse npm module for Deno runtime
 import pdfParse from "npm:pdf-parse@1.1.1";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";

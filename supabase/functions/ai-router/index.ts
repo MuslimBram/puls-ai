@@ -573,8 +573,6 @@ serve(async (req: Request): Promise<Response> => {
       limitCtx = {userId:user.id, newDay, effectiveUsed, dailyLimit};
     }
   }
-  }
-
 
   // Explicit provider override: body.provider="kimi" routes directly to KIMI
   // bypassing the task classifier. Other providers can be added the same way.
