@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
   try {
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      getServiceKey()!,
     );
 
     const nowIso = new Date().toISOString();
@@ -1150,7 +1151,7 @@ async function decryptSecret(payload: string) {
   const [ivBase64, encryptedBase64] = payload.split(".");
   if (!ivBase64 || !encryptedBase64) throw new Error("Invalid encrypted provider secret");
 
-  const rootSecret = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const rootSecret = getServiceKey();
   if (!rootSecret) throw new Error("Service role key is not configured");
 
   const digest = await crypto.subtle.digest("SHA-256", textEncoder.encode(rootSecret));
