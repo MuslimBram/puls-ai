@@ -7,8 +7,8 @@ describe("P7: Public AI vs Workspace AI Security Isolation & Cross-Workspace Neg
     const fnPath = join(process.cwd(), "supabase", "functions", "public-lead-capture", "index.ts");
     const content = readFileSync(fnPath, "utf-8");
 
-    // Must write to public staging tables only
-    expect(content).toContain("public_leads");
+    // Must write to public staging tables only (enterprise_leads)
+    expect(content).toContain("enterprise_leads");
     expect(content).not.toContain("customer_memory");
     expect(content).not.toContain("workspace_credentials");
   });
@@ -23,7 +23,6 @@ describe("P7: Public AI vs Workspace AI Security Isolation & Cross-Workspace Neg
       return mockAuthContext.userWorkspaces.includes(workspaceId);
     };
 
-    // Attempting to access Workspace B
     const targetWorkspace = "ws-beta-222";
     const accessAllowed = isAuthorized(targetWorkspace);
 
@@ -34,7 +33,6 @@ describe("P7: Public AI vs Workspace AI Security Isolation & Cross-Workspace Neg
     const helperPath = join(process.cwd(), "supabase", "functions", "_shared", "calcom-helper.ts");
     const content = readFileSync(helperPath, "utf-8");
 
-    // Shared helper requires workspace_id check
     expect(content).toContain("workspace_id");
   });
 });

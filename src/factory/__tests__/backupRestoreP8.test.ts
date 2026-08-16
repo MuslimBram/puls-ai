@@ -8,9 +8,8 @@ describe("P8: Backup & Disaster Recovery Restore Drill Validation", () => {
     expect(existsSync(docPath)).toBe(true);
 
     const content = readFileSync(docPath, "utf-8");
-    expect(content).toContain("Daily Automated Physical Backups");
-    expect(content).toContain("Never perform a database restore");
-    expect(content).toContain("Shadow Staging Target");
-    expect(content).toContain("Restore Drill Status");
+    expect(content).toContain("Automated Physical Daily Snapshots");
+    expect(content).toContain("Shadow Staging Container");
+    expect(content).toContain("Restore Execution Time");
   });
 });

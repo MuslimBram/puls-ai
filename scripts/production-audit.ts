@@ -6,6 +6,11 @@ export interface AuditResult {
   unverifiedFunctions: string[];
   secDefinerWithoutSearchPath: string[];
   unsafeServiceRoleUsage: string[];
+  remoteDbRlsAudit?: {
+    totalTables: number;
+    tablesWithRls: number;
+    unprotectedTables: string[];
+  };
 }
 
 export function runProductionAudit(rootDir: string): AuditResult {
@@ -88,7 +93,6 @@ export function runProductionAudit(rootDir: string): AuditResult {
           scanDir(fullPath);
         } else if ((entry.endsWith(".ts") || entry.endsWith(".tsx")) && !entry.includes("test") && !entry.includes("Scanner")) {
           const content = readFileSync(fullPath, "utf-8");
-          // Check for actual client-side instantiation with service_role key
           if (content.includes("SUPABASE_SERVICE_ROLE_KEY") && content.includes("createClient")) {
             result.unsafeServiceRoleUsage.push(fullPath.replace(rootDir, ""));
           }
@@ -103,10 +107,25 @@ export function runProductionAudit(rootDir: string): AuditResult {
   return result;
 }
 
-if (require.main === module) {
-  const audit = runProductionAudit(process.cwd());
-  console.log("=== PULSE AI PRODUCTION SECURITY AUDIT REPORT ===");
-  console.log("Edge Functions with verify_jwt=false:", audit.unverifiedFunctions);
-  console.log("SECURITY DEFINER without search_path:", audit.secDefinerWithoutSearchPath.length);
-  console.log("Client-side unsafe service_role usage:", audit.unsafeServiceRoleUsage);
+export async function runLiveDbAudit(supabaseToken: string, projectRef: string): Promise<{
+  tables: Array<{ tablename: string; rowsecurity: boolean }>;
+  unprotectedTables: string[];
+}> {
+  const query = "SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname = 'public';";
+  const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${supabaseToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query }),
+  });
+
+  const data = (await res.json()) as Array<{ tablename: string; rowsecurity: boolean }>;
+  const unprotected = data.filter((t) => !t.rowsecurity).map((t) => t.tablename);
+
+  return {
+    tables: data,
+    unprotectedTables: unprotected,
+  };
 }

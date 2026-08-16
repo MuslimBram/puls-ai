@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -10,11 +11,23 @@ serve(async (req) => {
     return new Response(null, { headers: getCors(req) });
   }
 
+  // SECURITY: Require valid X-Twilio-Signature header
+  const rawBody = await req.text();
+  const contentType = req.headers.get("content-type") || "";
+  const sigCheck = await verifyTwilioSignature(req, rawBody, contentType);
+
+  if (!sigCheck.ok) {
+    console.error(`[TWILIO-TWIML] Signature validation failed: ${sigCheck.reason}`);
+    return new Response(
+      JSON.stringify({ error: "Invalid Twilio signature", reason: sigCheck.reason }),
+      { status: 403, headers: { ...getCors(req), "Content-Type": "application/json" } }
+    );
+  }
+
   const url = new URL(req.url);
   const type = url.searchParams.get("type") || "outbound";
   const target = url.searchParams.get("target") || "";
   const rawWorkspaceId = url.searchParams.get("workspace_id") || "";
-  // Strict UUID validation — reject anything else to prevent XML/TwiML injection
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   const workspaceId = UUID_RE.test(rawWorkspaceId) ? rawWorkspaceId : "";
 
@@ -22,7 +35,6 @@ serve(async (req) => {
 
   switch (type) {
     case "outbound":
-      // Standard outbound call - connect and enable recording
       twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">Connecting your call. Please wait.</Say>
@@ -32,7 +44,6 @@ serve(async (req) => {
       break;
 
     case "inbound":
-      // Inbound call - play greeting and queue
       twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">Thank you for calling. Please hold while we connect you to an agent.</Say>
@@ -41,7 +52,6 @@ serve(async (req) => {
       break;
 
     case "hold":
-      // Hold music / waiting
       twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">You have been placed on hold. Please wait.</Say>
@@ -50,7 +60,6 @@ serve(async (req) => {
       break;
 
     case "transfer":
-      // Transfer call to target number
       twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">Transferring your call now.</Say>

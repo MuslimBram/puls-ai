@@ -7,6 +7,8 @@
 -- and restricts EXECUTE permissions.
 -- ============================================================
 
+DROP FUNCTION IF EXISTS public.claim_community_ai_request(uuid,text,integer,text,text,uuid);
+
 CREATE OR REPLACE FUNCTION public.claim_community_ai_request(
   p_user_id uuid,
   p_module text,
@@ -75,7 +77,6 @@ BEGIN
     )
     RETURNING id INTO v_usage_id;
   EXCEPTION WHEN unique_violation THEN
-    -- Return clean 409/reused response on parallel conflict, NEVER 500 error
     SELECT * INTO v_existing
     FROM public.community_ai_usage
     WHERE user_id = p_user_id AND module = p_module AND request_id = p_request_id;
@@ -96,6 +97,5 @@ BEGIN
 END;
 $$;
 
--- Grant EXECUTE to authenticated and service_role
 REVOKE EXECUTE ON FUNCTION public.claim_community_ai_request FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.claim_community_ai_request TO authenticated, service_role;
