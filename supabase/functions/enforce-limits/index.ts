@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -48,7 +49,7 @@ const loadPlanLimits = async (supabase: any) => {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
-  const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "", {
+  const supabase = createClient(Deno.env.get("SUPABASE_URL") ?? "", getServiceKey() ?? "", {
     auth: { persistSession: false },
   });
 
