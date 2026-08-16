@@ -10,6 +10,7 @@
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -36,7 +37,7 @@ function generateSlots(start: string, end: string, durationMin: number, bufferMi
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
 
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!, { auth: { persistSession: false } });
   const url = new URL(req.url);
   const action = url.searchParams.get("action") ?? "availability";
 
@@ -116,7 +117,7 @@ serve(async (req: Request): Promise<Response> => {
     if (client_email && appt) {
       await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getServiceKey()}` },
         body: JSON.stringify({
           to: client_email,
           subject: `Rezervim i konfirmuar — ${apptType?.name ?? "Takim"}`,
@@ -158,7 +159,7 @@ serve(async (req: Request): Promise<Response> => {
       if (!appt.client_email) continue;
       const ok = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getServiceKey()}` },
         body: JSON.stringify({
           to: appt.client_email,
           subject: "Kujtesë rezervimi — nesër",
