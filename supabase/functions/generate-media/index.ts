@@ -4,6 +4,7 @@ import { z } from "npm:zod@3.25.76";
 import { loadPricingMediaPolicy, normalizeSubscriptionPlan } from "../_shared/media-policy.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -27,7 +28,7 @@ serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+    getServiceKey() ?? "",
     { auth: { persistSession: false } },
   );
 
