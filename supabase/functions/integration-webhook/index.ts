@@ -61,28 +61,32 @@ serve(async (req) => {
         return json(req, { error: "Unauthorized: Missing x-cal-signature-256 header" }, 401);
       }
 
-      // Resolve workspace ID safely from query param or channel lookup
-      const queryWorkspaceId = url.searchParams.get("workspace_id");
-      
-      const channelQuery = supabaseAdmin
-        .from("channels")
-        .select("id, workspace_id, credentials_encrypted, provider_metadata")
-        .eq("channel_type", "calcom")
-        .eq("connection_status", "connected");
+      // 2. RESOLVE OPAQUE CONNECTION IDENTIFIER (query/body workspace_id is NOT trusted!)
+      const connectionId =
+        url.searchParams.get("connection") ||
+        url.searchParams.get("connection_id") ||
+        url.searchParams.get("id");
 
-      if (queryWorkspaceId) {
-        channelQuery.eq("workspace_id", queryWorkspaceId);
+      if (!connectionId) {
+        return json(req, { error: "Unauthorized: Missing opaque connection identifier" }, 401);
       }
 
-      const { data: channel } = await channelQuery.maybeSingle();
+      // Lookup connected channel strictly by opaque connection identifier / channel ID
+      const { data: channel } = await supabaseAdmin
+        .from("channels")
+        .select("id, workspace_id, credentials_encrypted")
+        .eq("id", connectionId)
+        .eq("channel_type", "calcom")
+        .eq("connection_status", "connected")
+        .maybeSingle();
 
       if (!channel) {
-        return json(req, { error: "Unauthorized: Target workspace has no connected Cal.com channel" }, 401);
+        return json(req, { error: "Unauthorized: Invalid or inactive Cal.com connection identifier" }, 401);
       }
 
       const workspaceId = channel.workspace_id;
 
-      // 2. RESOLVE WORKSPACE-SCOPED WEBHOOK SECRET
+      // 3. DECRYPT WORKSPACE-SPECIFIC WEBHOOK SECRET FROM ENCRYPTED CREDENTIALS ONLY
       let creds: Record<string, string> = {};
       if (channel.credentials_encrypted) {
         try {
@@ -95,10 +99,9 @@ serve(async (req) => {
         }
       }
 
-      const metadata = channel.provider_metadata || {};
-      const webhookSecret = creds.webhook_secret ?? metadata.webhook_secret ?? Deno.env.get("CALCOM_WEBHOOK_SECRET");
+      // NO GLOBAL FALLBACK AND NO PLAINTEXT METADATA FALLBACK
+      const webhookSecret = creds.webhook_secret;
 
-      // 3. MUST FAIL CLOSED IF NO WEBHOOK SECRET CONFIGURED
       if (!webhookSecret) {
         return json(req, { error: "Unauthorized: Cal.com webhook secret not configured for workspace" }, 401);
       }

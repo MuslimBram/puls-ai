@@ -23,7 +23,7 @@ export interface SendCalcomPayload {
     email: string;
     timeZone?: string;
   };
-  location?: Record<string, unknown> | string;
+  location?: Record<string, unknown>;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -92,7 +92,12 @@ serve(async (req: Request): Promise<Response> => {
         eventTypeId: body.event_type_id,
         attendee: body.attendee,
       };
-      if (body.location) {
+
+      // RUNTIME LOCATION VALIDATION: MUST BE AN OBJECT ONLY (STRING/ARRAY/PRIMITIVES REJECTED)
+      if (body.location !== undefined) {
+        if (typeof body.location !== "object" || body.location === null || Array.isArray(body.location)) {
+          return json(req, { error: "location must be a valid object. String or primitive location values are rejected" }, 400);
+        }
         requestBody.location = body.location;
       }
       break;

@@ -27,7 +27,7 @@ interface ActionPayload {
   reschedule_reason?: string;
   cancellation_reason?: string;
   attendee?: { name: string; email: string; timeZone?: string };
-  location?: Record<string, unknown> | string;
+  location?: Record<string, unknown>;
 }
 
 interface TriggerData {
@@ -44,7 +44,7 @@ interface TriggerData {
   start?: string;
   event_type_id?: number;
   attendee?: { name: string; email: string };
-  location?: Record<string, unknown> | string;
+  location?: Record<string, unknown>;
 }
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
@@ -326,6 +326,12 @@ async function executeAction(
 
       if (!start || !eventTypeId || !attendee) {
         throw new Error("Missing required start, event_type_id, or attendee for calcom_create_booking");
+      }
+
+      if (location !== undefined) {
+        if (typeof location !== "object" || location === null || Array.isArray(location)) {
+          throw new Error("location must be a valid object. String or primitive location values are rejected");
+        }
       }
 
       const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings");
