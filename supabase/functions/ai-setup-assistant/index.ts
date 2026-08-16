@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { askAI } from "../_shared/ai-client.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 const CORS={"Access-Control-Allow-Origin":Deno.env.get("ALLOWED_ORIGIN")??"","Access-Control-Allow-Headers":"authorization, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...CORS,"Content-Type":"application/json"}});
 const STEPS=[{id:1,title:"Business Profile",action:"complete_profile",url:"/business-profile"},{id:2,title:"Connect Instagram",action:"connect_instagram",url:"/connected-accounts?connect=instagram"},{id:3,title:"Connect WhatsApp",action:"connect_whatsapp",url:"/connections?connect=whatsapp"},{id:4,title:"AI Scan",action:"run_scan",url:"/sources?action=scan"},{id:5,title:"Test AI Reply",action:"test_ai",url:"/inbox"},{id:6,title:"Configure Channels",action:"configure_channels",url:"/channels"}];
@@ -9,7 +10,7 @@ const COSTS:{[k:string]:number}={starter:99,growth:149,pro:249,agency:349,enterp
 serve(async(req:Request)=>{
   if(req.method==="OPTIONS") return new Response(null,{headers:CORS});
   const auth=req.headers.get("Authorization");if(!auth) return json({error:"Unauthorized"},401);
-  const sb=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
+  const sb=createClient(Deno.env.get("SUPABASE_URL")!,getServiceKey()!,{auth:{persistSession:false}});
   const{data:{user}}=await sb.auth.getUser(auth.replace("Bearer ",""));if(!user) return json({error:"Unauthorized"},401);
   let body:{workspace_id?:string}={};try{body=await req.json();}catch{}
   const wsId=body.workspace_id??user.id;
