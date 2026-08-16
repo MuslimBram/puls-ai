@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const json = (req: Request, body: unknown, status = 200) =>
@@ -42,7 +43,7 @@ serve(async (req: Request): Promise<Response> => {
 
   const supabaseAdmin = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    getServiceKey()!,
     { auth: { persistSession: false } }
   );
 
