@@ -27,6 +27,7 @@ interface ActionPayload {
   reschedule_reason?: string;
   cancellation_reason?: string;
   attendee?: { name: string; email: string; timeZone?: string };
+  location?: Record<string, unknown> | string;
 }
 
 interface TriggerData {
@@ -43,6 +44,7 @@ interface TriggerData {
   start?: string;
   event_type_id?: number;
   attendee?: { name: string; email: string };
+  location?: Record<string, unknown> | string;
 }
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
@@ -320,12 +322,18 @@ async function executeAction(
       const start = action.start ?? triggerData?.start;
       const eventTypeId = action.event_type_id ?? triggerData?.event_type_id;
       const attendee = action.attendee ?? triggerData?.attendee;
+      const location = action.location ?? triggerData?.location;
 
       if (!start || !eventTypeId || !attendee) {
         throw new Error("Missing required start, event_type_id, or attendee for calcom_create_booking");
       }
 
       const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings");
+      const requestPayload: Record<string, unknown> = { start, eventTypeId, attendee };
+      if (location) {
+        requestPayload.location = location;
+      }
+
       const res = await fetch("https://api.cal.com/v2/bookings", {
         method: "POST",
         headers: {
@@ -333,12 +341,13 @@ async function executeAction(
           "cal-api-version": calApiVersion,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ start, eventTypeId, attendee, location: "inPerson" }),
+        body: JSON.stringify(requestPayload),
       });
 
       if (!res.ok) throw new Error(`Cal.com create booking failed (${res.status}): ${await res.text()}`);
       const resData = await res.json();
-      return `Cal.com booking created successfully (bookingUid: ${resData.data?.bookingUid ?? resData.bookingUid})`;
+      const returnedUid = resData.data?.uid ?? resData.data?.bookingUid ?? resData.uid ?? resData.bookingUid;
+      return `Cal.com booking created successfully (bookingUid: ${returnedUid})`;
     }
 
     case "calcom_reschedule_booking": {
@@ -350,7 +359,7 @@ async function executeAction(
         throw new Error("Missing required booking_uid or start for calcom_reschedule_booking");
       }
 
-      const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings/{uid}/reschedule");
+      const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings/{bookingUid}/reschedule");
       const res = await fetch(`https://api.cal.com/v2/bookings/${encodeURIComponent(bookingUid)}/reschedule`, {
         method: "POST",
         headers: {
@@ -373,7 +382,7 @@ async function executeAction(
         throw new Error("Missing required booking_uid for calcom_cancel_booking");
       }
 
-      const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings/{uid}/cancel");
+      const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings/{bookingUid}/cancel");
       const res = await fetch(`https://api.cal.com/v2/bookings/${encodeURIComponent(bookingUid)}/cancel`, {
         method: "POST",
         headers: {

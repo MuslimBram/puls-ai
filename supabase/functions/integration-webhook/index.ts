@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -18,6 +19,15 @@ function hashBody(text: string): string {
     hash |= 0;
   }
   return Math.abs(hash).toString(16);
+}
+
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 serve(async (req) => {
@@ -46,28 +56,74 @@ serve(async (req) => {
         req.headers.get("x-signature-256") ||
         "";
 
-      // If webhook_secret is configured, verify HMAC SHA-256 against rawBody
-      const webhookSecret = Deno.env.get("CALCOM_WEBHOOK_SECRET");
-      if (webhookSecret && signatureHeader) {
-        const key = await crypto.subtle.importKey(
-          "raw",
-          new TextEncoder().encode(webhookSecret),
-          { name: "HMAC", hash: "SHA-256" },
-          false,
-          ["sign"]
-        );
-        const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-        const bytes = new Uint8Array(mac);
-        let hex = "";
-        for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, "0");
-        const expected = signatureHeader.startsWith("sha256=")
-          ? signatureHeader.slice(7)
-          : signatureHeader;
-        if (expected.toLowerCase() !== hex) {
-          return json(req, { error: "Unauthorized: Invalid Cal.com HMAC signature" }, 401);
+      // 1. MUST FAIL CLOSED IF SIGNATURE HEADER IS MISSING
+      if (!signatureHeader) {
+        return json(req, { error: "Unauthorized: Missing x-cal-signature-256 header" }, 401);
+      }
+
+      // Resolve workspace ID safely from query param or channel lookup
+      const queryWorkspaceId = url.searchParams.get("workspace_id");
+      
+      const channelQuery = supabaseAdmin
+        .from("channels")
+        .select("id, workspace_id, credentials_encrypted, provider_metadata")
+        .eq("channel_type", "calcom")
+        .eq("connection_status", "connected");
+
+      if (queryWorkspaceId) {
+        channelQuery.eq("workspace_id", queryWorkspaceId);
+      }
+
+      const { data: channel } = await channelQuery.maybeSingle();
+
+      if (!channel) {
+        return json(req, { error: "Unauthorized: Target workspace has no connected Cal.com channel" }, 401);
+      }
+
+      const workspaceId = channel.workspace_id;
+
+      // 2. RESOLVE WORKSPACE-SCOPED WEBHOOK SECRET
+      let creds: Record<string, string> = {};
+      if (channel.credentials_encrypted) {
+        try {
+          const rawCreds = await decryptIfNeeded(channel.credentials_encrypted);
+          if (typeof rawCreds === "string" && rawCreds.startsWith("{")) {
+            creds = JSON.parse(rawCreds);
+          }
+        } catch {
+          /* invalid */
         }
       }
 
+      const metadata = channel.provider_metadata || {};
+      const webhookSecret = creds.webhook_secret ?? metadata.webhook_secret ?? Deno.env.get("CALCOM_WEBHOOK_SECRET");
+
+      // 3. MUST FAIL CLOSED IF NO WEBHOOK SECRET CONFIGURED
+      if (!webhookSecret) {
+        return json(req, { error: "Unauthorized: Cal.com webhook secret not configured for workspace" }, 401);
+      }
+
+      // 4. VERIFY RAW BODY HMAC SHA-256 TIMING-SAFE BEFORE ANY DB WRITES
+      const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(webhookSecret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+      const bytes = new Uint8Array(mac);
+      let hex = "";
+      for (let i = 0; i < bytes.length; i++) hex += bytes[i].toString(16).padStart(2, "0");
+      const expected = signatureHeader.startsWith("sha256=")
+        ? signatureHeader.slice(7)
+        : signatureHeader;
+
+      if (!timingSafeEqual(expected.toLowerCase(), hex.toLowerCase())) {
+        return json(req, { error: "Unauthorized: Invalid Cal.com HMAC signature" }, 401);
+      }
+
+      // 5. PARSE BODY ONLY AFTER SUCCESSFUL HMAC VERIFICATION
       let body: Record<string, unknown>;
       try {
         body = JSON.parse(rawBody);
@@ -78,11 +134,6 @@ serve(async (req) => {
       const triggerEvent = (body.triggerEvent as string) ?? "BOOKING_CREATED";
       const payload = (body.payload as Record<string, unknown>) || body;
       const bookingUid = String(payload.bookingUid || payload.uid || payload.id || hashBody(rawBody));
-      const workspaceId = (body.workspace_id as string) || url.searchParams.get("workspace_id");
-
-      if (!workspaceId) {
-        return json(req, { error: "workspace_id required for Cal.com webhook ingestion" }, 400);
-      }
 
       const idempotencyKey = `inbound:calcom:${bookingUid}:${triggerEvent}`;
 
@@ -104,7 +155,7 @@ serve(async (req) => {
       const startTime = String(payload.startTime || payload.start || new Date().toISOString());
       const title = String(payload.title || `Cal.com Booking (${bookingUid})`);
 
-      // Process event types into CRM (lead_captures & deals)
+      // Process event types into CRM (lead_captures & deals) - AUTHENTICATED ONLY
       if (triggerEvent === "BOOKING_CREATED") {
         await supabaseAdmin.from("lead_captures").insert({
           workspace_id: workspaceId,

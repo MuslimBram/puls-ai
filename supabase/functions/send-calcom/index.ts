@@ -23,7 +23,7 @@ export interface SendCalcomPayload {
     email: string;
     timeZone?: string;
   };
-  location?: string;
+  location?: Record<string, unknown> | string;
 }
 
 serve(async (req: Request): Promise<Response> => {
@@ -91,8 +91,10 @@ serve(async (req: Request): Promise<Response> => {
         start: body.start,
         eventTypeId: body.event_type_id,
         attendee: body.attendee,
-        location: body.location ?? "inPerson",
       };
+      if (body.location) {
+        requestBody.location = body.location;
+      }
       break;
     }
     case "RESCHEDULE_BOOKING": {
@@ -103,8 +105,10 @@ serve(async (req: Request): Promise<Response> => {
       url = `https://api.cal.com/v2/bookings/${encodeURIComponent(body.booking_uid)}/reschedule`;
       requestBody = {
         start: body.start,
-        rescheduleReason: body.reschedule_reason,
       };
+      if (body.reschedule_reason) {
+        requestBody.rescheduleReason = body.reschedule_reason;
+      }
       break;
     }
     case "CANCEL_BOOKING": {
@@ -113,9 +117,9 @@ serve(async (req: Request): Promise<Response> => {
         return json(req, { error: "booking_uid required for CANCEL_BOOKING" }, 400);
       }
       url = `https://api.cal.com/v2/bookings/${encodeURIComponent(body.booking_uid)}/cancel`;
-      requestBody = {
-        cancellationReason: body.cancellation_reason,
-      };
+      if (body.cancellation_reason) {
+        requestBody.cancellationReason = body.cancellation_reason;
+      }
       break;
     }
     default:
@@ -140,10 +144,13 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const resData = await response.json();
+  const returnedUid = resData.data?.uid ?? resData.data?.bookingUid ?? resData.uid ?? resData.bookingUid;
+
   return json(req, {
     success: true,
     operation,
     workspace_id,
+    booking_uid: returnedUid,
     booking: resData.data ?? resData,
   });
 });

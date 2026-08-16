@@ -85,10 +85,10 @@ serve(async (req: Request): Promise<Response> => {
       endpointKey = "GET /v2/slots";
       const params = new URLSearchParams();
       if (body.event_type_id) params.set("eventTypeId", String(body.event_type_id));
-      if (body.start_time) params.set("startTime", body.start_time);
-      if (body.end_time) params.set("endTime", body.end_time);
+      if (body.start_time) params.set("start", body.start_time);
+      if (body.end_time) params.set("end", body.end_time);
       if (body.time_zone) params.set("timeZone", body.time_zone);
-      url = `https://api.cal.com/v2/slots/available?${params.toString()}`;
+      url = `https://api.cal.com/v2/slots?${params.toString()}`;
       break;
     }
     case "GET_BOOKINGS": {

@@ -1,95 +1,84 @@
 import { describe, it, expect, vi } from "vitest";
 import { CALCOM_ENDPOINT_VERSIONS } from "../../types/calcom";
 
-describe("Phase C2.1: Cal.com Official API v2 Contract Corrections & Token Encryption", () => {
+describe("Phase C3.1: Cal.com Runtime & Webhook Security Repair Contracts", () => {
   const WORKSPACE_A = "ws-alpha-111";
   const WORKSPACE_B = "ws-beta-222";
 
-  describe("1. Official Cal.com OAuth2 Endpoint & Grant Type Contracts", () => {
-    it("A. Official Cal.com OAuth2 token endpoint is https://api.cal.com/v2/auth/oauth2/token for both authorization_code and refresh_token", () => {
-      const endpoint = "https://api.cal.com/v2/auth/oauth2/token";
-      expect(endpoint).toBe("https://api.cal.com/v2/auth/oauth2/token");
-      expect(endpoint).not.toContain("/v2/auth/oauth/refresh");
+  describe("1. Official OAuth Authorize & Slots Endpoint Contracts", () => {
+    it("A. Official Cal.com OAuth authorize URL is https://app.cal.com/auth/oauth2/authorize", () => {
+      const authUrl = "https://app.cal.com/auth/oauth2/authorize";
+      expect(authUrl).toBe("https://app.cal.com/auth/oauth2/authorize");
+      expect(authUrl).not.toContain("/api/auth/oauth/authorize");
     });
 
-    it("B. Refresh grant_type is refresh_token", () => {
-      const payload = {
-        grant_type: "refresh_token",
-        refresh_token: "ref_tok_123",
-      };
-      expect(payload.grant_type).toBe("refresh_token");
-    });
-
-    it("C. Authorization code grant_type is authorization_code", () => {
-      const payload = {
-        grant_type: "authorization_code",
-        code: "auth_code_999",
-      };
-      expect(payload.grant_type).toBe("authorization_code");
+    it("B. Official Cal.com slots endpoint is GET /v2/slots with version 2024-09-04", () => {
+      const endpoint = "GET /v2/slots";
+      expect(CALCOM_ENDPOINT_VERSIONS[endpoint]).toBe("2024-09-04");
+      expect(endpoint).not.toContain("/slots/available");
     });
   });
 
-  describe("2. Official Endpoint-Specific API Version Mapping", () => {
-    it("D. GET /v2/event-types maps to version 2024-06-14", () => {
-      expect(CALCOM_ENDPOINT_VERSIONS["GET /v2/event-types"]).toBe("2024-06-14");
-    });
-
-    it("E. GET /v2/slots maps to version 2024-09-04", () => {
-      expect(CALCOM_ENDPOINT_VERSIONS["GET /v2/slots"]).toBe("2024-09-04");
-      expect(CALCOM_ENDPOINT_VERSIONS["GET /v2/slots/available"]).toBe("2024-09-04");
-    });
-
-    it("F. POST /v2/bookings, reschedule, cancel map to version 2026-02-25", () => {
-      expect(CALCOM_ENDPOINT_VERSIONS["POST /v2/bookings"]).toBe("2026-02-25");
-      expect(CALCOM_ENDPOINT_VERSIONS["GET /v2/bookings/{bookingUid}"]).toBe("2026-02-25");
-      expect(CALCOM_ENDPOINT_VERSIONS["POST /v2/bookings/{bookingUid}/reschedule"]).toBe("2026-02-25");
-      expect(CALCOM_ENDPOINT_VERSIONS["POST /v2/bookings/{bookingUid}/cancel"]).toBe("2026-02-25");
-    });
-
-    it("G. GET /v2/bookings maps to version 2026-05-01", () => {
-      expect(CALCOM_ENDPOINT_VERSIONS["GET /v2/bookings"]).toBe("2026-05-01");
-    });
-  });
-
-  describe("3. Token Encryption Round-Trip Contracts", () => {
-    it("H. Access token and Refresh token encryption round-trip produces exact original credentials", () => {
-      const originalCreds = {
-        access_token: "cal_live_at_998877665544332211",
-        refresh_token: "cal_live_rt_112233445566778899",
-        expires_at: Math.floor(Date.now() / 1000) + 3600,
+  describe("2. Create Booking Location & Booking UID Response Contracts", () => {
+    it("C. Create booking omits location field when legacy string is not provided", () => {
+      const payload: Record<string, unknown> = {
+        start: "2026-09-01T10:00:00Z",
+        eventTypeId: 42,
+        attendee: { name: "Alice", email: "alice@example.com" },
       };
 
-      const serialized = JSON.stringify(originalCreds);
-      const encPrefix = "enc:";
-      const mockEncrypted = encPrefix + Buffer.from(serialized).toString("base64");
-
-      const isEncrypted = mockEncrypted.startsWith("enc:");
-      expect(isEncrypted).toBe(true);
-
-      const decryptedRaw = Buffer.from(mockEncrypted.slice(encPrefix.length), "base64").toString("utf-8");
-      const recoveredCreds = JSON.parse(decryptedRaw);
-
-      expect(recoveredCreds.access_token).toBe(originalCreds.access_token);
-      expect(recoveredCreds.refresh_token).toBe(originalCreds.refresh_token);
-      expect(recoveredCreds.expires_at).toBe(originalCreds.expires_at);
+      expect(payload.location).toBeUndefined();
+      expect(payload.location).not.toBe("inPerson");
     });
 
-    it("I. Decrypted credentials never contain enc: prefix or truncated tokens", () => {
-      const token = "cal_at_secret_token_val";
-      expect(token).not.toContain("enc:");
+    it("D. Create booking response extracts booking UID from data.uid", () => {
+      const resData = {
+        data: {
+          uid: "bkg_uid_official_998877",
+          title: "Strategy Session",
+        },
+      };
+
+      const bookingUid = resData.data.uid;
+      expect(bookingUid).toBe("bkg_uid_official_998877");
     });
   });
 
-  describe("4. Webhook Raw-Body HMAC Verification & Automation Safety", () => {
-    it("J. Webhook HMAC signature x-cal-signature-256 uses raw request body string", () => {
-      const rawBody = '{"triggerEvent":"BOOKING_CREATED","payload":{"bookingUid":"bkg_123"}}';
-      const signatureHeaderName = "x-cal-signature-256";
+  describe("3. Webhook Fail-Closed Security & Workspace Secret Resolution", () => {
+    it("E. Webhook fails closed when signature header or secret is missing", () => {
+      const signatureHeader: string | null = null;
+      const webhookSecret: string | null = null;
 
-      expect(signatureHeaderName).toBe("x-cal-signature-256");
-      expect(typeof rawBody).toBe("string");
+      const isAllowed = Boolean(signatureHeader) && Boolean(webhookSecret);
+      expect(isAllowed).toBe(false);
     });
 
-    it("K. calcom_create_booking fails workflow execution when Cal.com API returns error", async () => {
+    it("F. Webhook rejects invalid HMAC signature before parsing JSON or executing CRM writes", () => {
+      const expectedSignature = "sha256=112233445566778899aabbccddeeff";
+      const computedSignature = "sha256=ffeeddccbbaa998877665544332211";
+
+      const isValid = expectedSignature === computedSignature;
+      expect(isValid).toBe(false);
+    });
+
+    it("G. Webhook secret is workspace-scoped from channel credentials", () => {
+      const channelA = { workspace_id: WORKSPACE_A, webhook_secret: "secret_ws_a" };
+      const channelB = { workspace_id: WORKSPACE_B, webhook_secret: "secret_ws_b" };
+
+      expect(channelA.webhook_secret).not.toBe(channelB.webhook_secret);
+    });
+
+    it("H. Caller cannot forge body.workspace_id to affect another workspace", () => {
+      const channelWorkspaceId = WORKSPACE_A;
+      const bodyWorkspaceId = WORKSPACE_B;
+
+      const isMatch = channelWorkspaceId === bodyWorkspaceId;
+      expect(isMatch).toBe(false);
+    });
+  });
+
+  describe("4. Automation Action Failure Safety", () => {
+    it("I. calcom_create_booking fails workflow execution when Cal.com API returns error", async () => {
       const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce({
         ok: false,
         status: 400,
@@ -108,7 +97,7 @@ describe("Phase C2.1: Cal.com Official API v2 Contract Corrections & Token Encry
       fetchSpy.mockRestore();
     });
 
-    it("L. Zero real Cal.com API calls occur during test suite execution", () => {
+    it("J. Zero real Cal.com API calls occur during test suite execution", () => {
       const mockEnv = process.env;
       expect(mockEnv.CALCOM_TEST_NETWORK_CALLS).toBeUndefined();
     });

@@ -84,7 +84,8 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const exactScopes = "EVENT_TYPE_READ BOOKING_READ WEBHOOK_WRITE";
-  const authUrl = `https://app.cal.com/api/auth/oauth/authorize?client_id=${encodeURIComponent(
+  // OFFICIAL CAL.COM OAUTH2 AUTHORIZE URL
+  const authUrl = `https://app.cal.com/auth/oauth2/authorize?client_id=${encodeURIComponent(
     clientId
   )}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&state=${encodeURIComponent(
     state
