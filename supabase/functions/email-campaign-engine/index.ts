@@ -10,6 +10,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { askAI } from "../_shared/ai-client.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
@@ -44,7 +45,7 @@ async function sendEmail(to: string, subject: string, html: string, fromName: st
     `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${getServiceKey()}` },
       body: JSON.stringify({ to, subject, html }),
     }
   );
@@ -70,7 +71,7 @@ serve(async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
     const trackingId = url.searchParams.get("id");
     if (trackingId) {
-      const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+      const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
       await supabase.from("email_campaign_sends")
         .update({ status: "opened", opened_at: new Date().toISOString() })
         .eq("tracking_id", trackingId)
@@ -87,7 +88,7 @@ serve(async (req: Request): Promise<Response> => {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader) return json({ error: "Unauthorized" }, 401);
 
-  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!, { auth: { persistSession: false } });
   const { data: { user } } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
   if (!user) return json({ error: "Unauthorized" }, 401);
 
