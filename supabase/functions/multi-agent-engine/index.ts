@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { askAI } from "../_shared/ai-client.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS={"Access-Control-Allow-Origin":Deno.env.get("ALLOWED_ORIGIN")??"","Access-Control-Allow-Headers":"authorization, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...CORS,"Content-Type":"application/json"}});
@@ -23,7 +24,7 @@ serve(async(req:Request)=>{
   if(req.method==="OPTIONS") return new Response(null,{headers:CORS});
   const auth=req.headers.get("Authorization");
   if(!auth) return json({error:"Unauthorized"},401);
-  const sb=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
+  const sb=createClient(Deno.env.get("SUPABASE_URL")!,getServiceKey()!,{auth:{persistSession:false}});
   const{data:{user}}=await sb.auth.getUser(auth.replace("Bearer ",""));
   if(!user) return json({error:"Unauthorized"},401);
   let body:{agent:string;workspace_id?:string;input?:string;run_all?:boolean};
