@@ -16,6 +16,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyMetaSignature } from "../_shared/webhook-signatures.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 const rateLimitMap = new Map<string, { n: number; t: number }>();
@@ -93,7 +94,7 @@ serve(async (req) => {
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    getServiceKey()!,
     { auth: { persistSession: false } },
   );
 
@@ -182,7 +183,7 @@ serve(async (req) => {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                Authorization: `Bearer ${getServiceKey()}`,
                 "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
               },
               body: JSON.stringify({
@@ -251,7 +252,7 @@ serve(async (req) => {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}`,
+                Authorization: `Bearer ${getServiceKey()}`,
                 "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
               },
               body: JSON.stringify({
