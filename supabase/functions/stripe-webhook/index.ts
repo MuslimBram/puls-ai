@@ -7,7 +7,6 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-// Dynamic product mapping — loaded from pricing settings at runtime
 import { indexPlanPrices, indexPricingCatalogByProductId, loadPricingCatalogRows } from "../_shared/monetization-catalog.ts";
 
 let PRODUCT_MAP: Record<string, string> = {};
@@ -15,7 +14,7 @@ let PLAN_PRICES: Record<string, number> = {};
 let _catalogLoadedAt = 0;
 const CATALOG_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-async function loadProductMap(supabase: any) {
+async function loadProductMap(supabase: ReturnType<typeof createClient>) {
   if (Object.keys(PRODUCT_MAP).length > 0 && Date.now() - _catalogLoadedAt < CATALOG_TTL_MS) return;
 
   const rows = await loadPricingCatalogRows(supabase);
@@ -82,8 +81,9 @@ serve(async (req) => {
     if (!signature) return new Response("Missing stripe-signature", { status: 400 });
     try {
       event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-    } catch (sigErr: any) {
-      console.error("[STRIPE-WEBHOOK] Invalid signature:", sigErr?.message);
+    } catch (sigErr: unknown) {
+      const msg = sigErr instanceof Error ? sigErr.message : "Unknown";
+      console.error("[STRIPE-WEBHOOK] Invalid signature:", msg);
       return new Response(
         JSON.stringify({ error: "Invalid signature" }),
         { status: 401, headers: { "Content-Type": "application/json" } },
@@ -162,7 +162,7 @@ serve(async (req) => {
         const newMonthsRemaining = sub.referral_discount_months_remaining - 1;
         const discountSaved = (invoiceAmount * sub.referral_discount_percent) / 100;
 
-        const updateData: Record<string, any> = {
+        const updateData: Record<string, unknown> = {
           referral_discount_months_remaining: newMonthsRemaining,
           total_discount_savings: Number(sub.total_discount_savings || 0) + discountSaved,
           updated_at: now.toISOString(),
@@ -235,7 +235,7 @@ serve(async (req) => {
     const handleSubscription = async (subscription: Stripe.Subscription) => {
       const customerId = subscription.customer as string;
       const customer = await stripe.customers.retrieve(customerId);
-      if ((customer as any).deleted) return;
+      if ((customer as Record<string, unknown>).deleted) return;
 
       const email = (customer as Stripe.Customer).email;
       if (!email) return;
@@ -257,7 +257,7 @@ serve(async (req) => {
         ? new Date(subscription.cancel_at * 1000).toISOString()
         : new Date(subscription.current_period_end * 1000).toISOString();
 
-      const updateData: Record<string, any> = {
+      const updateData: Record<string, unknown> = {
         plan: ["active", "trialing"].includes(status) ? plan : "standard",
         subscription_status: status,
         stripe_customer_id: customerId,
@@ -395,7 +395,7 @@ serve(async (req) => {
 
         const customerId = subscription.customer as string;
         const customer = await stripe.customers.retrieve(customerId);
-        if (!(customer as any).deleted) {
+        if (!(customer as Record<string, unknown>).deleted) {
           const email = (customer as Stripe.Customer).email;
           if (email) {
             const user = await findUserByEmail(email);
@@ -418,11 +418,11 @@ serve(async (req) => {
         const subscription = event.data.object as Stripe.Subscription;
         await handleSubscription(subscription);
 
-        const prevAttrs = (event.data as any).previous_attributes;
+        const prevAttrs = (event.data as Record<string, unknown>).previous_attributes as Record<string, unknown> | undefined;
         if (prevAttrs?.items) {
           const customerId = subscription.customer as string;
           const customer = await stripe.customers.retrieve(customerId);
-          if (!(customer as any).deleted) {
+          if (!(customer as Record<string, unknown>).deleted) {
             const email = (customer as Stripe.Customer).email;
             if (email) {
               const user = await findUserByEmail(email);
@@ -462,7 +462,7 @@ serve(async (req) => {
 
         const customerId = subscription.customer as string;
         const customer = await stripe.customers.retrieve(customerId);
-        if (!(customer as any).deleted) {
+        if (!(customer as Record<string, unknown>).deleted) {
           const email = (customer as Stripe.Customer).email;
           if (email) {
             const user = await findUserByEmail(email);
@@ -502,7 +502,7 @@ serve(async (req) => {
 
         const failCustomerId = invoice.customer as string;
         const failCustomer = await stripe.customers.retrieve(failCustomerId);
-        if (!(failCustomer as any).deleted) {
+        if (!(failCustomer as Record<string, unknown>).deleted) {
           const failEmail = (failCustomer as Stripe.Customer).email;
           if (failEmail) {
             const failUser = await findUserByEmail(failEmail);
@@ -539,7 +539,7 @@ serve(async (req) => {
 
           const succCustomerId = invoice.customer as string;
           const succCustomer = await stripe.customers.retrieve(succCustomerId);
-          if (!(succCustomer as any).deleted) {
+          if (!(succCustomer as Record<string, unknown>).deleted) {
             const succEmail = (succCustomer as Stripe.Customer).email;
             if (succEmail) {
               const succUser = await findUserByEmail(succEmail);
@@ -603,8 +603,9 @@ serve(async (req) => {
       }
 
       case "checkout.session.completed": {
-        const session = event.data?.object as any;
-        const customerEmail = session?.customer_details?.email ?? session?.customer_email;
+        const session = event.data?.object as Record<string, unknown> | undefined;
+        const customerDetails = session?.customer_details as Record<string, unknown> | undefined;
+        const customerEmail = (customerDetails?.email as string) ?? (session?.customer_email as string);
         if (customerEmail) {
           const { data: lead } = await supabase
             .from("leads").select("id,workspace_id")
@@ -613,14 +614,16 @@ serve(async (req) => {
             await notifyBrain(supabase, {
               workspace_id: lead.workspace_id, lead_id: lead.id,
               event_type: "purchased", channel: "stripe",
-              event_data: { stripe_session_id: session.id, amount_total: session.amount_total },
+              event_data: { stripe_session_id: session?.id, amount_total: session?.amount_total },
             });
           }
         }
-        if (session?.metadata?.addon_type && session?.metadata?.user_id) {
-          const addonType = session.metadata.addon_type;
-          const quantity = Number(session.metadata.addon_quantity) || 0;
-          const userId = session.metadata.user_id;
+
+        const metadata = session?.metadata as Record<string, unknown> | undefined;
+        if (metadata?.addon_type && metadata?.user_id) {
+          const addonType = metadata.addon_type as string;
+          const quantity = Number(metadata.addon_quantity) || 0;
+          const userId = metadata.user_id as string;
 
           const mediaType = addonType.startsWith("image") ? "image" : "video";
 
@@ -685,7 +688,6 @@ serve(async (req) => {
         console.log(`[STRIPE-WEBHOOK] Unhandled event type: ${event.type}`);
     }
 
-    // Mark idempotency log as success
     await supabase.from("integration_event_logs").update({ status: "success" }).eq("idempotency_key", idempotencyKey);
 
     return new Response(JSON.stringify({ received: true }), {

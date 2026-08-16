@@ -64,7 +64,7 @@ serve(async (req) => {
 
     // Validate structure
     const objectType = body?.object;
-    const entries = body?.entry || [];
+    const entries = (body?.entry as Array<Record<string, unknown>>) || [];
 
     if (!objectType || !["instagram", "page"].includes(objectType)) {
       await supabase.from("webhook_activity_logs").insert({
@@ -100,8 +100,8 @@ serve(async (req) => {
     }
 
     // Check for duplicate webhook setup
-    const pageIds = entries.map((e: any) => e.id).filter(Boolean);
-    const duplicateChecks: any[] = [];
+    const pageIds = entries.map((e) => e.id as string).filter(Boolean);
+    const duplicateChecks: Array<Record<string, unknown>> = [];
 
     for (const pageId of pageIds) {
       const { data: existing } = await supabase
@@ -110,8 +110,8 @@ serve(async (req) => {
         .eq("channel_type", objectType === "instagram" ? "instagram" : "facebook")
         .eq("is_enabled", true);
 
-      const duplicate = (existing || []).find((ch: any) => {
-        const s = ch.settings as Record<string, any> | null;
+      const duplicate = (existing || []).find((ch) => {
+        const s = ch.settings as Record<string, unknown> | null;
         return s?.page_id === pageId || s?.instagram_account_id === pageId;
       });
 
@@ -132,7 +132,8 @@ serve(async (req) => {
 
     let messageCount = 0;
     for (const entry of entries) {
-      messageCount += (entry.messaging || []).filter((e: any) => e.message).length;
+      const msgs = (entry.messaging as Array<Record<string, unknown>>) || [];
+      messageCount += msgs.filter((e) => e.message).length;
     }
 
     const processingTime = Date.now() - startTime;
