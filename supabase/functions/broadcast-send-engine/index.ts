@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -42,7 +43,7 @@ serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    getServiceKey()!,
     { auth: { persistSession: false } },
   );
 
@@ -289,7 +290,7 @@ async function dispatchToChannel(
   unsubscribeUrl: string
 ): Promise<{ success: boolean; bounce?: boolean; error?: string }> {
   const baseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceKey = getServiceKey();
   
   // Inject legal footer
   const footer = (LEGAL_FOOTER[channelType] || LEGAL_FOOTER.email)(unsubscribeUrl);
