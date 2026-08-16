@@ -4,6 +4,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { evaluateServerAdsRisk } from "../_shared/ai-guard-server.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
+import { getCalcomWorkspaceCredentials, getCalcomEndpointVersion } from "../_shared/calcom-helper.ts";
 
 interface CustomApprovalError extends Error {
   status?: string;
@@ -20,6 +21,12 @@ interface ActionPayload {
   message_content?: string;
   reply_to_message_id?: string;
   webhook_url?: string;
+  booking_uid?: string;
+  event_type_id?: number;
+  start?: string;
+  reschedule_reason?: string;
+  cancellation_reason?: string;
+  attendee?: { name: string; email: string; timeZone?: string };
 }
 
 interface TriggerData {
@@ -32,6 +39,10 @@ interface TriggerData {
   token_anomaly?: boolean;
   message_content?: string;
   channel_id?: string;
+  booking_uid?: string;
+  start?: string;
+  event_type_id?: number;
+  attendee?: { name: string; email: string };
 }
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
@@ -51,9 +62,8 @@ serve(async (req) => {
   );
 
   try {
-    // ── AUTHENTICATION BOUNDARY ───────────────────────────────────────────────
     const authHeader = req.headers.get("Authorization") ?? "";
-    const isInternal = requireCronAuth(req) === null; // null = auth OK
+    const isInternal = requireCronAuth(req) === null;
 
     let authedUserId: string | null = null;
     let authedWorkspaceId: string | null = null;
@@ -72,7 +82,6 @@ serve(async (req) => {
       });
     }
 
-    // USER path: derive identity from JWT ONLY
     if (!authHeader.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
     const {
       data: { user },
@@ -86,7 +95,6 @@ serve(async (req) => {
     if (!trigger_type) return json(req, { error: "trigger_type required" }, 400);
     if (!workspace_id) return json(req, { error: "workspace_id required" }, 400);
 
-    // Workspace membership check (No user.id fallback!)
     const { data: member } = await supabase.rpc("is_workspace_member", {
       _user_id: authedUserId,
       _workspace_id: workspace_id,
@@ -202,7 +210,6 @@ async function executeAction(
   triggerData: TriggerData,
   workspaceId: string
 ): Promise<string> {
-  // ── SERVER-SIDE AI GUARD ENFORCEMENT FOR ADS AUTOMATION ──────────────────
   if (action.type && String(action.type).startsWith("ads_")) {
     const provider = action.provider ?? triggerData?.provider ?? "meta_ads";
     const adAccountId = action.ad_account_id ?? triggerData?.ad_account_id ?? "unknown";
@@ -258,7 +265,6 @@ async function executeAction(
       return `Ads optimization evaluated and allowed by AI Guard for workspace ${workspaceId}`;
     }
     case "discord_send_message": {
-      // ── REAL SERVER-SIDE DISCORD DISPATCH ──────────────────────────
       const { data: channel } = await supabase
         .from("channels")
         .select("credentials_encrypted, provider_metadata")
@@ -267,9 +273,7 @@ async function executeAction(
         .eq("connection_status", "connected")
         .maybeSingle();
 
-      if (!channel) {
-        throw new Error(`Discord integration not connected for workspace ${workspaceId}`);
-      }
+      if (!channel) throw new Error(`Discord integration not connected for workspace ${workspaceId}`);
 
       let decryptedCreds: Record<string, string> = {};
       if (channel.credentials_encrypted) {
@@ -281,7 +285,7 @@ async function executeAction(
             decryptedCreds = { bot_token: rawCreds };
           }
         } catch {
-          /* invalid format */
+          /* invalid */
         }
       }
 
@@ -292,46 +296,98 @@ async function executeAction(
       const messageContent = action.message_content ?? triggerData?.message_content ?? "Automated message from Pulse AI";
 
       if (botToken && targetChannelId) {
-        const url = `https://discord.com/api/v10/channels/${targetChannelId}/messages`;
-        const payload: Record<string, unknown> = { content: messageContent };
-        if (action.reply_to_message_id) {
-          payload.message_reference = { message_id: action.reply_to_message_id };
-        }
-
-        const res = await fetch(url, {
+        const res = await fetch(`https://discord.com/api/v10/channels/${targetChannelId}/messages`, {
           method: "POST",
-          headers: {
-            Authorization: `Bot ${botToken}`,
-            "Content-Type": "application/json",
-            "User-Agent": "PulseAI (https://pulse.ai, v1.0)",
-          },
-          body: JSON.stringify(payload),
+          headers: { Authorization: `Bot ${botToken}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ content: messageContent }),
         });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`Discord Bot API dispatch failed (${res.status}): ${errText}`);
-        }
-
-        const resData = await res.json();
-        return `Discord Bot message sent successfully (message_id: ${resData.id})`;
+        if (!res.ok) throw new Error(`Discord Bot API dispatch failed (${res.status}): ${await res.text()}`);
+        return `Discord Bot message sent successfully`;
       } else if (webhookUrl) {
         const res = await fetch(webhookUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: messageContent, username: metadata.username ?? "Pulse AI" }),
+          body: JSON.stringify({ content: messageContent }),
         });
-
-        if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(`Discord Webhook dispatch failed (${res.status}): ${errText}`);
-        }
-
+        if (!res.ok) throw new Error(`Discord Webhook dispatch failed (${res.status}): ${await res.text()}`);
         return `Discord Webhook message sent successfully`;
       }
-
       throw new Error(`No valid Discord connection credentials found for workspace ${workspaceId}`);
     }
+
+    case "calcom_create_booking": {
+      const { accessToken } = await getCalcomWorkspaceCredentials(supabase, workspaceId);
+      const start = action.start ?? triggerData?.start;
+      const eventTypeId = action.event_type_id ?? triggerData?.event_type_id;
+      const attendee = action.attendee ?? triggerData?.attendee;
+
+      if (!start || !eventTypeId || !attendee) {
+        throw new Error("Missing required start, event_type_id, or attendee for calcom_create_booking");
+      }
+
+      const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings");
+      const res = await fetch("https://api.cal.com/v2/bookings", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "cal-api-version": calApiVersion,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ start, eventTypeId, attendee, location: "inPerson" }),
+      });
+
+      if (!res.ok) throw new Error(`Cal.com create booking failed (${res.status}): ${await res.text()}`);
+      const resData = await res.json();
+      return `Cal.com booking created successfully (bookingUid: ${resData.data?.bookingUid ?? resData.bookingUid})`;
+    }
+
+    case "calcom_reschedule_booking": {
+      const { accessToken } = await getCalcomWorkspaceCredentials(supabase, workspaceId);
+      const bookingUid = action.booking_uid ?? triggerData?.booking_uid;
+      const start = action.start ?? triggerData?.start;
+
+      if (!bookingUid || !start) {
+        throw new Error("Missing required booking_uid or start for calcom_reschedule_booking");
+      }
+
+      const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings/{uid}/reschedule");
+      const res = await fetch(`https://api.cal.com/v2/bookings/${encodeURIComponent(bookingUid)}/reschedule`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "cal-api-version": calApiVersion,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ start, rescheduleReason: action.reschedule_reason }),
+      });
+
+      if (!res.ok) throw new Error(`Cal.com reschedule booking failed (${res.status}): ${await res.text()}`);
+      return `Cal.com booking ${bookingUid} rescheduled successfully`;
+    }
+
+    case "calcom_cancel_booking": {
+      const { accessToken } = await getCalcomWorkspaceCredentials(supabase, workspaceId);
+      const bookingUid = action.booking_uid ?? triggerData?.booking_uid;
+
+      if (!bookingUid) {
+        throw new Error("Missing required booking_uid for calcom_cancel_booking");
+      }
+
+      const calApiVersion = getCalcomEndpointVersion("POST /v2/bookings/{uid}/cancel");
+      const res = await fetch(`https://api.cal.com/v2/bookings/${encodeURIComponent(bookingUid)}/cancel`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "cal-api-version": calApiVersion,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ cancellationReason: action.cancellation_reason }),
+      });
+
+      if (!res.ok) throw new Error(`Cal.com cancel booking failed (${res.status}): ${await res.text()}`);
+      return `Cal.com booking ${bookingUid} cancelled successfully`;
+    }
+
     default:
       return `Executed action ${action.type} for workspace ${workspaceId}`;
   }
