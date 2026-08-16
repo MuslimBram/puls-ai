@@ -3,6 +3,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { requireCronAuth } from "../_shared/cron-auth.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,7 +31,7 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    getServiceKey()!,
     { auth: { persistSession: false } }
   );
 
