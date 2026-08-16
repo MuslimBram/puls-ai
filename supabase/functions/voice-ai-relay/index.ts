@@ -12,9 +12,10 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
 import { resolveWorkspaceFromCalledNumber, extractCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SERVICE_KEY  = getServiceKey()!;
 
 function scrubSensitive(text: string): string {
   return text
@@ -31,7 +32,7 @@ async function routeAI(
   sb: ReturnType<typeof createClient>,
 ): Promise<string> {
   const SURL = Deno.env.get("SUPABASE_URL")!;
-  const SKEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const SKEY = getServiceKey()!;
 
   try {
     const messages = [
