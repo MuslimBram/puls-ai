@@ -134,10 +134,80 @@ Kthe: {"score": 0.0-1.0, "intent": "cold|warm|hot", "notes": "1 fjali"}`;
       return json({ error: leadErr.message }, 500);
     }
 
+    // Auto-enroll in default or lead_created active sequence if target_workspace_id is provided
+    let enrollmentId: string | null = null;
+    const targetWorkspaceId = body.target_workspace_id?.trim();
+
+    if (targetWorkspaceId) {
+      try {
+        const { data: defaultSeq, error: seqFetchErr } = await supabase
+          .from("sales_sequences")
+          .select("id, workspace_id")
+          .eq("workspace_id", targetWorkspaceId)
+          .eq("status", "active")
+          .or("is_default.eq.true,trigger_type.eq.lead_created")
+          .order("is_default", { ascending: false })
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        if (seqFetchErr) {
+          console.error("Sequence lookup error:", { workspace_id: targetWorkspaceId, error: seqFetchErr.message });
+        } else if (defaultSeq) {
+          const { data: firstStep, error: stepFetchErr } = await supabase
+            .from("sequence_steps")
+            .select("delay_days, delay_hours")
+            .eq("sequence_id", defaultSeq.id)
+            .eq("step_order", 1)
+            .maybeSingle();
+
+          if (stepFetchErr) {
+            console.error("Sequence step lookup error:", { sequence_id: defaultSeq.id, error: stepFetchErr.message });
+          }
+
+          const delayMs = firstStep
+            ? ((firstStep.delay_days ?? 0) * 86400 + (firstStep.delay_hours ?? 0) * 3600) * 1000
+            : 0;
+
+          const nextStepAt = new Date(Date.now() + delayMs).toISOString();
+
+          const { data: enrollment, error: enrollErr } = await supabase
+            .from("sequence_enrollments")
+            .insert({
+              workspace_id: defaultSeq.workspace_id,
+              sequence_id: defaultSeq.id,
+              contact_email: body.email.toLowerCase().trim(),
+              contact_name: body.name.trim(),
+              contact_phone: body.phone?.trim() ?? null,
+              contact_data: { lead_id: lead?.id ?? "" },
+              current_step: 0,
+              status: "active",
+              next_step_at: nextStepAt,
+            })
+            .select("id")
+            .single();
+
+          if (enrollErr) {
+            console.error("Sequence enrollment insert error:", {
+              workspace_id: targetWorkspaceId,
+              sequence_id: defaultSeq.id,
+              error: enrollErr.message,
+            });
+          } else {
+            enrollmentId = enrollment?.id ?? null;
+          }
+        }
+      } catch (seqErr) {
+        const msg = seqErr instanceof Error ? seqErr.message : String(seqErr);
+        console.error("Sequence auto-enrollment exception:", { workspace_id: targetWorkspaceId, error: msg });
+      }
+    }
+
     return json({
       success: true,
       message: "Kërkesa u regjistrua. Do t'ju kontaktojmë brenda 24 orëve.",
       lead_id: lead?.id ?? null,
+      enrollment_id: enrollmentId,
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
