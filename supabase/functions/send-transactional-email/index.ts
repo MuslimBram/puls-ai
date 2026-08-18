@@ -2,28 +2,20 @@ import * as React from 'npm:react@18.3.1'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
-import { requireCronAuth } from "../_shared/cron-auth.ts";
-import { getServiceKey } from "../_shared/admin-client.ts";
+import { getServiceKey } from "../_shared/admin-client.ts"
+import { requireCronAuth } from "../_shared/cron-auth.ts"
 
 // Configuration baked in at scaffold time — do NOT change these manually.
-// To update, re-run the email domain setup flow.
 const SITE_NAME = "pulsi"
-// SENDER_DOMAIN is the verified sender subdomain FQDN (e.g., "notify.example.com").
-// It MUST match the subdomain delegated to Lovable's nameservers — never the root domain.
-// The email API looks up this exact domain; a mismatch causes "No email domain record found".
 const SENDER_DOMAIN = "notify.kohablerjeve.top"
-// FROM_DOMAIN is the domain shown in the From: header (e.g., "example.com").
-// When display_from_root is enabled, this can be the root domain for cleaner branding,
-// even though actual sending uses the subdomain above.
 const FROM_DOMAIN = "notify.kohablerjeve.top"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type',
+    'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
-// Generate a cryptographically random 32-byte hex token
 function generateToken(): string {
   const bytes = new Uint8Array(32)
   crypto.getRandomValues(bytes)
@@ -32,14 +24,69 @@ function generateToken(): string {
     .join('')
 }
 
-// Auth note: this function uses verify_jwt = true in config.toml, so Supabase's
-// gateway validates the caller's JWT (anon or service_role) before the request
-// reaches this code. No in-function auth check is needed.
+async function sendViaResendWithRetry(
+  apiKey: string,
+  payload: { from: string; to: string[]; subject: string; html: string; text: string }
+): Promise<{ ok: boolean; status: number; text: string }> {
+  const maxAttempts = 3
+  let delayMs = 500
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      if (res.ok) {
+        return { ok: true, status: res.status, text: await res.text() }
+      }
+
+      const resText = await res.text()
+      const isRetryable = res.status === 429 || res.status >= 500
+
+      if (!isRetryable || attempt === maxAttempts) {
+        return { ok: false, status: res.status, text: resText }
+      }
+
+      const retryAfterHeader = res.headers.get('retry-after')
+      if (retryAfterHeader) {
+        const parsed = parseInt(retryAfterHeader, 10)
+        if (!isNaN(parsed) && parsed > 0) {
+          delayMs = Math.min(parsed * 1000, 2000)
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, Math.min(delayMs, 2000)))
+      delayMs = Math.min(delayMs * 2, 2000)
+    } catch (err) {
+      if (attempt === maxAttempts) {
+        return { ok: false, status: 500, text: err instanceof Error ? err.message : 'Fetch error' }
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.min(delayMs, 2000)))
+      delayMs = Math.min(delayMs * 2, 2000)
+    }
+  }
+
+  return { ok: false, status: 500, text: 'Max retry attempts exceeded' }
+}
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
+  }
+
+  // Security Hardening: Enforce cron authentication
+  const cronAuthErr = requireCronAuth(req)
+  if (cronAuthErr) {
+    return new Response(cronAuthErr.body, {
+      status: cronAuthErr.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
@@ -56,12 +103,16 @@ Deno.serve(async (req) => {
     )
   }
 
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
   // Parse request body
   let templateName: string
   let recipientEmail: string
   let idempotencyKey: string
   let messageId: string
   let templateData: Record<string, any> = {}
+  let isWorkerBatch = false
+
   try {
     const body = await req.json()
     templateName = body.templateName || body.template_name
@@ -71,13 +122,197 @@ Deno.serve(async (req) => {
     if (body.templateData && typeof body.templateData === 'object') {
       templateData = body.templateData
     }
+    if (body.process_queue || body.worker) {
+      isWorkerBatch = true
+    }
   } catch {
-    return new Response(
-      JSON.stringify({ error: 'Invalid JSON in request body' }),
-      {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    // If empty body, assume worker loop trigger
+    isWorkerBatch = true
+    templateName = ''
+    recipientEmail = ''
+    idempotencyKey = crypto.randomUUID()
+    messageId = idempotencyKey
+  }
+
+  // N3: Cron 16 Worker Processing Mode for broadcast_send_queue
+  if (isWorkerBatch || (!templateName && !recipientEmail)) {
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendApiKey) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'RESEND_API_KEY missing' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    const now = new Date()
+    const nowIso = now.toISOString()
+
+    // N3 Retry & Scheduling: Fetch pending items where scheduled_send_at <= now AND (next_retry_at IS NULL OR next_retry_at <= now)
+    const { data: queuedItems, error: queueError } = await supabase
+      .from('broadcast_send_queue')
+      .select('*')
+      .eq('status', 'pending')
+      .or(`scheduled_send_at.is.null,scheduled_send_at.lte.${nowIso}`)
+      .or(`next_retry_at.is.null,next_retry_at.lte.${nowIso}`)
+      .limit(20)
+
+    if (queueError && queueError.code !== '42P01') {
+      console.error('Worker error fetching broadcast_send_queue', queueError)
+    }
+
+    let processedCount = 0
+    if (queuedItems && queuedItems.length > 0) {
+      for (const item of queuedItems) {
+        // N3: 1. Channel check - DO NOT send SMS/WhatsApp as email
+        const channel = (item.channel_type || 'email').toLowerCase().trim()
+        if (channel !== 'email') {
+          console.log(`Skipping non-email channel item (${channel})`, item.id)
+          continue
+        }
+
+        // N3: 2. Scheduled send check - DO NOT send early if scheduled in future
+        if (item.scheduled_send_at && new Date(item.scheduled_send_at) > now) {
+          console.log(`Skipping future scheduled item (scheduled=${item.scheduled_send_at})`, item.id)
+          continue
+        }
+
+        // N3: 3. Retry backoff check - DO NOT process early if next_retry_at in future
+        if (item.next_retry_at && new Date(item.next_retry_at) > now) {
+          console.log(`Skipping item waiting for retry backoff (next_retry_at=${item.next_retry_at})`, item.id)
+          continue
+        }
+
+        // N3: 4. Retry limits check - DO NOT process if attempt_count >= max_attempts
+        const attempts = item.attempt_count || 0
+        const maxAttempts = item.max_attempts || 3
+        if (attempts >= maxAttempts) {
+          console.warn(`Item reached max_attempts (${attempts}/${maxAttempts})`, item.id)
+          await supabase.from('broadcast_send_queue').update({ status: 'failed', updated_at: nowIso }).eq('id', item.id)
+          continue
+        }
+
+        // N3: 5. Atomic conditional claim - pending -> processing ONLY if still pending
+        const { data: claimed, error: claimErr } = await supabase
+          .from('broadcast_send_queue')
+          .update({
+            status: 'processing',
+            attempt_count: attempts + 1,
+            updated_at: nowIso,
+          })
+          .eq('id', item.id)
+          .eq('status', 'pending')
+          .select('id')
+
+        if (claimErr || !claimed || claimed.length === 0) {
+          // Double-claim prevented by conditional update
+          continue
+        }
+
+        // N3 Content: Query broadcasts table ONLY using real live columns: subject, message_content
+        let subject = item.subject || 'Broadcast Notification'
+        let contentHtml = item.personalized_content || item.body_html || item.html || `<p>${item.body_text || 'Notification'}</p>`
+        let contentText = item.body_text || 'Notification'
+
+        if (item.broadcast_id) {
+          const { data: bData } = await supabase
+            .from('broadcasts')
+            .select('subject, message_content')
+            .eq('id', item.broadcast_id)
+            .maybeSingle()
+
+          if (bData) {
+            subject = bData.subject || subject
+            if (!item.personalized_content && bData.message_content) {
+              contentHtml = bData.message_content
+              contentText = bData.message_content
+            }
+          }
+        }
+
+        const normEmail = (item.contact_identifier || item.recipient_email || item.email || '').toLowerCase().trim()
+        if (!normEmail) {
+          await supabase.from('broadcast_send_queue').update({ status: 'failed', updated_at: nowIso }).eq('id', item.id)
+          continue
+        }
+
+        // Fail-closed suppression check
+        const { data: supp, error: sErr } = await supabase
+          .from('suppressed_emails')
+          .select('id')
+          .eq('email', normEmail)
+          .maybeSingle()
+
+        if (sErr || supp) {
+          await supabase
+            .from('broadcast_send_queue')
+            .update({ status: sErr ? 'failed' : 'suppressed', updated_at: nowIso })
+            .eq('id', item.id)
+
+          const { error: logErr } = await supabase.from('email_send_log').insert({
+            message_id: item.id || crypto.randomUUID(),
+            template_name: 'broadcast',
+            recipient_email: normEmail,
+            status: sErr ? 'failed' : 'suppressed',
+            error_message: sErr ? 'Suppression lookup error' : 'Recipient suppressed',
+          })
+          if (logErr) {
+            console.error('Failed to log suppression status to email_send_log', logErr)
+          }
+          continue
+        }
+
+        const resResult = await sendViaResendWithRetry(resendApiKey, {
+          from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+          to: [normEmail],
+          subject,
+          html: contentHtml,
+          text: contentText,
+        })
+
+        // N3 Retry Logic: On transient failure, set status = 'pending' and next_retry_at = future backoff if attempts + 1 < maxAttempts
+        const newAttempts = attempts + 1
+        let finalStatus = 'failed'
+        let nextRetryAt: string | null = null
+
+        if (resResult.ok) {
+          finalStatus = 'sent'
+        } else if (newAttempts < maxAttempts) {
+          finalStatus = 'pending'
+          // Exponential backoff: 1 minute * newAttempts
+          const backoffMs = Math.pow(2, newAttempts - 1) * 60 * 1000
+          nextRetryAt = new Date(Date.now() + backoffMs).toISOString()
+        }
+
+        await supabase
+          .from('broadcast_send_queue')
+          .update({
+            status: finalStatus,
+            next_retry_at: nextRetryAt,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', item.id)
+
+        // H1: Write-site for worker send log and check errors
+        const { error: sendLogErr } = await supabase.from('email_send_log').insert({
+          message_id: item.id || crypto.randomUUID(),
+          template_name: 'broadcast',
+          recipient_email: normEmail,
+          status: resResult.ok ? 'sent' : finalStatus,
+          sent_at: resResult.ok ? new Date().toISOString() : null,
+          error_message: resResult.ok ? null : resResult.text,
+        })
+
+        if (sendLogErr) {
+          console.error('Failed to write worker log to email_send_log', sendLogErr)
+        }
+
+        processedCount++
       }
+    }
+
+    return new Response(
+      JSON.stringify({ success: true, processed: processedCount, mode: 'worker' }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   }
 
@@ -91,31 +326,13 @@ Deno.serve(async (req) => {
     )
   }
 
-  // 1. Look up template from registry (early — needed to resolve recipient)
+  // Look up template from registry
   const template = TEMPLATES[templateName]
-
   if (!template) {
     console.error('Template not found in registry', { templateName })
     return new Response(
       JSON.stringify({
-        error: `Template '${templateName}' not found. Available: ${Object.keys(TEMPLATES).join(', ')}`,
-      }),
-      {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
-  }
-
-  // Resolve effective recipient: template-level `to` takes precedence over
-  // the caller-provided recipientEmail. This allows notification templates
-  // to always send to a fixed address (e.g., site owner from env var).
-  const effectiveRecipient = template.to || recipientEmail
-
-  if (!effectiveRecipient) {
-    return new Response(
-      JSON.stringify({
-        error: 'recipientEmail is required (unless the template defines a fixed recipient)',
+        error: `Unknown template '${templateName}'. Valid templates: ${Object.keys(TEMPLATES).join(', ')}`,
       }),
       {
         status: 400,
@@ -124,23 +341,75 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Create Supabase client with service role (bypasses RLS)
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  // Idempotency Check: Prevent duplicate sends
+  if (idempotencyKey) {
+    const { data: existingLog } = await supabase
+      .from('email_send_log')
+      .select('message_id, status')
+      .eq('message_id', idempotencyKey)
+      .maybeSingle()
 
-  // 2. Check suppression list (fail-closed: if we can't verify, don't send)
-  const { data: suppressed, error: suppressionError } = await supabase
+    if (existingLog && (existingLog.status === 'sent' || existingLog.status === 'pending')) {
+      console.log('Duplicate email dispatch blocked by idempotency check', { idempotencyKey })
+      return new Response(
+        JSON.stringify({ success: true, sent: false, duplicate: true, messageId: existingLog.message_id }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+  }
+
+  // Resolve recipient email
+  let effectiveRecipient = recipientEmail
+
+  if (!effectiveRecipient && templateData.user_id) {
+    const { data: userData, error: userError } =
+      await supabase.auth.admin.getUserById(templateData.user_id)
+    if (userError || !userData?.user?.email) {
+      console.error('Failed to resolve recipient from user_id', {
+        user_id: templateData.user_id,
+        error: userError,
+      })
+      return new Response(
+        JSON.stringify({
+          error: `Could not resolve email for user_id '${templateData.user_id}'`,
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+    effectiveRecipient = userData.user.email
+  }
+
+  if (!effectiveRecipient) {
+    return new Response(
+      JSON.stringify({
+        error:
+          'recipientEmail is required (or user_id in templateData to resolve)',
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
+  }
+
+  // Fail-Closed Suppression Check: verify recipient hasn't unsubscribed or been suppressed
+  const normalizedEmail = effectiveRecipient.toLowerCase().trim()
+  const { data: suppressed, error: suppErr } = await supabase
     .from('suppressed_emails')
-    .select('id')
-    .eq('email', effectiveRecipient.toLowerCase())
+    .select('id, reason')
+    .eq('email', normalizedEmail)
     .maybeSingle()
 
-  if (suppressionError) {
-    console.error('Suppression check failed — refusing to send', {
-      error: suppressionError,
-      effectiveRecipient,
-    })
+  if (suppErr) {
+    console.error('Database failure during suppression lookup', suppErr)
     return new Response(
-      JSON.stringify({ error: 'Failed to verify suppression status' }),
+      JSON.stringify({ success: false, sent: false, error: 'Database failure during suppression lookup' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -149,17 +418,24 @@ Deno.serve(async (req) => {
   }
 
   if (suppressed) {
-    // Log the suppressed attempt
-    await supabase.from('email_send_log').insert({
+    console.log('Email suppressed (unsubscribed / bounced / complained recipient)', {
+      email: normalizedEmail,
+      templateName,
+      reason: suppressed.reason,
+    })
+    const { error: suppLogErr } = await supabase.from('email_send_log').insert({
       message_id: messageId,
       template_name: templateName,
       recipient_email: effectiveRecipient,
       status: 'suppressed',
+      error_message: `Recipient suppressed: ${suppressed.reason || 'unsubscribed'}`,
     })
+    if (suppLogErr) {
+      console.error('Failed to record suppression in email_send_log', suppLogErr)
+    }
 
-    console.log('Email suppressed', { effectiveRecipient, templateName })
     return new Response(
-      JSON.stringify({ success: false, reason: 'email_suppressed' }),
+      JSON.stringify({ success: false, sent: false, reason: 'email_suppressed' }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -167,31 +443,18 @@ Deno.serve(async (req) => {
     )
   }
 
-  // 3. Get or create unsubscribe token (one token per email address)
-  const normalizedEmail = effectiveRecipient.toLowerCase()
+  // Unsubscribe Token Race Condition - Upsert + Re-read canonical token
   let unsubscribeToken: string
-
-  // Check for existing token for this email
-  const { data: existingToken, error: tokenLookupError } = await supabase
+  const { data: existingToken, error: tokenLookupErr } = await supabase
     .from('email_unsubscribe_tokens')
     .select('token, used_at')
     .eq('email', normalizedEmail)
     .maybeSingle()
 
-  if (tokenLookupError) {
-    console.error('Token lookup failed', {
-      error: tokenLookupError,
-      email: normalizedEmail,
-    })
-    await supabase.from('email_send_log').insert({
-      message_id: messageId,
-      template_name: templateName,
-      recipient_email: effectiveRecipient,
-      status: 'failed',
-      error_message: 'Failed to look up unsubscribe token',
-    })
+  if (tokenLookupErr) {
+    console.error('Database failure during unsubscribe token lookup', tokenLookupErr)
     return new Response(
-      JSON.stringify({ error: 'Failed to prepare email' }),
+      JSON.stringify({ success: false, sent: false, error: 'Database failure during unsubscribe token lookup' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -200,10 +463,8 @@ Deno.serve(async (req) => {
   }
 
   if (existingToken && !existingToken.used_at) {
-    // Reuse existing unused token
     unsubscribeToken = existingToken.token
   } else if (!existingToken) {
-    // Create new token — upsert handles concurrent inserts gracefully
     unsubscribeToken = generateToken()
     const { error: tokenError } = await supabase
       .from('email_unsubscribe_tokens')
@@ -213,18 +474,18 @@ Deno.serve(async (req) => {
       )
 
     if (tokenError) {
-      console.error('Failed to create unsubscribe token', {
-        error: tokenError,
-      })
-      await supabase.from('email_send_log').insert({
+      console.error('Failed to create unsubscribe token', { error: tokenError })
+      const { error: logErr } = await supabase.from('email_send_log').insert({
         message_id: messageId,
         template_name: templateName,
         recipient_email: effectiveRecipient,
         status: 'failed',
         error_message: 'Failed to create unsubscribe token',
       })
+      if (logErr) console.error('Failed to record failure in email_send_log', logErr)
+
       return new Response(
-        JSON.stringify({ error: 'Failed to prepare email' }),
+        JSON.stringify({ success: false, sent: false, error: 'Failed to prepare email' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -232,8 +493,6 @@ Deno.serve(async (req) => {
       )
     }
 
-    // If another request raced us, our upsert was silently ignored.
-    // Re-read to get the actual stored token.
     const { data: storedToken, error: reReadError } = await supabase
       .from('email_unsubscribe_tokens')
       .select('token')
@@ -241,19 +500,18 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (reReadError || !storedToken) {
-      console.error('Failed to read back unsubscribe token after upsert', {
-        error: reReadError,
-        email: normalizedEmail,
-      })
-      await supabase.from('email_send_log').insert({
+      console.error('Failed to read back unsubscribe token after upsert', { error: reReadError, email: normalizedEmail })
+      const { error: logErr } = await supabase.from('email_send_log').insert({
         message_id: messageId,
         template_name: templateName,
         recipient_email: effectiveRecipient,
         status: 'failed',
         error_message: 'Failed to confirm unsubscribe token storage',
       })
+      if (logErr) console.error('Failed to record failure in email_send_log', logErr)
+
       return new Response(
-        JSON.stringify({ error: 'Failed to prepare email' }),
+        JSON.stringify({ success: false, sent: false, error: 'Failed to prepare email' }),
         {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -262,21 +520,8 @@ Deno.serve(async (req) => {
     }
     unsubscribeToken = storedToken.token
   } else {
-    // Token exists but is already used — email should have been caught by suppression check above.
-    // This is a safety fallback; log and skip sending.
-    console.warn('Unsubscribe token already used but email not suppressed', {
-      email: normalizedEmail,
-    })
-    await supabase.from('email_send_log').insert({
-      message_id: messageId,
-      template_name: templateName,
-      recipient_email: effectiveRecipient,
-      status: 'suppressed',
-      error_message:
-        'Unsubscribe token used but email missing from suppressed list',
-    })
     return new Response(
-      JSON.stringify({ success: false, reason: 'email_suppressed' }),
+      JSON.stringify({ success: false, sent: false, reason: 'email_suppressed' }),
       {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -284,7 +529,7 @@ Deno.serve(async (req) => {
     )
   }
 
-  // 4. Render React Email template to HTML and plain text
+  // Render React Email template to HTML and plain text
   const html = await renderAsync(
     React.createElement(template.component, templateData)
   )
@@ -293,66 +538,79 @@ Deno.serve(async (req) => {
     { plainText: true }
   )
 
-  // Resolve subject — supports static string or dynamic function
   const resolvedSubject =
     typeof template.subject === 'function'
       ? template.subject(templateData)
       : template.subject
 
-  // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
-  // The dispatcher (process-email-queue) handles sending, retries, and rate-limit backoff.
-
-  // Log pending BEFORE enqueue so we have a record even if enqueue crashes
-  await supabase.from('email_send_log').insert({
+  // H1: Write-site 1 - Insert pending log and check error
+  const { error: pendingLogErr } = await supabase.from('email_send_log').insert({
     message_id: messageId,
     template_name: templateName,
     recipient_email: effectiveRecipient,
     status: 'pending',
   })
-
-  const { error: enqueueError } = await supabase.rpc('enqueue_email', {
-    queue_name: 'transactional_emails',
-    payload: {
-      message_id: messageId,
-      to: effectiveRecipient,
-      from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
-      sender_domain: SENDER_DOMAIN,
-      subject: resolvedSubject,
-      html,
-      text: plainText,
-      purpose: 'transactional',
-      label: templateName,
-      idempotency_key: idempotencyKey,
-      unsubscribe_token: unsubscribeToken,
-      queued_at: new Date().toISOString(),
-    },
-  })
-
-  if (enqueueError) {
-    console.error('Failed to enqueue email', {
-      error: enqueueError,
-      templateName,
-      effectiveRecipient,
-    })
-
-    await supabase.from('email_send_log').insert({
-      message_id: messageId,
-      template_name: templateName,
-      recipient_email: effectiveRecipient,
-      status: 'failed',
-      error_message: 'Failed to enqueue email',
-    })
-
-    return new Response(JSON.stringify({ error: 'Failed to enqueue email' }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
+  if (pendingLogErr) {
+    console.error('Failed to insert pending log into email_send_log', pendingLogErr)
   }
 
-  console.log('Transactional email enqueued', { templateName, effectiveRecipient })
+  // Fail-Closed Check: RESEND_API_KEY presence
+  const resendApiKey = Deno.env.get('RESEND_API_KEY')
+  if (!resendApiKey) {
+    console.error('RESEND_API_KEY environment variable missing')
+    const { error: failLogErr } = await supabase.from('email_send_log').update({
+      status: 'failed',
+      error_message: 'RESEND_API_KEY environment variable missing',
+    }).eq('message_id', messageId)
+
+    if (failLogErr) {
+      console.error('Failed to record failure in email_send_log', failLogErr)
+    }
+
+    return new Response(
+      JSON.stringify({ success: false, sent: false, error: 'Server configuration error: RESEND_API_KEY missing' }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
+  }
+
+  // Send via Resend API with 429 & 5xx exponential backoff retries
+  const resendResult = await sendViaResendWithRetry(resendApiKey, {
+    from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
+    to: [effectiveRecipient],
+    subject: resolvedSubject,
+    html,
+    text: plainText,
+  })
+
+  // H1: Write-site 2 & 3 - Update status and check error
+  const finalStatus = resendResult.ok ? 'sent' : 'failed'
+  const { error: updateStatusErr } = await supabase.from('email_send_log').update({
+    status: finalStatus,
+    sent_at: resendResult.ok ? new Date().toISOString() : null,
+    error_message: resendResult.ok ? null : resendResult.text,
+  }).eq('message_id', messageId)
+
+  if (updateStatusErr) {
+    console.error(`Failed to record ${finalStatus} status in email_send_log`, updateStatusErr)
+  }
+
+  if (!resendResult.ok) {
+    return new Response(
+      JSON.stringify({ success: false, sent: false, error: 'Failed to send transactional email' }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
+  }
+
+  console.log('Transactional email processed', { templateName, effectiveRecipient })
 
   return new Response(
-    JSON.stringify({ success: true, queued: true }),
+    JSON.stringify({ success: true, sent: true, messageId }),
     {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
