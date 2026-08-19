@@ -73,18 +73,26 @@ async function executeStep(
   const channel = step.channel as string;
 
   if (channel === "email") {
+    const cronSecret = Deno.env.get("CRON_SECRET");
+    if (!cronSecret) {
+      return { success: false, error: "CRON_SECRET not configured" };
+    }
+
     const res = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`,
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-transactional-email`,
       {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${getServiceKey()}`,
+          Authorization: `Bearer ${cronSecret}`,
         },
         body: JSON.stringify({
-          to: enrollment.contact_email,
+          templateName: "sequence-step",
+          recipientEmail: enrollment.contact_email,
           subject,
           html: body.replace(/\n/g, "<br>"),
+          text: body,
+          idempotencyKey: `sequence-step:${enrollment.id}:${step.id}`,
         }),
       }
     );
@@ -195,7 +203,7 @@ serve(async (req: Request): Promise<Response> => {
       );
 
       // Log ekzekutimin
-      await supabase.from("sequence_step_executions").insert({
+      const { error: executionLogErr } = await supabase.from("sequence_step_executions").insert({
         enrollment_id: enrollment.id,
         step_id: step.id,
         step_order: nextStepOrder,
@@ -204,7 +212,10 @@ serve(async (req: Request): Promise<Response> => {
         channel_used: step.channel,
         error_message: stepError ?? null,
         executed_at: now,
-      }).catch(() => {});
+      });
+      if (executionLogErr) {
+        console.error(`Failed to log sequence step execution for ${enrollment.id}: ${executionLogErr.message}`);
+      }
 
       if (success) {
         // Llogarit next_step_at (kur të ekzekutohet hapi i ardhshëm)

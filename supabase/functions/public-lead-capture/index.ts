@@ -170,31 +170,50 @@ Kthe: {"score": 0.0-1.0, "intent": "cold|warm|hot", "notes": "1 fjali"}`;
             : 0;
 
           const nextStepAt = new Date(Date.now() + delayMs).toISOString();
-
-          const { data: enrollment, error: enrollErr } = await supabase
+          const contactEmail = body.email.toLowerCase().trim();
+          const { data: existingEnrollment, error: existingEnrollmentErr } = await supabase
             .from("sequence_enrollments")
-            .insert({
-              workspace_id: defaultSeq.workspace_id,
-              sequence_id: defaultSeq.id,
-              contact_email: body.email.toLowerCase().trim(),
-              contact_name: body.name.trim(),
-              contact_phone: body.phone?.trim() ?? null,
-              contact_data: { lead_id: lead?.id ?? "" },
-              current_step: 0,
-              status: "active",
-              next_step_at: nextStepAt,
-            })
             .select("id")
-            .single();
+            .eq("sequence_id", defaultSeq.id)
+            .eq("contact_email", contactEmail)
+            .eq("status", "active")
+            .maybeSingle();
 
-          if (enrollErr) {
-            console.error("Sequence enrollment insert error:", {
+          if (existingEnrollmentErr) {
+            console.error("Sequence enrollment lookup error:", {
               workspace_id: targetWorkspaceId,
               sequence_id: defaultSeq.id,
-              error: enrollErr.message,
+              error: existingEnrollmentErr.message,
             });
+          } else if (existingEnrollment) {
+            enrollmentId = existingEnrollment.id;
           } else {
-            enrollmentId = enrollment?.id ?? null;
+            const { data: enrollment, error: enrollErr } = await supabase
+              .from("sequence_enrollments")
+              .insert({
+                workspace_id: defaultSeq.workspace_id,
+                sequence_id: defaultSeq.id,
+                contact_email: contactEmail,
+                contact_name: body.name.trim(),
+                contact_phone: body.phone?.trim() ?? null,
+                // Enterprise leads are not public.leads records, so source_lead_id remains null.
+                contact_data: { lead_id: lead?.id ?? "" },
+                current_step: 0,
+                status: "active",
+                next_step_at: nextStepAt,
+              })
+              .select("id")
+              .single();
+
+            if (enrollErr) {
+              console.error("Sequence enrollment insert error:", {
+                workspace_id: targetWorkspaceId,
+                sequence_id: defaultSeq.id,
+                error: enrollErr.message,
+              });
+            } else {
+              enrollmentId = enrollment?.id ?? null;
+            }
           }
         }
       } catch (seqErr) {
