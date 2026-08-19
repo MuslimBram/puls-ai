@@ -16,6 +16,8 @@ const corsHeaders = {
     'authorization, x-client-info, apikey, content-type, x-cron-secret',
 }
 
+const SEQUENCE_TEMPLATE_NAME = 'sequence-step'
+
 function generateToken(): string {
   const bytes = new Uint8Array(32)
   crypto.getRandomValues(bytes)
@@ -75,6 +77,35 @@ async function sendViaResendWithRetry(
   return { ok: false, status: 500, text: 'Max retry attempts exceeded' }
 }
 
+async function sendViaSink(
+  sinkUrl: string,
+  payload: { from: string; to: string[]; subject: string; html: string; text: string }
+): Promise<{ ok: boolean; status: number; text: string }> {
+  try {
+    const res = await fetch(sinkUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+
+    return { ok: res.ok, status: res.status, text: await res.text() }
+  } catch (err) {
+    return { ok: false, status: 500, text: err instanceof Error ? err.message : 'Sink fetch error' }
+  }
+}
+
+function getSinkUrl(): string | null {
+  const sinkUrl = Deno.env.get('EMAIL_SINK_URL')
+  if (!sinkUrl) return null
+
+  try {
+    const url = new URL(sinkUrl)
+    return url.protocol === 'http:' ? url.toString() : null
+  } catch {
+    return null
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -111,16 +142,33 @@ Deno.serve(async (req) => {
   let idempotencyKey: string
   let messageId: string
   let templateData: Record<string, any> = {}
+  let sequenceContent: { subject: string; html: string; text: string } | null = null
   let isWorkerBatch = false
 
   try {
     const body = await req.json()
     templateName = body.templateName || body.template_name
     recipientEmail = body.recipientEmail || body.recipient_email
-    messageId = crypto.randomUUID()
-    idempotencyKey = body.idempotencyKey || body.idempotency_key || messageId
+    idempotencyKey = body.idempotencyKey || body.idempotency_key || crypto.randomUUID()
+    messageId = idempotencyKey
     if (body.templateData && typeof body.templateData === 'object') {
       templateData = body.templateData
+    }
+    if (templateName === SEQUENCE_TEMPLATE_NAME) {
+      if (
+        typeof body.subject !== 'string' ||
+        typeof body.html !== 'string' ||
+        typeof body.text !== 'string' ||
+        !body.subject.trim() ||
+        !body.html.trim() ||
+        !body.text.trim()
+      ) {
+        return new Response(
+          JSON.stringify({ error: 'sequence-step requires non-empty subject, html, and text' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+      sequenceContent = { subject: body.subject, html: body.html, text: body.text }
     }
     if (body.process_queue || body.worker) {
       isWorkerBatch = true
@@ -328,7 +376,7 @@ Deno.serve(async (req) => {
 
   // Look up template from registry
   const template = TEMPLATES[templateName]
-  if (!template) {
+  if (!template && templateName !== SEQUENCE_TEMPLATE_NAME) {
     console.error('Template not found in registry', { templateName })
     return new Response(
       JSON.stringify({
@@ -530,18 +578,17 @@ Deno.serve(async (req) => {
   }
 
   // Render React Email template to HTML and plain text
-  const html = await renderAsync(
-    React.createElement(template.component, templateData)
-  )
-  const plainText = await renderAsync(
-    React.createElement(template.component, templateData),
-    { plainText: true }
-  )
-
-  const resolvedSubject =
-    typeof template.subject === 'function'
-      ? template.subject(templateData)
-      : template.subject
+  const html = sequenceContent
+    ? sequenceContent.html
+    : await renderAsync(React.createElement(template!.component, templateData))
+  const plainText = sequenceContent
+    ? sequenceContent.text
+    : await renderAsync(React.createElement(template!.component, templateData), { plainText: true })
+  const resolvedSubject = sequenceContent
+    ? sequenceContent.subject
+    : typeof template!.subject === 'function'
+      ? template!.subject(templateData)
+      : template!.subject
 
   // H1: Write-site 1 - Insert pending log and check error
   const { error: pendingLogErr } = await supabase.from('email_send_log').insert({
@@ -554,13 +601,14 @@ Deno.serve(async (req) => {
     console.error('Failed to insert pending log into email_send_log', pendingLogErr)
   }
 
-  // Fail-Closed Check: RESEND_API_KEY presence
-  const resendApiKey = Deno.env.get('RESEND_API_KEY')
-  if (!resendApiKey) {
-    console.error('RESEND_API_KEY environment variable missing')
+  const deliveryMode = Deno.env.get('EMAIL_DELIVERY_MODE') || 'resend'
+  const sinkUrl = deliveryMode === 'sink' ? getSinkUrl() : null
+
+  if (deliveryMode !== 'resend' && deliveryMode !== 'sink') {
+    console.error('Unsupported EMAIL_DELIVERY_MODE', { deliveryMode })
     const { error: failLogErr } = await supabase.from('email_send_log').update({
       status: 'failed',
-      error_message: 'RESEND_API_KEY environment variable missing',
+      error_message: 'Unsupported EMAIL_DELIVERY_MODE',
     }).eq('message_id', messageId)
 
     if (failLogErr) {
@@ -568,7 +616,7 @@ Deno.serve(async (req) => {
     }
 
     return new Response(
-      JSON.stringify({ success: false, sent: false, error: 'Server configuration error: RESEND_API_KEY missing' }),
+      JSON.stringify({ success: false, sent: false, error: 'Server configuration error: unsupported delivery mode' }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -576,28 +624,79 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Send via Resend API with 429 & 5xx exponential backoff retries
-  const resendResult = await sendViaResendWithRetry(resendApiKey, {
+  if (deliveryMode === 'sink' && !sinkUrl) {
+    console.error('EMAIL_SINK_URL must be a valid HTTP URL when sink delivery mode is enabled')
+    const { error: failLogErr } = await supabase.from('email_send_log').update({
+      status: 'failed',
+      error_message: 'EMAIL_SINK_URL missing or invalid',
+      metadata: { delivery_mode: 'sink' },
+    }).eq('message_id', messageId)
+
+    if (failLogErr) {
+      console.error('Failed to record failure in email_send_log', failLogErr)
+    }
+
+    return new Response(
+      JSON.stringify({ success: false, sent: false, error: 'Server configuration error: EMAIL_SINK_URL missing or invalid' }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      }
+    )
+  }
+
+  const payload = {
     from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
     to: [effectiveRecipient],
     subject: resolvedSubject,
     html,
     text: plainText,
-  })
+  }
+  let deliveryResult: { ok: boolean; status: number; text: string }
+
+  if (deliveryMode === 'sink') {
+    deliveryResult = await sendViaSink(sinkUrl!, payload)
+  } else {
+    const resendApiKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendApiKey) {
+      console.error('RESEND_API_KEY environment variable missing')
+      const { error: failLogErr } = await supabase.from('email_send_log').update({
+        status: 'failed',
+        error_message: 'RESEND_API_KEY environment variable missing',
+      }).eq('message_id', messageId)
+
+      if (failLogErr) {
+        console.error('Failed to record failure in email_send_log', failLogErr)
+      }
+
+      return new Response(
+        JSON.stringify({ success: false, sent: false, error: 'Server configuration error: RESEND_API_KEY missing' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    deliveryResult = await sendViaResendWithRetry(resendApiKey, payload)
+  }
 
   // H1: Write-site 2 & 3 - Update status and check error
-  const finalStatus = resendResult.ok ? 'sent' : 'failed'
+  const finalStatus = deliveryResult.ok ? 'sent' : 'failed'
   const { error: updateStatusErr } = await supabase.from('email_send_log').update({
     status: finalStatus,
-    sent_at: resendResult.ok ? new Date().toISOString() : null,
-    error_message: resendResult.ok ? null : resendResult.text,
+    sent_at: deliveryResult.ok ? new Date().toISOString() : null,
+    error_message: deliveryResult.ok ? null : deliveryResult.text,
+    metadata: deliveryMode === 'sink'
+      ? { delivery_mode: 'sink', sink_status: deliveryResult.status, sink_response: deliveryResult.text }
+      : undefined,
   }).eq('message_id', messageId)
 
   if (updateStatusErr) {
     console.error(`Failed to record ${finalStatus} status in email_send_log`, updateStatusErr)
   }
 
-  if (!resendResult.ok) {
+  if (!deliveryResult.ok) {
     return new Response(
       JSON.stringify({ success: false, sent: false, error: 'Failed to send transactional email' }),
       {
