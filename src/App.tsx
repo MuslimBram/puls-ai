@@ -121,19 +121,6 @@ const SystemStatus = lazy(() => import("./pages/SystemStatus"));
 const ContentCalendar = lazy(() => import("./pages/ContentCalendar"));
 const LidhjetOverview = lazy(() => import("./pages/lidhjet/LidhjetOverview"));
 
-// Public website — Wave 1
-const PublicDevelopers = lazy(() => import("./pages/public/PublicDevelopers"));
-const PublicAIIntelligence = lazy(() => import("./pages/public/PublicAIIntelligence"));
-const PublicUnifiedInbox = lazy(() => import("./pages/public/PublicUnifiedInbox"));
-const PublicCRMSales = lazy(() => import("./pages/public/PublicCRMSales"));
-const PublicMarketing = lazy(() => import("./pages/public/PublicMarketing"));
-const PublicAutomation = lazy(() => import("./pages/public/PublicAutomation"));
-const PublicAnalytics = lazy(() => import("./pages/public/PublicAnalytics"));
-const PublicAbout = lazy(() => import("./pages/public/PublicAbout"));
-const PublicContact = lazy(() => import("./pages/public/PublicContact"));
-const PublicPartners = lazy(() => import("./pages/public/PublicPartners"));
-const PublicGrowthSuite = lazy(() => import("./pages/public/PublicGrowthSuite"));
-const PublicLidhjet = lazy(() => import("./pages/public/PublicLidhjet"));
 const LidhjetOnboarding = lazy(() => import("./pages/lidhjet/LidhjetOnboarding"));
 const LidhjetFeed = lazy(() => import("./pages/lidhjet/LidhjetFeed"));
 const LidhjetInterests = lazy(() => import("./pages/lidhjet/LidhjetInterests"));
@@ -222,21 +209,6 @@ const App = () => (
                 <Route path="/dpa" element={<Suspense fallback={<LazyFallback />}><DPA /></Suspense>} />
                 <Route path="/terms-and-payments" element={<Suspense fallback={<LazyFallback />}><TermsAndPayments /></Suspense>} />
 
-                {/* Public website — Wave 1 platform routes (canonical paths) */}
-                <Route path="/platform/ai" element={<Suspense fallback={<LazyFallback />}><PublicAIIntelligence /></Suspense>} />
-                <Route path="/platform/unified-inbox" element={<Suspense fallback={<LazyFallback />}><PublicUnifiedInbox /></Suspense>} />
-                <Route path="/platform/crm" element={<Suspense fallback={<LazyFallback />}><PublicCRMSales /></Suspense>} />
-                <Route path="/platform/marketing" element={<Suspense fallback={<LazyFallback />}><PublicMarketing /></Suspense>} />
-                <Route path="/platform/automation" element={<Suspense fallback={<LazyFallback />}><PublicAutomation /></Suspense>} />
-                <Route path="/platform/analytics" element={<Suspense fallback={<LazyFallback />}><PublicAnalytics /></Suspense>} />
-                <Route path="/platform/developers" element={<Suspense fallback={<LazyFallback />}><PublicDevelopers /></Suspense>} />
-                <Route path="/platform/lidhjet" element={<Suspense fallback={<LazyFallback />}><PublicLidhjet /></Suspense>} />
-
-                {/* Public website — Wave 1 company routes */}
-                <Route path="/about" element={<Suspense fallback={<LazyFallback />}><PublicAbout /></Suspense>} />
-                <Route path="/contact" element={<Suspense fallback={<LazyFallback />}><PublicContact /></Suspense>} />
-                <Route path="/platform/partners" element={<Suspense fallback={<LazyFallback />}><PublicPartners /></Suspense>} />
-                <Route path="/growth-suite" element={<Suspense fallback={<LazyFallback />}><PublicGrowthSuite /></Suspense>} />
                 <Route path="/complete-payment" element={<ProtectedRoute><Suspense fallback={<LazyFallback />}><CompletePayment /></Suspense></ProtectedRoute>} />
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />

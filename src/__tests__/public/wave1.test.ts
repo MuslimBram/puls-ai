@@ -14,8 +14,11 @@
  */
 
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { validateInternalPath } from "../../lib/safeNavigate";
 import { SECURITY_CLAIM } from "../../lib/publicSecurityClaim";
+import { buildLoggedOutCtaLoginHref } from "../../components/public/PublicCTA";
 import {
   platformNavItems,
   standaloneNavItems,
@@ -25,6 +28,38 @@ import {
 } from "../../components/public/publicNavConfig";
 import en from "../../i18n/en";
 import sq from "../../i18n/sq";
+
+const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
+
+describe("Wave 1 route publication scope", () => {
+  it("does NOT publish unfinished public product/company routes in App.tsx", () => {
+    const unpublishedRoutes = [
+      "/platform/ai",
+      "/platform/unified-inbox",
+      "/platform/crm",
+      "/platform/marketing",
+      "/platform/automation",
+      "/platform/analytics",
+      "/platform/developers",
+      "/platform/lidhjet",
+      "/platform/partners",
+      "/about",
+      "/contact",
+      "/growth-suite",
+    ];
+
+    unpublishedRoutes.forEach((routePath) => {
+      expect(appSource).not.toContain(`path="${routePath}"`);
+    });
+  });
+
+  it("preserves existing /pricing and /security routes", () => {
+    expect(appSource).toContain('path="/pricing"');
+    expect(appSource).toContain("<Pricing />");
+    expect(appSource).toContain('path="/security"');
+    expect(appSource).toContain("<SecurityOverview />");
+  });
+});
 
 // ── publicNavConfig ────────────────────────────────────────────────────────────
 
@@ -130,6 +165,12 @@ describe("CTA auth-aware navigation safety (validateInternalPath)", () => {
     expect(validateInternalPath("/login?next=%2Fpricing")).toBe(
       "/login?next=%2Fpricing",
     );
+  });
+
+  it("default logged-out CTA builds next from validated appDestination", () => {
+    expect(buildLoggedOutCtaLoginHref("/crm")).toBe("/login?next=%2Fcrm");
+    expect(buildLoggedOutCtaLoginHref("https://evil.com")).toBe("/login?next=%2Fdashboard");
+    expect(buildLoggedOutCtaLoginHref()).toBe("/login?next=%2Fdashboard");
   });
 
   it("rejects external URL in CTA destination", () => {

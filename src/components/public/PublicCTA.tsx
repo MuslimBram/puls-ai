@@ -14,14 +14,14 @@
  * Never navigates to an unvalidated external URL.
  */
 
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
+import type { ReactNode } from "react";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { validateInternalPath } from "@/lib/safeNavigate";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Bell, CheckCircle2, Loader2 } from "lucide-react";
+import { ArrowRight, Bell, Loader2 } from "lucide-react";
 
 export type CTAVariant = "default" | "beta" | "coming_soon";
 export type CTAPriority = "primary" | "secondary" | "tertiary";
@@ -44,61 +44,13 @@ const priorityToButtonVariant: Record<CTAPriority, ButtonProps["variant"]> = {
   tertiary:  "ghost",
 };
 
-/**
- * ComingSoonNotifyButton — interest-capture stub for COMING_SOON variant.
- * Toggles a "Noted!" confirmation state locally.
- * Phase 2E will wire to a real backend notify-me workflow.
- */
-function ComingSoonNotifyButton({
-  label,
-  priority,
-  size,
-  className,
-  rest,
-}: {
-  label: string;
-  priority: CTAPriority;
-  size: ButtonProps["size"];
-  className?: string;
-  rest: Omit<ButtonProps, "asChild">;
-}) {
-  const [noted, setNoted] = useState(false);
-  const { t } = useTranslation();
-  return (
-    <Button
-      variant={priorityToButtonVariant[priority]}
-      size={size}
-      className={cn("gap-2", className)}
-      onClick={() => setNoted(true)}
-      disabled={noted}
-      {...rest}
-    >
-      {noted ? (
-        <>
-          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          {t("cta.noted", { defaultValue: "Noted!" })}
-        </>
-      ) : (
-        <>
-          <Bell className="h-4 w-4" aria-hidden="true" />
-          {label}
-        </>
-      )}
-    </Button>
-  );
-}
-
-/**
- * BetaRequestButton — interest-capture stub for BETA variant (logged-out).
- * Toggles a "Request received!" confirmation state locally.
- * Phase 2E will wire to a real backend beta-request workflow.
- */
-function BetaRequestButton({
+function InterestActionButton({
   label,
   priority,
   size,
   className,
   showIcon,
+  icon,
   rest,
 }: {
   label: string;
@@ -106,32 +58,26 @@ function BetaRequestButton({
   size: ButtonProps["size"];
   className?: string;
   showIcon: boolean;
+  icon?: ReactNode;
   rest: Omit<ButtonProps, "asChild">;
 }) {
-  const [requested, setRequested] = useState(false);
-  const { t } = useTranslation();
   return (
     <Button
       variant={priorityToButtonVariant[priority]}
       size={size}
       className={cn("gap-2", className)}
-      onClick={() => setRequested(true)}
-      disabled={requested}
       {...rest}
     >
-      {requested ? (
-        <>
-          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          {t("cta.requestReceived", { defaultValue: "Request received!" })}
-        </>
-      ) : (
-        <>
-          {label}
-          {showIcon && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
-        </>
-      )}
+      {icon}
+      {label}
+      {showIcon && !icon && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
     </Button>
   );
+}
+
+export function buildLoggedOutCtaLoginHref(appDestination?: string) {
+  const safeDestination = validateInternalPath(appDestination ?? "/dashboard") ?? "/dashboard";
+  return `/login?next=${encodeURIComponent(safeDestination)}`;
 }
 
 
@@ -146,7 +92,6 @@ export function PublicCTA({
   ...rest
 }: PublicCTAProps) {
   const { user, loading } = useAuth();
-  const location = useLocation();
   const { t } = useTranslation();
 
   if (loading) {
@@ -169,11 +114,13 @@ export function PublicCTA({
   // Phase 2E will wire this to a real backend notify-me workflow.
   if (variant === "coming_soon") {
     return (
-      <ComingSoonNotifyButton
+      <InterestActionButton
         label={label ?? t("cta.notifyMe")}
         priority={priority}
         size={size}
         className={className}
+        showIcon={showIcon}
+        icon={<Bell className="h-4 w-4" aria-hidden="true" />}
         rest={rest}
       />
     );
@@ -183,25 +130,8 @@ export function PublicCTA({
   // Interest-capture only — does NOT create an account.
   // Phase 2E will wire this to a real backend beta-request workflow.
   if (variant === "beta") {
-    if (user) {
-      const safeDest = validateInternalPath(appDestination ?? "/dashboard") ?? "/dashboard";
-      return (
-        <Button
-          variant={priorityToButtonVariant[priority]}
-          size={size}
-          className={cn("gap-2", className)}
-          asChild
-          {...rest}
-        >
-          <Link to={safeDest}>
-            {label ?? t("cta.requestBeta")}
-            {showIcon && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
-          </Link>
-        </Button>
-      );
-    }
     return (
-      <BetaRequestButton
+      <InterestActionButton
         label={label ?? t("cta.requestBeta")}
         priority={priority}
         size={size}
@@ -233,9 +163,8 @@ export function PublicCTA({
     );
   }
 
-  // Logged out → login with safe return path using the existing `next` contract
-  const next = encodeURIComponent(location.pathname + location.search);
-  const loginHref = `/login?next=${next}`;
+  // Logged out → login with safe intended app destination using `next` contract
+  const loginHref = buildLoggedOutCtaLoginHref(appDestination);
 
   return (
     <Button
