@@ -29,13 +29,13 @@ export const FloatingAIBot = () => {
   const notifyAdmin = async (reason: string) => {
     if (adminNotified || !user?.id) return false;
     try {
-      const { error } = await supabase.from("business_notifications" as any).insert({
-        user_id: user?.id,
-        title: "Support request from user",
-        message: `User needs specialist help: ${reason}`,
-        notification_type: "system",
-        category: "support",
-        action_url: "/helpdesk",
+      const { error } = await supabase.functions.invoke("submit-ticket", {
+        body: {
+          subject: "AI Help escalation",
+          description: `User requested specialist help via AI Help Bot.\n\nAI response context:\n${reason}`,
+          category: "ai_escalation",
+          priority: "normal",
+        },
       });
       if (error) return false;
       setAdminNotified(true);
@@ -77,7 +77,7 @@ export const FloatingAIBot = () => {
           const notified = await notifyAdmin(reply);
           escalationNote = notified
             ? "A specialist has been notified and will connect with you shortly. Feel free to keep chatting in the meantime."
-            : "I couldn’t notify a specialist automatically. Please open Helpdesk from your workspace while we continue here.";
+            : "I couldn't notify a specialist automatically. Please open Helpdesk from your workspace while we continue here.";
         }
 
         setMessages((prev) => [

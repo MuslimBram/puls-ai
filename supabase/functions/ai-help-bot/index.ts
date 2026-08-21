@@ -129,13 +129,25 @@ function shouldEscalate(messages: ChatMessage[], aiReply: string): boolean {
   const lastUserMessage = [...messages].reverse().find((msg) => msg.role === "user")?.content.toLowerCase() ?? "";
   const reply = aiReply.toLowerCase();
 
-  const humanRequested = /\b(human|agent|specialist|representative|admin|support team|real person)\b/.test(lastUserMessage);
-  const accountOrBilling = /\b(account|billing|invoice|refund|payment|charge|subscription|workspace|crm|customer data|password|login|2fa)\b/.test(lastUserMessage);
-  const unresolvedTechnical = /\b(error|bug|broken|not working|failed|issue persists|still not working|can'?t access)\b/.test(lastUserMessage);
-  const securitySensitive = /\b(security|breach|hack|vulnerability|data leak|privacy incident|gdpr)\b/.test(lastUserMessage);
-  const unresolvedByAi = /\b(can't help with that|cannot help with that|not able to access|need human support)\b/.test(reply);
+  // Explicit human/support request
+  const humanRequested = /\b(human|agent|specialist|representative|real person|speak to someone|talk to support|contact support)\b/.test(lastUserMessage);
 
-  return humanRequested || accountOrBilling || unresolvedTechnical || securitySensitive || unresolvedByAi;
+  // User-specific login or account-access problem (not generic product questions about accounts)
+  const userAccountAccessProblem = /\b(can'?t (log in(to)?|login|sign in|access my account)|cannot (log in(to)?|login|sign in|access my account)|locked out|password reset (not working|failed|didn'?t arrive)|my account (is|was) (suspended|disabled|banned|locked)|lost access to my account)\b/.test(lastUserMessage);
+
+  // User-specific billing/charge/refund incident (not general pricing questions)
+  const userBillingIncident = /\b(charged (twice|double|incorrectly|wrong amount)|unexpected charge|wrong (charge|amount) on my|refund (for|my|the)|my (invoice|bill|payment) (is wrong|failed|missing)|i (was|got) (overcharged|double-charged|billed twice))\b/.test(lastUserMessage);
+
+  // Actual security/privacy incident involving the user's account or data
+  const userSecurityIncident = /\b(my account (was|got|has been) (hacked|compromised|breached|accessed|taken over)|think (i('?ve| was)|my account (was|got)) (hacked|breached|compromised)|unauthorized (access|activity|login)|someone (else )?(is |has |)using my account|data (breach|leak) (affecting me|on my account)|my (personal |)data (was|got) (leaked|exposed|stolen))\b/.test(lastUserMessage);
+
+  // Clearly unresolved technical failure (not generic "how does X work" questions)
+  const unresolvedTechnical = /\b(issue (still |)persists|still not working|still (not |)broken|can'?t (access|use) (my |the |)\w+ (since|for \d)|nothing (is working|works)|system (is |)(down|not responding)|error (code )?\w+ (and |)can'?t (proceed|continue|fix it))\b/.test(lastUserMessage);
+
+  // AI explicitly states human support is required
+  const unresolvedByAi = /\b(can't help with that|cannot help with that|not able to access|need human support|you (should|need to|must) contact support|please (contact|reach out to) (our |a )?(support|human|agent|specialist))\b/.test(reply);
+
+  return humanRequested || userAccountAccessProblem || userBillingIncident || userSecurityIncident || unresolvedTechnical || unresolvedByAi;
 }
 
 serve(async (req) => {
