@@ -284,4 +284,125 @@ export default {
     goToDashboard: "Go to Dashboard",
     tryAgain: "Try Again",
   },
+
+  // ─── Public website — Wave 1 ────────────────────────────────────────────────
+
+  // Brand
+  brand: {
+    descriptor: "The AI Business Operating System",
+    home: "Pulse AI — Home",
+    positioning: "One intelligent system to run, automate and grow your business.",
+  },
+
+  // Public CTA labels
+  cta: {
+    getStarted: "Get Started",
+    goToDashboard: "Go to Dashboard",
+    requestBeta: "Request Beta Access",
+    notifyMe: "Notify Me",
+    learnMore: "Learn More",
+    login: "Log In",
+    backToHome: "Back to Home",
+  },
+
+  // Public nav labels
+  nav: {
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    mobileMenu: "Mobile navigation",
+    group: {
+      platform: "Platform",
+      business: "Business",
+      company: "Company",
+      more: "More",
+    },
+    platform: {
+      aiIntelligence: "AI & Intelligence",
+      unifiedInbox: "Unified Inbox",
+      crmSales: "CRM & Sales",
+      marketing: "Marketing",
+      automation: "Automation",
+      analytics: "Analytics",
+      developers: "Developers",
+    },
+    standalone: {
+      lidhjet: "Lidhjet", // Brand name — intentionally not translated
+      pricing: "Pricing",
+      security: "Security",
+    },
+    business: {
+      partners: "Partners",
+      whiteLabel: "White Label",
+    },
+    company: {
+      about: "About",
+      contact: "Contact",
+    },
+    growthSuite: {
+      label: "Growth Suite",
+    },
+  },
+
+  // Badges
+  badge: {
+    comingSoon: "Soon",
+    beta: "Beta",
+    new: "New",
+  },
+
+  // Breadcrumbs
+  breadcrumbs: {
+    label: "Breadcrumb",
+  },
+
+  // Coming Soon page
+  comingSoon: {
+    title: "Coming Soon",
+    description:
+      "We're working hard to bring this to you. Sign up to be notified when it launches.",
+  },
+
+  // Security page
+  security: {
+    title: "Built for Business Security",
+    summary:
+      "Pulse AI is designed with role-based access controls, encrypted data in transit, and session security.",
+    eyebrow: "Our Controls",
+    pointsTitle: "How we protect your business",
+  },
+
+  // Pricing page (neutral shell)
+  pricing: {
+    title: "Simple, Transparent Pricing",
+    subtitle:
+      "Start free, scale as you grow. Full pricing details are available inside your account.",
+    neutralNotice:
+      "Detailed plan pricing is displayed inside your account dashboard after sign-up, drawn live from our pricing settings.",
+    signUpToSee: "Already have an account?",
+    viewPlans: "View My Plans",
+    faqTitle: "Pricing FAQ",
+  },
+
+  // Developers page
+  developers: {
+    title: "Developers",
+    description:
+      "Build on top of Pulse AI. Our API lets you integrate your existing tools, automate workflows, and extend the platform to fit your exact needs.",
+    getApiAccess: "Get API Access",
+    faqTitle: "Common Questions",
+  },
+
+  // Platform page shared strings
+  platform: {
+    capabilities: "Capabilities",
+    whatYouGet: "What you get",
+  },
+
+  // Footer
+  footer: {
+    label: "Site footer",
+    legal: "Legal",
+    rightsReserved: "All rights reserved.",
+    tagline: "One intelligent system to run, automate and grow your business.",
+  },
 } as const;
