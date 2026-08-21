@@ -19,11 +19,11 @@
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
 VALUES ('recordings', 'recordings', false, 104857600)
-ON CONFLICT (id) DO UPDATE SET public = false;
+ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = EXCLUDED.file_size_limit;
 
 INSERT INTO storage.buckets (id, name, public, file_size_limit)
 VALUES ('knowledge-documents', 'knowledge-documents', false, 20971520)
-ON CONFLICT (id) DO UPDATE SET public = false;
+ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = EXCLUDED.file_size_limit;
 
 
 -- ============================================================================

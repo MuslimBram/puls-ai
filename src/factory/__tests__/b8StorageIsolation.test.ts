@@ -13,8 +13,8 @@ describe("B8 Storage Isolation — Workspace Shared Knowledge Base & Strict Leas
 
       const content = readFileSync(join(migrationsDir, migFile!), "utf-8");
 
-      // Bucket privacy enforcement
-      expect(content).toContain("ON CONFLICT (id) DO UPDATE SET public = false;");
+      // Bucket privacy enforcement (also enforces file_size_limit on conflict)
+      expect(content).toContain("ON CONFLICT (id) DO UPDATE SET public = false, file_size_limit = EXCLUDED.file_size_limit;");
 
       // Preflight guard for legacy objects
       expect(content).toContain("Preflight failed:");
