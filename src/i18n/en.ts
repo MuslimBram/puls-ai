@@ -366,7 +366,7 @@ export default {
   security: {
     title: "Built for Business Security",
     summary:
-      "Pulse AI is designed with workspace isolation, encrypted data handling, and role-based access controls — reviewed against industry standards.",
+      "Pulse AI is designed with role-based access controls, encrypted data in transit, and session security.",
     eyebrow: "Our Controls",
     pointsTitle: "How we protect your business",
   },

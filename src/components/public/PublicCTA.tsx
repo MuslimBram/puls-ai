@@ -2,22 +2,26 @@
  * PublicCTA — auth-aware call-to-action components for the public website.
  *
  * Variants:
- *   DEFAULT    — Logged out → Login/Register with safe return destination
+ *   DEFAULT    — Logged out → Login/Register with safe return destination (next param)
  *              — Logged in  → Go to Dashboard
- *   BETA       — Request Beta Access → /register?beta=1
- *   COMING_SOON — Notify Me → /register?notify=1
+ *   BETA       — Request Beta Access (interest-capture foundation, Phase 2E backend TBD)
+ *   COMING_SOON — Notify Me (interest-capture foundation, Phase 2E backend TBD)
+ *
+ * BETA and COMING_SOON do NOT create accounts — they are interest-capture stubs only.
+ * Phase 2E will wire these to a real backend interest-capture workflow.
  *
  * Preserves safeNavigate / validateInternalPath security protections.
  * Never navigates to an unvalidated external URL.
  */
 
+import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { validateInternalPath } from "@/lib/safeNavigate";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Bell, Loader2 } from "lucide-react";
+import { ArrowRight, Bell, CheckCircle2, Loader2 } from "lucide-react";
 
 export type CTAVariant = "default" | "beta" | "coming_soon";
 export type CTAPriority = "primary" | "secondary" | "tertiary";
@@ -39,6 +43,95 @@ const priorityToButtonVariant: Record<CTAPriority, ButtonProps["variant"]> = {
   secondary: "outline",
   tertiary:  "ghost",
 };
+
+/**
+ * ComingSoonNotifyButton — interest-capture stub for COMING_SOON variant.
+ * Toggles a "Noted!" confirmation state locally.
+ * Phase 2E will wire to a real backend notify-me workflow.
+ */
+function ComingSoonNotifyButton({
+  label,
+  priority,
+  size,
+  className,
+  rest,
+}: {
+  label: string;
+  priority: CTAPriority;
+  size: ButtonProps["size"];
+  className?: string;
+  rest: Omit<ButtonProps, "asChild">;
+}) {
+  const [noted, setNoted] = useState(false);
+  return (
+    <Button
+      variant={priorityToButtonVariant[priority]}
+      size={size}
+      className={cn("gap-2", className)}
+      onClick={() => setNoted(true)}
+      disabled={noted}
+      {...rest}
+    >
+      {noted ? (
+        <>
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          Noted!
+        </>
+      ) : (
+        <>
+          <Bell className="h-4 w-4" aria-hidden="true" />
+          {label}
+        </>
+      )}
+    </Button>
+  );
+}
+
+/**
+ * BetaRequestButton — interest-capture stub for BETA variant (logged-out).
+ * Toggles a "Request received!" confirmation state locally.
+ * Phase 2E will wire to a real backend beta-request workflow.
+ */
+function BetaRequestButton({
+  label,
+  priority,
+  size,
+  className,
+  showIcon,
+  rest,
+}: {
+  label: string;
+  priority: CTAPriority;
+  size: ButtonProps["size"];
+  className?: string;
+  showIcon: boolean;
+  rest: Omit<ButtonProps, "asChild">;
+}) {
+  const [requested, setRequested] = useState(false);
+  return (
+    <Button
+      variant={priorityToButtonVariant[priority]}
+      size={size}
+      className={cn("gap-2", className)}
+      onClick={() => setRequested(true)}
+      disabled={requested}
+      {...rest}
+    >
+      {requested ? (
+        <>
+          <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+          Request received!
+        </>
+      ) : (
+        <>
+          {label}
+          {showIcon && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+        </>
+      )}
+    </Button>
+  );
+}
+
 
 export function PublicCTA({
   variant = "default",
@@ -70,42 +163,50 @@ export function PublicCTA({
   }
 
   // ── COMING SOON variant ────────────────────────────────────────────────────
+  // Interest-capture only — does NOT create an account.
+  // Phase 2E will wire this to a real backend notify-me workflow.
   if (variant === "coming_soon") {
-    const href = "/register?notify=1";
     return (
-      <Button
-        variant={priorityToButtonVariant[priority]}
+      <ComingSoonNotifyButton
+        label={label ?? t("cta.notifyMe")}
+        priority={priority}
         size={size}
-        className={cn("gap-2", className)}
-        asChild
-        {...rest}
-      >
-        <Link to={href}>
-          <Bell className="h-4 w-4" aria-hidden="true" />
-          {label ?? t("cta.notifyMe")}
-        </Link>
-      </Button>
+        className={className}
+        rest={rest}
+      />
     );
   }
 
   // ── BETA variant ───────────────────────────────────────────────────────────
+  // Interest-capture only — does NOT create an account.
+  // Phase 2E will wire this to a real backend beta-request workflow.
   if (variant === "beta") {
-    const href = user ? (appDestination ?? "/dashboard") : "/register?beta=1";
-    // Validate internal path to ensure safety
-    const safeHref = validateInternalPath(href) ?? "/register";
+    if (user) {
+      const safeDest = validateInternalPath(appDestination ?? "/dashboard") ?? "/dashboard";
+      return (
+        <Button
+          variant={priorityToButtonVariant[priority]}
+          size={size}
+          className={cn("gap-2", className)}
+          asChild
+          {...rest}
+        >
+          <Link to={safeDest}>
+            {label ?? t("cta.requestBeta")}
+            {showIcon && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
+          </Link>
+        </Button>
+      );
+    }
     return (
-      <Button
-        variant={priorityToButtonVariant[priority]}
+      <BetaRequestButton
+        label={label ?? t("cta.requestBeta")}
+        priority={priority}
         size={size}
-        className={cn("gap-2", className)}
-        asChild
-        {...rest}
-      >
-        <Link to={safeHref}>
-          {label ?? t("cta.requestBeta")}
-          {showIcon && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
-        </Link>
-      </Button>
+        className={className}
+        showIcon={showIcon}
+        rest={rest}
+      />
     );
   }
 
@@ -130,9 +231,9 @@ export function PublicCTA({
     );
   }
 
-  // Logged out → login with safe return path
-  const returnTo = encodeURIComponent(location.pathname + location.search);
-  const loginHref = `/login?returnTo=${returnTo}`;
+  // Logged out → login with safe return path using the existing `next` contract
+  const next = encodeURIComponent(location.pathname + location.search);
+  const loginHref = `/login?next=${next}`;
 
   return (
     <Button
@@ -157,7 +258,7 @@ export function PublicCTA({
 export function PublicCTAPair({
   primaryLabel,
   secondaryLabel,
-  secondaryHref = "/platform/ai-intelligence",
+  secondaryHref = "/platform/ai",
   appDestination,
   className,
 }: {

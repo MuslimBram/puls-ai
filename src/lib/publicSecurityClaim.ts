@@ -23,29 +23,29 @@ export const SECURITY_CLAIM = {
 
   /**
    * One-sentence summary suitable for marketing copy.
-   * Does NOT claim certification.
+   * Does NOT claim certification or production-verified isolation.
    */
   summary:
-    "Pulse AI is designed with workspace isolation, encrypted data handling, and role-based access controls — reviewed against industry standards.",
+    "Pulse AI is designed with role-based access controls, encrypted data in transit, and session security.",
 
   /**
-   * Detailed multi-point list. Each item is independently true.
+   * Detailed multi-point list. Each item is independently true and evidenced.
    */
   points: [
-    "End-to-end workspace data isolation",
     "Role-based access control (RBAC)",
-    "Encrypted data in transit and at rest",
-    "Audit logging for sensitive operations",
+    "Data encrypted in transit (TLS)",
     "Session security with automatic expiry",
-    "Regular internal security reviews",
+    "Workspace-scoped data access enforced at the application layer",
   ] as const,
 
   /**
    * Legal-safe disclaimer. Must accompany any claim of compliance.
+   * Local/canonical runtime verification = PASS.
+   * Remote production verification remains pending production alignment/deployment.
    */
   disclaimer:
-    "Internal security controls have been validated in our canonical runtime environment. " +
-    "Production-environment cross-workspace isolation verification is ongoing. " +
+    "Local/canonical runtime verification: PASS. " +
+    "Remote production cross-workspace isolation verification remains pending production alignment and deployment. " +
     "Pulse AI does not currently hold SOC 2, ISO 27001, GDPR, or HIPAA certifications.",
 
   /**

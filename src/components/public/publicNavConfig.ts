@@ -27,9 +27,9 @@ export interface NavGroup {
 
 /** Platform mega-nav items */
 export const platformNavItems: NavItem[] = [
-  { labelKey: "nav.platform.aiIntelligence",    href: "/platform/ai-intelligence" },
+  { labelKey: "nav.platform.aiIntelligence",    href: "/platform/ai" },
   { labelKey: "nav.platform.unifiedInbox",       href: "/platform/unified-inbox" },
-  { labelKey: "nav.platform.crmSales",           href: "/platform/crm-sales" },
+  { labelKey: "nav.platform.crmSales",           href: "/platform/crm" },
   { labelKey: "nav.platform.marketing",          href: "/platform/marketing" },
   { labelKey: "nav.platform.automation",         href: "/platform/automation" },
   { labelKey: "nav.platform.analytics",          href: "/platform/analytics" },
@@ -38,14 +38,14 @@ export const platformNavItems: NavItem[] = [
 
 /** Standalone top-level nav items */
 export const standaloneNavItems: NavItem[] = [
-  { labelKey: "nav.standalone.lidhjet",   href: "/lidhjet" },
+  { labelKey: "nav.standalone.lidhjet",   href: "/platform/lidhjet" },
   { labelKey: "nav.standalone.pricing",   href: "/pricing" },
   { labelKey: "nav.standalone.security",  href: "/security" },
 ];
 
 /** Business nav items */
 export const businessNavItems: NavItem[] = [
-  { labelKey: "nav.business.partners",    href: "/partners",    comingSoon: true },
+  { labelKey: "nav.business.partners",    href: "/platform/partners",  comingSoon: true },
   { labelKey: "nav.business.whiteLabel",  href: "/white-label" },
 ];
 

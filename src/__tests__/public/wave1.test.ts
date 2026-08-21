@@ -1,10 +1,14 @@
 /**
- * Wave 1 public website tests.
+ * Wave 1 public website tests — correction pass.
  *
  * Covers:
- * - publicNavConfig structure
+ * - publicNavConfig structure with canonical routes
+ * - No non-canonical routes (/platform/ai-intelligence, /platform/crm-sales, /developer)
+ * - Canonical public Lidhjet route = /platform/lidhjet
+ * - Partners route = /platform/partners
  * - validateInternalPath (auth-aware CTA foundation)
- * - publicSecurityClaim integrity (no forbidden claims)
+ * - Login CTA uses the existing safe `next` contract
+ * - publicSecurityClaim integrity (no forbidden claims, local PASS / remote pending distinction)
  * - locale keys present in EN and SQ
  * - publicNavConfig: no admin/internal routes exposed
  */
@@ -34,9 +38,33 @@ describe("publicNavConfig", () => {
     expect(devItem).toBeDefined();
   });
 
-  it("does NOT expose /developer (non-canonical route)", () => {
+  it("does NOT use /platform/ai-intelligence (non-canonical — must be /platform/ai)", () => {
+    const exposed = allPublicNavItems.some((i) => i.href === "/platform/ai-intelligence");
+    expect(exposed).toBe(false);
+  });
+
+  it("does NOT use /platform/crm-sales (non-canonical — must be /platform/crm)", () => {
+    const exposed = allPublicNavItems.some((i) => i.href === "/platform/crm-sales");
+    expect(exposed).toBe(false);
+  });
+
+  it("does NOT expose /developer (non-canonical route — must be /platform/developers)", () => {
     const exposed = allPublicNavItems.some((i) => i.href === "/developer");
     expect(exposed).toBe(false);
+  });
+
+  it("public Lidhjet route is /platform/lidhjet (not /lidhjet)", () => {
+    const lidhjetItem = allPublicNavItems.find((i) => i.href === "/platform/lidhjet");
+    expect(lidhjetItem).toBeDefined();
+    const wrongItem = allPublicNavItems.find((i) => i.href === "/lidhjet");
+    expect(wrongItem).toBeUndefined();
+  });
+
+  it("Partners route is /platform/partners (not /partners)", () => {
+    const partnersItem = allPublicNavItems.find((i) => i.href === "/platform/partners");
+    expect(partnersItem).toBeDefined();
+    const wrongItem = allPublicNavItems.find((i) => i.href === "/partners");
+    expect(wrongItem).toBeUndefined();
   });
 
   it("does NOT expose admin routes", () => {
@@ -60,11 +88,10 @@ describe("publicNavConfig", () => {
     }
   });
 
-  it("standalone nav contains pricing, security, lidhjet", () => {
+  it("standalone nav contains pricing and security", () => {
     const hrefs = standaloneNavItems.map((i) => i.href);
     expect(hrefs).toContain("/pricing");
     expect(hrefs).toContain("/security");
-    expect(hrefs).toContain("/lidhjet");
   });
 
   it("business nav contains white-label", () => {
@@ -90,9 +117,18 @@ describe("CTA auth-aware navigation safety (validateInternalPath)", () => {
     expect(validateInternalPath("/register?beta=1")).toBe("/register?beta=1");
   });
 
-  it("accepts /login?returnTo=%2Fpricing (return-to URL)", () => {
-    expect(validateInternalPath("/login?returnTo=%2Fpricing")).toBe(
-      "/login?returnTo=%2Fpricing",
+  it("login CTA uses `next` param (not `returnTo`) — safe contract", () => {
+    // The PublicCTA builds /login?next=<encoded-path>
+    const loginHref = `/login?next=${encodeURIComponent("/pricing")}`;
+    expect(validateInternalPath(loginHref)).toBe(loginHref);
+    // Verify `next` is the param name — returnTo must NOT be used
+    expect(loginHref).toContain("next=");
+    expect(loginHref).not.toContain("returnTo=");
+  });
+
+  it("accepts /login?next=%2Fpricing (next-URL)", () => {
+    expect(validateInternalPath("/login?next=%2Fpricing")).toBe(
+      "/login?next=%2Fpricing",
     );
   });
 
@@ -118,6 +154,12 @@ describe("publicSecurityClaim", () => {
     "GDPR certified",
     "HIPAA compliant",
     "fully production-verified",
+    "end-to-end workspace data isolation",
+    "encrypted data in transit and at rest",
+    "encryption-at-rest",
+    "audit logging",
+    "regular internal security reviews",
+    "reviewed against industry standards",
   ];
 
   const allText = Object.values(SECURITY_CLAIM).flat().join(" ");
@@ -132,8 +174,15 @@ describe("publicSecurityClaim", () => {
     expect(SECURITY_CLAIM.summary.length).toBeGreaterThan(20);
   });
 
-  it("has a disclaimer that mentions ongoing verification", () => {
-    expect(SECURITY_CLAIM.disclaimer.toLowerCase()).toContain("ongoing");
+  it("disclaimer contains explicit local/canonical PASS statement", () => {
+    expect(SECURITY_CLAIM.disclaimer.toLowerCase()).toContain("local");
+    expect(SECURITY_CLAIM.disclaimer.toLowerCase()).toContain("pass");
+  });
+
+  it("disclaimer contains remote production pending statement", () => {
+    const d = SECURITY_CLAIM.disclaimer.toLowerCase();
+    expect(d).toContain("remote production");
+    expect(d).toContain("pending");
   });
 
   it("has at least 4 security points", () => {
