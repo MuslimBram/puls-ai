@@ -4,7 +4,8 @@
 // Mund të embedohet te çdo faqe: landing page, pricing, etj.
 // Thirret: supabase/functions/public-lead-capture
 // ============================================================
-import { useState } from "react";
+import { useMemo, useState, type ChangeEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -26,21 +27,6 @@ interface PublicLeadFormProps {
   onSuccess?: () => void;
 }
 
-const PLANS = [
-  { value: "starter", label: "Starter — Basic" },
-  { value: "growth", label: "Growth — Growing businesses" },
-  { value: "pro", label: "Pro — Agencies & Teams" },
-  { value: "enterprise", label: "Enterprise — Custom solution" },
-];
-
-const TEAM_SIZES = [
-  { value: "1", label: "Just me" },
-  { value: "2-5", label: "2–5 people" },
-  { value: "6-15", label: "6–15 people" },
-  { value: "16-50", label: "16–50 people" },
-  { value: "50+", label: "More than 50 people" },
-];
-
 export function PublicLeadForm({
   targetWorkspaceId,
   source = "website",
@@ -49,6 +35,7 @@ export function PublicLeadForm({
   subtitle = "No credit card required. Set up in 15 minutes.",
   onSuccess,
 }: PublicLeadFormProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -63,14 +50,35 @@ export function PublicLeadForm({
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
+  const plans = useMemo(
+    () => [
+      { value: "standard", label: t("leadForm.plans.standard") },
+      { value: "professional", label: t("leadForm.plans.professional") },
+      { value: "advanced", label: t("leadForm.plans.advanced") },
+      { value: "enterprise", label: t("leadForm.plans.enterprise") },
+    ],
+    [t],
+  );
+
+  const teamSizes = useMemo(
+    () => [
+      { value: "1", label: t("leadForm.teamSizes.one") },
+      { value: "2-5", label: t("leadForm.teamSizes.twoToFive") },
+      { value: "6-15", label: t("leadForm.teamSizes.sixToFifteen") },
+      { value: "16-50", label: t("leadForm.teamSizes.sixteenToFifty") },
+      { value: "50+", label: t("leadForm.teamSizes.fiftyPlus") },
+    ],
+    [t],
+  );
+
   const set = (field: string) => (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => setForm((f) => ({ ...f, [field]: e.target.value }));
 
   const handleSubmit = async () => {
     setError("");
     if (!form.name.trim() || !form.email.trim()) {
-      setError("Name and email are required.");
+      setError(t("leadForm.errors.required"));
       return;
     }
     setLoading(true);
@@ -97,7 +105,7 @@ export function PublicLeadForm({
       setSuccess(true);
       onSuccess?.();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      setError(err instanceof Error ? err.message : t("leadForm.errors.generic"));
     } finally {
       setLoading(false);
     }
@@ -108,10 +116,10 @@ export function PublicLeadForm({
       <div className="flex flex-col items-center gap-3 py-8 text-center">
         <CheckCircle className="h-12 w-12 text-green-500" />
         <h3 className="text-lg font-medium text-foreground">
-          Thanks! We'll contact you within 24 hours.
+          {t("leadForm.success.title")}
         </h3>
         <p className="text-sm text-muted-foreground">
-          Please check your email for confirmation.
+          {t("leadForm.success.description")}
         </p>
       </div>
     );
@@ -143,36 +151,36 @@ export function PublicLeadForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <label className="text-xs text-muted-foreground">
-            Full name *
+            {t("leadForm.fields.fullName")} *
           </label>
           <Input
-            placeholder="Jane Doe"
+            placeholder={t("leadForm.placeholders.fullName")}
             value={form.name}
             onChange={set("name")}
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Email *</label>
+          <label className="text-xs text-muted-foreground">{t("leadForm.fields.email")} *</label>
           <Input
             type="email"
-            placeholder="you@company.com"
+            placeholder={t("leadForm.placeholders.email")}
             value={form.email}
             onChange={set("email")}
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Phone</label>
+          <label className="text-xs text-muted-foreground">{t("leadForm.fields.phone")}</label>
           <Input
             type="tel"
-            placeholder="+1 555 123 4567"
+            placeholder={t("leadForm.placeholders.phone")}
             value={form.phone}
             onChange={set("phone")}
           />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Business name</label>
+          <label className="text-xs text-muted-foreground">{t("leadForm.fields.businessName")}</label>
           <Input
-            placeholder="Acme Inc."
+            placeholder={t("leadForm.placeholders.businessName")}
             value={form.business_name}
             onChange={set("business_name")}
           />
@@ -183,7 +191,7 @@ export function PublicLeadForm({
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              Interested plan
+              {t("leadForm.fields.interestedPlan")}
             </label>
             <Select
               value={form.interested_plan}
@@ -192,10 +200,10 @@ export function PublicLeadForm({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="Choose a plan" />
+                <SelectValue placeholder={t("leadForm.placeholders.interestedPlan")} />
               </SelectTrigger>
               <SelectContent>
-                {PLANS.map((p) => (
+                {plans.map((p) => (
                   <SelectItem key={p.value} value={p.value}>
                     {p.label}
                   </SelectItem>
@@ -205,7 +213,7 @@ export function PublicLeadForm({
           </div>
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
-              Team size
+              {t("leadForm.fields.teamSize")}
             </label>
             <Select
               value={form.team_size}
@@ -214,12 +222,12 @@ export function PublicLeadForm({
               }
             >
               <SelectTrigger>
-                <SelectValue placeholder="How many people?" />
+                <SelectValue placeholder={t("leadForm.placeholders.teamSize")} />
               </SelectTrigger>
               <SelectContent>
-                {TEAM_SIZES.map((t) => (
-                  <SelectItem key={t.value} value={t.value}>
-                    {t.label}
+                {teamSizes.map((size) => (
+                  <SelectItem key={size.value} value={size.value}>
+                    {size.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -230,10 +238,10 @@ export function PublicLeadForm({
 
       <div className="space-y-1">
         <label className="text-xs text-muted-foreground">
-          Message (optional)
+          {t("leadForm.fields.message")}
         </label>
         <Textarea
-          placeholder="What would you like to automate? What problem are you trying to solve?"
+          placeholder={t("leadForm.placeholders.message")}
           rows={3}
           value={form.message}
           onChange={set("message")}
@@ -252,17 +260,17 @@ export function PublicLeadForm({
         {loading ? (
           <>
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Sending...
+            {t("leadForm.submitting")}
           </>
         ) : (
-          "Start free trial"
+          t("leadForm.submit")
         )}
       </Button>
 
       <p className="text-center text-xs text-muted-foreground">
-        By clicking, you accept the{" "}
+        {t("leadForm.legalPrefix")}{" "}
         <a href="/privacy" className="underline">
-          Privacy Policy
+          {t("leadForm.privacyPolicy")}
         </a>
         .
       </p>

@@ -55,19 +55,29 @@ export function PublicMegaNav() {
         {/* Standalone nav items */}
         {standaloneNavItems.map((item) => (
           <NavigationMenuItem key={item.href}>
-            <NavigationMenuLink
-              className={cn(navigationMenuTriggerStyle(), "h-9 text-sm font-medium")}
-              asChild
-            >
-              <Link to={item.href}>
-                {t(item.labelKey)}
-                {item.comingSoon && (
-                  <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
-                    {t("badge.comingSoon")}
-                  </Badge>
+            {item.comingSoon ? (
+              <div
+                className={cn(
+                  navigationMenuTriggerStyle(),
+                  "h-9 cursor-default text-sm font-medium text-muted-foreground",
                 )}
-              </Link>
-            </NavigationMenuLink>
+                aria-disabled="true"
+              >
+                {t(item.labelKey)}
+                <Badge variant="secondary" className="ml-1.5 h-4 px-1 text-[10px]">
+                  {t("badge.comingSoon")}
+                </Badge>
+              </div>
+            ) : (
+              <NavigationMenuLink
+                className={cn(navigationMenuTriggerStyle(), "h-9 text-sm font-medium")}
+                asChild
+              >
+                <Link to={item.href}>
+                  {t(item.labelKey)}
+                </Link>
+              </NavigationMenuLink>
+            )}
           </NavigationMenuItem>
         ))}
       </NavigationMenuList>

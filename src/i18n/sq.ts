@@ -230,6 +230,207 @@ export default {
     },
   },
 
+  homepage: {
+    seo: {
+      title: "Pulse AI — Sistemi Operativ i Biznesit me AI",
+      description:
+        "Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj në biseda, CRM, AI, automatizim dhe analitikë.",
+    },
+    hero: {
+      eyebrow: "Sistem Operativ Biznesi",
+      brand: "Pulse AI",
+      title: "Sistemi Operativ i Biznesit me AI",
+      subtitle: "Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.",
+      description:
+        "Pulse AI lidh bisedat me klientët, CRM-in, AI-në, automatizimin dhe inteligjencën e biznesit në një sistem të vetëm që ekipi juaj mund ta përdorë realisht.",
+      primaryCta: "Fillo Tani",
+      secondaryCta: "Provo Pulse AI",
+      supportingNote:
+        "Krijo llogarinë, eksploro platformën ose pyet Pulse AI për rrjedhën që i përshtatet biznesit tënd.",
+    },
+    systemPreview: {
+      title: "Një sistem i lidhur",
+      description: "Kanalet, konteksti, veprimet dhe analitika lëvizin së bashku.",
+      badge: "I unifikuar",
+    },
+    problem: {
+      eyebrow: "Problemi i biznesit",
+      title: "Shumë biznese ende punojnë me biseda të copëzuara dhe mjete të shkëputura.",
+      description:
+        "Lead-et vijnë nga kudo, ndjekjet ngadalësohen, konteksti humbet dhe raportimi nuk e tregon kurrë pamjen e plotë.",
+      solutionLabel: "Pse Pulse AI",
+      solution:
+        "Pulse AI bëhet shtresa operative mes kanaleve, ekipit dhe të dhënave të klientit tuaj, në mënyrë që çdo bisedë të ecë drejt të ardhurave.",
+      items: {
+        fragmentedLeads: "Lead-et vijnë nga shumë kanale pa një pamje të vetme operative.",
+        missedFollowUps: "Ndjekjet varen nga kujtesa, kalimi mes inbox-eve dhe rikujtimet manuale.",
+        disconnectedData: "Të dhënat e CRM-it, shënimet dhe historiku i bisedave jetojnë në vende të ndara.",
+        manualWork: "Ekipet përsërisin çdo ditë të njëjtin kualifikim, shpërndarje dhe përditësim manual.",
+        unclearIntelligence: "Vendimmarrësit e kanë të vështirë të kuptojnë çfarë funksionon dhe ku po humben të ardhurat.",
+        lostContext: "Konteksti i klientit humbet midis mesazheve, telefonatave, handoff-eve dhe marrëveshjeve.",
+      },
+    },
+    flowSection: {
+      eyebrow: "Si funksionon Pulse AI",
+      title: "Një rrjedhë e vetme operative, jo veçori të shpërndara.",
+      description:
+        "Kanalet ushqejnë një inbox të përbashkët, konteksti i klientit ruhet në CRM, Pulse AI sugjeron ose automatizon hapin tjetër dhe analitika e mban biznesin të sinkronizuar.",
+    },
+    flow: {
+      channels: {
+        title: "Kanalet",
+        description: "Sill bisedat me klientët nga kanalet që biznesi yt përdor tashmë.",
+      },
+      inbox: {
+        title: "Inbox i Unifikuar",
+        description: "Kape lead-in e ri dhe menaxho kërkesën hyrëse nga një sipërfaqe e vetme pune.",
+      },
+      crm: {
+        title: "CRM + Kontekst",
+        description: "Mbaj historikun e klientit, përgjegjësinë dhe progresin e marrëveshjes të lidhur me çdo bisedë.",
+      },
+      ai: {
+        title: "Pulse AI",
+        description: "Përdor asistencën e AI për të kuptuar qëllimin, për të nxjerrë kontekstin dhe për të udhëzuar hapin tjetër.",
+      },
+      automation: {
+        title: "Automatizim / Hapi Tjetër",
+        description: "Aktivizo ndjekje, handoff-e dhe flukse operative pa humbur kontrollin.",
+      },
+      analytics: {
+        title: "Analitikë / Inteligjencë të Ardhurash",
+        description: "Shiko pipeline-in, performancën e përgjigjeve dhe sinjalet e biznesit në një pamje të vetme.",
+      },
+    },
+    pillars: {
+      eyebrow: "Shtyllat kryesore",
+      title: "Ndërtuar si një sistem i vetëm biznesi.",
+      description:
+        "Pulse AI bashkon shtresat kryesore operative që i duhen një biznesi pa e kthyer faqen kryesore në një katalog mjetesh të palidhura.",
+      items: {
+        communication: {
+          title: "Komunikim i Unifikuar me Klientin",
+          description: "Mbaj bisedat hyrëse, kapjen e lead-eve dhe përgjigjen e ekipit në një vend.",
+        },
+        intelligence: {
+          title: "Asistent & Inteligjencë AI",
+          description: "Përdor AI për të kuptuar qëllimin e klientit, për të ndihmuar ekipin dhe për të ulur punën e përsëritur.",
+        },
+        crmSales: {
+          title: "CRM & Shitje",
+          description: "Ndiq marrëdhëniet, progresin e marrëveshjeve dhe hapin tjetër tregtar me më shumë kontekst.",
+        },
+        automation: {
+          title: "Automatizim",
+          description: "Kthe rregullat operative në ndjekje, shpërndarje dhe veprime të brendshme të përsëritshme.",
+        },
+        memory: {
+          title: "Memorie Biznesi",
+          description: "Ruaj kontekstin e klientit dhe biznesit që bisedat të mos nisin nga zero.",
+        },
+        analytics: {
+          title: "Analitikë & Inteligjencë CEO",
+          description: "Kthe aktivitetin e përditshëm në dukshmëri për rritjen, bllokimet dhe rezultatet e të ardhurave.",
+        },
+      },
+    },
+    omnichannel: {
+      eyebrow: "Omnichannel",
+      title: "Takoi klientët aty ku bisedat tashmë ndodhin.",
+      description:
+        "Pulse AI është ndërtuar rreth komunikimit shumëkanalësh që konteksti i klientit të mbetet i lidhur ndërsa biznesi rritet.",
+      disclaimer:
+        "Disponueshmëria e kanaleve varet nga llogaritë e lidhura dhe konfigurimi i workspace-it që aktivizohet në setup-in tuaj.",
+    },
+    aiSection: {
+      eyebrow: "Ndërveprim live",
+      title: "Pyete Pulse AI për platformën.",
+      description:
+        "Asistenti publik ekzistues i AI mbetet i disponueshëm në faqe që vizitorët të eksplorojnë aftësitë në një mënyrë të drejtpërdrejtë dhe pa fërkime.",
+      note:
+        "Përdore për pyetje produkti, kontroll përputhshmërie dhe eksplorim rrjedhash pune. Butoni AI Help mbetet i disponueshëm në fund të faqes.",
+      primaryCta: "Hap AI Help",
+      cardTitle: "Provo këto pyetje",
+      promptOne: "Si i lidh Pulse AI bisedat, CRM-in dhe automatizimin?",
+      promptTwo: "Cilën rrjedhë klienti mund të mbështesë Pulse AI për një biznes shërbimesh?",
+      promptThree: "Cilat kanale dhe aftësi duhet të eksploroj më parë?",
+    },
+    journey: {
+      eyebrow: "Rruga e klientit",
+      title: "Kalo nga lead-i te veprimi pa humbur ritmin.",
+      description:
+        "Pulse AI mbështet rrugën operative nga biseda e parë deri te kualifikimi, ndjekja dhe raportimi.",
+      steps: {
+        lead: {
+          title: "Lead",
+          description: "Kap kërkesën hyrëse nga kanalet aktive të komunikimit.",
+        },
+        qualification: {
+          title: "Kualifikim",
+          description: "Kupto më shpejt qëllimin, cilësinë dhe urgjencën me kontekst të strukturuar.",
+        },
+        crm: {
+          title: "CRM",
+          description: "Mbaj përgjegjësinë, shënimet dhe historikun e klientit të lidhur me mundësinë.",
+        },
+        followUp: {
+          title: "Ndjekje",
+          description: "Mbështet përgjigjen, rikujtimin ose workflow-in tjetër me automatizim kur ka kuptim.",
+        },
+        booking: {
+          title: "Rezervim / Bisedë",
+          description: "Ndihmo ekipin ta kthejë interesin e kualifikuar në hap të rezervuar ose bisedë aktive shitjeje.",
+        },
+        analytics: {
+          title: "Analitikë",
+          description: "Mat çfarë po ndodh në pipeline, rrjedhën e përgjigjeve dhe sinjalet e të ardhurave.",
+        },
+      },
+    },
+    control: {
+      eyebrow: "Kontroll njerëzor dhe besim",
+      title: "Automatizim aty ku ndihmon. Kontroll njerëzor aty ku ka rëndësi.",
+      description:
+        "Pulse AI është ndërtuar për të ndihmuar ekipet, jo për të hequr dukshmërinë operative ose kontrollin e biznesit.",
+      items: {
+        handoff: {
+          title: "Handoff njerëzor",
+          description: "Ekipet mund të hyjnë në biseda dhe workflow-e klientësh sa herë që nevojitet gjykim njerëzor.",
+        },
+        rules: {
+          title: "Kontrolle biznesi",
+          description: "Përdor rregulla biznesi, role dhe kufij operativë për të vendosur si duhet të sillet automatizimi.",
+        },
+        visibility: {
+          title: "Dukshmëri operative",
+          description: "Mbaj një pamje më të qartë të aktivitetit të klientit, statusit të ndjekjes dhe performancës së biznesit nga një sistem i vetëm.",
+        },
+      },
+    },
+    pricing: {
+      eyebrow: "Çmimet",
+      title: "Shiko detajet aktuale të planeve në eksperiencën e çmimeve.",
+      description:
+        "Çmimet mbeten të lidhura me burimin e vërtetë të produktit. Eksploro planet në faqen e çmimeve në vend që të mbështetesh te snapshot-et e faqes kryesore.",
+      cta: "Shko te Çmimet",
+    },
+    finalCta: {
+      eyebrow: "Hapi final",
+      title: "Fillo nga hyrja e duhur për biznesin tënd.",
+      description:
+        "Krijo llogarinë, lër detajet për një follow-up ose hap asistentin AI për të kuptuar si përshtatet Pulse AI me rrjedhën tënde operative.",
+      pointOne: "Krijo një llogari dhe hyr në produkt në mënyrë të sigurt përmes rrjedhës ekzistuese të hyrjes.",
+      pointTwo: "Lër detajet nëse dëshiron që ekipi të të kontaktojë për setup-in e biznesit tënd.",
+      pointThree: "Përdor asistentin publik AI për të eksploruar platformën përpara se të vendosësh.",
+      primaryCta: "Krijo Llogari",
+      secondaryCta: "Eksploro me AI",
+    },
+    leadForm: {
+      title: "Kërko një follow-up",
+      subtitle: "Na trego për biznesin tënd dhe ne do të të kontaktojmë.",
+    },
+  },
+
   // Billing plans
   billing: {
     trial: "7-Ditore Provë",
@@ -404,5 +605,57 @@ export default {
     legal: "Juridike",
     rightsReserved: "Të gjitha të drejtat e rezervuara.",
     tagline: "Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.",
+    links: {
+      privacy: "Politika e Privatësisë",
+      terms: "Kushtet e Shërbimit",
+      cookies: "Politika e Cookies",
+      dpa: "Marrëveshja e Përpunimit të të Dhënave",
+    },
+  },
+
+  leadForm: {
+    fields: {
+      fullName: "Emri i plotë",
+      email: "Email",
+      phone: "Telefoni",
+      businessName: "Emri i biznesit",
+      interestedPlan: "Plani i interesit",
+      teamSize: "Madhësia e ekipit",
+      message: "Mesazhi (opsionale)",
+    },
+    placeholders: {
+      fullName: "Arta Hoxha",
+      email: "ju@kompania.com",
+      phone: "+355 69 123 4567",
+      businessName: "Acme sh.p.k.",
+      interestedPlan: "Zgjidh një plan",
+      teamSize: "Sa persona jeni?",
+      message: "Çfarë do të donit të automatizonit? Cilin problem po përpiqeni të zgjidhni?",
+    },
+    plans: {
+      standard: "Standard",
+      professional: "Professional",
+      advanced: "Advanced",
+      enterprise: "Enterprise",
+    },
+    teamSizes: {
+      one: "Vetëm unë",
+      twoToFive: "2–5 persona",
+      sixToFifteen: "6–15 persona",
+      sixteenToFifty: "16–50 persona",
+      fiftyPlus: "Mbi 50 persona",
+    },
+    submit: "Dërgo kërkesën",
+    submitting: "Po dërgohet...",
+    legalPrefix: "Duke klikuar, pranoni",
+    privacyPolicy: "Politikën e Privatësisë",
+    success: {
+      title: "Faleminderit! Do t'ju kontaktojmë brenda 24 orëve.",
+      description: "Ju lutem kontrolloni email-in për konfirmim.",
+    },
+    errors: {
+      required: "Emri dhe email-i janë të detyrueshëm.",
+      generic: "Diçka shkoi keq. Ju lutem provoni përsëri.",
+    },
   },
 } as const;

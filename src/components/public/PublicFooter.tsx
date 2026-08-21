@@ -14,19 +14,19 @@ import { PublicLanguageSelector } from "./PublicLanguageSelector";
 import { cn } from "@/lib/utils";
 
 const FOOTER_PLATFORM = [
-  { labelKey: "nav.platform.aiIntelligence", href: "/platform/ai" },
-  { labelKey: "nav.platform.unifiedInbox",    href: "/platform/unified-inbox" },
-  { labelKey: "nav.platform.crmSales",        href: "/platform/crm" },
-  { labelKey: "nav.platform.marketing",       href: "/platform/marketing" },
-  { labelKey: "nav.platform.automation",      href: "/platform/automation" },
-  { labelKey: "nav.platform.analytics",       href: "/platform/analytics" },
-  { labelKey: "nav.platform.developers",      href: "/platform/developers" },
+  { labelKey: "nav.platform.aiIntelligence", href: "/#ai" },
+  { labelKey: "nav.platform.unifiedInbox", href: "/#system" },
+  { labelKey: "nav.platform.crmSales", href: "/#journey" },
+  { labelKey: "nav.platform.marketing", href: "/#capabilities" },
+  { labelKey: "nav.platform.automation", href: "/#journey" },
+  { labelKey: "nav.platform.analytics", href: "/#analytics" },
+  { labelKey: "nav.platform.developers", href: "/#developers", comingSoon: true },
 ];
 
 const FOOTER_BUSINESS = [
-  { labelKey: "nav.standalone.pricing",       href: "/pricing" },
-  { labelKey: "nav.business.whiteLabel",      href: "/white-label" },
-  { labelKey: "nav.standalone.lidhjet",       href: "/platform/lidhjet" },
+  { labelKey: "nav.standalone.pricing", href: "/pricing" },
+  { labelKey: "nav.business.whiteLabel", href: "/white-label" },
+  { labelKey: "nav.standalone.lidhjet", href: "/#community", comingSoon: true },
 ];
 
 const FOOTER_COMPANY = [
@@ -36,10 +36,10 @@ const FOOTER_COMPANY = [
 ];
 
 const FOOTER_LEGAL = [
-  { label: "Privacy Policy",   href: "/legal/privacy-policy" },
-  { label: "Terms of Service", href: "/legal/terms-of-service" },
-  { label: "Cookie Policy",    href: "/legal/cookie-policy" },
-  { label: "DPA",              href: "/legal/dpa" },
+  { labelKey: "footer.links.privacy", href: "/privacy" },
+  { labelKey: "footer.links.terms", href: "/terms" },
+  { labelKey: "footer.links.cookies", href: "/cookies" },
+  { labelKey: "footer.links.dpa", href: "/dpa" },
 ];
 
 export function PublicFooter() {
@@ -70,13 +70,13 @@ export function PublicFooter() {
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           <FooterSection title={t("nav.group.platform")}>
             {FOOTER_PLATFORM.map((item) => (
-              <FooterLink key={item.href} href={item.href} label={t(item.labelKey)} />
+              <FooterLink key={item.href} href={item.href} label={t(item.labelKey)} muted={item.comingSoon} />
             ))}
           </FooterSection>
 
           <FooterSection title={t("nav.group.business")}>
             {FOOTER_BUSINESS.map((item) => (
-              <FooterLink key={item.href} href={item.href} label={t(item.labelKey)} />
+              <FooterLink key={item.href} href={item.href} label={t(item.labelKey)} muted={item.comingSoon} />
             ))}
           </FooterSection>
 
@@ -93,7 +93,7 @@ export function PublicFooter() {
 
           <FooterSection title={t("footer.legal", { defaultValue: "Legal" })}>
             {FOOTER_LEGAL.map((item) => (
-              <FooterLink key={item.href} href={item.href} label={item.label} />
+              <FooterLink key={item.href} href={item.href} label={t(item.labelKey)} />
             ))}
           </FooterSection>
         </div>

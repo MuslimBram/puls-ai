@@ -26,6 +26,12 @@ export const FloatingAIBot = () => {
     }
   }, [messages]);
 
+  useEffect(() => {
+    const handleOpen = () => setOpen(true);
+    window.addEventListener("pulse-ai-open-bot", handleOpen as EventListener);
+    return () => window.removeEventListener("pulse-ai-open-bot", handleOpen as EventListener);
+  }, []);
+
   const notifyAdmin = async (reason: string) => {
     if (adminNotified || !user?.id) return false;
     try {

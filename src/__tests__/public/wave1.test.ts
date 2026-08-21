@@ -68,18 +68,25 @@ describe("publicNavConfig", () => {
     expect(platformNavItems.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("canonical developers route is /platform/developers", () => {
-    const devItem = platformNavItems.find((i) => i.href === "/platform/developers");
+  it("keeps developers as a non-live coming soon item", () => {
+    const devItem = platformNavItems.find((i) => i.labelKey === "nav.platform.developers");
     expect(devItem).toBeDefined();
+    expect(devItem?.comingSoon).toBe(true);
   });
 
-  it("does NOT use /platform/ai-intelligence (non-canonical — must be /platform/ai)", () => {
-    const exposed = allPublicNavItems.some((i) => i.href === "/platform/ai-intelligence");
-    expect(exposed).toBe(false);
-  });
-
-  it("does NOT use /platform/crm-sales (non-canonical — must be /platform/crm)", () => {
-    const exposed = allPublicNavItems.some((i) => i.href === "/platform/crm-sales");
+  it("does NOT use unpublished platform detail routes", () => {
+    const exposed = allPublicNavItems.some((i) =>
+      [
+        "/platform/ai",
+        "/platform/unified-inbox",
+        "/platform/crm",
+        "/platform/marketing",
+        "/platform/automation",
+        "/platform/analytics",
+        "/platform/developers",
+        "/platform/lidhjet",
+      ].includes(i.href),
+    );
     expect(exposed).toBe(false);
   });
 
@@ -88,11 +95,10 @@ describe("publicNavConfig", () => {
     expect(exposed).toBe(false);
   });
 
-  it("public Lidhjet route is /platform/lidhjet (not /lidhjet)", () => {
-    const lidhjetItem = allPublicNavItems.find((i) => i.href === "/platform/lidhjet");
+  it("keeps Lidhjet as a non-live coming soon item", () => {
+    const lidhjetItem = allPublicNavItems.find((i) => i.labelKey === "nav.standalone.lidhjet");
     expect(lidhjetItem).toBeDefined();
-    const wrongItem = allPublicNavItems.find((i) => i.href === "/lidhjet");
-    expect(wrongItem).toBeUndefined();
+    expect(lidhjetItem?.comingSoon).toBe(true);
   });
 
   it("Partners route is /platform/partners (not /partners)", () => {
@@ -254,6 +260,10 @@ describe("EN locale — Wave 1 public keys present", () => {
     expect((en as Record<string, Record<string, string>>).pricing?.neutralNotice).toBeTruthy();
   });
 
+  it("has footer legal link labels", () => {
+    expect((en as Record<string, Record<string, string>>).footer?.links).toBeTruthy();
+  });
+
   it("has footer.rightsReserved", () => {
     expect((en as Record<string, Record<string, string>>).footer?.rightsReserved).toBeTruthy();
   });
@@ -279,5 +289,9 @@ describe("SQ locale — Wave 1 public keys present", () => {
 
   it("has badge.comingSoon in Albanian", () => {
     expect((sq as Record<string, Record<string, string>>).badge?.comingSoon).toBeTruthy();
+  });
+
+  it("has leadForm translations in Albanian", () => {
+    expect((sq as Record<string, Record<string, string>>).leadForm).toBeTruthy();
   });
 });
