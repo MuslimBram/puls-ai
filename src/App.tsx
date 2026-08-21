@@ -120,7 +120,6 @@ const AdminSupportTickets = lazy(() => import("./pages/AdminSupportTickets"));
 const SystemStatus = lazy(() => import("./pages/SystemStatus"));
 const ContentCalendar = lazy(() => import("./pages/ContentCalendar"));
 const LidhjetOverview = lazy(() => import("./pages/lidhjet/LidhjetOverview"));
-
 const LidhjetOnboarding = lazy(() => import("./pages/lidhjet/LidhjetOnboarding"));
 const LidhjetFeed = lazy(() => import("./pages/lidhjet/LidhjetFeed"));
 const LidhjetInterests = lazy(() => import("./pages/lidhjet/LidhjetInterests"));
@@ -195,20 +194,18 @@ const App = () => (
                 <Route path="/unsubscribe" element={<Suspense fallback={<LazyFallback />}><Unsubscribe /></Suspense>} />
                 <Route path="/auth/callback" element={<Suspense fallback={<LazyFallback />}><AuthCallback /></Suspense>} />
                 <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<LazyFallback />}><OAuthConsent /></Suspense>} />
-                <Route path="/pricing" element={<Suspense fallback={<LazyFallback />}><Pricing /></Suspense>} />
+                <Route path="/pricing" element={<Pricing />} />
                 <Route path="/white-label" element={<WhiteLabel />} />
 
                 {/* Public legal pages */}
                 <Route path="/privacy" element={<Suspense fallback={<LazyFallback />}><PrivacyPolicy /></Suspense>} />
                 <Route path="/terms" element={<Suspense fallback={<LazyFallback />}><TermsOfService /></Suspense>} />
                 <Route path="/security" element={<Suspense fallback={<LazyFallback />}><SecurityOverview /></Suspense>} />
-                <Route path="/security/overview" element={<Suspense fallback={<LazyFallback />}><SecurityOverview /></Suspense>} />
                 <Route path="/cookies" element={<Suspense fallback={<LazyFallback />}><CookiePolicy /></Suspense>} />
                 <Route path="/refund" element={<Suspense fallback={<LazyFallback />}><RefundPolicy /></Suspense>} />
                 <Route path="/affiliate-terms" element={<Suspense fallback={<LazyFallback />}><AffiliateTerms /></Suspense>} />
                 <Route path="/dpa" element={<Suspense fallback={<LazyFallback />}><DPA /></Suspense>} />
                 <Route path="/terms-and-payments" element={<Suspense fallback={<LazyFallback />}><TermsAndPayments /></Suspense>} />
-
                 <Route path="/complete-payment" element={<ProtectedRoute><Suspense fallback={<LazyFallback />}><CompletePayment /></Suspense></ProtectedRoute>} />
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
