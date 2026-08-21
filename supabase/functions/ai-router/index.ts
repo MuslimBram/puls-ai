@@ -302,7 +302,7 @@ async function callProvider(
     async (ctrl) => {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `****** },
+        headers: { "Content-Type": "application/json", "Authorization": `******` },
         body: JSON.stringify({ model, messages: allMessages, max_tokens: maxTokens, temperature: 0.7 }),
         signal: ctrl.signal,
       });
