@@ -1,4 +1,5 @@
-import { Link, Navigate } from "react-router-dom";
+import { useEffect } from "react";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   ArrowRight,
@@ -94,10 +95,22 @@ const Index = () => {
   const { user, loading } = useAuth();
   const { t } = useTranslation();
   const scrollRef = useScrollAnimation();
+  const location = useLocation();
 
   const openAIBot = () => {
     window.dispatchEvent(new CustomEvent("pulse-ai-open-bot"));
   };
+
+  useEffect(() => {
+    if (!location.hash) return;
+
+    const sectionId = decodeURIComponent(location.hash.slice(1));
+    const section = document.getElementById(sectionId);
+
+    if (!section) return;
+
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash]);
 
   if (loading) {
     return (

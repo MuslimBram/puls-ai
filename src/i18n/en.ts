@@ -646,8 +646,8 @@ export default {
     legalPrefix: "By clicking, you accept the",
     privacyPolicy: "Privacy Policy",
     success: {
-      title: "Thanks! We'll contact you within 24 hours.",
-      description: "Please check your email for confirmation.",
+      title: "Thanks! Your request has been received successfully.",
+      description: "Our team can follow up using the details you submitted.",
     },
     errors: {
       required: "Name and email are required.",

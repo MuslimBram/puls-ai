@@ -52,4 +52,11 @@ describe("Wave 2 homepage", () => {
     expect(enSource).toContain("leadForm:");
     expect(sqSource).toContain("leadForm:");
   });
+
+  it("removes unsupported public lead success claims", () => {
+    expect(enSource).not.toContain("We'll contact you within 24 hours");
+    expect(enSource).not.toContain("Please check your email for confirmation.");
+    expect(sqSource).not.toContain("Do t'ju kontaktojmë brenda 24 orëve");
+    expect(sqSource).not.toContain("Ju lutem kontrolloni email-in për konfirmim.");
+  });
 });

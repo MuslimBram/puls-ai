@@ -646,8 +646,8 @@ export default {
     legalPrefix: "Duke klikuar, pranoni",
     privacyPolicy: "Politikën e Privatësisë",
     success: {
-      title: "Faleminderit! Do t'ju kontaktojmë brenda 24 orëve.",
-      description: "Ju lutem kontrolloni email-in për konfirmim.",
+      title: "Faleminderit! Kërkesa juaj u mor me sukses.",
+      description: "Ekipi ynë mund t'ju kontaktojë nëpërmjet të dhënave që dërguat.",
     },
     errors: {
       required: "Emri dhe email-i janë të detyrueshëm.",
