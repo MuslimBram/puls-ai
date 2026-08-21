@@ -1,50 +1,116 @@
-import { useAuth } from "@/contexts/AuthContext";
-import { Navigate, Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-
-import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
-import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { useEffect } from "react";
+import { Link, Navigate, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import {
-  Zap, MessageSquare, BarChart3, Bot, ArrowRight, Shield,
-  Users, Target, Sparkles, CheckCircle2, Star, Phone,
+  ArrowRight,
+  Bot,
+  BrainCircuit,
+  Building2,
+  ChartColumn,
+  CheckCircle2,
+  Cpu,
+  GitBranch,
+  Mail,
+  MessageSquare,
+  Phone,
+  ShieldCheck,
+  Sparkles,
+  Users,
+  Workflow,
+  Zap,
 } from "lucide-react";
-import { BusinessCapabilities } from "@/components/landing/BusinessCapabilities";
-import { FreelancerCapabilities } from "@/components/landing/FreelancerCapabilities";
-import { CompetitorComparison } from "@/components/landing/CompetitorComparison";
-import { HowItWorks } from "@/components/landing/HowItWorks";
-import { FAQSection } from "@/components/landing/FAQSection";
+import { useAuth } from "@/contexts/AuthContext";
+import { useScrollAnimation } from "@/hooks/useScrollAnimation";
+import { Seo } from "@/components/Seo";
 import { FloatingAIBot } from "@/components/FloatingAIBot";
-import { AIToolsSection } from "@/components/landing/AIToolsSection";
-import { IndustriesSection } from "@/components/landing/IndustriesSection";
-import { IntelligenceToolsSection } from "@/components/landing/IntelligenceToolsSection";
-import { BusinessScanWidget } from "@/components/landing/BusinessScanWidget";
-import { formatALL } from "@/lib/currency";
+import { PublicShell } from "@/components/public/PublicShell";
+import { PublicCTA } from "@/components/public/PublicCTA";
+import { TrustBadgeRow } from "@/components/public/TrustBadge";
+import { PublicLeadForm } from "@/components/leads/PublicLeadForm";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-const COMMUNITY_PHOTOS = [
-  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1463453091185-61582044d556?w=120&h=120&fit=crop&crop=face",
-  "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=120&h=120&fit=crop&crop=face",
+const HERO_CHANNELS = [
+  { label: "WhatsApp", icon: Phone },
+  { label: "Instagram", icon: Sparkles },
+  { label: "Messenger", icon: MessageSquare },
+  { label: "Telegram", icon: MessageSquare },
+  { label: "Email", icon: Mail },
+  { label: "Web Chat", icon: Bot },
 ];
 
+const OMNICHANNEL_CHANNELS = [
+  "WhatsApp",
+  "Instagram",
+  "Facebook / Messenger",
+  "Telegram",
+  "SMS",
+  "Email",
+  "Voice",
+  "Web Chat",
+];
+
+const FLOW_KEYS = ["channels", "inbox", "crm", "ai", "automation", "analytics"] as const;
+const PILLAR_KEYS = ["communication", "intelligence", "crmSales", "automation", "memory", "analytics"] as const;
+const JOURNEY_KEYS = ["lead", "qualification", "crm", "followUp", "booking", "analytics"] as const;
+const CONTROL_KEYS = ["handoff", "rules", "visibility"] as const;
+const AI_PROMPT_KEYS = ["promptOne", "promptTwo", "promptThree"] as const;
+const PROBLEM_KEYS = ["fragmentedLeads", "missedFollowUps", "disconnectedData", "manualWork", "unclearIntelligence", "lostContext"] as const;
+
+const pillarIcons = {
+  communication: MessageSquare,
+  intelligence: BrainCircuit,
+  crmSales: Users,
+  automation: Workflow,
+  memory: Cpu,
+  analytics: ChartColumn,
+} as const;
+
+const journeyIcons = {
+  lead: Sparkles,
+  qualification: CheckCircle2,
+  crm: Users,
+  followUp: Workflow,
+  booking: Building2,
+  analytics: ChartColumn,
+} as const;
+
+const controlIcons = {
+  handoff: Users,
+  rules: ShieldCheck,
+  visibility: ChartColumn,
+} as const;
+
+const flowIcons = {
+  channels: MessageSquare,
+  inbox: Mail,
+  crm: Users,
+  ai: Bot,
+  automation: GitBranch,
+  analytics: ChartColumn,
+} as const;
 
 const Index = () => {
   const { user, loading } = useAuth();
-  const { plans } = useMonetizationCatalog();
-  const scrollRef = useScrollAnimation();
   const { t } = useTranslation();
+  const scrollRef = useScrollAnimation();
+  const location = useLocation();
+
+  const openAIBot = () => {
+    window.dispatchEvent(new CustomEvent("pulse-ai-open-bot"));
+  };
+
+  useEffect(() => {
+    if (!location.hash) return;
+
+    const sectionId = decodeURIComponent(location.hash.slice(1));
+    const section = document.getElementById(sectionId);
+
+    if (!section) return;
+
+    section.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [location.hash]);
 
   if (loading) {
     return (
@@ -58,236 +124,471 @@ const Index = () => {
     return <Navigate to="/dashboard" replace />;
   }
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Pulse AI",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    description: t("homepage.hero.description"),
+    url: `${window.location.origin}/`,
+    offers: {
+      "@type": "Offer",
+      url: `${window.location.origin}/pricing`,
+    },
+  };
+
   return (
-    <div className="min-h-screen bg-background" ref={scrollRef}>
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b border-border bg-background/95 backdrop-blur">
-        <div className="container mx-auto flex items-center justify-between px-4 py-4">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Zap className="h-4 w-4 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold text-foreground">Pulse AI</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <LanguageSwitcher />
-            <Link to="/pricing">
-              <Button variant="ghost" size="sm">{t("landing.pricing")}</Button>
-            </Link>
-            <Link to="/login">
-              <Button variant="ghost" size="sm">{t("landing.signIn")}</Button>
-            </Link>
-            <Link to="/register">
-              <Button size="sm">{t("landing.getStarted")}</Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <PublicShell mainClassName="overflow-x-clip">
+      <Seo
+        title={t("homepage.seo.title")}
+        description={t("homepage.seo.description")}
+        canonical={`${window.location.origin}/`}
+        jsonLd={jsonLd}
+      />
 
-      <main>
-        {/* Hero */}
-        <section className="container mx-auto px-4 py-20 text-center">
-          <Badge variant="secondary" className="mb-4 animate-fade-in-up">{t("landing.aiPowered")}</Badge>
-          <h1 className="mx-auto mb-4 max-w-4xl text-4xl font-bold leading-tight text-foreground md:text-5xl lg:text-6xl animate-fade-in-up" style={{ animationDelay: "100ms" }}>
-            {t("landing.heroTitle")}
-          </h1>
-          <p className="mx-auto mb-8 max-w-xl text-lg text-muted-foreground animate-fade-in-up" style={{ animationDelay: "200ms" }}>
-            {t("landing.heroDesc")}
-          </p>
-          <div className="mb-4 flex items-center justify-center gap-3 animate-fade-in-up" style={{ animationDelay: "300ms" }}>
-            <Link to="/register">
-              <Button size="lg" className="hover-lift">
-                {t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" />
+      <div ref={scrollRef} className="bg-background">
+        <section id="overview" className="border-b border-border/60">
+          <div className="mx-auto grid max-w-7xl gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:px-8 lg:py-24">
+            <div className="space-y-8">
+              <div className="space-y-4 animate-on-scroll">
+                <Badge variant="secondary" className="w-fit gap-2 px-3 py-1 text-xs font-medium">
+                  <Zap className="h-3.5 w-3.5" />
+                  {t("homepage.hero.eyebrow")}
+                </Badge>
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+                    {t("homepage.hero.brand")}
+                  </p>
+                  <h1 className="max-w-3xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl lg:text-6xl">
+                    {t("homepage.hero.title")}
+                  </h1>
+                  <p className="max-w-2xl text-xl text-muted-foreground sm:text-2xl">
+                    {t("homepage.hero.subtitle")}
+                  </p>
+                </div>
+                <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+                  {t("homepage.hero.description")}
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row animate-on-scroll">
+                <PublicCTA
+                  size="lg"
+                  className="min-w-[200px]"
+                  appDestination="/dashboard"
+                  label={t("homepage.hero.primaryCta")}
+                />
+                <Button size="lg" variant="outline" className="gap-2" onClick={openAIBot}>
+                  {t("homepage.hero.secondaryCta")}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Button>
+              </div>
+
+              <div className="space-y-3 animate-on-scroll">
+                <TrustBadgeRow />
+                <p className="text-sm text-muted-foreground">
+                  {t("homepage.hero.supportingNote")}
+                </p>
+              </div>
+            </div>
+
+            <Card className="animate-on-scroll border-border/70 bg-card/80 shadow-sm">
+              <CardHeader className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{t("homepage.systemPreview.title")}</p>
+                    <p className="text-sm text-muted-foreground">{t("homepage.systemPreview.description")}</p>
+                  </div>
+                  <Badge variant="outline">{t("homepage.systemPreview.badge")}</Badge>
+                </div>
+                <div className="flex flex-wrap gap-2" aria-label={t("homepage.omnichannel.title")}>
+                  {HERO_CHANNELS.map(({ label, icon: Icon }) => (
+                    <span
+                      key={label}
+                      className="inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground"
+                    >
+                      <Icon className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+                      {label}
+                    </span>
+                  ))}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {FLOW_KEYS.map((key, index) => {
+                  const Icon = flowIcons[key];
+                  return (
+                    <div key={key} className="space-y-2">
+                      <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-background px-4 py-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <Icon className="h-4 w-4" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">
+                            {t(`homepage.flow.${key}.title`)}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {t(`homepage.flow.${key}.description`)}
+                          </p>
+                        </div>
+                      </div>
+                      {index < FLOW_KEYS.length - 1 && (
+                        <div className="ml-5 h-5 w-px border-l border-dashed border-border/80" aria-hidden="true" />
+                      )}
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <section id="problem" className="border-b border-border/60 bg-muted/20">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+            <div className="mx-auto max-w-3xl text-center animate-on-scroll">
+              <Badge variant="outline" className="mb-4">{t("homepage.problem.eyebrow")}</Badge>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {t("homepage.problem.title")}
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                {t("homepage.problem.description")}
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {PROBLEM_KEYS.map((key) => (
+                <Card key={key} className="animate-on-scroll border-border/70 bg-background/80">
+                  <CardContent className="flex items-start gap-3 p-5">
+                    <div className="mt-0.5 rounded-full bg-destructive/10 p-2 text-destructive">
+                      <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                    </div>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {t(`homepage.problem.items.${key}`)}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+
+            <Card className="mt-8 animate-on-scroll border-primary/20 bg-primary/5">
+              <CardContent className="p-6 sm:p-8">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+                  {t("homepage.problem.solutionLabel")}
+                </p>
+                <p className="mt-3 max-w-4xl text-lg leading-8 text-foreground">
+                  {t("homepage.problem.solution")}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+
+        <section id="system" className="border-b border-border/60">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+            <div className="mx-auto max-w-3xl text-center animate-on-scroll">
+              <Badge variant="outline" className="mb-4">{t("homepage.flowSection.eyebrow")}</Badge>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {t("homepage.flowSection.title")}
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                {t("homepage.flowSection.description")}
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 lg:grid-cols-6">
+              {FLOW_KEYS.map((key, index) => {
+                const Icon = flowIcons[key];
+                return (
+                  <div key={key} className="relative animate-on-scroll">
+                    <Card className="h-full border-border/70 bg-card/80">
+                      <CardContent className="flex h-full flex-col gap-4 p-5">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </div>
+                        <div className="space-y-2">
+                          <h3 className="text-base font-semibold text-foreground">
+                            {t(`homepage.flow.${key}.title`)}
+                          </h3>
+                          <p className="text-sm leading-6 text-muted-foreground">
+                            {t(`homepage.flow.${key}.description`)}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    {index < FLOW_KEYS.length - 1 && (
+                      <div className="pointer-events-none absolute -right-3 top-1/2 hidden -translate-y-1/2 lg:block">
+                        <ArrowRight className="h-5 w-5 text-border" aria-hidden="true" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="capabilities" className="border-b border-border/60 bg-muted/20">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+            <div className="mx-auto max-w-3xl text-center animate-on-scroll">
+              <Badge variant="outline" className="mb-4">{t("homepage.pillars.eyebrow")}</Badge>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {t("homepage.pillars.title")}
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                {t("homepage.pillars.description")}
+              </p>
+            </div>
+
+            <div className="mt-10 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {PILLAR_KEYS.map((key) => {
+                const Icon = pillarIcons[key];
+                return (
+                  <Card key={key} className="animate-on-scroll border-border/70 bg-background/90">
+                    <CardContent className="space-y-4 p-6">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </div>
+                      <div className="space-y-2">
+                        <h3 className="text-lg font-semibold text-foreground">
+                          {t(`homepage.pillars.items.${key}.title`)}
+                        </h3>
+                        <p className="text-sm leading-6 text-muted-foreground">
+                          {t(`homepage.pillars.items.${key}.description`)}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
+        <section id="omnichannel" className="border-b border-border/60">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:py-20">
+            <div className="space-y-4 animate-on-scroll">
+              <Badge variant="outline">{t("homepage.omnichannel.eyebrow")}</Badge>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {t("homepage.omnichannel.title")}
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                {t("homepage.omnichannel.description")}
+              </p>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {t("homepage.omnichannel.disclaimer")}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 animate-on-scroll">
+              {OMNICHANNEL_CHANNELS.map((channel) => (
+                <div
+                  key={channel}
+                  className="rounded-2xl border border-border/70 bg-card/80 px-4 py-4 text-sm font-medium text-foreground shadow-sm"
+                >
+                  {channel}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="ai" className="border-b border-border/60 bg-muted/20">
+          <div className="mx-auto grid max-w-7xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[0.95fr_1.05fr] lg:px-8 lg:py-20">
+            <div className="space-y-5 animate-on-scroll">
+              <Badge variant="outline">{t("homepage.aiSection.eyebrow")}</Badge>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {t("homepage.aiSection.title")}
+              </h2>
+              <p className="text-lg text-muted-foreground">
+                {t("homepage.aiSection.description")}
+              </p>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {t("homepage.aiSection.note")}
+              </p>
+              <Button size="lg" className="gap-2" onClick={openAIBot}>
+                {t("homepage.aiSection.primaryCta")}
+                <ArrowRight className="h-4 w-4" aria-hidden="true" />
               </Button>
-            </Link>
-            <Link to="/pricing">
-              <Button variant="outline" size="lg" className="hover-lift">{t("landing.viewPricing")}</Button>
-            </Link>
-          </div>
-          <p className="text-xs text-muted-foreground animate-fade-in-up" style={{ animationDelay: "400ms" }}>
-            {t("landing.noCreditCard")}
-          </p>
-        </section>
-
-        {/* Problem / Solution */}
-        <section className="border-t border-border bg-muted/30">
-          <div className="container mx-auto px-4 py-16">
-            <div className="mx-auto grid max-w-5xl items-center gap-12 md:grid-cols-2">
-              <div className="animate-on-scroll">
-                <Badge variant="destructive" className="mb-3">{t("landing.problemBadge")}</Badge>
-                <h2 className="mb-3 text-2xl font-bold text-foreground">
-                  {t("landing.problemTitle")}
-                </h2>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.scattered")}</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.slow")}</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.noVisibility")}</li>
-                  <li className="flex items-start gap-2"><span className="mt-0.5 text-destructive">✕</span> {t("landing.problems.manual")}</li>
-                </ul>
-              </div>
-              <div className="animate-on-scroll" style={{ transitionDelay: "150ms" }}>
-                <Badge className="mb-3">{t("landing.solutionBadge")}</Badge>
-                <h2 className="mb-3 text-2xl font-bold text-foreground">
-                  {t("landing.solutionTitle")}
-                </h2>
-                <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.unified")}</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.aiScores")}</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.automated")}</li>
-                  <li className="flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {t("landing.solutions.crm")}</li>
-                </ul>
-              </div>
             </div>
+
+            <Card className="animate-on-scroll border-border/70 bg-background/90 shadow-sm">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Bot className="h-5 w-5 text-primary" aria-hidden="true" />
+                  {t("homepage.aiSection.cardTitle")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {AI_PROMPT_KEYS.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={openAIBot}
+                    className="flex w-full items-start justify-between gap-3 rounded-2xl border border-border/70 bg-muted/30 px-4 py-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <span className="text-sm leading-6 text-foreground">
+                      {t(`homepage.aiSection.${key}`)}
+                    </span>
+                    <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
           </div>
         </section>
 
-        <HowItWorks />
-
-        {/* Features Grid */}
-        <section className="container mx-auto px-4 py-16">
-          <div className="mb-12 text-center animate-on-scroll">
-            <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.featuresTitle")}</h2>
-            <p className="mx-auto max-w-lg text-muted-foreground">{t("landing.featuresDesc")}</p>
-          </div>
-          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children">
-            {[
-              { icon: MessageSquare, title: t("landing.features.unifiedInbox"), desc: t("landing.features.unifiedInboxDesc") },
-              { icon: Bot, title: t("landing.features.dedicatedAI"), desc: t("landing.features.dedicatedAIDesc") },
-              { icon: BarChart3, title: t("landing.features.smartAnalytics"), desc: t("landing.features.smartAnalyticsDesc") },
-              { icon: Target, title: t("landing.features.leadDiscovery"), desc: t("landing.features.leadDiscoveryDesc") },
-              { icon: Users, title: t("landing.features.crmPipeline"), desc: t("landing.features.crmPipelineDesc") },
-              { icon: Shield, title: t("landing.features.competitorIntel"), desc: t("landing.features.competitorIntelDesc") },
-              { icon: Sparkles, title: t("landing.features.campaignBuilder"), desc: t("landing.features.campaignBuilderDesc") },
-              { icon: Phone, title: t("landing.features.callTracking"), desc: t("landing.features.callTrackingDesc") },
-              { icon: Zap, title: t("landing.features.automationEngine"), desc: t("landing.features.automationEngineDesc") },
-            ].map((f) => (
-              <div key={f.title} className="rounded-xl border border-border p-6 hover-lift card-glow">
-                <f.icon className="mb-3 h-8 w-8 text-primary" />
-                <h3 className="mb-1 font-semibold text-foreground">{f.title}</h3>
-                <p className="text-sm text-muted-foreground">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <BusinessCapabilities />
-        <FreelancerCapabilities />
-        <AIToolsSection />
-        <IndustriesSection />
-        <IntelligenceToolsSection />
-        <CompetitorComparison />
-
-        {/* Business Qualification Engine */}
-        <BusinessScanWidget />
-
-        {/* Pricing Preview */}
-        <section className="border-t border-border bg-muted/30">
-          <div className="container mx-auto px-4 py-16 text-center">
-            <div className="animate-on-scroll">
-              <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.pricingTitle")}</h2>
-              <p className="mb-8 text-muted-foreground">{t("landing.pricingDesc")}</p>
+        <section id="journey" className="border-b border-border/60">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+            <div className="mx-auto max-w-3xl text-center animate-on-scroll">
+              <Badge variant="outline" className="mb-4">{t("homepage.journey.eyebrow")}</Badge>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {t("homepage.journey.title")}
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                {t("homepage.journey.description")}
+              </p>
             </div>
-            <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2 lg:grid-cols-4 stagger-children">
-              {plans.slice(0, 4).map((plan) => (
-                <Card key={plan.key} className={`hover-lift card-glow ${plan.highlighted ? "border-primary ring-1 ring-primary" : ""}`}>
-                  <CardContent className="pt-6 text-center">
-                    {plan.highlighted && <Badge className="mb-2">{t("landing.recommended")}</Badge>}
-                    <h3 className="font-semibold text-foreground">{plan.name}</h3>
-                    <p className="my-1 text-2xl font-bold text-foreground">{plan.key === "enterprise" ? t("landing.custom") : formatALL(plan.monthlyPrice)}</p>
-                    <p className="mb-3 text-xs text-muted-foreground">{plan.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-            <Link to="/pricing">
-              <Button variant="outline" className="mt-6 hover-lift">{t("landing.comparePlans")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
-            </Link>
-          </div>
-        </section>
 
-        {/* Testimonials with gradient bg */}
-        <section className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-accent/5 via-background to-primary/5" />
-          <div className="container relative mx-auto px-4 py-16">
-            <div className="mb-10 text-center animate-on-scroll">
-              <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.testimonialsTitle")}</h2>
-              <p className="text-muted-foreground">{t("landing.testimonialsDesc")}</p>
-            </div>
-            <div className="mx-auto grid max-w-4xl gap-6 md:grid-cols-3 stagger-children">
-              {(t("landing.testimonials", { returnObjects: true }) as Array<{name: string; role: string; quote: string}>).map((tst) => (
-                <Card key={tst.name} className="hover-lift card-glow">
-                  <CardContent className="pt-6">
-                    <div className="mb-3 flex gap-0.5">
-                      {[...Array(5)].map((_, i) => <Star key={i} className="h-4 w-4 fill-primary text-primary" />)}
-                    </div>
-                    <p className="mb-4 text-sm italic text-muted-foreground">"{tst.quote}"</p>
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{tst.name}</p>
-                      <p className="text-xs text-muted-foreground">{tst.role}</p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="mt-10 grid gap-4 lg:grid-cols-6">
+              {JOURNEY_KEYS.map((key, index) => {
+                const Icon = journeyIcons[key];
+                return (
+                  <div key={key} className="relative animate-on-scroll">
+                    <Card className="h-full border-border/70 bg-card/80">
+                      <CardContent className="space-y-4 p-5">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <Icon className="h-5 w-5" aria-hidden="true" />
+                        </div>
+                        <div>
+                          <h3 className="text-base font-semibold text-foreground">
+                            {t(`homepage.journey.steps.${key}.title`)}
+                          </h3>
+                          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                            {t(`homepage.journey.steps.${key}.description`)}
+                          </p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    {index < JOURNEY_KEYS.length - 1 && (
+                      <div className="pointer-events-none absolute -right-3 top-1/2 hidden -translate-y-1/2 lg:block">
+                        <ArrowRight className="h-5 w-5 text-border" aria-hidden="true" />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </section>
 
-        {/* Community Marquee */}
-        <section className="border-t border-border bg-muted/20 py-16">
-          <div className="mb-8 text-center animate-on-scroll">
-            <h2 className="mb-2 text-2xl font-bold text-foreground">{t("landing.communityTitle")}</h2>
-            <p className="text-muted-foreground">{t("landing.communityDesc")}</p>
-          </div>
-          <div className="marquee-container mb-4">
-            <div className="marquee-track animate-marquee">
-              {[...COMMUNITY_PHOTOS, ...COMMUNITY_PHOTOS].map((src, i) => (
-                <img key={`r1-${i}`} src={src} alt="Community member" className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md" loading="lazy" />
-              ))}
+        <section id="trust" className="border-b border-border/60 bg-muted/20">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+            <div className="mx-auto max-w-3xl text-center animate-on-scroll">
+              <Badge variant="outline" className="mb-4">{t("homepage.control.eyebrow")}</Badge>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {t("homepage.control.title")}
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                {t("homepage.control.description")}
+              </p>
             </div>
-          </div>
-          <div className="marquee-container mb-8">
-            <div className="marquee-track animate-marquee-reverse">
-              {[...COMMUNITY_PHOTOS.slice().reverse(), ...COMMUNITY_PHOTOS.slice().reverse()].map((src, i) => (
-                <img key={`r2-${i}`} src={src} alt="Community member" className="mx-2 h-20 w-20 rounded-xl object-cover shadow-md" loading="lazy" />
-              ))}
+
+            <div className="mt-10 grid gap-4 md:grid-cols-3">
+              {CONTROL_KEYS.map((key) => {
+                const Icon = controlIcons[key];
+                return (
+                  <Card key={key} className="animate-on-scroll border-border/70 bg-background/90">
+                    <CardContent className="space-y-4 p-6">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-foreground">
+                          {t(`homepage.control.items.${key}.title`)}
+                        </h3>
+                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                          {t(`homepage.control.items.${key}.description`)}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
-          </div>
-          <div className="text-center animate-on-scroll">
-            <Link to="/register">
-              <Button size="lg" className="hover-lift">{t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
-            </Link>
           </div>
         </section>
 
-        <FAQSection />
-
-        {/* Final CTA */}
-        <section className="border-t border-border relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5" />
-          <div className="container relative mx-auto px-4 py-16 text-center animate-on-scroll">
-            <h2 className="mb-3 text-3xl font-bold text-foreground">{t("landing.ctaTitle")}</h2>
-            <p className="mx-auto mb-6 max-w-md text-muted-foreground">{t("landing.ctaDesc")}</p>
-            <Link to="/register">
-              <Button size="lg" className="hover-lift">{t("landing.startTrial")} <ArrowRight className="ml-1 h-4 w-4" /></Button>
-            </Link>
+        <section id="analytics" className="border-b border-border/60">
+          <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8 lg:py-20">
+            <div className="mx-auto max-w-3xl text-center animate-on-scroll">
+              <Badge variant="outline" className="mb-4">{t("homepage.pricing.eyebrow")}</Badge>
+              <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {t("homepage.pricing.title")}
+              </h2>
+              <p className="mt-4 text-lg text-muted-foreground">
+                {t("homepage.pricing.description")}
+              </p>
+            </div>
+            <div className="mt-8 flex justify-center animate-on-scroll">
+              <Button size="lg" variant="outline" asChild>
+                <Link to="/pricing">
+                  {t("homepage.pricing.cta")}
+                  <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
+                </Link>
+              </Button>
+            </div>
           </div>
         </section>
-      </main>
 
-      <footer className="border-t border-border py-8">
-        <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-4 text-sm text-muted-foreground sm:flex-row">
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary">
-              <Zap className="h-3 w-3 text-primary-foreground" />
-            </div>
-            <span className="font-medium text-foreground">Pulse AI</span>
+        <section id="contact" className="bg-muted/20">
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-16 sm:px-6 lg:grid-cols-[0.9fr_1.1fr] lg:px-8 lg:py-20">
+            <Card className="animate-on-scroll border-border/70 bg-background/90">
+              <CardContent className="space-y-6 p-6 sm:p-8">
+                <Badge variant="outline">{t("homepage.finalCta.eyebrow")}</Badge>
+                <div className="space-y-3">
+                  <h2 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                    {t("homepage.finalCta.title")}
+                  </h2>
+                  <p className="text-lg text-muted-foreground">
+                    {t("homepage.finalCta.description")}
+                  </p>
+                </div>
+                <div className="space-y-3 text-sm text-muted-foreground">
+                  <p>{t("homepage.finalCta.pointOne")}</p>
+                  <p>{t("homepage.finalCta.pointTwo")}</p>
+                  <p>{t("homepage.finalCta.pointThree")}</p>
+                </div>
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <PublicCTA
+                    size="lg"
+                    className="min-w-[200px]"
+                    appDestination="/dashboard"
+                    label={t("homepage.finalCta.primaryCta")}
+                  />
+                  <Button size="lg" variant="outline" className="gap-2" onClick={openAIBot}>
+                    {t("homepage.finalCta.secondaryCta")}
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-on-scroll border-border/70 bg-card/90 shadow-sm">
+              <CardContent className="p-6 sm:p-8">
+                <PublicLeadForm
+                  source="homepage"
+                  showPlanSelect={false}
+                  title={t("homepage.leadForm.title")}
+                  subtitle={t("homepage.leadForm.subtitle")}
+                />
+              </CardContent>
+            </Card>
           </div>
-          <p>© {new Date().getFullYear()} Pulse AI. {t("landing.allRightsReserved")}</p>
-        </div>
-      </footer>
+        </section>
+      </div>
 
       <FloatingAIBot />
-    </div>
+    </PublicShell>
   );
 };
 

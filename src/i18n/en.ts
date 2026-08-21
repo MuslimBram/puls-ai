@@ -230,6 +230,207 @@ export default {
     },
   },
 
+  homepage: {
+    seo: {
+      title: "Pulse AI — The AI Business Operating System",
+      description:
+        "One intelligent system to run, automate and grow your business across conversations, CRM, AI, automation and analytics.",
+    },
+    hero: {
+      eyebrow: "Business Operating System",
+      brand: "Pulse AI",
+      title: "The AI Business Operating System",
+      subtitle: "One intelligent system to run, automate and grow your business.",
+      description:
+        "Pulse AI connects customer conversations, CRM, AI, automation and business intelligence into one operating system your team can actually use.",
+      primaryCta: "Get Started",
+      secondaryCta: "Try Pulse AI",
+      supportingNote:
+        "Start your account, explore the platform, or ask Pulse AI about the workflow that fits your business.",
+    },
+    systemPreview: {
+      title: "One connected system",
+      description: "Channels, context, actions and analytics move together.",
+      badge: "Unified",
+    },
+    problem: {
+      eyebrow: "The business problem",
+      title: "Most businesses still run on fragmented conversations and disconnected tools.",
+      description:
+        "Leads arrive everywhere, follow-ups slow down, context disappears and reporting never reflects the full picture.",
+      solutionLabel: "Why Pulse AI",
+      solution:
+        "Pulse AI becomes the operating layer between your channels, your team and your customer data so every conversation can move toward revenue.",
+      items: {
+        fragmentedLeads: "Leads arrive across multiple channels with no single operating view.",
+        missedFollowUps: "Follow-ups depend on memory, inbox switching and manual reminders.",
+        disconnectedData: "CRM records, notes and conversation history live in separate places.",
+        manualWork: "Teams repeat the same qualification, routing and update work every day.",
+        unclearIntelligence: "Decision-makers struggle to see what is working and where revenue is leaking.",
+        lostContext: "Customer context gets lost between messages, calls, handoffs and deals.",
+      },
+    },
+    flowSection: {
+      eyebrow: "How Pulse AI works",
+      title: "A single operating flow instead of scattered features.",
+      description:
+        "Channels feed a shared inbox, customer context stays in the CRM, Pulse AI recommends or automates the next action, and analytics keep the business aligned.",
+    },
+    flow: {
+      channels: {
+        title: "Channels",
+        description: "Bring customer conversations from the channels your business already uses.",
+      },
+      inbox: {
+        title: "Unified Inbox",
+        description: "Capture new leads and manage inbound demand from one working surface.",
+      },
+      crm: {
+        title: "CRM + Context",
+        description: "Keep customer history, ownership and deal progress connected to every conversation.",
+      },
+      ai: {
+        title: "Pulse AI",
+        description: "Use AI assistance to understand intent, surface context and guide next actions.",
+      },
+      automation: {
+        title: "Automation / Next Action",
+        description: "Trigger follow-ups, handoffs and operational workflows without losing control.",
+      },
+      analytics: {
+        title: "Analytics / Revenue Intelligence",
+        description: "See pipeline, response performance and business signals in one view.",
+      },
+    },
+    pillars: {
+      eyebrow: "Core capability pillars",
+      title: "Built as one business system.",
+      description:
+        "Pulse AI groups the core operating layers a business needs without turning the homepage into a directory of unrelated tools.",
+      items: {
+        communication: {
+          title: "Unified Customer Communication",
+          description: "Keep inbound conversations, lead capture and team response in one place.",
+        },
+        intelligence: {
+          title: "AI Assistant & Intelligence",
+          description: "Use AI to understand customer intent, support teams and reduce repetitive work.",
+        },
+        crmSales: {
+          title: "CRM & Sales",
+          description: "Track relationships, deal progress and the next commercial step with better context.",
+        },
+        automation: {
+          title: "Automation",
+          description: "Turn operating rules into repeatable follow-ups, routing and internal actions.",
+        },
+        memory: {
+          title: "Business Memory",
+          description: "Retain customer and business context so conversations do not restart from zero.",
+        },
+        analytics: {
+          title: "Analytics & CEO Intelligence",
+          description: "Translate daily activity into visibility on growth, bottlenecks and revenue outcomes.",
+        },
+      },
+    },
+    omnichannel: {
+      eyebrow: "Omnichannel",
+      title: "Meet customers where conversations already happen.",
+      description:
+        "Pulse AI is designed around multi-channel communication so customer context can stay connected as businesses grow.",
+      disclaimer:
+        "Channel availability depends on the connected accounts and workspace configuration that are enabled in your setup.",
+    },
+    aiSection: {
+      eyebrow: "Live interaction",
+      title: "Ask Pulse AI about the platform.",
+      description:
+        "The existing public AI assistant stays available on the page so visitors can explore capabilities in a direct, low-friction way.",
+      note:
+        "Use it for product questions, fit checks and workflow exploration. The AI Help button stays available at the bottom of the page.",
+      primaryCta: "Open AI Help",
+      cardTitle: "Try these prompts",
+      promptOne: "How does Pulse AI connect conversations, CRM and automation?",
+      promptTwo: "What customer journey can Pulse AI support for a service business?",
+      promptThree: "Which channels and capabilities should I explore first?",
+    },
+    journey: {
+      eyebrow: "Customer journey",
+      title: "Move from lead to action without losing momentum.",
+      description:
+        "Pulse AI supports the operational path from initial conversation through qualification, follow-up and reporting.",
+      steps: {
+        lead: {
+          title: "Lead",
+          description: "Capture inbound demand from your active communication channels.",
+        },
+        qualification: {
+          title: "Qualification",
+          description: "Understand intent, quality and urgency faster with structured context.",
+        },
+        crm: {
+          title: "CRM",
+          description: "Keep ownership, notes and customer history tied to the opportunity.",
+        },
+        followUp: {
+          title: "Follow-up",
+          description: "Support the next response, reminder or workflow with automation where appropriate.",
+        },
+        booking: {
+          title: "Booking / Conversation",
+          description: "Help the team move qualified interest into a booked step or active sales conversation.",
+        },
+        analytics: {
+          title: "Analytics",
+          description: "Measure what is happening across pipeline, response flow and revenue signals.",
+        },
+      },
+    },
+    control: {
+      eyebrow: "Human control and trust",
+      title: "Automation where it helps. Human control where it matters.",
+      description:
+        "Pulse AI is designed to assist teams, not remove operational visibility or business control.",
+      items: {
+        handoff: {
+          title: "Human handoff",
+          description: "Teams can step into conversations and customer workflows whenever human judgment is needed.",
+        },
+        rules: {
+          title: "Business controls",
+          description: "Use business rules, permissions and operational boundaries to decide how automation should behave.",
+        },
+        visibility: {
+          title: "Operational visibility",
+          description: "Keep a clearer view of customer activity, follow-up state and business performance from one system.",
+        },
+      },
+    },
+    pricing: {
+      eyebrow: "Pricing",
+      title: "See current plan details in the pricing experience.",
+      description:
+        "Pricing stays tied to the product source of truth. Explore plans on the pricing page instead of relying on homepage snapshots.",
+      cta: "Go to Pricing",
+    },
+    finalCta: {
+      eyebrow: "Final step",
+      title: "Start with the right entry point for your business.",
+      description:
+        "Create your account, request a follow-up, or open the AI assistant to understand how Pulse AI fits your operating flow.",
+      pointOne: "Create an account and enter the product safely through the existing sign-in flow.",
+      pointTwo: "Leave your details if you want the team to follow up about your business setup.",
+      pointThree: "Use the public AI assistant to explore the platform before you commit.",
+      primaryCta: "Create Account",
+      secondaryCta: "Explore with AI",
+    },
+    leadForm: {
+      title: "Request a follow-up",
+      subtitle: "Tell us about your business and we will get back to you.",
+    },
+  },
+
   // Billing plans
   billing: {
     trial: "7-Day Trial",
@@ -274,6 +475,40 @@ export default {
     branding: "Branding",
     admin: "Admin",
     sources: "Sources",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    mobileMenu: "Mobile navigation",
+    group: {
+      platform: "Platform",
+      business: "Business",
+      company: "Company",
+      more: "More",
+    },
+    platform: {
+      aiIntelligence: "AI & Intelligence",
+      unifiedInbox: "Unified Inbox",
+      crmSales: "CRM & Sales",
+      marketing: "Marketing",
+      automation: "Automation",
+      analytics: "Analytics",
+      developers: "Developers",
+    },
+    standalone: {
+      lidhjet: "Lidhjet",
+      pricing: "Pricing",
+      security: "Security",
+    },
+    business: {
+      partners: "Partners",
+      whiteLabel: "White Label",
+    },
+    company: {
+      about: "About",
+      contact: "Contact",
+    },
+    growthSuite: {
+      label: "Growth Suite",
+    },
   },
 
   // Errors
@@ -303,44 +538,6 @@ export default {
     learnMore: "Learn More",
     login: "Log In",
     backToHome: "Back to Home",
-  },
-
-  // Public nav labels
-  nav: {
-    openMenu: "Open menu",
-    closeMenu: "Close menu",
-    mobileMenu: "Mobile navigation",
-    group: {
-      platform: "Platform",
-      business: "Business",
-      company: "Company",
-      more: "More",
-    },
-    platform: {
-      aiIntelligence: "AI & Intelligence",
-      unifiedInbox: "Unified Inbox",
-      crmSales: "CRM & Sales",
-      marketing: "Marketing",
-      automation: "Automation",
-      analytics: "Analytics",
-      developers: "Developers",
-    },
-    standalone: {
-      lidhjet: "Lidhjet", // Brand name — intentionally not translated
-      pricing: "Pricing",
-      security: "Security",
-    },
-    business: {
-      partners: "Partners",
-      whiteLabel: "White Label",
-    },
-    company: {
-      about: "About",
-      contact: "Contact",
-    },
-    growthSuite: {
-      label: "Growth Suite",
-    },
   },
 
   // Badges
@@ -404,5 +601,57 @@ export default {
     legal: "Legal",
     rightsReserved: "All rights reserved.",
     tagline: "One intelligent system to run, automate and grow your business.",
+    links: {
+      privacy: "Privacy Policy",
+      terms: "Terms of Service",
+      cookies: "Cookie Policy",
+      dpa: "DPA",
+    },
+  },
+
+  leadForm: {
+    fields: {
+      fullName: "Full name",
+      email: "Email",
+      phone: "Phone",
+      businessName: "Business name",
+      interestedPlan: "Interested plan",
+      teamSize: "Team size",
+      message: "Message (optional)",
+    },
+    placeholders: {
+      fullName: "Jane Doe",
+      email: "you@company.com",
+      phone: "+355 69 123 4567",
+      businessName: "Acme Inc.",
+      interestedPlan: "Choose a plan",
+      teamSize: "How many people?",
+      message: "What would you like to automate? What problem are you trying to solve?",
+    },
+    plans: {
+      standard: "Standard",
+      professional: "Professional",
+      advanced: "Advanced",
+      enterprise: "Enterprise",
+    },
+    teamSizes: {
+      one: "Just me",
+      twoToFive: "2–5 people",
+      sixToFifteen: "6–15 people",
+      sixteenToFifty: "16–50 people",
+      fiftyPlus: "More than 50 people",
+    },
+    submit: "Send request",
+    submitting: "Sending...",
+    legalPrefix: "By clicking, you accept the",
+    privacyPolicy: "Privacy Policy",
+    success: {
+      title: "Thanks! Your request has been received successfully.",
+      description: "Our team can follow up using the details you submitted.",
+    },
+    errors: {
+      required: "Name and email are required.",
+      generic: "Something went wrong. Please try again.",
+    },
   },
 } as const;
