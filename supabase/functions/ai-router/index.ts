@@ -1,7 +1,7 @@
 // supabase/functions/ai-router/index.ts
 // ============================================================
 // PULSE AI — Intelligent Multi-Provider AI Router
-// 15+ providers · Task classification · Auto-fallback · Cost optimization
+// 14 providers · Task classification · Auto-fallback · Cost optimization
 // 70% cheaper than single-provider approach
 // ============================================================
 
@@ -11,7 +11,7 @@ import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, content-type, x-internal-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (b: unknown, s = 200) =>
@@ -125,6 +125,28 @@ type TaskType =
   | "coding" | "web_research" | "rag" | "multimodal" | "multilingual"
   | "sales_reply" | "marketing_copy" | "customer_support";
 
+const CANONICAL_TASK_TYPES: readonly TaskType[] = [
+  "simple_chat",
+  "high_volume",
+  "balanced",
+  "complex_reasoning",
+  "coding",
+  "web_research",
+  "rag",
+  "multimodal",
+  "multilingual",
+  "sales_reply",
+  "marketing_copy",
+  "customer_support",
+];
+
+const TASK_TYPE_ALIASES: Readonly<Record<string, TaskType>> = {
+  brain: "complex_reasoning",
+  voice_ai: "high_volume",
+  text_classification: "balanced",
+  multimodal_vision: "multimodal",
+};
+
 const ROUTING_TABLE: Record<TaskType, { primary: keyof typeof PROVIDERS; fallback: keyof typeof PROVIDERS; tier: "cheap"|"mid"|"premium" }> = {
   simple_chat:       { primary: "GROQ_LLAMA8B",    fallback: "DEEPSEEK_FLASH", tier: "cheap" },
   high_volume:       { primary: "DEEPSEEK_FLASH",  fallback: "GROQ_LLAMA8B",  tier: "cheap" },
@@ -143,10 +165,8 @@ const ROUTING_TABLE: Record<TaskType, { primary: keyof typeof PROVIDERS; fallbac
 // ── TASK CLASSIFIER ───────────────────────────────────────────
 function classifyTask(
   prompt: string,
-  options: { forceTaskType?: TaskType; planTier?: string; preferCheap?: boolean }
+  options: { planTier?: string; preferCheap?: boolean }
 ): TaskType {
-  if (options.forceTaskType) return options.forceTaskType;
-
   const p = prompt.toLowerCase();
 
   // Coding detection
@@ -180,6 +200,15 @@ function classifyTask(
   // Plan-based routing
   if (options.planTier === "starter" || options.planTier === "free") {
     return "balanced";
+  }
+
+  function normalizeTaskType(taskType?: string): TaskType | null {
+    if (!taskType) return null;
+    const normalized = taskType.trim().toLowerCase();
+    if ((CANONICAL_TASK_TYPES as readonly string[]).includes(normalized)) {
+      return normalized as TaskType;
+    }
+    return TASK_TYPE_ALIASES[normalized] ?? null;
   }
 
   return "balanced";
@@ -464,7 +493,7 @@ serve(async (req: Request): Promise<Response> => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) return json({ error: "Unauthorized" }, 401);
+  if (!authHeader || !authHeader.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -472,11 +501,18 @@ serve(async (req: Request): Promise<Response> => {
     { auth: { persistSession: false } }
   );
 
-  const bearerToken = authHeader.replace("Bearer ", "");
+  const bearerToken = authHeader.slice("Bearer ".length).trim();
   const isInternal = (() => {
     const secret = Deno.env.get("INTERNAL_WEBHOOK_SECRET");
     return !!secret && req.headers.get("x-internal-secret") === secret;
   })();
+
+  if (!isInternal && bearerToken === getServiceKey()) {
+    return json({
+      error: "Unauthorized: service-role bearer requires x-internal-secret",
+      code: "SERVICE_ROLE_TOKEN_REQUIRES_INTERNAL_SECRET",
+    }, 401);
+  }
 
   const { data: { user } } = isInternal
     ? { data: { user: null } }  // internal path — no user JWT needed
@@ -487,7 +523,7 @@ serve(async (req: Request): Promise<Response> => {
   let body: {
     messages: Array<{ role: string; content: string }>;
     system_prompt?: string;
-    task_type?: TaskType;
+    task_type?: string;
     max_tokens?: number;
     workspace_id?: string;
     prefer_cheap?: boolean;
@@ -648,8 +684,26 @@ serve(async (req: Request): Promise<Response> => {
 
   // Classify task
   const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
-  const taskType = classifyTask(lastUserMsg, { forceTaskType: task_type, planTier: plan_tier, preferCheap: prefer_cheap });
+  const normalizedTaskType = normalizeTaskType(task_type);
+  if (task_type && !normalizedTaskType) {
+    const canonical = CANONICAL_TASK_TYPES.join(", ");
+    const aliases = Object.keys(TASK_TYPE_ALIASES).join(", ");
+    return json({
+      error: `Unknown task_type "${task_type}"`,
+      code: "UNSUPPORTED_TASK_TYPE",
+      supported_task_types: canonical,
+      aliases,
+    }, 400);
+  }
+
+  const taskType = normalizedTaskType ?? classifyTask(lastUserMsg, { planTier: plan_tier, preferCheap: prefer_cheap });
   const route = ROUTING_TABLE[taskType];
+  if (!route?.primary || !route?.fallback) {
+    return json({
+      error: `No routing profile configured for task_type "${taskType}"`,
+      code: "TASK_TYPE_ROUTE_UNDEFINED",
+    }, 400);
+  }
 
   // API keys (from workspace config or env)
   const apiKeys: Record<string, string> = {};
