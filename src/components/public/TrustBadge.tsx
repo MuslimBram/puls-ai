@@ -57,7 +57,17 @@ export function TrustBadgeRow({ className }: { className?: string }) {
       aria-label="Trust indicators"
     >
       {SECURITY_CLAIM.points.slice(0, 3).map((point) => (
-        <TrustBadge key={point} showTooltip={false} className="hidden sm:inline-flex" />
+        <Badge
+          key={point}
+          variant="secondary"
+          className={cn(
+            "hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium",
+            "border border-border/60 bg-muted/60 text-muted-foreground",
+          )}
+        >
+          <ShieldCheck className="h-3.5 w-3.5 text-primary" aria-hidden="true" />
+          {point}
+        </Badge>
       ))}
       <TrustBadge showTooltip />
     </div>

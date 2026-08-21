@@ -62,8 +62,9 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
         {crumbs.map((crumb, idx) => {
           const isFirst = idx === 0;
           const isLast = idx === crumbs.length - 1;
+          const key = crumb.href ?? crumb.label;
           return (
-            <li key={idx} className="flex items-center gap-1">
+            <li key={key} className="flex items-center gap-1">
               {!isFirst && (
                 <ChevronRight className="h-3.5 w-3.5 shrink-0 opacity-50" aria-hidden="true" />
               )}

@@ -326,7 +326,7 @@ export default {
       developers: "Developers",
     },
     standalone: {
-      lidhjet: "Lidhjet",
+      lidhjet: "Lidhjet", // Brand name — intentionally not translated
       pricing: "Pricing",
       security: "Security",
     },
