@@ -2,9 +2,9 @@
  * PlatformPage — reusable public platform feature page.
  *
  * Used for:
- *   /platform/ai-intelligence
+ *   /platform/ai
  *   /platform/unified-inbox
- *   /platform/crm-sales
+ *   /platform/crm
  *   /platform/marketing
  *   /platform/automation
  *   /platform/analytics

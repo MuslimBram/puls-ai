@@ -63,6 +63,7 @@ function ComingSoonNotifyButton({
   rest: Omit<ButtonProps, "asChild">;
 }) {
   const [noted, setNoted] = useState(false);
+  const { t } = useTranslation();
   return (
     <Button
       variant={priorityToButtonVariant[priority]}
@@ -75,7 +76,7 @@ function ComingSoonNotifyButton({
       {noted ? (
         <>
           <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          Noted!
+          {t("cta.noted", { defaultValue: "Noted!" })}
         </>
       ) : (
         <>
@@ -108,6 +109,7 @@ function BetaRequestButton({
   rest: Omit<ButtonProps, "asChild">;
 }) {
   const [requested, setRequested] = useState(false);
+  const { t } = useTranslation();
   return (
     <Button
       variant={priorityToButtonVariant[priority]}
@@ -120,7 +122,7 @@ function BetaRequestButton({
       {requested ? (
         <>
           <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-          Request received!
+          {t("cta.requestReceived", { defaultValue: "Request received!" })}
         </>
       ) : (
         <>

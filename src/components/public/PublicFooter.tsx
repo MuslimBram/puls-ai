@@ -14,9 +14,9 @@ import { PublicLanguageSelector } from "./PublicLanguageSelector";
 import { cn } from "@/lib/utils";
 
 const FOOTER_PLATFORM = [
-  { labelKey: "nav.platform.aiIntelligence", href: "/platform/ai-intelligence" },
+  { labelKey: "nav.platform.aiIntelligence", href: "/platform/ai" },
   { labelKey: "nav.platform.unifiedInbox",    href: "/platform/unified-inbox" },
-  { labelKey: "nav.platform.crmSales",        href: "/platform/crm-sales" },
+  { labelKey: "nav.platform.crmSales",        href: "/platform/crm" },
   { labelKey: "nav.platform.marketing",       href: "/platform/marketing" },
   { labelKey: "nav.platform.automation",      href: "/platform/automation" },
   { labelKey: "nav.platform.analytics",       href: "/platform/analytics" },
@@ -26,7 +26,7 @@ const FOOTER_PLATFORM = [
 const FOOTER_BUSINESS = [
   { labelKey: "nav.standalone.pricing",       href: "/pricing" },
   { labelKey: "nav.business.whiteLabel",      href: "/white-label" },
-  { labelKey: "nav.standalone.lidhjet",       href: "/lidhjet" },
+  { labelKey: "nav.standalone.lidhjet",       href: "/platform/lidhjet" },
 ];
 
 const FOOTER_COMPANY = [
