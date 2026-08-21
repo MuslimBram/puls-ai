@@ -547,6 +547,17 @@ serve(async (req: Request): Promise<Response> => {
   const system_prompt = bodySystemPrompt ?? bodySystem ?? "";
 
   if (!messages?.length) return json({ error: "messages janë të detyrueshme" }, 400);
+  const normalizedTaskType = normalizeTaskType(task_type);
+  if (task_type && !normalizedTaskType) {
+    const canonical = CANONICAL_TASK_TYPES.join(", ");
+    const aliases = Object.keys(TASK_TYPE_ALIASES).join(", ");
+    return json({
+      error: `Unknown task_type "${task_type}"`,
+      code: "UNSUPPORTED_TASK_TYPE",
+      supported_task_types: canonical,
+      aliases,
+    }, 400);
+  }
 
   // Server-side plan tier — do not trust plan_tier from body
   // TODO: derive from workspace subscription table when available
@@ -578,7 +589,12 @@ serve(async (req: Request): Promise<Response> => {
     return workspace_id;
   })();
 
-  if (!authorizedWorkspaceId) return json({ error: "Forbidden: not a member of workspace" }, 403);
+  const allowInternalNoWorkspaceCustomerSupport = isInternal
+    && normalizedTaskType === "customer_support"
+    && !workspace_id;
+  if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport) {
+    return json({ error: "Forbidden: not a member of workspace" }, 403);
+  }
 
   // limitCtx: stores limit state for post-call increment (only on success, not on failure).
   let limitCtx: {userId:string;newDay:boolean;effectiveUsed:number;dailyLimit:number}|null = null;
@@ -687,18 +703,6 @@ serve(async (req: Request): Promise<Response> => {
 
   // Classify task
   const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
-  const normalizedTaskType = normalizeTaskType(task_type);
-  if (task_type && !normalizedTaskType) {
-    const canonical = CANONICAL_TASK_TYPES.join(", ");
-    const aliases = Object.keys(TASK_TYPE_ALIASES).join(", ");
-    return json({
-      error: `Unknown task_type "${task_type}"`,
-      code: "UNSUPPORTED_TASK_TYPE",
-      supported_task_types: canonical,
-      aliases,
-    }, 400);
-  }
-
   const taskType = normalizedTaskType ?? classifyTask(lastUserMsg, { planTier: plan_tier, preferCheap: prefer_cheap });
   const route = ROUTING_TABLE[taskType];
   if (!route?.primary || !route?.fallback) {

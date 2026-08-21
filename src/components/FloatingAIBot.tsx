@@ -27,9 +27,9 @@ export const FloatingAIBot = () => {
   }, [messages]);
 
   const notifyAdmin = async (reason: string) => {
-    if (adminNotified || !user?.id) return;
+    if (adminNotified || !user?.id) return false;
     try {
-      await supabase.from("business_notifications" as any).insert({
+      const { error } = await supabase.from("business_notifications" as any).insert({
         user_id: user?.id,
         title: "Support request from user",
         message: `User needs specialist help: ${reason}`,
@@ -37,9 +37,12 @@ export const FloatingAIBot = () => {
         category: "support",
         action_url: "/helpdesk",
       });
+      if (error) return false;
       setAdminNotified(true);
+      return true;
     } catch {
       // silent fail — don't interrupt chat
+      return false;
     }
   };
 
@@ -67,14 +70,21 @@ export const FloatingAIBot = () => {
       const escalate = data?.needs_admin === true;
 
       if (escalate) {
-        // Notify admin silently in the background, but keep chatting
-        notifyAdmin(reply);
-        // Show the AI reply + a note that a specialist will connect
+        let escalationNote =
+          "For account-specific or unresolved issues, please sign in and open Helpdesk so our team can assist you.";
+
+        if (user?.id) {
+          const notified = await notifyAdmin(reply);
+          escalationNote = notified
+            ? "A specialist has been notified and will connect with you shortly. Feel free to keep chatting in the meantime."
+            : "I couldn’t notify a specialist automatically. Please open Helpdesk from your workspace while we continue here.";
+        }
+
         setMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: `${reply}\n\nA specialist has been notified and will connect with you shortly. Feel free to keep chatting in the meantime.`,
+            content: `${reply}\n\n${escalationNote}`,
           },
         ]);
       } else {
