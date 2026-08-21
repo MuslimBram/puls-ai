@@ -33,13 +33,14 @@ const json = (req_ctx: Request | null, body: unknown, status = 200) =>
 let req: Request;  // set at entry of each Deno.serve call
 
 /** Pulse AI Router — AI provider NOT hardwired */
-async function ai(messages: Array<{role:string;content:string}>, system: string): Promise<string> {
+async function ai(messages: Array<{role:string;content:string}>, system: string, workspaceId: string): Promise<string> {
   try {
     const res = await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/ai-router`, {
       method: "POST",
       headers: { "Content-Type": "application/json",
-        Authorization: `Bearer ${getServiceKey()}` },
-      body: JSON.stringify({ task_type: "brain", messages, system_prompt: system, max_tokens: 800 }),
+        Authorization: ["Bearer", getServiceKey()].join(" "),
+        "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "" },
+      body: JSON.stringify({ task_type: "brain", workspace_id: workspaceId, messages, system_prompt: system, max_tokens: 800 }),
     });
     if (!res.ok) throw new Error(`ai-router ${res.status}`);
     const d = await res.json() as any;
@@ -153,7 +154,7 @@ You cannot invent discounts, installment terms, rewards, or prices. When uncerta
         favorites: lead.favorites, predicted_next_need: lead.predicted_next_need, churn_risk: lead.churn_risk },
       business: { products: (twin as any)?.products, services: (twin as any)?.services },
       evidence: evidence?.slice(0, 5),
-    })}], system);
+    })}], system, workspace_id);
 
     let nba: any = {};
     try { nba = JSON.parse(ai_raw.replace(/```json|```/g, "").trim()); }
@@ -201,7 +202,7 @@ Criteria fields: purchase_count_min,purchase_count_max,is_vip,inactivity_min_day
     // Single ai-router call (fix: was calling twice)
     const ai_result = await ai([{ role: "user", content: JSON.stringify({
       goal: campaign_goal, message: campaign_message, business: (twin as any)?.profile
-    })}], system);
+    })}], system, workspace_id);
 
     let seg: any = {};
     try { seg = JSON.parse(ai_result.replace(/```json|```/g, "").trim()); }

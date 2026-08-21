@@ -59,7 +59,11 @@ serve(async (req) => {
       [{ role: "user", content: msg.text }],
       `Analyze buying intent for this Telegram message. Reply JSON only:
 {"intent_score": 0-1, "is_lead": boolean, "suggested_reply": string}
-Keep suggested_reply under 200 chars. Language: detect from message.`
+Keep suggested_reply under 200 chars. Language: detect from message.`,
+      {
+        taskType: "text_classification",
+        workspaceId,
+      }
     );
 
     try {

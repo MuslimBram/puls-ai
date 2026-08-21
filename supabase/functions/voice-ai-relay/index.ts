@@ -29,6 +29,7 @@ async function routeAI(
   systemPrompt: string,
   turns: Array<{role: string; content: string}>,
   userMessage: string,
+  workspaceId: string,
   sb: ReturnType<typeof createClient>,
 ): Promise<string> {
   const SURL = Deno.env.get("SUPABASE_URL")!;
@@ -45,10 +46,12 @@ async function routeAI(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${SKEY}`,
+        Authorization: ["Bearer", SKEY].join(" "),
+        "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
       },
       body: JSON.stringify({
         task_type: "voice_ai",
+        workspace_id: workspaceId,
         messages,
         system: systemPrompt,
         max_tokens: 250,
@@ -211,7 +214,7 @@ RULES:
       }
 
       // Route through Pulse AI Router — NOT directly to Anthropic
-      const aiResponse = await routeAI(systemPrompt, turns, userText, sb);
+      const aiResponse = await routeAI(systemPrompt, turns, userText, workspaceId, sb);
 
       turns.push({ role: "user", content: userText });
       turns.push({ role: "ai", content: aiResponse });
