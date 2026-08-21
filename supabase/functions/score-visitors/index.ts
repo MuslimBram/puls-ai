@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { callAIRouter } from "../_shared/ai-router-helper.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
@@ -13,10 +14,8 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = getServiceKey()!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Get user from auth header
     const authHeader = req.headers.get("authorization");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const userClient = createClient(supabaseUrl, anonKey, {
@@ -32,7 +31,6 @@ serve(async (req) => {
 
     const userId = user.id;
 
-    // 1. Gather chat conversations to build/update visitor profiles
     const { data: conversations } = await supabase
       .from("ai_conversations")
       .select("*")
@@ -40,7 +38,6 @@ serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(500);
 
-    // 2. Gather inbox messages
     const { data: inboxMessages } = await supabase
       .from("inbox_messages")
       .select("*")
@@ -48,7 +45,6 @@ serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(500);
 
-    // Build visitor map by identifier
     const visitorMap = new Map<string, {
       name: string | null;
       email: string | null;
@@ -94,7 +90,6 @@ serve(async (req) => {
     for (const [identifier, data] of visitorMap) {
       if (identifier === "anonymous") continue;
 
-      // Calculate intent score heuristically
       const conversationScore = Math.min(data.conversations / 10, 0.4);
       const visitScore = Math.min(data.visits / 20, 0.2);
       const recency = (Date.now() - new Date(data.lastVisit).getTime()) / (1000 * 60 * 60 * 24);
@@ -103,72 +98,34 @@ serve(async (req) => {
       
       const intentScore = Math.min(conversationScore + visitScore + recencyScore + engagementScore, 1);
 
-      // Classify
       let classification = "curious_visitor";
       if (intentScore >= 0.8) classification = "high_value_prospect";
       else if (intentScore >= 0.6) classification = "potential_buyer";
       else if (intentScore >= 0.35) classification = "interested_lead";
 
-      // Use AI for richer classification if available
+      // S0-4: use canonical AI router — no direct Lovable/provider calls.
       let aiClassification = classification;
-      if (lovableKey && data.messages.length > 0) {
+      if (data.messages.length > 0) {
         try {
-          const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${lovableKey}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash-lite",
-              tools: [{
-                type: "function",
-                function: {
-                  name: "classify_visitor",
-                  description: "Classify visitor intent",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      classification: {
-                        type: "string",
-                        enum: ["curious_visitor", "interested_lead", "potential_buyer", "high_value_prospect", "promoter"],
-                      },
-                      reasoning: { type: "string" },
-                      suggested_action: { type: "string" },
-                    },
-                    required: ["classification", "reasoning"],
-                    additionalProperties: false,
-                  },
-                },
-              }],
-              tool_choice: { type: "function", function: { name: "classify_visitor" } },
-              messages: [
-                {
-                  role: "system",
-                  content: "You classify website visitors based on their behavior. Analyze the messages and engagement data to determine buyer intent.",
-                },
-                {
-                  role: "user",
-                  content: `Visitor: ${data.name || identifier}\nConversations: ${data.conversations}\nVisits: ${data.visits}\nLast visit: ${data.lastVisit}\nFirst seen: ${data.firstSeen}\nRecent messages:\n${data.messages.slice(0, 5).join("\n")}`,
-                },
-              ],
-            }),
-          });
-
-          if (aiResp.ok) {
-            const aiData = await aiResp.json();
-            const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-            if (toolCall) {
-              const parsed = JSON.parse(toolCall.function.arguments);
-              aiClassification = parsed.classification || classification;
-            }
-          }
+          const aiRaw = await callAIRouter(
+            [
+              {
+                role: "user",
+                content: `Visitor: ${data.name || identifier}\nConversations: ${data.conversations}\nVisits: ${data.visits}\nLast visit: ${data.lastVisit}\nFirst seen: ${data.firstSeen}\nRecent messages:\n${data.messages.slice(0, 5).join("\n")}`,
+              },
+            ],
+            `You classify website visitors based on their behavior. Analyze the messages and engagement data to determine buyer intent.\nReturn JSON only: {"classification":"curious_visitor|interested_lead|potential_buyer|high_value_prospect|promoter","reasoning":"string"}`,
+            { taskType: "text_classification", userId },
+          );
+          const parsed = JSON.parse(aiRaw.replace(/```json|```/g, "").trim()) as Record<string, unknown>;
+          const cls = String(parsed.classification ?? "");
+          const VALID = ["curious_visitor", "interested_lead", "potential_buyer", "high_value_prospect", "promoter"];
+          if (VALID.includes(cls)) aiClassification = cls;
         } catch (e) {
-          console.error("AI classification error:", e);
+          console.error("[score-visitors] AI classification error:", e);
         }
       }
 
-      // Upsert visitor profile
       const { data: existing } = await supabase
         .from("visitor_profiles")
         .select("id")
@@ -205,7 +162,6 @@ serve(async (req) => {
         });
       }
 
-      // Generate re-engagement for inactive high-value visitors
       if (recency > 7 && intentScore > 0.3) {
         const { data: existingTask } = await supabase
           .from("reengagement_tasks")
@@ -214,7 +170,6 @@ serve(async (req) => {
           .eq("status", "pending")
           .limit(1);
 
-        // Don't flood with tasks
         if ((existingTask ?? []).length < 20) {
           await supabase.from("reengagement_tasks").insert({
             user_id: userId,
