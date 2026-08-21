@@ -42,7 +42,7 @@ export function validateInternalPath(raw: string | null | undefined): string | n
  * Returns a boolean indicating whether navigation was performed.
  */
 export function safeNavigate(
-  navigate: (to: string) => void,
+  navigate: (to: string, options?: Record<string, unknown>) => void,
   raw: string | null | undefined,
 ): boolean {
   const safe = validateInternalPath(raw);

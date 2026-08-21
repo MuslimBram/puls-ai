@@ -58,7 +58,7 @@ export const NotificationBell = () => {
                 } ${n.is_read ? "opacity-60" : ""}`}
                 onClick={() => {
                   markRead.mutate(n.id);
-                  if (n.action_url) { setOpen(false); safeNavigate(navigate, n.action_url); }
+                  if (n.action_url) { if (safeNavigate(navigate, n.action_url)) setOpen(false); }
                 }}
               >
                 <div className="flex items-center gap-1.5">
