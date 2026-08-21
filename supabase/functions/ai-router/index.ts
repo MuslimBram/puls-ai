@@ -1,13 +1,21 @@
 // supabase/functions/ai-router/index.ts
 // ============================================================
-// PULSE AI — Intelligent Multi-Provider AI Router
-// 14 providers · Task classification · Auto-fallback · Cost optimization
-// 70% cheaper than single-provider approach
+// PULSE AI — Intelligent Multi-Provider AI Router  (AI-1A3)
+// 14 providers · Task classification · Multi-chain failover
+// Same-context continuity · Bounded retry · Cost-aware ordering
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import {
+  classifyProviderFailure,
+  executeWithFailover,
+  FailoverExhaustedError,
+  isEligibleForProviderFailover,
+  ProviderAttemptResult,
+  recordProviderCooldown,
+} from "../_shared/failover-router.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "",
@@ -90,34 +98,29 @@ const PROVIDERS = {
     timeoutMs: 30_000,
   },
   // ── Z.ai ─────────────────────────────────────────────────────────────────
-  // Configurable OpenAI-compatible provider.
-  // ZAI_BASE_URL overrides the base endpoint at runtime (no redeploy required).
-  // Default points to z.ai's OpenAI-compat endpoint.
   ZAI: {
     name: "Z.ai",
-    costIn: 0.20, costOut: 0.60,   // placeholder — override per plan
+    costIn: 0.20, costOut: 0.60,
     endpoint: "https://api.z.ai/api/paas/v4/chat/completions",
-    model: "glm-4.7-flash",           // default; override with ZAI_MODEL env var
+    model: "glm-4.7-flash",
     keyEnv: "ZAI_API_KEY",
     modelEnvOverride: "ZAI_MODEL",
-    endpointEnvOverride: "ZAI_BASE_URL",  // full URL override
+    endpointEnvOverride: "ZAI_BASE_URL",
     type: "openai_compat",
     timeoutMs: 30_000,
   },
   // ── Replicate ─────────────────────────────────────────────────────────────
-  // Async prediction model — handled separately in callProviderReplicate().
-  // Uses polling (no streaming in current implementation).
   REPLICATE: {
     name: "Replicate",
-    costIn: 0.05, costOut: 0.25,   // token pricing varies by model
+    costIn: 0.05, costOut: 0.25,
     endpoint: "https://api.replicate.com/v1/models",
-    model: "meta/meta-llama-3-8b-instruct",  // default; override with REPLICATE_MODEL
+    model: "meta/meta-llama-3-8b-instruct",
     keyEnv: "REPLICATE_API_TOKEN",
     modelEnvOverride: "REPLICATE_MODEL",
-    type: "replicate",              // special handler
-    timeoutMs: 60_000,              // predictions can take longer
+    type: "replicate",
+    timeoutMs: 60_000,
   },
-  };
+} as const;
 
 // ── ROUTING DECISION MATRIX ───────────────────────────────────
 type TaskType =
@@ -126,18 +129,9 @@ type TaskType =
   | "sales_reply" | "marketing_copy" | "customer_support";
 
 const CANONICAL_TASK_TYPES: readonly TaskType[] = [
-  "simple_chat",
-  "high_volume",
-  "balanced",
-  "complex_reasoning",
-  "coding",
-  "web_research",
-  "rag",
-  "multimodal",
-  "multilingual",
-  "sales_reply",
-  "marketing_copy",
-  "customer_support",
+  "simple_chat", "high_volume", "balanced", "complex_reasoning",
+  "coding", "web_research", "rag", "multimodal", "multilingual",
+  "sales_reply", "marketing_copy", "customer_support",
 ];
 
 const TASK_TYPE_ALIASES: Readonly<Record<string, TaskType>> = {
@@ -147,250 +141,263 @@ const TASK_TYPE_ALIASES: Readonly<Record<string, TaskType>> = {
   multimodal_vision: "multimodal",
 };
 
-// ── TASK TYPE NORMALIZER ──────────────────────────────────────
-// Defined at module scope so both the request handler and classifyTask
-// can call it without scoping issues.
 function normalizeTaskType(taskType?: string): TaskType | null {
   if (!taskType) return null;
   const normalized = taskType.trim().toLowerCase();
-  if ((CANONICAL_TASK_TYPES as readonly string[]).includes(normalized)) {
-    return normalized as TaskType;
-  }
+  if ((CANONICAL_TASK_TYPES as readonly string[]).includes(normalized)) return normalized as TaskType;
   return TASK_TYPE_ALIASES[normalized] ?? null;
 }
 
-const ROUTING_TABLE: Record<TaskType, { primary: keyof typeof PROVIDERS; fallback: keyof typeof PROVIDERS; tier: "cheap"|"mid"|"premium" }> = {
-  simple_chat:       { primary: "GROQ_LLAMA8B",    fallback: "DEEPSEEK_FLASH", tier: "cheap" },
-  high_volume:       { primary: "DEEPSEEK_FLASH",  fallback: "GROQ_LLAMA8B",  tier: "cheap" },
-  balanced:          { primary: "MISTRAL_SMALL",   fallback: "GPT_MINI",      tier: "cheap" },
-  complex_reasoning: { primary: "CLAUDE_SONNET",   fallback: "GPT4O",         tier: "premium" },
-  coding:            { primary: "CLAUDE_SONNET",   fallback: "GPT4O",         tier: "premium" },
-  web_research:      { primary: "PERPLEXITY",      fallback: "GEMINI_FLASH",  tier: "premium" },
-  rag:               { primary: "DEEPSEEK_PRO",    fallback: "MISTRAL_SMALL", tier: "mid" },
-  multimodal:        { primary: "GEMINI_FLASH",    fallback: "GPT4O",         tier: "mid" },
-  multilingual:      { primary: "DEEPSEEK_FLASH",  fallback: "MISTRAL_SMALL", tier: "cheap" },
-  sales_reply:       { primary: "MISTRAL_SMALL",   fallback: "GROQ_LLAMA70B", tier: "cheap" },
-  marketing_copy:    { primary: "CLAUDE_SONNET",   fallback: "GPT4O",         tier: "premium" },
-  customer_support:  { primary: "CLAUDE_SONNET", fallback: "DEEPSEEK_FLASH",tier: "cheap" },
+// ── MULTI-PROVIDER ROUTE CHAINS ───────────────────────────────
+// Each task type has an ordered candidate chain (capability → quality → cost).
+// Ordering: primary (best capability fit) → capable alternatives → cheap safety nets.
+// No provider appears twice in any chain.
+type ProviderKey = keyof typeof PROVIDERS;
+
+const ROUTE_CHAINS: Record<TaskType, {
+  chain: readonly ProviderKey[];
+  tier: "cheap" | "mid" | "premium";
+}> = {
+  // Short messages — latency matters, any fast provider works
+  simple_chat: {
+    chain: ["GROQ_LLAMA8B", "DEEPSEEK_FLASH", "MISTRAL_SMALL", "GEMINI_FLASH", "GPT_MINI"],
+    tier: "cheap",
+  },
+  // Very high volume, lowest cost first
+  high_volume: {
+    chain: ["DEEPSEEK_FLASH", "GROQ_LLAMA8B", "MISTRAL_SMALL", "GEMINI_FLASH", "GPT_MINI"],
+    tier: "cheap",
+  },
+  // General balanced tasks — mid-tier starts
+  balanced: {
+    chain: ["MISTRAL_SMALL", "GPT_MINI", "DEEPSEEK_FLASH", "GROQ_LLAMA8B", "GEMINI_FLASH"],
+    tier: "cheap",
+  },
+  // Requires strong reasoning — premium first, capable fallbacks
+  complex_reasoning: {
+    chain: ["CLAUDE_SONNET", "GPT4O", "GROQ_LLAMA70B", "DEEPSEEK_PRO", "GPT_MINI"],
+    tier: "premium",
+  },
+  // Coding — accuracy critical, premium models lead
+  coding: {
+    chain: ["CLAUDE_SONNET", "GPT4O", "DEEPSEEK_PRO", "GROQ_LLAMA70B", "MISTRAL_SMALL"],
+    tier: "premium",
+  },
+  // Web research — grounded/search-capable first
+  web_research: {
+    chain: ["PERPLEXITY", "GEMINI_FLASH", "GPT4O", "GROQ_LLAMA70B", "MISTRAL_SMALL"],
+    tier: "premium",
+  },
+  // RAG — needs context window & quality
+  rag: {
+    chain: ["DEEPSEEK_PRO", "CLAUDE_SONNET", "MISTRAL_SMALL", "GPT_MINI", "DEEPSEEK_FLASH"],
+    tier: "mid",
+  },
+  // Multimodal — vision-capable first
+  multimodal: {
+    chain: ["GEMINI_FLASH", "GPT4O", "CLAUDE_SONNET", "GPT_MINI", "MISTRAL_SMALL"],
+    tier: "mid",
+  },
+  // Multilingual — strong multilingual models first
+  multilingual: {
+    chain: ["DEEPSEEK_FLASH", "MISTRAL_SMALL", "KIMI", "GPT_MINI", "GROQ_LLAMA8B"],
+    tier: "cheap",
+  },
+  // Sales replies — persuasive but fast
+  sales_reply: {
+    chain: ["MISTRAL_SMALL", "GROQ_LLAMA70B", "GPT_MINI", "DEEPSEEK_FLASH", "GEMINI_FLASH"],
+    tier: "cheap",
+  },
+  // Marketing copy — creative quality matters
+  marketing_copy: {
+    chain: ["CLAUDE_SONNET", "GPT4O", "MISTRAL_SMALL", "GROQ_LLAMA70B", "GPT_MINI"],
+    tier: "premium",
+  },
+  // Customer support — reliability + quality
+  customer_support: {
+    chain: ["CLAUDE_SONNET", "DEEPSEEK_FLASH", "MISTRAL_SMALL", "GROQ_LLAMA8B", "GPT_MINI"],
+    tier: "cheap",
+  },
 };
+
+// ── RETRY BUDGET ──────────────────────────────────────────────
+// Per-provider: max 1 retry for transient issues (bounded, low latency impact)
+// Total failover: max 5 provider candidates per request (chain length above caps this)
+const PER_PROVIDER_MAX_RETRIES = 1;   // same-provider retry
+const TOTAL_PROVIDER_BUDGET = 5;      // cross-provider failover (max chain length)
 
 // ── TASK CLASSIFIER ───────────────────────────────────────────
 function classifyTask(
   prompt: string,
-  options: { planTier?: string; preferCheap?: boolean }
+  options: { planTier?: string; preferCheap?: boolean },
 ): TaskType {
   const p = prompt.toLowerCase();
-
-  // Coding detection
-  if (/function|class|import|def |const |var |let |sql|query|code|script|api|endpoint|bug|error|typescript|python|javascript/.test(p)) {
-    return "coding";
-  }
-  // Web research
-  if (/search|find|latest|current|today|news|2026|price of|who is|what is/.test(p)) {
-    return "web_research";
-  }
-  // Complex reasoning
-  if (/analyze|strategy|compare|explain|reasoning|step by step|why|because|proof|thesis/.test(p) && p.length > 200) {
-    return "complex_reasoning";
-  }
-  // Marketing copy
-  if (/write|create|generate|post|caption|email|newsletter|ad|campaign|marketing/.test(p) && p.length > 50) {
-    return "marketing_copy";
-  }
-  // Customer support context
-  if (/customer|client|complaint|help|support|problem|issue|how do i/.test(p)) {
-    return "customer_support";
-  }
-  // Sales reply
-  if (/price|cost|offer|discount|buy|purchase|interested|quote/.test(p)) {
-    return "sales_reply";
-  }
-  // High volume (short messages)
-  if (p.length < 100 && options.preferCheap) {
-    return "high_volume";
-  }
-  // Plan-based routing
-  if (options.planTier === "starter" || options.planTier === "free") {
-    return "balanced";
-  }
-
+  if (/function|class|import|def |const |var |let |sql|query|code|script|api|endpoint|bug|error|typescript|python|javascript/.test(p)) return "coding";
+  if (/search|find|latest|current|today|news|2026|price of|who is|what is/.test(p)) return "web_research";
+  if (/analyze|strategy|compare|explain|reasoning|step by step|why|because|proof|thesis/.test(p) && p.length > 200) return "complex_reasoning";
+  if (/write|create|generate|post|caption|email|newsletter|ad|campaign|marketing/.test(p) && p.length > 50) return "marketing_copy";
+  if (/customer|client|complaint|help|support|problem|issue|how do i/.test(p)) return "customer_support";
+  if (/price|cost|offer|discount|buy|purchase|interested|quote/.test(p)) return "sales_reply";
+  if (p.length < 100 && options.preferCheap) return "high_volume";
+  if (options.planTier === "starter" || options.planTier === "free") return "balanced";
   return "balanced";
 }
 
 // ── CALL PROVIDER ─────────────────────────────────────────────
 async function callProvider(
-  providerKey: keyof typeof PROVIDERS,
+  providerKey: ProviderKey,
   messages: Array<{ role: string; content: string }>,
   systemPrompt: string,
   maxTokens: number,
-  apiKeys: Record<string, string>
-): Promise<{ text: string; tokensIn: number; tokensOut: number }> {
-  const p = PROVIDERS[providerKey] as typeof PROVIDERS[typeof providerKey] & {
+  apiKeys: Record<string, string>,
+): Promise<{ text: string; tokensIn: number; tokensOut: number; modelUsed?: string }> {
+  const p = PROVIDERS[providerKey] as typeof PROVIDERS[ProviderKey] & {
     keyEnvFallback?: string;
     modelEnvOverride?: string;
+    endpointEnvOverride?: string;
     timeoutMs?: number;
   };
 
-  // Key resolution: primary env → fallback env
   const apiKey = apiKeys[p.keyEnv]
     ?? Deno.env.get(p.keyEnv)
     ?? (p.keyEnvFallback ? Deno.env.get(p.keyEnvFallback) : undefined);
-  if (!apiKey) throw new Error(`API key mungon: ${p.keyEnv}${p.keyEnvFallback ? ` (alias: ${p.keyEnvFallback})` : ""}`);
+  if (!apiKey) {
+    // Missing key = AUTH_OR_CONFIG_FAILURE — eligible for failover to next provider
+    throw new Error(`${p.name}: permanent_failure (auth) API key not configured: ${p.keyEnv}`);
+  }
 
-  // Model override via env var (KIMI_MODEL, ZAI_MODEL, REPLICATE_MODEL, etc.)
   const model = p.modelEnvOverride ? (Deno.env.get(p.modelEnvOverride) ?? p.model) : p.model;
-
-  // Endpoint override via env var (ZAI_BASE_URL etc.)
   const endpoint = (p.endpointEnvOverride ? Deno.env.get(p.endpointEnvOverride) : null) ?? p.endpoint;
-
-  // Provider timeout (default 25s)
   const timeoutMs = p.timeoutMs ?? 25_000;
-  const abortCtrl = new AbortController();
-  const timer = setTimeout(() => abortCtrl.abort(), timeoutMs);
 
-  // Replicate uses async prediction model — separate handler
   if (p.type === "replicate") {
-    clearTimeout(timer);
     return await callProviderReplicate(apiKey, model, messages, systemPrompt, maxTokens, p.timeoutMs ?? 60_000);
   }
 
   if (p.type === "anthropic") {
-    let lastAnthErr: Error = new Error("unreachable");
-    for (let attempt = 0; attempt <= 2; attempt++) {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), timeoutMs);
-      try {
+    return await callWithRetry(
+      providerKey as string, p.name, timeoutMs, PER_PROVIDER_MAX_RETRIES,
+      async (ctrl) => {
         const res = await fetch(p.endpoint, {
           method: "POST",
-          headers: {"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
-          body: JSON.stringify({model, max_tokens:maxTokens, system:systemPrompt,
-            messages: messages.filter(m => m.role !== "system")}),
+          headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify({
+            model, max_tokens: maxTokens, system: systemPrompt,
+            messages: messages.filter(m => m.role !== "system"),
+          }),
           signal: ctrl.signal,
         });
-        clearTimeout(t);
-        if (!res.ok) {
-          const errBody = await res.text().catch(() => "");
-          if (res.status===400||res.status===401||res.status===402||res.status===403)
-            throw new Error(`${p.name}: permanent_failure (${res.status}) ${errBody.slice(0,80)}`);
-          if (res.status === 429) {
-            lastAnthErr = new Error(`${p.name}: rate_limited (429)`);
-            if (attempt < 2) {
-              const ra = parseInt(res.headers.get("Retry-After") ?? "2", 10);
-              await new Promise(r => setTimeout(r, Math.min(ra*1000, 8000)));
-              continue;
-            }
-            throw lastAnthErr;
-          }
-          if (res.status >= 500) {
-            lastAnthErr = new Error(`${p.name}: provider_error (${res.status}) ${errBody.slice(0,80)}`);
-            if (attempt < 2) { await new Promise(r => setTimeout(r, 1200*(attempt+1))); continue; }
-            throw lastAnthErr;
-          }
-          throw new Error(`${p.name}: http_error (${res.status}) ${errBody.slice(0,80)}`);
-        }
-        clearTimeout(timer);
-        const d = await res.json() as any;
-        return {text: d.content?.[0]?.text ?? "", tokensIn: d.usage?.input_tokens ?? 0,
-          tokensOut: d.usage?.output_tokens ?? 0, modelUsed: model};
-      } catch (e: any) {
-        clearTimeout(t);
-        if (e.name === "AbortError") {
-          lastAnthErr = new Error(`${p.name}: timeout after ${timeoutMs}ms`);
-          if (attempt < 2) continue;
-          throw lastAnthErr;
-        }
-        if (e.message?.includes("permanent_failure")) throw e;
-        lastAnthErr = e;
-        if (attempt >= 2) throw lastAnthErr;
-      }
-    }
-    clearTimeout(timer);
-    throw lastAnthErr!;
+        return await parseProviderResponse(p.name, res, "anthropic");
+      },
+    );
   }
 
-  // OpenAI-compatible (includes Kimi/Moonshot, Groq, DeepSeek, OpenAI, Gemini, Mistral, Grok)
+  // OpenAI-compatible
   const allMessages = [
     { role: "system", content: systemPrompt },
     ...messages.filter(m => m.role !== "system"),
   ];
-  // Bounded retry: max 2 retries for transient 429/5xx only.
-  // Permanent failures (400/401/402/403) are NOT retried.
-  let lastErr: Error = new Error("unreachable");
-  for (let attempt = 0; attempt <= 2; attempt++) {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), timeoutMs);
-    try {
+  return await callWithRetry(
+    providerKey as string, p.name, timeoutMs, PER_PROVIDER_MAX_RETRIES,
+    async (ctrl) => {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+        headers: { "Content-Type": "application/json", "Authorization": `******` },
         body: JSON.stringify({ model, messages: allMessages, max_tokens: maxTokens, temperature: 0.7 }),
         signal: ctrl.signal,
       });
-      clearTimeout(t);
-      if (!res.ok) {
-        const errText = await res.text().catch(() => "");
-        // Permanent — never retry
-        if (res.status === 400 || res.status === 401 || res.status === 402 || res.status === 403)
-          throw new Error(`${p.name}: permanent_failure (${res.status}) ${errText.slice(0, 80)}`);
-        // Rate limit — honor Retry-After
-        if (res.status === 429) {
-          lastErr = new Error(`${p.name}: rate_limited (429)`);
-          if (attempt < 2) {
-            const ra = parseInt(res.headers.get("Retry-After") ?? "2", 10);
-            await new Promise(r => setTimeout(r, Math.min(ra * 1000, 8000)));
-            continue;
-          }
-          throw lastErr;
-        }
-        // 5xx transient
-        if (res.status >= 500) {
-          lastErr = new Error(`${p.name}: provider_error (${res.status}) ${errText.slice(0, 80)}`);
-          if (attempt < 2) { await new Promise(r => setTimeout(r, 1200 * (attempt + 1))); continue; }
-          throw lastErr;
-        }
-        throw new Error(`${p.name}: http_error (${res.status}) ${errText.slice(0, 80)}`);
-      }
-      const d = await res.json() as any;
-      return {
-        text: d.choices?.[0]?.message?.content ?? "",
-        tokensIn: d.usage?.prompt_tokens ?? 0,
-        tokensOut: d.usage?.completion_tokens ?? 0,
-        modelUsed: d.model,
-      };
+      return await parseProviderResponse(p.name, res, "openai_compat");
+    },
+  );
+}
+
+/**
+ * Bounded per-provider retry.
+ * - Transient (429, 5xx, timeout): retry up to maxRetries.
+ * - Permanent (400/401/402/403): throw immediately — no retry, no further chain for malformed requests.
+ */
+async function callWithRetry(
+  providerKey: string,
+  providerName: string,
+  timeoutMs: number,
+  maxRetries: number,
+  attemptFn: (ctrl: AbortController) => Promise<{ text: string; tokensIn: number; tokensOut: number; modelUsed?: string }>,
+): Promise<{ text: string; tokensIn: number; tokensOut: number; modelUsed?: string }> {
+  let lastErr: Error = new Error("unreachable");
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    try {
+      const result = await attemptFn(ctrl);
+      clearTimeout(timer);
+      return result;
     } catch (e: any) {
-      clearTimeout(t);
-      if (e.name === "AbortError") {
-        lastErr = new Error(`${p.name}: timeout after ${timeoutMs}ms`);
-        if (attempt < 2) continue;
+      clearTimeout(timer);
+      const msg = e instanceof Error ? e.message : String(e);
+      if (e instanceof Error && e.name === "AbortError") {
+        lastErr = new Error(`${providerName}: timeout after ${timeoutMs}ms`);
+        if (attempt < maxRetries) continue;
         throw lastErr;
       }
-      if (e.message?.includes("permanent_failure")) throw e;
-      lastErr = e;
-      if (attempt >= 2) throw lastErr;
+      // Permanent failure — propagate immediately (no retry, no further chain for malformed)
+      if (msg.includes("permanent_failure") || msg.includes("UNSUPPORTED_REQUEST")) throw e instanceof Error ? e : new Error(msg);
+      lastErr = e instanceof Error ? e : new Error(msg);
+      if (attempt < maxRetries) {
+        // Honor Retry-After when available
+        const ra = msg.match(/retry.after[:\s]+(\d+)/i);
+        const backoffMs = ra ? Math.min(parseInt(ra[1], 10) * 1000, 8_000) : 1_200 * (attempt + 1);
+        await new Promise(r => setTimeout(r, backoffMs));
+        continue;
+      }
+      throw lastErr;
     }
   }
-  clearTimeout(timer);
   throw lastErr;
 }
 
-// ── MAIN HANDLER ──────────────────────────────────────────────
-// ── REPLICATE ASYNC PREDICTION HANDLER ───────────────────────────────────────
-// Replicate uses an async prediction model: create → poll → result.
-// Normalized to same return contract as callProvider.
-
-async function incrementAiReplies(
-  supabase: ReturnType<typeof createClient>,
-  ctx: {userId:string;newDay:boolean;effectiveUsed:number}
-): Promise<void> {
-  const newVal = ctx.newDay ? 1 : ctx.effectiveUsed + 1;
-  const upd: Record<string,unknown> = {ai_replies_today: newVal};
-  if (ctx.newDay) upd.ai_replies_reset_at = new Date().toISOString();
-  const {error} = await supabase.from("subscriptions").update(upd).eq("user_id", ctx.userId);
-  if (error) console.error("[ai-router] increment ai_replies failed:", error.message);
+async function parseProviderResponse(
+  providerName: string,
+  res: Response,
+  format: "anthropic" | "openai_compat",
+): Promise<{ text: string; tokensIn: number; tokensOut: number; modelUsed?: string }> {
+  if (!res.ok) {
+    const errText = await res.text().catch(() => "");
+    if (res.status === 400 || res.status === 401 || res.status === 402 || res.status === 403) {
+      throw new Error(`${providerName}: permanent_failure (${res.status})`);
+    }
+    if (res.status === 429) {
+      const ra = res.headers.get("Retry-After");
+      throw new Error(`${providerName}: rate_limited (429)${ra ? ` retry-after: ${ra}` : ""}`);
+    }
+    if (res.status >= 500) {
+      throw new Error(`${providerName}: provider_error (${res.status})`);
+    }
+    throw new Error(`${providerName}: http_error (${res.status})`);
+  }
+  const d = await res.json() as Record<string, unknown>;
+  if (format === "anthropic") {
+    const content = d.content as Array<{ text?: string }> | undefined;
+    const usage = d.usage as { input_tokens?: number; output_tokens?: number } | undefined;
+    return {
+      text: content?.[0]?.text ?? "",
+      tokensIn: usage?.input_tokens ?? 0,
+      tokensOut: usage?.output_tokens ?? 0,
+    };
+  }
+  const choices = d.choices as Array<{ message?: { content?: string } }> | undefined;
+  const usage = d.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined;
+  return {
+    text: choices?.[0]?.message?.content ?? "",
+    tokensIn: usage?.prompt_tokens ?? 0,
+    tokensOut: usage?.completion_tokens ?? 0,
+    modelUsed: typeof d.model === "string" ? d.model : undefined,
+  };
 }
+
+// ── REPLICATE ASYNC PREDICTION HANDLER ───────────────────────
 async function callProviderReplicate(
   apiKey: string,
-  model: string,  // format: "owner/model" e.g. "meta/meta-llama-3-8b-instruct"
+  model: string,
   messages: Array<{ role: string; content: string }>,
   systemPrompt: string,
   maxTokens: number,
@@ -399,11 +406,10 @@ async function callProviderReplicate(
   const headers = {
     "Authorization": `Token ${apiKey}`,
     "Content-Type": "application/json",
-    "Prefer": "wait",    // ask Replicate to wait synchronously (up to 60s)
+    "Prefer": "wait",
   };
 
-  // Build the prompt for text generation models
-  function buildLlama3Prompt(msgs: Array<{role:string;content:string}>, sys: string): string {
+  function buildLlama3Prompt(msgs: Array<{ role: string; content: string }>, sys: string): string {
     let p = sys ? "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\n" + sys + "<|eot_id|>" : "<|begin_of_text|>";
     for (const m of msgs.filter(x => x.role !== "system")) {
       const role = m.role === "assistant" ? "assistant" : "user";
@@ -412,64 +418,55 @@ async function callProviderReplicate(
     p += "<|start_header_id|>assistant<|end_header_id|>\n\n";
     return p;
   }
-  const prompt = buildLlama3Prompt(messages, systemPrompt);
 
-  // Bounded retry for Replicate create: max 2 retries for 429/5xx.
-  // Never retry 400/401/402/403/422 (permanent failures).
+  const prompt = buildLlama3Prompt(messages, systemPrompt);
   const repBody = JSON.stringify({
-    input: { prompt, system_prompt: systemPrompt || undefined,
-      max_tokens: maxTokens, temperature: 0.01 },
+    input: { prompt, system_prompt: systemPrompt || undefined, max_tokens: maxTokens, temperature: 0.01 },
   });
+
   let createRes!: Response;
   let repLastErr: Error = new Error("unreachable");
-  for (let repAttempt = 0; repAttempt <= 2; repAttempt++) {
+  for (let repAttempt = 0; repAttempt <= PER_PROVIDER_MAX_RETRIES; repAttempt++) {
     createRes = await fetch(
       `https://api.replicate.com/v1/models/${model}/predictions`,
       { method: "POST", headers, body: repBody, signal: AbortSignal.timeout(timeoutMs) },
     );
     if (createRes.ok) break;
     const errText = await createRes.text().catch(() => "");
-    // Permanent — never retry
-    if (createRes.status === 400 || createRes.status === 401 ||
-        createRes.status === 402 || createRes.status === 403 || createRes.status === 422)
-      throw new Error(`Replicate: permanent_failure (${createRes.status}) ${errText.slice(0, 120)}`);
-    // 429 rate limit — honor Retry-After
+    if ([400, 401, 402, 403, 422].includes(createRes.status)) {
+      throw new Error(`Replicate: permanent_failure (${createRes.status})`);
+    }
     if (createRes.status === 429) {
       repLastErr = new Error(`Replicate: rate_limited (429)`);
-      if (repAttempt < 2) {
+      if (repAttempt < PER_PROVIDER_MAX_RETRIES) {
         const ra = parseInt(createRes.headers.get("Retry-After") ?? "2", 10);
         await new Promise(r => setTimeout(r, Math.min(ra * 1000, 8000)));
         continue;
       }
       throw repLastErr;
     }
-    // 5xx transient — backoff retry
     if (createRes.status >= 500) {
-      repLastErr = new Error(`Replicate: provider_error (${createRes.status}) ${errText.slice(0, 80)}`);
-      if (repAttempt < 2) {
+      repLastErr = new Error(`Replicate: provider_error (${createRes.status})`);
+      if (repAttempt < PER_PROVIDER_MAX_RETRIES) {
         await new Promise(r => setTimeout(r, 1500 * (repAttempt + 1)));
         continue;
       }
       throw repLastErr;
     }
-    throw new Error(`Replicate: create_failed (${createRes.status}) ${errText.slice(0, 100)}`);
+    throw new Error(`Replicate: create_failed (${createRes.status})`);
   }
   if (!createRes.ok) throw repLastErr;
 
-  const prediction = await createRes.json() as any;
-
-  // Replicate with "Prefer: wait" may return completed prediction immediately
+  const prediction = await createRes.json() as Record<string, unknown>;
   if (prediction.status === "succeeded") {
-    const output = Array.isArray(prediction.output)
-      ? prediction.output.join("") : (prediction.output ?? "");
-    return { text: output.trim(), tokensIn: 0, tokensOut: 0, modelUsed: model };
+    const output = Array.isArray(prediction.output) ? prediction.output.join("") : (prediction.output ?? "");
+    return { text: String(output).trim(), tokensIn: 0, tokensOut: 0, modelUsed: model };
   }
   if (prediction.status === "failed" || prediction.status === "canceled") {
-    throw new Error(`Replicate: prediction ${prediction.status} — ${prediction.error ?? "unknown"}`);
+    throw new Error(`Replicate: prediction ${prediction.status}`);
   }
 
-  // Poll until complete (fallback if Prefer:wait not honoured)
-  const predId = prediction.id;
+  const predId = prediction.id as string;
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 1_500));
@@ -478,19 +475,31 @@ async function callProviderReplicate(
       { headers: { "Authorization": `Token ${apiKey}` }, signal: AbortSignal.timeout(10_000) },
     );
     if (!pollRes.ok) break;
-    const poll = await pollRes.json() as any;
+    const poll = await pollRes.json() as Record<string, unknown>;
     if (poll.status === "succeeded") {
       const output = Array.isArray(poll.output) ? poll.output.join("") : (poll.output ?? "");
-      return { text: output.trim(), tokensIn: 0, tokensOut: 0, modelUsed: model };
+      return { text: String(output).trim(), tokensIn: 0, tokensOut: 0, modelUsed: model };
     }
     if (poll.status === "failed" || poll.status === "canceled") {
-      throw new Error(`Replicate: prediction ${poll.status} — ${poll.error ?? "unknown"}`);
+      throw new Error(`Replicate: prediction ${poll.status}`);
     }
   }
-  throw new Error(`Replicate: timeout after ${timeoutMs}ms (prediction ${predId})`);
+  throw new Error(`Replicate: timeout after ${timeoutMs}ms`);
 }
 
+// ── BILLING HELPERS ───────────────────────────────────────────
+async function incrementAiReplies(
+  supabase: ReturnType<typeof createClient>,
+  ctx: { userId: string; newDay: boolean; effectiveUsed: number },
+): Promise<void> {
+  const newVal = ctx.newDay ? 1 : ctx.effectiveUsed + 1;
+  const upd: Record<string, unknown> = { ai_replies_today: newVal };
+  if (ctx.newDay) upd.ai_replies_reset_at = new Date().toISOString();
+  const { error } = await supabase.from("subscriptions").update(upd).eq("user_id", ctx.userId);
+  if (error) console.error("[ai-router] increment ai_replies failed:", error.message);
+}
 
+// ── MAIN HANDLER ──────────────────────────────────────────────
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -501,7 +510,7 @@ serve(async (req: Request): Promise<Response> => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     getServiceKey()!,
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 
   const bearerToken = authHeader.slice("Bearer ".length).trim();
@@ -518,7 +527,7 @@ serve(async (req: Request): Promise<Response> => {
   }
 
   const { data: { user } } = isInternal
-    ? { data: { user: null } }  // internal path — no user JWT needed
+    ? { data: { user: null } }
     : await supabase.auth.getUser(bearerToken);
 
   if (!isInternal && !user) return json({ error: "Unauthorized" }, 401);
@@ -526,60 +535,54 @@ serve(async (req: Request): Promise<Response> => {
   let body: {
     messages: Array<{ role: string; content: string }>;
     system_prompt?: string;
+    system?: string;
     task_type?: string;
     max_tokens?: number;
     workspace_id?: string;
     prefer_cheap?: boolean;
     plan_tier?: string;
+    provider?: string;
   };
   try { body = await req.json(); }
   catch { return json({ error: "Body i pavlefshëm" }, 400); }
 
-  // plan_tier from body is IGNORED — never trust client-supplied entitlements.
-  // workspace_id may be provided but verified before credit deduction.
-  // Accept both system_prompt (api) and system (customer-brain) for compatibility.
-  // provider: explicit provider key (e.g. "kimi") bypasses task classifier routing.
-  const { messages, system_prompt: bodySystemPrompt, system: bodySystem,
-          task_type, max_tokens = 800, workspace_id, prefer_cheap = false,
-          provider: explicitProvider } = body as typeof body & { provider?: string };
+  const {
+    messages, system_prompt: bodySystemPrompt, system: bodySystem,
+    task_type, max_tokens = 800, workspace_id, prefer_cheap = false,
+    provider: explicitProvider,
+  } = body;
 
-  // Normalize system prompt — accept either field name
   const system_prompt = bodySystemPrompt ?? bodySystem ?? "";
 
   if (!messages?.length) return json({ error: "messages janë të detyrueshme" }, 400);
+
   const normalizedTaskType = normalizeTaskType(task_type);
   if (task_type && !normalizedTaskType) {
-    const canonical = CANONICAL_TASK_TYPES.join(", ");
-    const aliases = Object.keys(TASK_TYPE_ALIASES).join(", ");
     return json({
       error: `Unknown task_type "${task_type}"`,
       code: "UNSUPPORTED_TASK_TYPE",
-      supported_task_types: canonical,
-      aliases,
+      supported_task_types: CANONICAL_TASK_TYPES.join(", "),
+      aliases: Object.keys(TASK_TYPE_ALIASES).join(", "),
     }, 400);
   }
 
-  // Server-side plan tier — do not trust plan_tier from body
-  // TODO: derive from workspace subscription table when available
-  const plan_tier = "growth";  // server-determined default
+  // Server-side plan tier — never trust client-supplied plan_tier
+  const plan_tier = "growth";
 
-  // Workspace isolation: if workspace_id provided, verify user is a member
-  // before logging/debiting that workspace
+  // Workspace isolation
   const authorizedWorkspaceId = await (async () => {
-    if (isInternal) return workspace_id ?? null;  // null for system calls — never "internal" as UUID  // internal calls trust provided workspace_id
+    if (isInternal) return workspace_id ?? null;
     if (!user) return null;
     if (!workspace_id) {
-      // 1. First workspace owned by this user
       const { data: ownedWs } = await supabase.from("workspaces")
         .select("id").eq("owner_id", user.id)
         .order("created_at", { ascending: true }).limit(1).maybeSingle();
       if (ownedWs?.id) return ownedWs.id;
-      // 2. Fallback: first workspace where user is a member (but not owner)
       const { data: memWs } = await supabase.from("workspace_members")
         .select("workspace_id").eq("user_id", user.id)
         .order("created_at", { ascending: true }).limit(1).maybeSingle();
       if (memWs?.workspace_id) return memWs.workspace_id;
-      return null;  // user has no workspace
+      return null;
     }
     const { data: member } = await supabase.rpc("is_workspace_member",
       { _user_id: user.id, _workspace_id: workspace_id });
@@ -589,68 +592,64 @@ serve(async (req: Request): Promise<Response> => {
     return workspace_id;
   })();
 
-  const allowInternalNoWorkspaceCustomerSupport = isInternal
-    && normalizedTaskType === "customer_support"
-    && !workspace_id;
+  const allowInternalNoWorkspaceCustomerSupport =
+    isInternal && normalizedTaskType === "customer_support" && !workspace_id;
   if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport) {
     return json({ error: "Forbidden: not a member of workspace" }, 403);
   }
 
-  // limitCtx: stores limit state for post-call increment (only on success, not on failure).
-  let limitCtx: {userId:string;newDay:boolean;effectiveUsed:number;dailyLimit:number}|null = null;
-
+  // ── CUSTOMER ENTITLEMENT CHECK ────────────────────────────────
+  // Must be checked BEFORE any provider call.
+  // Customer Pulse AI quota exhaustion → STOP. No provider failover.
+  let limitCtx: { userId: string; newDay: boolean; effectiveUsed: number; dailyLimit: number } | null = null;
   if (!isInternal && user) {
     const today = new Date().toDateString();
     const { data: sub } = await supabase.from("subscriptions")
       .select("plan,ai_replies_today,ai_replies_reset_at")
       .eq("user_id", user.id).maybeSingle();
     if (sub) {
-      // Map legacy and unknown plans to "standard". Unknown plans are NEVER unlimited.
-      const PLAN_MAP: Record<string,string> = {free:"standard",basic:"standard"};
+      const PLAN_MAP: Record<string, string> = { free: "standard", basic: "standard" };
       const resolvedPlan = PLAN_MAP[sub.plan ?? ""] ?? (sub.plan || "standard");
       const { data: pr } = await supabase.from("pricing_settings")
         .select("ai_replies_per_day_limit").eq("plan_key", resolvedPlan).maybeSingle();
       let pricingRow = pr;
       if (!pricingRow) {
         const { data: std } = await supabase.from("pricing_settings")
-          .select("ai_replies_per_day_limit").eq("plan_key","standard").maybeSingle();
+          .select("ai_replies_per_day_limit").eq("plan_key", "standard").maybeSingle();
         pricingRow = std;
       }
-      // Conservative default (50/day) if no pricing row found at all.
       const dailyLimit = pricingRow?.ai_replies_per_day_limit ?? 50;
       const resetAt = sub.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at).toDateString() : null;
       const newDay = resetAt !== today;
       const effectiveUsed = newDay ? 0 : (sub.ai_replies_today ?? 0);
       if (effectiveUsed >= dailyLimit) {
-        return json({error:"Daily AI reply limit reached. Upgrade for more AI replies.",
-          limit:dailyLimit, current:effectiveUsed, allowed:false}, 429);
+        return json({
+          error: "Daily AI reply limit reached. Upgrade for more AI replies.",
+          limit: dailyLimit, current: effectiveUsed, allowed: false,
+        }, 429);
       }
-      limitCtx = {userId:user.id, newDay, effectiveUsed, dailyLimit};
+      limitCtx = { userId: user.id, newDay, effectiveUsed, dailyLimit };
     }
   }
 
-  // Explicit provider override: body.provider="kimi" routes directly to KIMI
-  // bypassing the task classifier. Other providers can be added the same way.
+  // ── EXPLICIT PROVIDER OVERRIDE ────────────────────────────────
+  // Contract: if an authorized caller explicitly requests a provider,
+  // respect that request. Do NOT silently reroute. If the provider fails,
+  // return an error (no silent fallback) unless a safe-fallback option is
+  // explicitly authorized by contract (none currently).
   if (explicitProvider) {
-    const providerMap: Record<string, keyof typeof PROVIDERS> = {
-      kimi:         "KIMI",
-      moonshot:     "KIMI",
-      claude:       "CLAUDE_SONNET",
-      anthropic:    "CLAUDE_SONNET",
-      groq:         "GROQ_LLAMA8B",
-      deepseek:     "DEEPSEEK_FLASH",
-      deepseek_pro: "DEEPSEEK_PRO",
-      mistral:      "MISTRAL_SMALL",
-      gemini:       "GEMINI_FLASH",
-      openai:       "GPT_MINI",
-      gpt:          "GPT_MINI",
-      gpt4o:        "GPT4O",
-      perplexity:   "PERPLEXITY",
-      grok:         "GROK_FAST",
-      zai:          "ZAI",
-      "z.ai":       "ZAI",
-      zhipu:        "ZAI",
-      replicate:    "REPLICATE",
+    const providerMap: Record<string, ProviderKey> = {
+      kimi: "KIMI", moonshot: "KIMI",
+      claude: "CLAUDE_SONNET", anthropic: "CLAUDE_SONNET",
+      groq: "GROQ_LLAMA8B",
+      deepseek: "DEEPSEEK_FLASH", deepseek_pro: "DEEPSEEK_PRO",
+      mistral: "MISTRAL_SMALL",
+      gemini: "GEMINI_FLASH",
+      openai: "GPT_MINI", gpt: "GPT_MINI", gpt4o: "GPT4O",
+      perplexity: "PERPLEXITY",
+      grok: "GROK_FAST",
+      zai: "ZAI", "z.ai": "ZAI", zhipu: "ZAI",
+      replicate: "REPLICATE",
     };
     const providerKey = providerMap[explicitProvider.toLowerCase()];
     if (providerKey && providerKey in PROVIDERS) {
@@ -660,17 +659,14 @@ serve(async (req: Request): Promise<Response> => {
         const result = await callProvider(providerKey, messages, system_prompt, max_tokens, {});
         const latencyMs = Date.now() - start;
         const costUsd = (result.tokensIn / 1_000_000 * providerDef.costIn) +
-                        (result.tokensOut / 1_000_000 * providerDef.costOut);
+          (result.tokensOut / 1_000_000 * providerDef.costOut);
         const creditsUsed = Math.ceil(costUsd * 1000);
-        // Persist to credit_transactions (real table). Skip for system/internal calls.
         if (user?.id) {
           const wsId = (authorizedWorkspaceId && authorizedWorkspaceId !== "internal")
             ? authorizedWorkspaceId : null;
           const { error: txErr } = await supabase.from("credit_transactions").insert({
-            workspace_id: wsId,
-            user_id: user.id,
-            amount: -creditsUsed,
-            balance_after: null,
+            workspace_id: wsId, user_id: user.id,
+            amount: -creditsUsed, balance_after: null,
             transaction_type: "ai_usage",
             description: `${providerDef.name} | ${explicitProvider} | ${result.tokensIn}in+${result.tokensOut}out tokens`,
             reference_id: `ai_${Date.now()}_${explicitProvider}`,
@@ -679,94 +675,118 @@ serve(async (req: Request): Promise<Response> => {
         }
         if (limitCtx) await incrementAiReplies(supabase, limitCtx);
         return json({
-          response:     result.text,
-          content:      result.text,
-          text:         result.text,
-          provider:     providerDef.name,
-          provider_key: providerKey,
-          task_type:    explicitProvider,
-          tier:         "explicit",
-          tokens:       { in: result.tokensIn, out: result.tokensOut },
-          cost_usd:     Math.round(costUsd * 10000) / 10000,
-          credits_used: creditsUsed,
-          latency_ms:   latencyMs,
+          response: result.text, content: result.text, text: result.text,
+          provider: providerDef.name, provider_key: providerKey,
+          task_type: explicitProvider, tier: "explicit",
+          tokens: { in: result.tokensIn, out: result.tokensOut },
+          cost_usd: Math.round(costUsd * 10000) / 10000,
+          credits_used: creditsUsed, latency_ms: latencyMs,
           workspace_id: authorizedWorkspaceId,
           fallback_used: false,
+          attempted_providers: [{ provider: providerDef.name, success: true }],
+          total_attempts: 1,
         });
       } catch (e: any) {
-        return json({ error: `Provider ${explicitProvider} failed: ${e.message}` }, 503);
+        const msg = e instanceof Error ? e.message : String(e);
+        return json({ error: `Provider ${explicitProvider} failed`, code: "EXPLICIT_PROVIDER_FAILED" }, 503);
       }
     }
-    // Unknown explicit provider key — fail closed with 400 (do NOT silently reroute)
-    return json({ error: `Unknown provider "${explicitProvider}". Valid explicit providers: kimi, moonshot, claude, anthropic, deepseek, mistral, gemini, openai, gpt, gpt4o, perplexity, grok, zai, replicate, groq.` }, 400);
-  }
-
-  // Classify task
-  const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
-  const taskType = normalizedTaskType ?? classifyTask(lastUserMsg, { planTier: plan_tier, preferCheap: prefer_cheap });
-  const route = ROUTING_TABLE[taskType];
-  if (!route?.primary || !route?.fallback) {
     return json({
-      error: `No routing profile configured for task_type "${taskType}"`,
-      code: "TASK_TYPE_ROUTE_UNDEFINED",
+      error: `Unknown provider "${explicitProvider}". Valid explicit providers: kimi, moonshot, claude, anthropic, deepseek, mistral, gemini, openai, gpt, gpt4o, perplexity, grok, zai, replicate, groq.`,
     }, 400);
   }
 
-  // API keys (from workspace config or env)
+  // ── MULTI-PROVIDER FAILOVER ROUTING ───────────────────────────
+  const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
+  const taskType = normalizedTaskType ?? classifyTask(lastUserMsg, { planTier: plan_tier, preferCheap: prefer_cheap });
+  const routeConfig = ROUTE_CHAINS[taskType];
+  if (!routeConfig) {
+    return json({ error: `No routing profile for task_type "${taskType}"`, code: "TASK_TYPE_ROUTE_UNDEFINED" }, 400);
+  }
+
+  // Cap chain to total provider budget
+  const chain = routeConfig.chain.slice(0, TOTAL_PROVIDER_BUDGET);
   const apiKeys: Record<string, string> = {};
-
   const start = Date.now();
-  let providerUsed: keyof typeof PROVIDERS = route.primary;
-  let result: { text: string; tokensIn: number; tokensOut: number };
 
-  // Try primary, fallback if fails
+  // Same task context is forwarded unchanged to every provider candidate.
+  // Workspace authorization state, messages, system prompt remain constant.
   try {
-    result = await callProvider(route.primary, messages, system_prompt, max_tokens, apiKeys);
-    providerUsed = route.primary;
-  } catch (primaryErr) {
-    console.warn(`Primary ${route.primary} dështoi: ${primaryErr}. Duke provuar fallback...`);
-    try {
-      result = await callProvider(route.fallback, messages, system_prompt, max_tokens, apiKeys);
-      providerUsed = route.fallback;
-    } catch (fallbackErr) {
-      // No Lovable Gateway — fail with 503
-      return json({ error: `All AI providers failed. Primary: ${primaryErr}. Fallback: ${fallbackErr}` }, 503);
+    const failoverResult = await executeWithFailover(
+      chain,
+      (key) => callProvider(key as ProviderKey, messages, system_prompt, max_tokens, apiKeys),
+      (key) => (PROVIDERS[key as ProviderKey] as { name: string }).name,
+      { attempted: new Set() },
+    );
+
+    const latencyMs = Date.now() - start;
+    const usedKey = failoverResult.providerKey as ProviderKey;
+    const usedProvider = PROVIDERS[usedKey];
+    const costUsd = (failoverResult.value.tokensIn / 1_000_000 * usedProvider.costIn) +
+      (failoverResult.value.tokensOut / 1_000_000 * usedProvider.costOut);
+    const creditsUsed = Math.ceil(costUsd * 1000);
+
+    // Billing: charge only for the ONE successful provider call.
+    // Failed attempts are never billed.
+    if (user?.id) {
+      const wsId = (authorizedWorkspaceId && authorizedWorkspaceId !== "internal")
+        ? authorizedWorkspaceId : null;
+      const { error: txErr } = await supabase.from("credit_transactions").insert({
+        workspace_id: wsId, user_id: user.id,
+        amount: -creditsUsed, balance_after: null,
+        transaction_type: "ai_usage",
+        description: `${usedProvider.name} | ${taskType} | ${failoverResult.value.tokensIn}in+${failoverResult.value.tokensOut}out | ${latencyMs}ms`,
+        reference_id: `ai_${Date.now()}_${taskType}`,
+      });
+      if (txErr) console.error("[ai-router] billing insert failed:", txErr.message);
     }
-  }
 
-  const latencyMs = Date.now() - start;
-  const provider = PROVIDERS[providerUsed];
-  const costUsd = (result.tokensIn / 1_000_000 * provider.costIn) + (result.tokensOut / 1_000_000 * provider.costOut);
-  const creditsUsed = Math.ceil(costUsd * 1000); // 1 credit = $0.001
+    // One logical request counts once — even if several providers were attempted.
+    if (limitCtx) await incrementAiReplies(supabase, limitCtx);
 
-  // Persist usage to credit_transactions (real table). Skip for internal calls.
-  if (user?.id) {
-    const wsId = (authorizedWorkspaceId && authorizedWorkspaceId !== "internal")
-      ? authorizedWorkspaceId : null;
-    const { error: txErr } = await supabase.from("credit_transactions").insert({
-      workspace_id: wsId,
-      user_id: user.id,
-      amount: -creditsUsed,
-      balance_after: null,
-      transaction_type: "ai_usage",
-      description: `${provider.name} | ${taskType} | ${result.tokensIn}in+${result.tokensOut}out | ${latencyMs}ms`,
-      reference_id: `ai_${Date.now()}_${taskType}`,
+    // Safe observability metadata — no API keys, no raw provider bodies
+    const attemptedMeta = failoverResult.attemptedProviders.map(a => ({
+      provider: a.providerName,
+      success: a.success,
+      ...(a.failureCategory ? { failure_category: a.failureCategory } : {}),
+    }));
+
+    return json({
+      response: failoverResult.value.text,
+      content:  failoverResult.value.text,
+      text:     failoverResult.value.text,
+      provider: usedProvider.name,
+      provider_key: usedKey,
+      task_type: taskType,
+      tier: routeConfig.tier,
+      tokens: { in: failoverResult.value.tokensIn, out: failoverResult.value.tokensOut },
+      cost_usd: Math.round(costUsd * 10000) / 10000,
+      credits_used: creditsUsed,
+      latency_ms: latencyMs,
+      workspace_id: authorizedWorkspaceId,
+      // Observability
+      fallback_used: failoverResult.fallbackUsed,
+      attempted_providers: attemptedMeta,
+      total_attempts: failoverResult.totalAttempts,
     });
-    if (txErr) console.error("[ai-router] billing insert failed:", txErr.message);
+  } catch (err: any) {
+    const latencyMs = Date.now() - start;
+    if (err instanceof FailoverExhaustedError) {
+      const failCategories = err.attempts
+        .filter(a => !a.success)
+        .map(a => a.failureCategory ?? "UNKNOWN");
+      const uniqueCategories = [...new Set(failCategories)];
+      // Safe: only expose counts and categories — no raw provider bodies
+      return json({
+        error: "All AI providers failed",
+        code: "ALL_PROVIDERS_FAILED",
+        attempted_count: err.attempts.length,
+        failure_categories: uniqueCategories,
+        latency_ms: latencyMs,
+      }, 503);
+    }
+    // Unexpected error
+    console.error("[ai-router] unexpected error:", err);
+    return json({ error: "Internal router error", code: "ROUTER_ERROR" }, 500);
   }
-
-  if (limitCtx) await incrementAiReplies(supabase, limitCtx);
-  return json({
-    response: result.text,    // customer-brain and other callers use 'response'
-    content:  result.text,    // compatibility alias
-    text:     result.text,    // legacy alias
-    provider: provider.name,
-    task_type: taskType,
-    tier: route.tier,
-    tokens: { in: result.tokensIn, out: result.tokensOut },
-    cost_usd: Math.round(costUsd * 10000) / 10000,
-    credits_used: creditsUsed,
-    latency_ms: latencyMs,
-    workspace_id: authorizedWorkspaceId,
-  });
 });

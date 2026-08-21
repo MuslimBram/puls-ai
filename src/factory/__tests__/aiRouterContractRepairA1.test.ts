@@ -75,7 +75,10 @@ describe("AI-1A1 Router Contract Repair", () => {
     const router = readFileSync(repoFile("supabase", "functions", "ai-router", "index.ts"), "utf-8");
 
     expect(router).toContain("14 providers");
-    expect(router).toContain("route.fallback");
+    // AI-1A3: multi-provider chain replaces the old primary/fallback pair.
+    // Verify the new failover engine and chain structure are present.
+    expect(router).toContain("executeWithFailover");
+    expect(router).toContain("ROUTE_CHAINS");
     expect(router).toContain("All AI providers failed");
   });
 
