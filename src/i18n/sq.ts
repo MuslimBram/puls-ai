@@ -475,39 +475,6 @@ export default {
     branding: "Brendimi",
     admin: "Admin",
     sources: "Burime",
-  },
-
-  // Errors
-  errors: {
-    pageError: "Gabim në faqe",
-    pageErrorDesc: "Kjo faqe hasi një gabim. Provo ta rifreskosh ose të lundrosh diku tjetër.",
-    clearCacheRefresh: "Pastro cache & Rifresko",
-    goToDashboard: "Shko te Paneli i Kontrollit",
-    tryAgain: "Provo Përsëri",
-  },
-
-  // ─── Uebsajti publik — Vala 1 ───────────────────────────────────────────────
-
-  // Brend
-  brand: {
-    descriptor: "Sistemi Operativ Biznesi me AI",
-    home: "Pulse AI — Kreu",
-    positioning: "Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.",
-  },
-
-  // Etiketa CTA publike
-  cta: {
-    getStarted: "Fillo Tani",
-    goToDashboard: "Shko te Paneli",
-    requestBeta: "Kërko Qasje Beta",
-    notifyMe: "Njoftomë",
-    learnMore: "Mëso Më Shumë",
-    login: "Hyr",
-    backToHome: "Kthehu në Kre",
-  },
-
-  // Etiketa navigimi publik
-  nav: {
     openMenu: "Hap menunë",
     closeMenu: "Mbyll menunë",
     mobileMenu: "Navigimi celular",
@@ -542,6 +509,35 @@ export default {
     growthSuite: {
       label: "Paketa e Rritjes",
     },
+  },
+
+  // Errors
+  errors: {
+    pageError: "Gabim në faqe",
+    pageErrorDesc: "Kjo faqe hasi një gabim. Provo ta rifreskosh ose të lundrosh diku tjetër.",
+    clearCacheRefresh: "Pastro cache & Rifresko",
+    goToDashboard: "Shko te Paneli i Kontrollit",
+    tryAgain: "Provo Përsëri",
+  },
+
+  // ─── Uebsajti publik — Vala 1 ───────────────────────────────────────────────
+
+  // Brend
+  brand: {
+    descriptor: "Sistemi Operativ Biznesi me AI",
+    home: "Pulse AI — Kreu",
+    positioning: "Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.",
+  },
+
+  // Etiketa CTA publike
+  cta: {
+    getStarted: "Fillo Tani",
+    goToDashboard: "Shko te Paneli",
+    requestBeta: "Kërko Qasje Beta",
+    notifyMe: "Njoftomë",
+    learnMore: "Mëso Më Shumë",
+    login: "Hyr",
+    backToHome: "Kthehu në Kre",
   },
 
   // Shenja

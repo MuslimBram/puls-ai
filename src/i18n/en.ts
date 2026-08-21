@@ -475,6 +475,40 @@ export default {
     branding: "Branding",
     admin: "Admin",
     sources: "Sources",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
+    mobileMenu: "Mobile navigation",
+    group: {
+      platform: "Platform",
+      business: "Business",
+      company: "Company",
+      more: "More",
+    },
+    platform: {
+      aiIntelligence: "AI & Intelligence",
+      unifiedInbox: "Unified Inbox",
+      crmSales: "CRM & Sales",
+      marketing: "Marketing",
+      automation: "Automation",
+      analytics: "Analytics",
+      developers: "Developers",
+    },
+    standalone: {
+      lidhjet: "Lidhjet",
+      pricing: "Pricing",
+      security: "Security",
+    },
+    business: {
+      partners: "Partners",
+      whiteLabel: "White Label",
+    },
+    company: {
+      about: "About",
+      contact: "Contact",
+    },
+    growthSuite: {
+      label: "Growth Suite",
+    },
   },
 
   // Errors
@@ -504,44 +538,6 @@ export default {
     learnMore: "Learn More",
     login: "Log In",
     backToHome: "Back to Home",
-  },
-
-  // Public nav labels
-  nav: {
-    openMenu: "Open menu",
-    closeMenu: "Close menu",
-    mobileMenu: "Mobile navigation",
-    group: {
-      platform: "Platform",
-      business: "Business",
-      company: "Company",
-      more: "More",
-    },
-    platform: {
-      aiIntelligence: "AI & Intelligence",
-      unifiedInbox: "Unified Inbox",
-      crmSales: "CRM & Sales",
-      marketing: "Marketing",
-      automation: "Automation",
-      analytics: "Analytics",
-      developers: "Developers",
-    },
-    standalone: {
-      lidhjet: "Lidhjet", // Brand name — intentionally not translated
-      pricing: "Pricing",
-      security: "Security",
-    },
-    business: {
-      partners: "Partners",
-      whiteLabel: "White Label",
-    },
-    company: {
-      about: "About",
-      contact: "Contact",
-    },
-    growthSuite: {
-      label: "Growth Suite",
-    },
   },
 
   // Badges
