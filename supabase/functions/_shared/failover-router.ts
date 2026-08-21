@@ -137,6 +137,11 @@ export function recordProviderCooldown(
   }
 }
 
+/** Reset all in-process cooldown state. Use in tests to prevent cross-test contamination. */
+export function clearInProcessCooldowns(): void {
+  inProcessCooldowns.clear();
+}
+
 export function isProviderOnCooldown(key: string): boolean {
   const entry = inProcessCooldowns.get(key);
   if (!entry) return false;

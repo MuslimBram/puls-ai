@@ -4,138 +4,25 @@
 // Runs under Vitest (Node environment) with deterministic mocks.
 // Does NOT call real external AI providers.
 //
-// The core failover logic from _shared/failover-router.ts is
-// ported inline below because that module uses Deno-specific
-// APIs (Deno.env) which are unavailable in Node/Vitest.
-// The ported logic is kept 1-to-1 with the source of truth so
-// that any future divergence is immediately visible.
+// Imports the actual production failover module directly so that
+// tests exercise the real implementation — no duplicated logic.
 // ============================================================
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { readFileSync } from "fs";
 import { join } from "path";
+import {
+  classifyProviderFailure,
+  isEligibleForProviderFailover,
+  executeWithFailover,
+  clearInProcessCooldowns,
+  FailoverExhaustedError,
+} from "../../../supabase/functions/_shared/failover-router";
 
 const repoFile = (...parts: string[]) => join(process.cwd(), ...parts);
 
-// ── INLINE PORT OF failover-router.ts PURE LOGIC ─────────────
-// (No Deno APIs used below)
-
-type ProviderFailureCategory =
-  | "RATE_LIMITED"
-  | "PROVIDER_QUOTA_EXHAUSTED"
-  | "AUTH_OR_CONFIG_FAILURE"
-  | "TIMEOUT"
-  | "TRANSIENT_PROVIDER_FAILURE"
-  | "UNSUPPORTED_REQUEST"
-  | "PERMANENT_PROVIDER_FAILURE";
-
-interface ProviderAttemptResult {
-  providerKey: string;
-  providerName: string;
-  success: boolean;
-  failureCategory?: ProviderFailureCategory;
-  failureSummary?: string;
-}
-
-interface FailoverResult<T> {
-  value: T;
-  providerKey: string;
-  providerName: string;
-  attemptedProviders: ProviderAttemptResult[];
-  fallbackUsed: boolean;
-  totalAttempts: number;
-}
-
-class FailoverExhaustedError extends Error {
-  constructor(public readonly attempts: ProviderAttemptResult[], message: string) {
-    super(message);
-    this.name = "FailoverExhaustedError";
-  }
-}
-
-/** Kept in sync with _shared/failover-router.ts classifyProviderFailure */
-function classifyProviderFailure(status: number, message: string): ProviderFailureCategory {
-  if (status === 400) return "UNSUPPORTED_REQUEST";
-  if (status === 401 || status === 403) return "AUTH_OR_CONFIG_FAILURE";
-  if (status === 402) return "PROVIDER_QUOTA_EXHAUSTED";
-  const msgLower = message.toLowerCase();
-  if (
-    msgLower.includes("quota") ||
-    msgLower.includes("credit") ||
-    msgLower.includes("billing") ||
-    msgLower.includes("insufficient_quota") ||
-    msgLower.includes("limit exceeded")
-  ) return "PROVIDER_QUOTA_EXHAUSTED";
-  if (status === 429) return "RATE_LIMITED";
-  if (msgLower.includes("rate_limited") || msgLower.includes("rate limit")) return "RATE_LIMITED";
-  if (msgLower.includes("timeout") || msgLower.includes("aborted")) return "TIMEOUT";
-  if (status >= 500 && status < 600) return "TRANSIENT_PROVIDER_FAILURE";
-  if (msgLower.includes("provider_error") || msgLower.includes("transient")) return "TRANSIENT_PROVIDER_FAILURE";
-  // Auth/missing config — must be checked BEFORE generic permanent_failure fallthrough
-  if (
-    msgLower.includes("(auth)") ||
-    msgLower.includes("api key not configured") ||
-    msgLower.includes("api key missing") ||
-    msgLower.includes("unauthorized") ||
-    msgLower.includes("authentication")
-  ) return "AUTH_OR_CONFIG_FAILURE";
-  if (msgLower.includes("permanent_failure")) return "PERMANENT_PROVIDER_FAILURE";
-  return "PERMANENT_PROVIDER_FAILURE";
-}
-
-function isEligibleForProviderFailover(category: ProviderFailureCategory): boolean {
-  switch (category) {
-    case "RATE_LIMITED":
-    case "PROVIDER_QUOTA_EXHAUSTED":
-    case "AUTH_OR_CONFIG_FAILURE":
-    case "TIMEOUT":
-    case "TRANSIENT_PROVIDER_FAILURE":
-      return true;
-    case "UNSUPPORTED_REQUEST":
-    case "PERMANENT_PROVIDER_FAILURE":
-      return false;
-  }
-}
-
-type CallResult = { text: string; tokensIn: number; tokensOut: number };
-
-async function executeWithFailover<T>(
-  chain: readonly string[],
-  callFn: (key: string) => Promise<T>,
-  nameFn: (key: string) => string,
-  attempted = new Set<string>(),
-): Promise<FailoverResult<T>> {
-  const attempts: ProviderAttemptResult[] = [];
-  for (const key of chain) {
-    if (attempted.has(key)) continue;
-    attempted.add(key);
-    try {
-      const value = await callFn(key);
-      attempts.push({ providerKey: key, providerName: nameFn(key), success: true });
-      return {
-        value,
-        providerKey: key,
-        providerName: nameFn(key),
-        attemptedProviders: attempts,
-        fallbackUsed: attempts.findIndex(a => a.success) > 0,
-        totalAttempts: attempts.length,
-      };
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const statusMatch = msg.match(/\((\d{3})\)/);
-      const status = statusMatch ? parseInt(statusMatch[1], 10) : 0;
-      const category = classifyProviderFailure(status, msg);
-      const safeSummary = `${category} (http=${status > 0 ? status : "n/a"})`;
-      attempts.push({ providerKey: key, providerName: nameFn(key), success: false, failureCategory: category, failureSummary: safeSummary });
-      if (!isEligibleForProviderFailover(category)) {
-        throw new FailoverExhaustedError(attempts, `Request cannot be retried: ${safeSummary}`);
-      }
-    }
-  }
-  throw new FailoverExhaustedError(attempts, "All provider candidates exhausted");
-}
-
 // ── DETERMINISTIC PROVIDER MOCK ───────────────────────────────
+type CallResult = { text: string; tokensIn: number; tokensOut: number };
 type MockBehavior = "ok" | "rate_limited" | "quota" | "timeout" | "5xx" | "400" | "auth" | "auth_http401" | "auth_http403";
 
 function makeProvider(responses: Record<string, MockBehavior>) {
@@ -193,6 +80,7 @@ describe("AI-1A3 Failover Eligibility", () => {
 });
 
 describe("AI-1A3 Failover Engine — provider chain behavior", () => {
+  beforeEach(() => { clearInProcessCooldowns(); });
   it("primary success → no fallback, 1 attempt", async () => {
     const call = makeProvider({ A: "ok", B: "ok" });
     const result = await executeWithFailover(["A", "B"], call, k => k);
