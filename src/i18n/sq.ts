@@ -284,4 +284,125 @@ export default {
     goToDashboard: "Shko te Paneli i Kontrollit",
     tryAgain: "Provo Përsëri",
   },
+
+  // ─── Uebsajti publik — Vala 1 ───────────────────────────────────────────────
+
+  // Brend
+  brand: {
+    descriptor: "Sistemi Operativ Biznesi me AI",
+    home: "Pulse AI — Kreu",
+    positioning: "Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.",
+  },
+
+  // Etiketa CTA publike
+  cta: {
+    getStarted: "Fillo Tani",
+    goToDashboard: "Shko te Paneli",
+    requestBeta: "Kërko Qasje Beta",
+    notifyMe: "Njoftomë",
+    learnMore: "Mëso Më Shumë",
+    login: "Hyr",
+    backToHome: "Kthehu në Kre",
+  },
+
+  // Etiketa navigimi publik
+  nav: {
+    openMenu: "Hap menunë",
+    closeMenu: "Mbyll menunë",
+    mobileMenu: "Navigimi celular",
+    group: {
+      platform: "Platforma",
+      business: "Biznesi",
+      company: "Kompania",
+      more: "Më shumë",
+    },
+    platform: {
+      aiIntelligence: "AI & Inteligjencë",
+      unifiedInbox: "Kutia e Unifikuar",
+      crmSales: "CRM & Shitje",
+      marketing: "Marketing",
+      automation: "Automatizim",
+      analytics: "Analitikë",
+      developers: "Zhvilluesit",
+    },
+    standalone: {
+      lidhjet: "Lidhjet",
+      pricing: "Çmimet",
+      security: "Siguria",
+    },
+    business: {
+      partners: "Partnerë",
+      whiteLabel: "White Label",
+    },
+    company: {
+      about: "Rreth Nesh",
+      contact: "Kontakt",
+    },
+    growthSuite: {
+      label: "Paketa e Rritjes",
+    },
+  },
+
+  // Shenja
+  badge: {
+    comingSoon: "Së shpejti",
+    beta: "Beta",
+    new: "E re",
+  },
+
+  // Breadcrumbs
+  breadcrumbs: {
+    label: "Rrugëkalimi",
+  },
+
+  // Faqja Coming Soon
+  comingSoon: {
+    title: "Së Shpejti",
+    description:
+      "Po punojmë fort për ta sjellë këtë. Regjistrohu për t'u njoftuar kur të niset.",
+  },
+
+  // Faqja Siguria
+  security: {
+    title: "Ndërtuar për Sigurinë e Biznesit",
+    summary:
+      "Pulse AI është projektuar me izolim të hapësirave të punës, trajtim të enkriptuar të të dhënave dhe kontrolle të qasjes të bazuara në role.",
+    eyebrow: "Kontrollet Tona",
+    pointsTitle: "Si e mbrojmë biznesin tuaj",
+  },
+
+  // Faqja Çmimet (shell neutrale)
+  pricing: {
+    title: "Çmime të Thjeshta dhe Transparente",
+    subtitle:
+      "Fillo falas, rritu me nevojat tuaja. Detajet e plota të çmimeve janë të disponueshme brenda llogarisë tuaj.",
+    neutralNotice:
+      "Çmimet e detajuara të planit shfaqen brenda panelit të llogarisë suaj pas regjistrimit.",
+    signUpToSee: "Keni tashmë një llogari?",
+    viewPlans: "Shiko Planet e Mia",
+    faqTitle: "Pyetje mbi Çmimet",
+  },
+
+  // Faqja Zhvilluesit
+  developers: {
+    title: "Zhvilluesit",
+    description:
+      "Ndërtoni mbi Pulse AI. API jonë ju lejon të integroni mjetet ekzistuese, të automatizoni flukset e punës dhe të zgjeroni platformën.",
+    getApiAccess: "Merr Qasje API",
+    faqTitle: "Pyetje të Zakonshme",
+  },
+
+  // Vargjet e faqes platformës
+  platform: {
+    capabilities: "Aftësi",
+    whatYouGet: "Çfarë merrni",
+  },
+
+  // Shtylla e poshtme
+  footer: {
+    label: "Shtylla e poshtme e sajtit",
+    legal: "Juridike",
+    rightsReserved: "Të gjitha të drejtat e rezervuara.",
+    tagline: "Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.",
+  },
 } as const;
