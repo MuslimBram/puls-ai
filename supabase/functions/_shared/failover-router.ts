@@ -71,7 +71,19 @@ export function classifyProviderFailure(
   if (status >= 500 && status < 600) return "TRANSIENT_PROVIDER_FAILURE";
   if (msgLower.includes("provider_error") || msgLower.includes("transient")) return "TRANSIENT_PROVIDER_FAILURE";
 
-  // Permanent — all other
+  // Auth / missing provider configuration — eligible for next-provider failover.
+  // Must be checked BEFORE the generic permanent_failure fallthrough so that
+  // messages like "permanent_failure (auth) API key not configured" are not
+  // misclassified as PERMANENT_PROVIDER_FAILURE (which stops the chain).
+  if (
+    msgLower.includes("(auth)") ||
+    msgLower.includes("api key not configured") ||
+    msgLower.includes("api key missing") ||
+    msgLower.includes("unauthorized") ||
+    msgLower.includes("authentication")
+  ) return "AUTH_OR_CONFIG_FAILURE";
+
+  // Generic permanent / non-recoverable provider failure — stops the chain
   if (msgLower.includes("permanent_failure")) return "PERMANENT_PROVIDER_FAILURE";
 
   return "PERMANENT_PROVIDER_FAILURE";

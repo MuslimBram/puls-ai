@@ -331,7 +331,7 @@ async function callWithRetry(
       const result = await attemptFn(ctrl);
       clearTimeout(timer);
       return result;
-    } catch (e: unknown) {
+    } catch (e: any) {
       clearTimeout(timer);
       const msg = e instanceof Error ? e.message : String(e);
       if (e instanceof Error && e.name === "AbortError") {
@@ -686,7 +686,7 @@ serve(async (req: Request): Promise<Response> => {
           attempted_providers: [{ provider: providerDef.name, success: true }],
           total_attempts: 1,
         });
-      } catch (e: unknown) {
+      } catch (e: any) {
         const msg = e instanceof Error ? e.message : String(e);
         return json({ error: `Provider ${explicitProvider} failed`, code: "EXPLICIT_PROVIDER_FAILED" }, 503);
       }
@@ -769,7 +769,7 @@ serve(async (req: Request): Promise<Response> => {
       attempted_providers: attemptedMeta,
       total_attempts: failoverResult.totalAttempts,
     });
-  } catch (err: unknown) {
+  } catch (err: any) {
     const latencyMs = Date.now() - start;
     if (err instanceof FailoverExhaustedError) {
       const failCategories = err.attempts
