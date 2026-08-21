@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { safeNavigate } from "@/lib/safeNavigate";
 import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -57,7 +58,7 @@ export const NotificationBell = () => {
                 } ${n.is_read ? "opacity-60" : ""}`}
                 onClick={() => {
                   markRead.mutate(n.id);
-                  if (n.action_url) { setOpen(false); navigate(n.action_url); }
+                  if (n.action_url) { if (safeNavigate(navigate, n.action_url)) setOpen(false); }
                 }}
               >
                 <div className="flex items-center gap-1.5">

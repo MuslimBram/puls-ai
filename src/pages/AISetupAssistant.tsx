@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { safeNavigate } from "@/lib/safeNavigate";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,7 +109,7 @@ export default function AISetupAssistant() {
                   : <Circle className={`h-5 w-5 shrink-0 ${isCurrent ? "text-primary" : "text-muted-foreground"}`} />}
                 <span className={`text-sm flex-1 ${done ? "text-muted-foreground line-through" : isCurrent ? "font-medium" : "text-muted-foreground"}`}>{title}</span>
                 {isCurrent && !progress.is_complete && (
-                  <Button size="sm" className="h-7 text-xs" onClick={() => navigate(progress.current_step.url)}>
+                  <Button size="sm" className="h-7 text-xs" onClick={() => safeNavigate(navigate, progress.current_step.url)}>
                     Start<ArrowRight className="ml-1 h-3.5 w-3.5" />
                   </Button>
                 )}

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { safeNavigate } from "@/lib/safeNavigate";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -233,7 +234,7 @@ const BusinessInsights = () => {
                               size="sm"
                               variant="ghost"
                               className="h-5 text-xs px-1.5"
-                              onClick={() => navigate(n.action_url!)}
+                              onClick={() => safeNavigate(navigate, n.action_url!)}
                             >
                               View <ChevronRight className="h-3 w-3" />
                             </Button>
