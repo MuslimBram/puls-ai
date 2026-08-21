@@ -147,6 +147,18 @@ const TASK_TYPE_ALIASES: Readonly<Record<string, TaskType>> = {
   multimodal_vision: "multimodal",
 };
 
+// ── TASK TYPE NORMALIZER ──────────────────────────────────────
+// Defined at module scope so both the request handler and classifyTask
+// can call it without scoping issues.
+function normalizeTaskType(taskType?: string): TaskType | null {
+  if (!taskType) return null;
+  const normalized = taskType.trim().toLowerCase();
+  if ((CANONICAL_TASK_TYPES as readonly string[]).includes(normalized)) {
+    return normalized as TaskType;
+  }
+  return TASK_TYPE_ALIASES[normalized] ?? null;
+}
+
 const ROUTING_TABLE: Record<TaskType, { primary: keyof typeof PROVIDERS; fallback: keyof typeof PROVIDERS; tier: "cheap"|"mid"|"premium" }> = {
   simple_chat:       { primary: "GROQ_LLAMA8B",    fallback: "DEEPSEEK_FLASH", tier: "cheap" },
   high_volume:       { primary: "DEEPSEEK_FLASH",  fallback: "GROQ_LLAMA8B",  tier: "cheap" },
@@ -200,15 +212,6 @@ function classifyTask(
   // Plan-based routing
   if (options.planTier === "starter" || options.planTier === "free") {
     return "balanced";
-  }
-
-  function normalizeTaskType(taskType?: string): TaskType | null {
-    if (!taskType) return null;
-    const normalized = taskType.trim().toLowerCase();
-    if ((CANONICAL_TASK_TYPES as readonly string[]).includes(normalized)) {
-      return normalized as TaskType;
-    }
-    return TASK_TYPE_ALIASES[normalized] ?? null;
   }
 
   return "balanced";

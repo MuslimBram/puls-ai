@@ -17,6 +17,49 @@ describe("AI-1A1 Router Contract Repair", () => {
     expect(router).toContain('code: "TASK_TYPE_ROUTE_UNDEFINED"');
   });
 
+  it("normalizeTaskType is declared at module scope (not nested inside another function)", () => {
+    const router = readFileSync(repoFile("supabase", "functions", "ai-router", "index.ts"), "utf-8");
+
+    // The function declaration must appear at module scope:
+    // a line that starts (after optional whitespace) with `function normalizeTaskType`
+    // and NOT be indented inside another function body.
+    const lines = router.split("\n");
+
+    const declarationLine = lines.findIndex(l => /^\s*function\s+normalizeTaskType\s*\(/.test(l));
+    expect(declarationLine).toBeGreaterThanOrEqual(0);
+
+    // Module-scope declarations have 0 indentation (or at most the file's base indent).
+    // A nested function inside classifyTask would be indented with >= 2 spaces.
+    const indent = lines[declarationLine].match(/^(\s*)/)?.[1] ?? "";
+    expect(indent.length).toBe(0);
+
+    // Verify the call site in the request handler (outside classifyTask) is reachable:
+    // the call must appear AFTER the declaration in the file.
+    const callLine = lines.findIndex((l, i) => i > declarationLine && /normalizeTaskType\(/.test(l));
+    expect(callLine).toBeGreaterThan(declarationLine);
+
+    // The declaration must NOT be nested inside classifyTask — confirm classifyTask
+    // closes before normalizeTaskType is declared (i.e., the declaration line is
+    // not enclosed within classifyTask's body).
+    const classifyTaskDecl = lines.findIndex(l => /^\s*function\s+classifyTask\s*\(/.test(l));
+    // normalizeTaskType must be declared AFTER classifyTask's closing brace or BEFORE it —
+    // in either case, it must not be between the function's opening and closing braces.
+    // We detect this by checking that the function body scan does not cross it.
+    if (classifyTaskDecl >= 0 && declarationLine > classifyTaskDecl) {
+      // Count brace depth from classifyTask start to normalizeTaskType declaration.
+      let depth = 0;
+      let encounteredOpen = false;
+      for (let i = classifyTaskDecl; i < declarationLine; i++) {
+        for (const ch of lines[i]) {
+          if (ch === "{") { depth++; encounteredOpen = true; }
+          if (ch === "}") { depth--; }
+        }
+      }
+      // If depth is 0 (or less) after classifyTask opened, normalizeTaskType is outside it.
+      expect(encounteredOpen && depth <= 0).toBe(true);
+    }
+  });
+
   it("preserves user JWT + workspace authorization and blocks service-role bearer-only escalation", () => {
     const router = readFileSync(repoFile("supabase", "functions", "ai-router", "index.ts"), "utf-8");
 
