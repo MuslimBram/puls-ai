@@ -22,6 +22,7 @@ import { useTranslation } from "react-i18next";
 import { validateInternalPath } from "@/lib/safeNavigate";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Bell, Loader2 } from "lucide-react";
+import { buildLoggedOutCtaLoginHref } from "./publicCtaDestination";
 
 export type CTAVariant = "default" | "beta" | "coming_soon";
 export type CTAPriority = "primary" | "secondary" | "tertiary";
@@ -74,12 +75,6 @@ function InterestActionButton({
     </Button>
   );
 }
-
-export function buildLoggedOutCtaLoginHref(appDestination?: string) {
-  const safeDestination = validateInternalPath(appDestination ?? "/dashboard") ?? "/dashboard";
-  return `/login?next=${encodeURIComponent(safeDestination)}`;
-}
-
 
 export function PublicCTA({
   variant = "default",

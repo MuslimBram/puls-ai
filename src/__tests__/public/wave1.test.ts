@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { validateInternalPath } from "../../lib/safeNavigate";
 import { SECURITY_CLAIM } from "../../lib/publicSecurityClaim";
-import { buildLoggedOutCtaLoginHref } from "../../components/public/PublicCTA";
+import { buildLoggedOutCtaLoginHref } from "../../components/public/publicCtaDestination";
 import {
   platformNavItems,
   standaloneNavItems,
