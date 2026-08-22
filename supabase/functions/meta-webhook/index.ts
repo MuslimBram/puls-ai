@@ -229,7 +229,7 @@ serve(async (req) => {
               normalized_metadata: { page_id: pageId },
               consent_classification: "platform_terms",
             });
-            await sb.from("social_engagement_events").insert({
+            const { error: segErr } = await sb.from("social_engagement_events").insert({
               workspace_id:         canonicalEvent.workspace_id,
               channel_id:           canonicalEvent.channel_id,
               provider:             canonicalEvent.provider,
@@ -245,12 +245,11 @@ serve(async (req) => {
               consent_classification: canonicalEvent.consent_classification,
               source_ref:           canonicalEvent.source_ref,
               idempotency_key:      canonicalEvent.idempotency_key,
-            }).catch((err: Error) => {
-              // UNIQUE violation (23505) = duplicate delivery — safe to ignore
-              if (err?.message && !err.message.includes("23505")) {
-                console.error("[META-IG] canonical event insert error", err.message);
-              }
             });
+            // UNIQUE violation (code 23505) = duplicate delivery — safe to ignore
+            if (segErr && (segErr as any).code !== "23505") {
+              console.error("[META-IG] canonical event insert error", segErr.message);
+            }
           } catch (buildErr) {
             console.error("[META-IG] canonical event build error", (buildErr as Error)?.message);
           }
@@ -346,7 +345,7 @@ serve(async (req) => {
               normalized_metadata: { page_id: pageId },
               consent_classification: "platform_terms",
             });
-            await sb.from("social_engagement_events").insert({
+            const { error: segErr } = await sb.from("social_engagement_events").insert({
               workspace_id:         canonicalEvent.workspace_id,
               channel_id:           canonicalEvent.channel_id,
               provider:             canonicalEvent.provider,
@@ -362,12 +361,11 @@ serve(async (req) => {
               consent_classification: canonicalEvent.consent_classification,
               source_ref:           canonicalEvent.source_ref,
               idempotency_key:      canonicalEvent.idempotency_key,
-            }).catch((err: Error) => {
-              // UNIQUE violation (23505) = duplicate delivery — safe to ignore
-              if (err?.message && !err.message.includes("23505")) {
-                console.error("[META-FB] canonical event insert error", err.message);
-              }
             });
+            // UNIQUE violation (code 23505) = duplicate delivery — safe to ignore
+            if (segErr && (segErr as any).code !== "23505") {
+              console.error("[META-FB] canonical event insert error", segErr.message);
+            }
           } catch (buildErr) {
             console.error("[META-FB] canonical event build error", (buildErr as Error)?.message);
           }

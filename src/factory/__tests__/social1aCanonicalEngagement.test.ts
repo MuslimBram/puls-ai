@@ -100,6 +100,16 @@ describe("buildCanonicalEngagementEvent — Instagram DM (SOCIAL-1A)", () => {
     ).toThrow(/known_person.*requires/i);
   });
 
+  it("throws when pseudonymous_visitor is set without an actor_provider_id", () => {
+    expect(() =>
+      buildCanonicalEngagementEvent({
+        ...base,
+        actor_identity_state: "pseudonymous_visitor",
+        actor_provider_id:    null,
+      }),
+    ).toThrow(/pseudonymous_visitor.*requires/i);
+  });
+
   it("null actor_provider_id produces anonymous_aggregate state", () => {
     const ev = buildCanonicalEngagementEvent({
       ...base,

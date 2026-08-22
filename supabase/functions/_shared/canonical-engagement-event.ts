@@ -187,6 +187,13 @@ export function buildCanonicalEngagementEvent(
     );
   }
 
+  // Invariant: pseudonymous_visitor MUST have an actor ID (it is a first-party pseudonymous token)
+  if (identityState === "pseudonymous_visitor" && !input.actor_provider_id) {
+    throw new Error(
+      "canonical-engagement-event: identity_state=pseudonymous_visitor requires a non-null actor_provider_id",
+    );
+  }
+
   const provider_event_id = input.provider_event_id;
   const idempotency_key = `seg:${input.provider}:${input.workspace_id}:${provider_event_id}`;
   const source_ref = `${input.provider}:${provider_event_id}`;
