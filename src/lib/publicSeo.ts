@@ -66,7 +66,12 @@ export function normalizePublicSiteUrl(raw?: string | null) {
 }
 
 export function getPublicSiteUrl() {
-  return normalizePublicSiteUrl(import.meta.env?.VITE_PUBLIC_SITE_URL);
+  const envUrl = import.meta.env?.VITE_PUBLIC_SITE_URL;
+  if (envUrl) return normalizePublicSiteUrl(envUrl);
+  if (typeof window !== "undefined" && window.location?.origin) {
+    return normalizePublicSiteUrl(window.location.origin);
+  }
+  return DEFAULT_PUBLIC_SITE_URL;
 }
 
 export function getLocaleFromPublicPath(pathname: string): PublicLocale {
