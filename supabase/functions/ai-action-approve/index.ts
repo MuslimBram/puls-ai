@@ -529,7 +529,7 @@ async function logAudit(
       p_action: `ai_action_${context.decision.toLowerCase()}`,
       p_resource_type: "ai_suggested_actions",
       p_resource_id: context.action_id,
-      p_severity: context.decision === "APPROVE" ? "info" : "info",
+      p_severity: context.decision === "APPROVE" ? "info" : "warning",
       p_new_values: {
         decision: context.decision,
         previous_status: context.previous_status,

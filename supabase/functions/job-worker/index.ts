@@ -359,8 +359,10 @@ async function processAiControlledActionJob(
     throw new Error(`[AI-3] Action ${actionId} exceeded max execution attempts`);
   }
 
-  // Transition to EXECUTING — optimistic lock on QUEUED
-  const { error: lockErr } = await supabase
+  // Transition to EXECUTING — optimistic lock on QUEUED.
+  // PostgREST returns no error when the filter doesn't match (zero rows affected),
+  // so we must inspect the returned rows count, not just the error field.
+  const { data: lockedRows, error: lockErr } = await supabase
     .from("ai_suggested_actions")
     .update({
       lifecycle_status: "EXECUTING",
@@ -368,14 +370,15 @@ async function processAiControlledActionJob(
       execution_attempts: attempts + 1,
     })
     .eq("id", actionId)
-    .eq("lifecycle_status", "QUEUED");
+    .eq("lifecycle_status", "QUEUED")
+    .select("id");
 
-  if (lockErr) {
-    // Concurrent worker beat us — defer
+  if (lockErr || !lockedRows || lockedRows.length === 0) {
+    // Either a DB error or another worker already transitioned away from QUEUED — defer
     return {
       status: "deferred",
       nextRetryAt: new Date(Date.now() + 30_000).toISOString(),
-      message: "Concurrent lock — deferred",
+      message: "Concurrent lock or state changed — deferred",
     };
   }
 
