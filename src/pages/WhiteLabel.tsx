@@ -109,7 +109,7 @@ const WhiteLabel = () => {
           <Link to={localizedPath("/")} className="flex items-center gap-2 font-semibold text-foreground">
             <Zap className="h-5 w-5 text-primary" /> Pulse AI
           </Link>
-          <Button asChild variant="outline" size="sm"><Link to="/register">Create account</Link></Button>
+          <Button asChild variant="outline" size="sm"><Link to="/register">{t("auth.createAccount")}</Link></Button>
         </div>
       </header>
 
@@ -248,21 +248,21 @@ const WhiteLabel = () => {
             {!user && (
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-muted-foreground">
                 <p className="mb-2">{t("whiteLabelPage.applyNote")}</p>
-                <Link to="/login" className="font-medium text-primary underline">{t("cta.login")}</Link> or{" "}
+                <Link to="/login" className="font-medium text-primary underline">{t("cta.login")}</Link> {t("common.or")}{" "}
                 <Link to="/register" className="font-medium text-primary underline">{t("auth.createAccount")}</Link>.
               </div>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor="wl-name">Full name</Label>
+                <Label htmlFor="wl-name">{t("leadForm.fields.fullName")}</Label>
                 <Input id="wl-name" value={form.contact_name} onChange={(e) => setForm({ ...form, contact_name: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="wl-email">Email</Label>
+                <Label htmlFor="wl-email">{t("leadForm.fields.email")}</Label>
                 <Input id="wl-email" type="email" value={form.contact_email} onChange={(e) => setForm({ ...form, contact_email: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="wl-phone">Phone</Label>
+                <Label htmlFor="wl-phone">{t("leadForm.fields.phone")}</Label>
                 <Input id="wl-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
               <div className="space-y-1.5">

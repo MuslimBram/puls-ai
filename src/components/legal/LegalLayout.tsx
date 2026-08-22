@@ -15,15 +15,15 @@ import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 export const LEGAL_LAST_UPDATED = "31 July 2026";
 
-export const LEGAL_LINKS = [
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/terms", label: "Terms of Service" },
-  { href: "/security", label: "Security Overview" },
-  { href: "/cookies", label: "Cookie Policy" },
-  { href: "/refund", label: "Refund & Cancellation" },
-  { href: "/affiliate-terms", label: "Ambassador & Freelancer Terms" },
-  { href: "/dpa", label: "Data Processing Agreement" },
-  { href: "/terms-and-payments", label: "Payment Terms" },
+export const LEGAL_LINKS: { href: string; labelKey: string }[] = [
+  { href: "/privacy",         labelKey: "footer.links.privacy" },
+  { href: "/terms",           labelKey: "footer.links.terms" },
+  { href: "/security",        labelKey: "securityPage.hero.title" },
+  { href: "/cookies",         labelKey: "footer.links.cookies" },
+  { href: "/refund",          labelKey: "footerWave4.refund" },
+  { href: "/affiliate-terms", labelKey: "footerWave4.affiliateTerms" },
+  { href: "/dpa",             labelKey: "footer.links.dpa" },
+  { href: "/terms-and-payments", labelKey: "footerWave4.termsAndPayments" },
 ];
 
 export type LegalSection = { id: string; title: string };
@@ -109,7 +109,7 @@ export function LegalLayout({
       {/* HERO */}
       <section className="border-b border-border bg-muted/40">
         <div className="max-w-6xl mx-auto px-5 py-12">
-          <p className="text-xs uppercase tracking-widest text-primary mb-3">Legal</p>
+          <p className="text-xs uppercase tracking-widest text-primary mb-3">{t("footer.legal")}</p>
           <h1 className="text-3xl md:text-4xl font-semibold mb-3">{title}</h1>
           <p className="text-muted-foreground max-w-2xl leading-relaxed">{subtitle}</p>
           <div className="flex flex-wrap items-center gap-3 mt-6">
@@ -191,7 +191,7 @@ export function LegalLayout({
                   to={localizedPath(l.href)}
                   className="block text-muted-foreground hover:text-foreground leading-snug"
                 >
-                  {l.label}
+                  {t(l.labelKey)}
                 </Link>
               ))}
             </nav>
@@ -205,6 +205,7 @@ export function LegalLayout({
 }
 
 export function LegalFooter() {
+  const { t } = useTranslation();
   const { localizedPath } = usePublicLocale();
 
   return (
@@ -221,7 +222,7 @@ export function LegalFooter() {
             <DropdownMenuContent align="start" className="w-60">
               {LEGAL_LINKS.map((l) => (
                 <DropdownMenuItem key={l.href} asChild>
-                  <Link to={localizedPath(l.href)}>{l.label}</Link>
+                  <Link to={localizedPath(l.href)}>{t(l.labelKey)}</Link>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

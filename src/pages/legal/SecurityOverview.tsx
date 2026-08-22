@@ -2,18 +2,18 @@ import { Lock, Shield, Server, KeyRound, Eye, AlertTriangle } from "lucide-react
 import { useTranslation } from "react-i18next";
 import { LegalLayout, Section, InfoCard, type LegalSection } from "@/components/legal/LegalLayout";
 
-const sections: LegalSection[] = [
-  { id: "pillars", title: "1. Six security pillars" },
-  { id: "encryption", title: "2. Encryption" },
-  { id: "access", title: "3. Access control" },
-  { id: "hosting", title: "4. Hosting and location" },
-  { id: "monitoring", title: "5. Monitoring and backups" },
-  { id: "responsibility", title: "6. Shared responsibility" },
-  { id: "report", title: "7. Reporting a vulnerability" },
-];
-
 export default function SecurityOverview() {
   const { t } = useTranslation();
+
+  const sections: LegalSection[] = [
+    { id: "pillars",         title: `1. ${t("securityPage.pillars.heading")}` },
+    { id: "encryption",      title: `2. ${t("securityPage.sections.encryptionTitle")}` },
+    { id: "access",          title: `3. ${t("securityPage.sections.accessTitle")}` },
+    { id: "hosting",         title: `4. ${t("securityPage.sections.hostingTitle")}` },
+    { id: "monitoring",      title: `5. ${t("securityPage.sections.monitoringTitle")}` },
+    { id: "responsibility",  title: `6. ${t("securityPage.sections.sharedTitle")}` },
+    { id: "report",          title: `7. ${t("securityPage.sections.reportTitle")}` },
+  ];
   const pillars = [
     { icon: Lock, title: t("securityPage.pillars.encryption.title"), body: t("securityPage.pillars.encryption.body") },
     { icon: Shield, title: t("securityPage.pillars.rls.title"), body: t("securityPage.pillars.rls.body") },
