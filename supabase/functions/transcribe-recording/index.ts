@@ -3,9 +3,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { callAIRouter } from "../_shared/ai-router-helper.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
-const AK = Deno.env.get("ANTHROPIC_API_KEY");
 
 /**
  * Transcribe a call recording.
@@ -14,9 +14,9 @@ const AK = Deno.env.get("ANTHROPIC_API_KEY");
  *   1. Fetch Twilio recording via REST API (server-side, authenticated).
  *   2. Check if Twilio native transcription is available (they provide it on request).
  *   3. If OPENAI_API_KEY is configured → Whisper for actual audio-to-text.
- *   4. Use Anthropic claude-sonnet-4-6 for:
- *        — structuring any available text
- *        — analysis, sentiment, intent, summary, commitments, next actions
+ *      (Whisper audio-to-text is a justified specialized direct provider path.)
+ *   4. Post-transcription text analysis (summary, sentiment, intent, etc.) is routed
+ *      through the canonical AI Router — no direct Anthropic endpoint used.
  *   5. Feed structured result into Pulse AI Brain (digital twins, memory, leads).
  *
  * NOTE: Step 3 (audio-to-text) requires an STT service (Whisper/Deepgram/AssemblyAI).
@@ -166,16 +166,29 @@ serve(async (req) => {
       }
     }
 
-    // ── Step 3: Anthropic analysis ───────────────────────────────────────────
+    // ── Step 3: Post-transcription analysis via canonical AI Router ─────────
+    // NOTE: This must NOT call the Anthropic Messages endpoint directly.
+    //       Text analysis (summary, sentiment, intent, etc.) is standard generative
+    //       reasoning and MUST use the canonical AI Router.
+    //
+    // AUTH CONTRACT:
+    //   - User-initiated calls: preserve the verified Authorization header so
+    //     normal router membership/entitlement semantics apply.
+    //   - Internal recording callbacks: use only the server-derived recording
+    //     workspace_id with internal service credentials.
+    //   - LIMITATION: For internal automation paths the router authorizes access
+    //     via service-role + INTERNAL_WEBHOOK_SECRET using the server-derived
+    //     workspace_id. Standard per-user entitlement checks (plan limits, per-seat
+    //     quotas) do not apply on internal paths because there is no user principal;
+    //     only workspace-level authorization is enforced.
     let analysis: Record<string, unknown> = {};
     let summary = "";
     let sentiment: "positive" | "neutral" | "negative" = "neutral";
 
     const hasRealTranscript = !!twilioTranscriptText;
 
-    if (AK) {
-      const systemPrompt = hasRealTranscript
-        ? `You are a call analysis AI for a business CRM. Analyze this call transcript and return JSON with:
+    const systemPrompt = hasRealTranscript
+      ? `You are a call analysis AI for a business CRM. Analyze this call transcript and return JSON with:
 {
   "summary": "2-3 sentence summary",
   "sentiment": "positive|neutral|negative",
@@ -195,37 +208,43 @@ serve(async (req) => {
   "confidence": 0-1,
   "transcript_source": "twilio_native|whisper|manual"
 }`
-        : `You are a call analysis AI. Based on call metadata only (no transcript available — STT not configured), provide what analysis you can from duration, status, and context. Return JSON with: {"summary": string, "sentiment": "neutral", "note": "No transcript available — configure OPENAI_API_KEY for Whisper or enable Twilio Transcription", "next_recommended_action": string}`;
+      : `You are a call analysis AI. Based on call metadata only (no transcript available — STT not configured), provide what analysis you can from duration, status, and context. Return JSON with: {"summary": string, "sentiment": "neutral", "note": "No transcript available — configure OPENAI_API_KEY for Whisper or enable Twilio Transcription", "next_recommended_action": string}`;
 
-      const userContent = hasRealTranscript
-        ? `Transcript:
-${twilioTranscriptText.slice(0, 8000)}`
-        : `Call metadata: duration=${recording.duration_seconds}s, recording_sid=${twilioRecordingSid}, workspace=${wsId}`;
+    const userContent = hasRealTranscript
+      ? `Transcript:\n${twilioTranscriptText!.slice(0, 8000)}`
+      : `Call metadata: duration=${recording.duration_seconds}s, recording_sid=${twilioRecordingSid}, workspace=${wsId}`;
 
-      try {
-        const r = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": AK,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-sonnet-4-6",
-            max_tokens: 1200,
-            system: systemPrompt,
-            messages: [{ role: "user", content: userContent }],
-          }),
-        });
-        if (r.ok) {
-          const d = await r.json() as any;
-          analysis = JSON.parse(d.content?.[0]?.text?.replace(/```json|```/g, "").trim() || "{}");
-          summary   = (analysis.summary   as string) ?? "";
-          sentiment = (analysis.sentiment as any)    ?? "neutral";
+    // Build router call options — workspace must always be server-derived from recording.
+    // Request-controlled workspace_id is NEVER used as trusted router context.
+    const routerOptions = isInternal
+      ? {
+          // Internal path: service-role + internal secret, server-derived workspace only.
+          workspaceId: recordingWorkspaceId ?? undefined,
+          taskType: "text_analysis",
+          maxTokens: 1200,
         }
-      } catch (e) {
-        console.warn("[transcribe] Anthropic analysis failed:", e);
-      }
+      : {
+          // User-initiated path: preserve the verified Authorization header so
+          // standard router membership/entitlement semantics apply.
+          authHeader: authHeader ?? undefined,
+          workspaceId: recordingWorkspaceId ?? undefined,
+          taskType: "text_analysis",
+          maxTokens: 1200,
+        };
+
+    try {
+      const raw = await callAIRouter(
+        [{ role: "user", content: userContent }],
+        systemPrompt,
+        routerOptions,
+      );
+      analysis = JSON.parse(raw.replace(/```json|```/g, "").trim());
+      summary   = (analysis.summary   as string) ?? "";
+      sentiment = (analysis.sentiment as any)    ?? "neutral";
+    } catch (e) {
+      // Analysis failure must NOT corrupt or lose a successfully obtained transcript.
+      // Log the error and proceed with safe default values.
+      console.warn("[transcribe] AI Router analysis failed — using safe defaults:", (e as Error).message);
     }
 
     // ── Step 4: Persist ──────────────────────────────────────────────────────
@@ -246,7 +265,7 @@ ${twilioTranscriptText.slice(0, 8000)}`
     await sb.from("call_recordings").update(updateData).eq("id", recording.id);
 
     // ── Step 5: Feed into Pulse AI Brain ─────────────────────────────────────
-    if (hasRealTranscript && wsId && AK) {
+    if (hasRealTranscript && wsId) {
       // Update lead score if call is linked to a contact
       if (recording.contact_id) {
         await sb.from("leads").update({
