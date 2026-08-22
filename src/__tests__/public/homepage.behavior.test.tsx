@@ -79,13 +79,16 @@ describe("Homepage behavior", () => {
 
   it("opens the existing floating AI bot when the public AI action is triggered", async () => {
     renderHomepage();
-
-    expect(screen.queryByPlaceholderText("Type your question...")).not.toBeInTheDocument();
+    const floatingBotTriggerLabel = i18n.t("homepage.aiSection.primaryCta");
+    const closeLabel = i18n.t("common.close");
+    expect(screen.getByLabelText(floatingBotTriggerLabel)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Try Pulse AI" }));
 
-    expect(await screen.findByPlaceholderText("Type your question...")).toBeInTheDocument();
-    expect(screen.getByText("Happy to help! What questions do you have?")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByLabelText(floatingBotTriggerLabel)).not.toBeInTheDocument();
+    });
+    expect(await screen.findByRole("button", { name: closeLabel })).toBeInTheDocument();
   });
 
   it("scrolls to homepage sections for hash navigation links instead of only changing the URL", async () => {
