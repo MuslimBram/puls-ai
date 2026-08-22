@@ -156,11 +156,20 @@ export const useUpdateCampaign = () => {
 
 export const useLaunchCampaignBroadcast = () => {
   const queryClient = useQueryClient();
+  const { workspace } = useWorkspace();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ campaignId, segmentId, channelOverride, scheduledAt }: { campaignId: string; segmentId?: string; channelOverride?: string; scheduledAt?: string }) => {
+    mutationFn: async ({ campaignId, workspaceId, segmentId, channelOverride, scheduledAt }: { campaignId: string; workspaceId?: string | null; segmentId?: string; channelOverride?: string; scheduledAt?: string }) => {
+      const effectiveWorkspaceId = workspaceId ?? workspace?.id ?? null;
+      if (!effectiveWorkspaceId) throw new Error("workspace_id required");
       const { data, error } = await supabase.functions.invoke("launch-campaign-broadcast", {
-        body: { campaign_id: campaignId, segment_id: segmentId, channel_override: channelOverride, scheduled_at: scheduledAt },
+        body: {
+          workspace_id: effectiveWorkspaceId,
+          campaign_id: campaignId,
+          segment_id: segmentId,
+          channel_override: channelOverride,
+          scheduled_at: scheduledAt,
+        },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);

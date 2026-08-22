@@ -3,6 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import {
+  buildAi3ExecutorInvocation,
+  isSuccessfulExecutorResult,
+} from "../_shared/ai3-executor-contract.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -276,10 +280,297 @@ async function processJob(supabase: any, job: any): Promise<JobOutcome> {
       return { status: "completed" };
     }
 
+    case "ai_controlled_action":
+      return await processAiControlledActionJob(supabase, job, payload);
+
     default:
       throw new Error(`Unknown job type: ${job.job_type}`);
   }
 }
+
+// ── AI-3: Controlled Action Executor ─────────────────────────────────────────
+//
+// Processes an AI-3 controlled action job.
+//
+// Invariants enforced here (second validation layer after approval gate):
+//   - action_id must exist in ai_suggested_actions with lifecycle_status=QUEUED
+//   - workspace_id in job payload must match the row's workspace_id
+//   - Sensitive actions cannot be executed if lifecycle_status is not QUEUED
+//   - Execution is idempotent: completed actions return success without re-executing
+//   - At most MAX_EXECUTION_ATTEMPTS total attempts before permanent failure
+
+const MAX_EXECUTION_ATTEMPTS = 3;
+
+async function processAiControlledActionJob(
+  supabase: any,
+  job: any,
+  payload: Record<string, unknown>,
+): Promise<JobOutcome> {
+  const actionId = String(payload.action_id ?? "");
+  const workspaceId = String(payload.workspace_id ?? "");
+  const idempotencyKey = String(payload.idempotency_key ?? "");
+
+  if (!actionId || !workspaceId) {
+    throw new Error("[AI-3] ai_controlled_action job missing action_id or workspace_id");
+  }
+
+  const now = new Date().toISOString();
+
+  // Load action with service role — re-validate all state server-side
+  const { data: action, error: loadErr } = await supabase
+    .from("ai_suggested_actions")
+    .select(
+      "id, workspace_id, user_id, lifecycle_status, action_type, action_payload, modified_payload, execution_attempts, suggested_by, correlation_id",
+    )
+    .eq("id", actionId)
+    .maybeSingle();
+
+  if (loadErr || !action) {
+    throw new Error(`[AI-3] Action ${actionId} not found or DB error: ${loadErr?.message}`);
+  }
+
+  // Workspace isolation: reject if job payload workspace doesn't match the row
+  if (action.workspace_id !== workspaceId) {
+    throw new Error(
+      `[AI-3] Workspace mismatch: job payload workspace ${workspaceId} ≠ action workspace ${action.workspace_id}`,
+    );
+  }
+
+  // Idempotency: already completed — do not re-execute
+  if (action.lifecycle_status === "COMPLETED") {
+    console.log(`[AI-3] Action ${actionId} already COMPLETED — idempotent skip`);
+    return { status: "completed" };
+  }
+
+  // Sensitive action gate: must be QUEUED (= human-approved) to execute
+  if (action.lifecycle_status !== "QUEUED") {
+    throw new Error(
+      `[AI-3] Action ${actionId} is not in QUEUED state (got: ${action.lifecycle_status}). Execution blocked.`,
+    );
+  }
+
+  // Attempt limit guard
+  const attempts = Number(action.execution_attempts ?? 0);
+  if (attempts >= MAX_EXECUTION_ATTEMPTS) {
+    await supabase
+      .from("ai_suggested_actions")
+      .update({
+        lifecycle_status: "FAILED",
+        failed_at: now,
+        failure_reason: `Exceeded maximum execution attempts (${MAX_EXECUTION_ATTEMPTS})`,
+      })
+      .eq("id", actionId);
+    throw new Error(`[AI-3] Action ${actionId} exceeded max execution attempts`);
+  }
+
+  // Transition to EXECUTING — optimistic lock on QUEUED.
+  // PostgREST returns no error when the filter doesn't match (zero rows affected),
+  // so we must inspect the returned rows count, not just the error field.
+  const { data: lockedRows, error: lockErr } = await supabase
+    .from("ai_suggested_actions")
+    .update({
+      lifecycle_status: "EXECUTING",
+      executing_at: now,
+      execution_attempts: attempts + 1,
+    })
+    .eq("id", actionId)
+    .eq("lifecycle_status", "QUEUED")
+    .select("id");
+
+  if (lockErr || !lockedRows || lockedRows.length === 0) {
+    // Either a DB error or another worker already transitioned away from QUEUED — defer
+    return {
+      status: "deferred",
+      nextRetryAt: new Date(Date.now() + 30_000).toISOString(),
+      message: "Concurrent lock or state changed — deferred",
+    };
+  }
+
+  const effectivePayload = action.modified_payload ?? action.action_payload ?? {};
+
+  // Dispatch to the canonical executor for this action type.
+  // COMPLETED means the downstream operation actually succeeded.
+  // Unsupported action types fail closed — they can never become COMPLETED here.
+  try {
+    await dispatchToCanonicalExecutor(supabase, action.action_type, {
+      actionId,
+      workspaceId,
+      userId: action.user_id,
+      payload: effectivePayload,
+      correlationId: action.correlation_id,
+    });
+  } catch (execErr) {
+    const reason = execErr instanceof Error ? execErr.message : String(execErr);
+    const nextStatus = attempts + 1 >= MAX_EXECUTION_ATTEMPTS ? "FAILED" : "QUEUED";
+
+    await supabase
+      .from("ai_suggested_actions")
+      .update({
+        lifecycle_status: nextStatus,
+        ...(nextStatus === "QUEUED" ? { queued_at: now } : {}),
+        ...(nextStatus === "FAILED" ? { failed_at: now, failure_reason: reason } : {}),
+      })
+      .eq("id", actionId);
+
+    // Emit non-fatal audit entry for execution failure
+    await supabase.rpc("log_audit", {
+      p_workspace_id: workspaceId,
+      p_action: "ai_action_execution_failed",
+      p_resource_type: "ai_suggested_actions",
+      p_resource_id: actionId,
+      p_severity: "warning",
+      p_new_values: {
+        action_type: action.action_type,
+        next_lifecycle_status: nextStatus,
+        attempt: attempts + 1,
+        failure_reason: reason,
+      },
+    }).catch(() => {});
+
+    throw new Error(`[AI-3] Execution error for action ${actionId}: ${reason}`);
+  }
+
+  // Execution succeeded — transition EXECUTING → COMPLETED
+  await supabase
+    .from("ai_suggested_actions")
+    .update({
+      lifecycle_status: "COMPLETED",
+      completed_at: now,
+      status: "executed",
+      failure_reason: null,
+    })
+    .eq("id", actionId)
+    .eq("lifecycle_status", "EXECUTING");
+
+  // Mandatory audit for successful execution
+  const { error: auditErr } = await supabase.rpc("log_audit", {
+    p_workspace_id: workspaceId,
+    p_action: "ai_action_executed",
+    p_resource_type: "ai_suggested_actions",
+    p_resource_id: actionId,
+    p_severity: "info",
+    p_new_values: {
+      action_type: action.action_type,
+      lifecycle_status: "COMPLETED",
+      attempt: attempts + 1,
+      idempotency_key: idempotencyKey || null,
+      correlation_id: action.correlation_id,
+      suggested_by: action.suggested_by,
+      // Do not log raw payload — may contain sensitive offer/pricing data
+      payload_keys: Object.keys(effectivePayload),
+    },
+  });
+
+  if (auditErr) {
+    // The action is already COMPLETED — do not revert. Log and alert.
+    console.error(`[AI-3] Mandatory audit failed for completed action ${actionId}:`, auditErr.message);
+  }
+
+  return { status: "completed" };
+}
+
+// ── AI-3 Canonical Executor Dispatch ─────────────────────────────────────────
+//
+// Maps supported action types to their existing canonical edge functions.
+// Unsupported types throw — the worker transitions action to FAILED.
+//
+// COMPLETED must mean the downstream operation actually succeeded.
+// Never mark COMPLETED merely because an audit entry was written.
+
+interface DispatchContext {
+  actionId: string;
+  workspaceId: string;
+  userId?: string | null;
+  payload: Record<string, unknown>;
+  correlationId?: string;
+}
+
+async function dispatchToCanonicalExecutor(
+  supabase: any,
+  actionType: string,
+  ctx: DispatchContext,
+): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = getServiceKey();
+  const internalSecret = Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "";
+
+  async function invokeFunction(): Promise<void> {
+    const resolution = buildAi3ExecutorInvocation({
+      actionId: ctx.actionId,
+      workspaceId: ctx.workspaceId,
+      userId: ctx.userId,
+      payload: ctx.payload,
+    }, actionType);
+
+    if (!resolution.supported) {
+      throw new Error(`${resolution.code}: ${resolution.message}`);
+    }
+
+    const query = resolution.invocation.query
+      ? `?${new URLSearchParams(resolution.invocation.query).toString()}`
+      : "";
+    const url = `${supabaseUrl}/functions/v1/${resolution.invocation.functionName}${query}`;
+    const res = await fetch(url, {
+      method: resolution.invocation.method,
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: ["Bearer", serviceKey].join(" "),
+        "x-internal-secret": internalSecret,
+        "x-correlation-id": ctx.correlationId ?? ctx.actionId,
+      },
+      body: JSON.stringify(resolution.invocation.body),
+    });
+
+    const contentType = res.headers.get("content-type") ?? "";
+    const responseBody = contentType.includes("application/json")
+      ? await res.json().catch(() => null)
+      : null;
+
+    if (!res.ok) {
+      const detail = responseBody ? JSON.stringify(responseBody) : await res.text().catch(() => "(no body)");
+      throw new Error(`[AI-3] ${resolution.invocation.functionName} returned ${res.status}: ${detail}`);
+    }
+
+    if (!isSuccessfulExecutorResult(actionType, responseBody as Record<string, unknown> | null)) {
+      throw new Error(
+        `[AI-3] ${resolution.invocation.functionName} returned 2xx without durable success for ${actionType}`,
+      );
+    }
+  }
+
+  switch (actionType) {
+    case "launch_campaign":
+    case "create_booking":
+      await invokeFunction();
+      return;
+
+    case "suggest_offer":
+    case "suggest_campaign":
+    case "suggest_reply":
+    case "create_offer":
+    case "issue_reward":
+    case "issue_discount":
+    case "issue_referral":
+    case "seo_opportunity":
+    case "competitor_insight":
+    case "send_message":
+    case "bulk_email":
+    case "bulk_sms":
+    case "execute_automation":
+      throw new Error(
+        `[AI-3] Action type '${actionType}' has no verified safe canonical executor. ` +
+        `Execution blocked (fail-closed). This action type requires a dedicated canonical ` +
+        `integration to be implemented before it can be executed.`,
+      );
+
+    default:
+      throw new Error(
+        `[AI-3] Unknown action type '${actionType}'. No executor available. ` +
+        `Execution blocked (fail-closed).`,
+      );
+  }
+}
+
 
 async function processScanPostProcessJob(supabase: any, job: any, payload: Record<string, unknown>): Promise<JobOutcome> {
   const scanHistoryId = String(payload.scan_history_id ?? "");
