@@ -138,8 +138,7 @@ async function revokeMismatchedKnownPersonRows(
         revocation_reason: "identity_resolution_changed",
       })
       .eq("id", row.id)
-      .eq("workspace_id", workspace_id)
-      .single();
+      .eq("workspace_id", workspace_id);
   }
 }
 

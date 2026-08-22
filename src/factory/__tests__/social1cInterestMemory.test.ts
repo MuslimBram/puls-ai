@@ -593,7 +593,7 @@ describe("SOCIAL-1C behavior", () => {
     expect(memory?.strength).toBeGreaterThan(0.2);
   });
 
-  it("concurrent distinct events converge to one active memory with evidence_count 2", async () => {
+  it("distinct same-interest events converge to one active memory with evidence_count 2", async () => {
     const db = makeInMemoryDb();
     const e1 = makeEvent({ id: "evt-race-1", content_ref: "product camera" });
     const e2 = makeEvent({ id: "evt-race-2", content_ref: "product camera" });
