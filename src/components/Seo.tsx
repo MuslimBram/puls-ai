@@ -19,6 +19,19 @@ export interface SeoProps {
   jsonLd?: Record<string, unknown> | Array<Record<string, unknown>>;
 }
 
+const UNSUPPORTED_SCHEMA_KEYS = new Set(["offers", "aggregateRating", "review", "reviews"]);
+
+function sanitizeStructuredData(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeStructuredData);
+  if (!value || typeof value !== "object") return value;
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .filter(([key]) => !UNSUPPORTED_SCHEMA_KEYS.has(key))
+      .map(([key, nestedValue]) => [key, sanitizeStructuredData(nestedValue)]),
+  );
+}
+
 function upsertMeta(selector: string, attrs: Record<string, string>) {
   let el = document.head.querySelector<HTMLMetaElement>(selector);
   if (!el) {
@@ -53,7 +66,7 @@ function replaceSeoJsonLd(payloads: Array<Record<string, unknown>>) {
     const script = document.createElement("script");
     script.type = "application/ld+json";
     script.setAttribute("data-seo-jsonld", "true");
-    script.text = JSON.stringify(payload);
+    script.text = JSON.stringify(sanitizeStructuredData(payload));
     document.head.appendChild(script);
   });
 }
