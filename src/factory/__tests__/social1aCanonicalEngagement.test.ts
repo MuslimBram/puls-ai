@@ -443,3 +443,132 @@ describe("canonical event durability: duplicate claim still attempts canonical i
     expect(count).toBeGreaterThanOrEqual(4); // declaration + IG dup + IG normal + FB dup + FB normal
   });
 });
+
+// ── PRODUCTION-LOGIC: canonical event durability contract ────────────────────
+//
+// Verifies the structural source-code contract that satisfies the four
+// delivery scenarios described in the SOCIAL-1A durability requirement:
+//
+//   A. First delivery + canonical insert success  → 200, one canonical event
+//   B. First delivery + transient canonical fail  → 500, provider can retry
+//   C. Provider retry after B                     → duplicate claim → canonical
+//      inserted idempotently, inbox/lead NOT re-written
+//   D. Duplicate canonical insert (UNIQUE hit)    → "duplicate" return, safe
+
+describe("SOCIAL-1A production-logic: canonical event durability (source-code contract)", () => {
+  const src = readFileSync(
+    repoFile("supabase", "functions", "meta-webhook", "index.ts"),
+    "utf-8",
+  );
+
+  // ── A. First delivery success ────────────────────────────────────────────────
+
+  it("A — normal path returns 200 when canonical insert succeeds (no error branch short-circuits)", () => {
+    // The normal path must reach `processed++` and eventually return 200.
+    // Verified structurally: if tryCanonicalInsert returns "inserted" or "duplicate"
+    // (not "error") the `if (igCanResult === "error")` branch does NOT fire and
+    // execution falls through to `processed++`.
+    expect(src).toContain('if (igCanResult === "error")');
+    expect(src).toContain('if (fbCanResult === "error")');
+    // The 500 branch must reference "canonical_insert_failed" key
+    expect(src).toContain('"canonical_insert_failed"');
+  });
+
+  // ── B. First delivery + transient canonical failure → 500 ───────────────────
+
+  it("B — transient canonical insert failure in IG normal path returns 500 (not 200)", () => {
+    // The IG normal path must have: if (igCanResult === "error") { return new Response(..., { status: 500 })
+    const igCanErrIdx = src.indexOf('if (igCanResult === "error")');
+    expect(igCanErrIdx).toBeGreaterThan(-1);
+    // After that check, status 500 must appear before the next `processed++`
+    const next500Idx   = src.indexOf("status: 500", igCanErrIdx);
+    const nextProcIdx  = src.indexOf("processed++", igCanErrIdx);
+    expect(next500Idx).toBeGreaterThan(-1);
+    expect(next500Idx).toBeLessThan(nextProcIdx);
+  });
+
+  it("B — transient canonical insert failure in FB normal path returns 500 (not 200)", () => {
+    const fbCanErrIdx = src.indexOf('if (fbCanResult === "error")');
+    expect(fbCanErrIdx).toBeGreaterThan(-1);
+    const next500Idx  = src.indexOf("status: 500", fbCanErrIdx);
+    const nextProcIdx = src.indexOf("processed++", fbCanErrIdx);
+    expect(next500Idx).toBeGreaterThan(-1);
+    expect(next500Idx).toBeLessThan(nextProcIdx);
+  });
+
+  // ── C. Provider retry → duplicate claim → canonical reinserted, no side effects ─
+
+  it("C — on duplicate claim, inbox/lead writes do NOT appear before tryCanonicalInsert", () => {
+    // In the duplicate block, tryCanonicalInsert must come before any inbox_messages insert.
+    const dupIgIdx   = src.indexOf('if (claim === "duplicate")');
+    expect(dupIgIdx).toBeGreaterThan(-1);
+    const tryInDupIdx = src.indexOf("tryCanonicalInsert(sb,", dupIgIdx);
+    const inboxInDupIdx = src.indexOf('from("inbox_messages")', dupIgIdx);
+    // tryCanonicalInsert appears before the inbox insert that belongs to the NORMAL path
+    expect(tryInDupIdx).toBeGreaterThan(-1);
+    expect(tryInDupIdx).toBeLessThan(inboxInDupIdx);
+  });
+
+  it("C — duplicate claim block continues after canonical attempt (no double side-effect)", () => {
+    // After tryCanonicalInsert in the IG duplicate block, the code `continue`s
+    // (i.e., does NOT fall through to the inbox/lead/customer-brain writes).
+    const dupIgIdx   = src.indexOf('if (claim === "duplicate")');
+    const tryInDupIdx = src.indexOf("tryCanonicalInsert(sb,", dupIgIdx);
+    const contInDupIdx = src.indexOf("continue", tryInDupIdx);
+    const inboxInNormalIdx = src.indexOf('from("inbox_messages")', contInDupIdx);
+    // The `continue` comes before the inbox insert of the normal path
+    expect(contInDupIdx).toBeLessThan(inboxInNormalIdx);
+  });
+
+  // ── D. Duplicate canonical insert is safe ───────────────────────────────────
+
+  it("D — tryCanonicalInsert returns 'duplicate' on UNIQUE conflict (code 23505)", () => {
+    // The helper must translate a 23505 PG error into "duplicate" (not "error")
+    expect(src).toContain('"23505"');
+    const code23Idx = src.indexOf('"23505"');
+    const dupRetIdx = src.indexOf('return "duplicate"', code23Idx);
+    expect(dupRetIdx).toBeGreaterThan(code23Idx);
+    // And "inserted" on clean insert
+    expect(src).toContain('return "inserted"');
+  });
+});
+
+// ── PRODUCTION-LOGIC: DB known_person guard (migration) ──────────────────────
+
+describe("SOCIAL-1A production-logic: DB-level known_person guard (migration contract)", () => {
+  const guard = readFileSync(
+    repoFile("supabase", "migrations", "20260822130000_social_1a_no_known_person_guard.sql"),
+    "utf-8",
+  );
+
+  it("guard migration adds a named CHECK constraint on the social_engagement_events table", () => {
+    expect(guard).toContain("ALTER TABLE public.social_engagement_events");
+    expect(guard).toContain("ADD CONSTRAINT chk_no_known_person_until_social_1b");
+  });
+
+  it("the CHECK expression directly forbids known_person", () => {
+    // Must contain: CHECK (actor_identity_state != 'known_person')
+    expect(guard).toContain("actor_identity_state != 'known_person'");
+  });
+
+  it("guard migration references SOCIAL-1B as the gating condition for removal", () => {
+    expect(guard).toContain("SOCIAL-1B");
+  });
+
+  it("known_person is also rejected by the TypeScript builder (builder + DB parity)", () => {
+    // Builder throws for known_person — verified here alongside the migration test
+    // to confirm both layers enforce the same contract.
+    expect(() =>
+      buildCanonicalEngagementEvent({
+        workspace_id:       "ws-guard",
+        channel_id:         "ch-guard",
+        provider:           "meta_ig" as const,
+        account_identifier: "page_guard",
+        event_type:         "message_received" as const,
+        provider_event_id:  "mid.guard",
+        actor_provider_id:  "user_guard",
+        actor_identity_state: "known_person",
+      }),
+    ).toThrow(/known_person.*SOCIAL-1B/i);
+  });
+});
