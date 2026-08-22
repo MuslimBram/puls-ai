@@ -24,6 +24,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyMetaSignature } from "../_shared/webhook-signatures.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 import { buildCanonicalEngagementEvent } from "../_shared/canonical-engagement-event.ts";
+import { processInterestFromEngagementEventId } from "../_shared/social-interest-memory.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 const rateLimitMap = new Map<string, { n: number; t: number }>();
@@ -80,8 +81,7 @@ async function resolveWorkspaceFromPage(
   return null;  // No match — caller must skip
 }
 
-/** Helper: build and insert a canonical engagement event, idempotent via UNIQUE constraint.
- *  Returns "inserted" | "duplicate" | "error". */
+/** Helper: build and insert a canonical engagement event, idempotent via UNIQUE constraint. */
 async function tryCanonicalInsert(
   sb: ReturnType<typeof createClient>,
   params: {
@@ -90,7 +90,7 @@ async function tryCanonicalInsert(
     provider_event_id: string; actor_provider_id: string | null;
     content_ref: string; raw_timestamp: number | undefined;
   },
-): Promise<"inserted" | "duplicate" | "error"> {
+): Promise<{ status: "inserted" | "duplicate" | "error"; engagement_event_id?: string }> {
   try {
     const canonicalEvent = buildCanonicalEngagementEvent({
       workspace_id:        params.workspace_id,
@@ -110,7 +110,7 @@ async function tryCanonicalInsert(
       normalized_metadata: { page_id: params.account_identifier },
       consent_classification: "platform_terms",
     });
-    const { error: segErr } = await sb.from("social_engagement_events").insert({
+    const { data: inserted, error: segErr } = await sb.from("social_engagement_events").insert({
       workspace_id:           canonicalEvent.workspace_id,
       channel_id:             canonicalEvent.channel_id,
       provider:               canonicalEvent.provider,
@@ -126,15 +126,42 @@ async function tryCanonicalInsert(
       consent_classification: canonicalEvent.consent_classification,
       source_ref:             canonicalEvent.source_ref,
       idempotency_key:        canonicalEvent.idempotency_key,
-    });
-    if (!segErr) return "inserted";
-    if ((segErr as any).code === "23505") return "duplicate";
+    }).select("id").single();
+    if (!segErr) return { status: "inserted", engagement_event_id: inserted?.id };
+    if ((segErr as any).code === "23505") {
+      const { data: existing } = await sb
+        .from("social_engagement_events")
+        .select("id")
+        .eq("idempotency_key", canonicalEvent.idempotency_key)
+        .limit(1)
+        .single();
+      return { status: "duplicate", engagement_event_id: existing?.id };
+    }
     console.error(`[${params.provider.toUpperCase()}] canonical event insert error`, segErr.message);
-    return "error";
+    return { status: "error" };
   } catch (buildErr) {
     console.error(`[${params.provider.toUpperCase()}] canonical event build error`, (buildErr as Error)?.message);
+    return { status: "error" };
+  }
+}
+
+async function processCanonicalInterestMemory(
+  sb: ReturnType<typeof createClient>,
+  provider: "meta_ig" | "meta_fb",
+  providerEventId: string,
+  canonicalEventId?: string,
+): Promise<"ok" | "error"> {
+  if (!canonicalEventId) {
+    console.error(`[${provider.toUpperCase()}] missing canonical event id for ${providerEventId}`);
     return "error";
   }
+
+  const interestResult = await processInterestFromEngagementEventId(sb as any, canonicalEventId);
+  if (interestResult.status === "error") {
+    console.error(`[${provider.toUpperCase()}] interest memory processing failed for ${providerEventId}`);
+    return "error";
+  }
+  return "ok";
 }
 
 serve(async (req) => {
@@ -230,9 +257,14 @@ serve(async (req) => {
               actor_provider_id: senderId ?? null,
               content_ref: content, raw_timestamp: event.timestamp,
             });
-            if (dupIgResult === "error") {
+            if (dupIgResult.status === "error") {
               console.error(`[META-IG] canonical insert failed on retry for ${msgId} — returning 500`);
               return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
+                status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
+              });
+            }
+            if (await processCanonicalInterestMemory(sb, "meta_ig", msgId, dupIgResult.engagement_event_id) === "error") {
+              return new Response(JSON.stringify({ error: "interest_memory_failed", event_id: msgId }), {
                 status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
               });
             }
@@ -298,9 +330,14 @@ serve(async (req) => {
             actor_provider_id: senderId ?? null,
             content_ref: content, raw_timestamp: event.timestamp,
           });
-          if (igCanResult === "error") {
+          if (igCanResult.status === "error") {
             console.error(`[META-IG] canonical insert failed for ${msgId} — returning 500 for provider retry`);
             return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
+              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
+            });
+          }
+          if (await processCanonicalInterestMemory(sb, "meta_ig", msgId, igCanResult.engagement_event_id) === "error") {
+            return new Response(JSON.stringify({ error: "interest_memory_failed", event_id: msgId }), {
               status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
             });
           }
@@ -341,9 +378,14 @@ serve(async (req) => {
               actor_provider_id: senderId ?? null,
               content_ref: msgText || "[attachment]", raw_timestamp: event.timestamp,
             });
-            if (dupFbResult === "error") {
+            if (dupFbResult.status === "error") {
               console.error(`[META-FB] canonical insert failed on retry for ${msgId} — returning 500`);
               return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
+                status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
+              });
+            }
+            if (await processCanonicalInterestMemory(sb, "meta_fb", msgId, dupFbResult.engagement_event_id) === "error") {
+              return new Response(JSON.stringify({ error: "interest_memory_failed", event_id: msgId }), {
                 status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
               });
             }
@@ -406,9 +448,14 @@ serve(async (req) => {
             actor_provider_id: senderId ?? null,
             content_ref: msgText, raw_timestamp: event.timestamp,
           });
-          if (fbCanResult === "error") {
+          if (fbCanResult.status === "error") {
             console.error(`[META-FB] canonical insert failed for ${msgId} — returning 500 for provider retry`);
             return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
+              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
+            });
+          }
+          if (await processCanonicalInterestMemory(sb, "meta_fb", msgId, fbCanResult.engagement_event_id) === "error") {
+            return new Response(JSON.stringify({ error: "interest_memory_failed", event_id: msgId }), {
               status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
             });
           }

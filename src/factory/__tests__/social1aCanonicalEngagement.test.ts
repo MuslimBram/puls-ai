@@ -271,7 +271,7 @@ describe("meta-webhook: existing inbox/lead path preserved (SOCIAL-1A non-regres
 
 // ── 8. No SOCIAL-1B functionality ────────────────────────────────────────────
 
-describe("SOCIAL-1B exclusion: identity graph and interest memory must not appear", () => {
+describe("SOCIAL-1B exclusion: direct identity graph access must not appear", () => {
   const metaSrc = readFileSync(
     repoFile("supabase", "functions", "meta-webhook", "index.ts"),
     "utf-8",
@@ -285,16 +285,8 @@ describe("SOCIAL-1B exclusion: identity graph and interest memory must not appea
     expect(metaSrc).not.toContain("identity_graph");
   });
 
-  it("meta-webhook does not reference interest_memory", () => {
-    expect(metaSrc).not.toContain("interest_memory");
-  });
-
   it("canonical model does not reference identity_graph", () => {
     expect(canonicalSrc).not.toContain("identity_graph");
-  });
-
-  it("canonical model does not reference interest_memory", () => {
-    expect(canonicalSrc).not.toContain("interest_memory");
   });
 
   it("canonical model does not promote known_person without lawful linkage comment", () => {
@@ -473,11 +465,11 @@ describe("SOCIAL-1A production-logic: canonical event durability (source-code co
 
   it("A — normal path returns 200 when canonical insert succeeds (no error branch short-circuits)", () => {
     // The normal path must reach `processed++` and eventually return 200.
-    // Verified structurally: if tryCanonicalInsert returns "inserted" or "duplicate"
-    // (not "error") the `if (igCanResult === "error")` branch does NOT fire and
+    // Verified structurally: if tryCanonicalInsert returns non-error status,
+    // the `if (igCanResult.status === "error")` branch does NOT fire and
     // execution falls through to `processed++`.
-    expect(src).toContain('if (igCanResult === "error")');
-    expect(src).toContain('if (fbCanResult === "error")');
+    expect(src).toContain('if (igCanResult.status === "error")');
+    expect(src).toContain('if (fbCanResult.status === "error")');
     // The 500 branch must reference "canonical_insert_failed" key
     expect(src).toContain('"canonical_insert_failed"');
   });
@@ -485,8 +477,8 @@ describe("SOCIAL-1A production-logic: canonical event durability (source-code co
   // ── B. First delivery + transient canonical failure → 500 ───────────────────
 
   it("B — transient canonical insert failure in IG normal path returns 500 (not 200)", () => {
-    // The IG normal path must have: if (igCanResult === "error") { return new Response(..., { status: 500 })
-    const igCanErrIdx = src.indexOf('if (igCanResult === "error")');
+    // The IG normal path must have: if (igCanResult.status === "error") { return new Response(..., { status: 500 })
+    const igCanErrIdx = src.indexOf('if (igCanResult.status === "error")');
     expect(igCanErrIdx).toBeGreaterThan(-1);
     // After that check, status 500 must appear before the next `processed++`
     const next500Idx   = src.indexOf("status: 500", igCanErrIdx);
@@ -496,7 +488,7 @@ describe("SOCIAL-1A production-logic: canonical event durability (source-code co
   });
 
   it("B — transient canonical insert failure in FB normal path returns 500 (not 200)", () => {
-    const fbCanErrIdx = src.indexOf('if (fbCanResult === "error")');
+    const fbCanErrIdx = src.indexOf('if (fbCanResult.status === "error")');
     expect(fbCanErrIdx).toBeGreaterThan(-1);
     const next500Idx  = src.indexOf("status: 500", fbCanErrIdx);
     const nextProcIdx = src.indexOf("processed++", fbCanErrIdx);
@@ -531,13 +523,13 @@ describe("SOCIAL-1A production-logic: canonical event durability (source-code co
   // ── D. Duplicate canonical insert is safe ───────────────────────────────────
 
   it("D — tryCanonicalInsert returns 'duplicate' on UNIQUE conflict (code 23505)", () => {
-    // The helper must translate a 23505 PG error into "duplicate" (not "error")
+    // The helper must translate a 23505 PG error into duplicate status (not "error")
     expect(src).toContain('"23505"');
     const code23Idx = src.indexOf('"23505"');
-    const dupRetIdx = src.indexOf('return "duplicate"', code23Idx);
+    const dupRetIdx = src.indexOf('status: "duplicate"', code23Idx);
     expect(dupRetIdx).toBeGreaterThan(code23Idx);
     // And "inserted" on clean insert
-    expect(src).toContain('return "inserted"');
+    expect(src).toContain('status: "inserted"');
   });
 });
 
