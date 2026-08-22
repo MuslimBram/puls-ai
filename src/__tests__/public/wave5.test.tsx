@@ -130,9 +130,9 @@ describe("Wave 5 localized public routing", () => {
       expect(enLink).not.toBeNull();
       expect(sqLink).not.toBeNull();
       expect(defaultLink).not.toBeNull();
-      expect(enLink).toHaveAttribute("href", "http://localhost:3000/en");
-      expect(sqLink).toHaveAttribute("href", "http://localhost:3000/sq");
-      expect(defaultLink).toHaveAttribute("href", "http://localhost:3000/en");
+      expect(enLink).toHaveAttribute("href", "https://kohablerjeve.top/en");
+      expect(sqLink).toHaveAttribute("href", "https://kohablerjeve.top/sq");
+      expect(defaultLink).toHaveAttribute("href", "https://kohablerjeve.top/en");
     });
   });
 

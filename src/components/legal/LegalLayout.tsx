@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Download, Zap, Mail, ArrowRight, ChevronDown } from "lucide-react";
@@ -9,44 +9,23 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { buildPublicHreflangLinks } from "@/lib/publicLocale";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
-
+import { Seo } from "@/components/Seo";
 
 export const LEGAL_LAST_UPDATED = "31 July 2026";
 
 export const LEGAL_LINKS: { href: string; labelKey: string }[] = [
-  { href: "/privacy",         labelKey: "footer.links.privacy" },
-  { href: "/terms",           labelKey: "footer.links.terms" },
-  { href: "/security",        labelKey: "securityPage.hero.title" },
-  { href: "/cookies",         labelKey: "footer.links.cookies" },
-  { href: "/refund",          labelKey: "footerWave4.refund" },
+  { href: "/privacy", labelKey: "footer.links.privacy" },
+  { href: "/terms", labelKey: "footer.links.terms" },
+  { href: "/security", labelKey: "securityPage.hero.title" },
+  { href: "/cookies", labelKey: "footer.links.cookies" },
+  { href: "/refund", labelKey: "footerWave4.refund" },
   { href: "/affiliate-terms", labelKey: "footerWave4.affiliateTerms" },
-  { href: "/dpa",             labelKey: "footer.links.dpa" },
+  { href: "/dpa", labelKey: "footer.links.dpa" },
   { href: "/terms-and-payments", labelKey: "footerWave4.termsAndPayments" },
 ];
 
 export type LegalSection = { id: string; title: string };
-
-const SITE = "https://kohablerjeve.top";
-
-function setMeta(selector: string, attrs: Record<string, string>) {
-  let el = document.head.querySelector<HTMLElement>(selector);
-  if (!el) {
-    el = document.createElement("meta");
-    document.head.appendChild(el);
-  }
-  Object.entries(attrs).forEach(([k, v]) => el!.setAttribute(k, v));
-}
-
-function setLink(selector: string, attrs: Record<string, string>) {
-  let el = document.head.querySelector<HTMLElement>(selector);
-  if (!el) {
-    el = document.createElement("link");
-    document.head.appendChild(el);
-  }
-  Object.entries(attrs).forEach(([k, v]) => el!.setAttribute(k, v));
-}
 
 interface LegalLayoutProps {
   title: string;
@@ -68,26 +47,10 @@ export function LegalLayout({
   const { t } = useTranslation();
   const { localizedPath } = usePublicLocale();
 
-  useEffect(() => {
-    document.title = `${title} | Pulse AI`;
-    setMeta('meta[name="description"]', { name: "description", content: description });
-    setMeta('meta[name="robots"]', { name: "robots", content: "index, follow" });
-    setLink('link[rel="canonical"]', { rel: "canonical", href: `${SITE}${localizedPath(path)}` });
-    setMeta('meta[property="og:title"]', { property: "og:title", content: `${title} | Pulse AI` });
-    setMeta('meta[property="og:description"]', { property: "og:description", content: description });
-    setMeta('meta[property="og:url"]', { property: "og:url", content: `${SITE}${localizedPath(path)}` });
-    setMeta('meta[property="og:type"]', { property: "og:type", content: "article" });
-    buildPublicHreflangLinks(localizedPath(path), SITE).forEach(({ hrefLang, href }) => {
-      setLink(`link[rel="alternate"][hreflang="${hrefLang}"]`, {
-        rel: "alternate",
-        hreflang: hrefLang,
-        href,
-      });
-    });
-  }, [description, localizedPath, path, title]);
-
   return (
     <div className="min-h-screen bg-background text-foreground">
+      <Seo title={`${title} | Pulse AI`} description={description} type="article" />
+
       {/* HEADER */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur print:hidden">
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
