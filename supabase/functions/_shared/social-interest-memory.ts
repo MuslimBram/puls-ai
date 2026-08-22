@@ -1,4 +1,5 @@
 import { resolveIdentity, type IdentityGraphClient } from "./identity-graph.ts";
+import { processIntentFromCanonicalEvent } from "./social-intent-pipeline.ts";
 
 export type InterestType = "topic" | "category" | "product" | "service";
 
@@ -230,6 +231,13 @@ export async function processInterestFromEngagementEvent(
   return { status: "processed", evidence_inserted: evidenceInserted };
 }
 
+function isMissingSocialIntentCapability(error: { message?: string; code?: string } | null): boolean {
+  if (!error) return false;
+  if (error.code === "PGRST202" || error.code === "42883") return true;
+  const message = error.message ?? "";
+  return /unknown rpc: classify_intent_score_band|could not find.*classify_intent_score_band|function .*classify_intent_score_band.*does not exist/i.test(message);
+}
+
 export async function processInterestFromEngagementEventId(
   db: IdentityGraphClient,
   engagement_event_id: string,
@@ -247,5 +255,23 @@ export async function processInterestFromEngagementEventId(
     return { status: "not_found", evidence_inserted: 0 };
   }
 
-  return processInterestFromEngagementEvent(db, event.data);
+  const interestResult = await processInterestFromEngagementEvent(db, event.data);
+  if (interestResult.status === "error") return interestResult;
+
+  // Source-rollout guard: SOCIAL-1C remains deployable before the SOCIAL-1D
+  // migration is applied. Once classify_intent_score_band exists, this same
+  // canonical webhook helper activates SOCIAL-1D. Missing-function errors only
+  // are tolerated; any other 1D failure is surfaced for provider retry.
+  const capability = await db.rpc<string>("classify_intent_score_band", { p_score: 0 });
+  if (capability.error) {
+    if (isMissingSocialIntentCapability(capability.error)) return interestResult;
+    return { status: "error", evidence_inserted: interestResult.evidence_inserted };
+  }
+
+  const intentResult = await processIntentFromCanonicalEvent(db as any, event.data);
+  if (intentResult.status === "error") {
+    return { status: "error", evidence_inserted: interestResult.evidence_inserted };
+  }
+
+  return interestResult;
 }
