@@ -35,6 +35,10 @@ export interface SocialInterestProcessResult {
   evidence_inserted: number;
 }
 
+interface InterestAccumulationRpcResult {
+  evidence_inserted: boolean;
+}
+
 const STOPWORDS = new Set([
   "the", "and", "for", "with", "that", "this", "from", "your", "you", "are", "was", "were", "have",
   "has", "had", "about", "please", "need", "want", "would", "could", "should", "can", "just", "what",
@@ -79,10 +83,6 @@ export function extractInterestSignals(content: string | null): InterestSignal[]
   }
 
   return [...out.values()];
-}
-
-function deterministicStrength(evidenceCount: number): number {
-  return Math.min(1, Number((evidenceCount / 5).toFixed(4)));
 }
 
 async function findIdentityNodeId(
@@ -201,133 +201,31 @@ export async function processInterestFromEngagementEvent(
   let evidenceInserted = 0;
 
   for (const signal of signals) {
-    const evidenceInsert = await db
-      .from<any>("social_interest_evidence")
-      .insert({
-        workspace_id: event.workspace_id,
-        engagement_event_id: event.id,
-        provider: event.provider,
-        source_provider: event.provider,
-        source_ref: event.source_ref,
-        actor_provider_id: event.actor_provider_id,
-        interest_type: signal.interest_type,
-        interest_ref: signal.interest_ref,
-        evidence_type: signal.evidence_type,
-        evidence_timestamp: event.event_timestamp,
-        evidence_count: 1,
-        derived_metadata: {
-          actor_identity_state: event.actor_identity_state,
-          derived: true,
-          deterministic: true,
-        },
-      })
-      .select("id")
-      .single();
+    const accumulation = await db.rpc<InterestAccumulationRpcResult>("accumulate_social_interest_signal", {
+      p_workspace_id: event.workspace_id,
+      p_engagement_event_id: event.id,
+      p_provider: event.provider,
+      p_account_identifier: event.account_identifier,
+      p_actor_provider_id: event.actor_provider_id,
+      p_interest_type: signal.interest_type,
+      p_interest_ref: signal.interest_ref,
+      p_evidence_type: signal.evidence_type,
+      p_evidence_timestamp: event.event_timestamp,
+      p_source_provider: event.provider,
+      p_source_ref: event.source_ref,
+      p_canonical_person_id: canonical_person_id,
+      p_identity_node_id: identity_node_id,
+      p_actor_identity_state: effectiveState,
+      p_resolved_identity_key: resolved_identity_key,
+    });
 
-    if (evidenceInsert.error) {
-      if ((evidenceInsert.error as any).code === "23505") {
-        continue;
-      }
+    if (accumulation.error || !accumulation.data) {
       return { status: "error", evidence_inserted: evidenceInserted };
     }
 
-    evidenceInserted++;
-
-    const activeMemory = await db
-      .from<any>("social_interest_memory")
-      .select("id, evidence_count")
-      .eq("workspace_id", event.workspace_id)
-      .eq("resolved_identity_key", resolved_identity_key)
-      .eq("interest_type", signal.interest_type)
-      .eq("interest_ref", signal.interest_ref)
-      .eq("state", "active")
-      .limit(1)
-      .single();
-
-    let memoryId: string;
-
-    if (activeMemory.error || !activeMemory.data) {
-      const created = await db
-        .from<any>("social_interest_memory")
-        .insert({
-          workspace_id: event.workspace_id,
-          canonical_person_id,
-          identity_node_id,
-          provider: event.provider,
-          account_identifier: event.account_identifier,
-          actor_provider_id: event.actor_provider_id,
-          actor_identity_state: effectiveState,
-          resolved_identity_key,
-          interest_type: signal.interest_type,
-          interest_ref: signal.interest_ref,
-          source_provider: event.provider,
-          evidence_count: 1,
-          strength: deterministicStrength(1),
-          first_seen_at: event.event_timestamp,
-          last_seen_at: event.event_timestamp,
-          state: "active",
-        })
-        .select("id")
-        .single();
-
-      if (created.error || !created.data) {
-        return { status: "error", evidence_inserted: evidenceInserted };
-      }
-      memoryId = created.data.id;
-    } else {
-      let attempts = 0;
-      let currentCount = Number(activeMemory.data.evidence_count ?? 0);
-      let updatedOk = false;
-      memoryId = activeMemory.data.id;
-
-      while (attempts < 3 && !updatedOk) {
-        const nextCount = currentCount + 1;
-        const updated = await db
-          .from<any>("social_interest_memory")
-          .update({
-            canonical_person_id,
-            identity_node_id,
-            actor_identity_state: effectiveState,
-            evidence_count: nextCount,
-            strength: deterministicStrength(nextCount),
-            last_seen_at: event.event_timestamp,
-          })
-          .eq("id", activeMemory.data.id)
-          .eq("workspace_id", event.workspace_id)
-          .eq("evidence_count", currentCount)
-          .single();
-
-        if (!updated.error && updated.data) {
-          updatedOk = true;
-          break;
-        }
-
-        const refreshed = await db
-          .from<any>("social_interest_memory")
-          .select("evidence_count")
-          .eq("id", activeMemory.data.id)
-          .eq("workspace_id", event.workspace_id)
-          .limit(1)
-          .single();
-
-        if (refreshed.error || !refreshed.data) {
-          break;
-        }
-        currentCount = Number(refreshed.data.evidence_count ?? currentCount);
-        attempts++;
-      }
-
-      if (!updatedOk) {
-        return { status: "error", evidence_inserted: evidenceInserted };
-      }
+    if (accumulation.data.evidence_inserted) {
+      evidenceInserted++;
     }
-
-    await db
-      .from("social_interest_evidence")
-      .update({ interest_memory_id: memoryId })
-      .eq("id", evidenceInsert.data.id)
-      .eq("workspace_id", event.workspace_id)
-      .single();
   }
 
   return { status: "processed", evidence_inserted: evidenceInserted };
