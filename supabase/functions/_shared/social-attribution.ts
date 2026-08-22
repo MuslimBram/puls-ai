@@ -1,34 +1,15 @@
 /**
  * social-attribution.ts — SOCIAL-1G
  *
- * Attribution Engine: deterministic social attribution against canonical outcomes.
+ * Deterministic, workspace-scoped social attribution.
  *
- * PIPELINE:
- *   next_best_actions (SOCIAL-1F) + social_1g_attribution_window_config
- *   → deterministic attribution decision
- *   → social_1g_attribution_record (append-only, idempotent)
- *
- * ATTRIBUTION SEMANTICS:
- *   DIRECT_EVIDENCE_BACKED  — outcome within direct_window_days of qualifying social event;
- *                             traceable canonical evidence exists.
- *   INFERRED_ASSISTED        — outcome within assisted_window_days (but not direct window);
- *                             evidence present but weaker causal link.
- *   UNATTRIBUTED             — no qualifying evidence within any window,
- *                             or evidence is insufficient. Never fabricated.
- *
- * STRICT BOUNDARIES:
- *   MUST NOT create new canonical_person_id.
- *   MUST NOT join anonymous_aggregate / platform_actor / known_person.
- *   MUST NOT perform identity resolution.
- *   MUST NOT execute recommendations.
- *   MUST NOT mutate policy, NBA rules, or scoring rules.
- *
- * DETERMINISM:
- *   Same inputs → same attribution decision.
- *   Multiple qualifying events: handled per attribution_model config.
- *   Repeated conversions: each outcome_ref may have at most one attribution
- *     record per source evidence, enforced by idempotency_key uniqueness.
- *   Future timestamps: rejected with an explicit error.
+ * Corrective safety contract:
+ * - attribution-window config must belong to the same workspace as the outcome;
+ * - non-known identities must never carry a canonical_person_id;
+ * - time proximity alone is NOT direct causal evidence;
+ * - until a canonical outcome↔social-evidence link exists, new qualifying attribution
+ *   is INFERRED_ASSISTED or UNATTRIBUTED, never DIRECT_EVIDENCE_BACKED;
+ * - no identity resolution, execution, campaign mutation, or policy mutation occurs here.
  */
 
 import type { IntentScoreBand } from "./social-intent-score.ts";
@@ -36,20 +17,10 @@ import type { RecommendationStatus, SocialConfidenceBand } from "./social-nba.ts
 import type { PolicyDecision } from "./social-policy-engine.ts";
 import type { CanonicalIdentityState } from "./identity-graph.ts";
 
-// ── Attribution Method ────────────────────────────────────────────────────────
-
-/**
- * Canonical attribution method.
- *
- * These names are the authoritative contract for SOCIAL-1G.
- * Do not rename without a documented migration.
- */
 export type AttributionMethod =
   | "DIRECT_EVIDENCE_BACKED"
   | "INFERRED_ASSISTED"
   | "UNATTRIBUTED";
-
-// ── Attribution Reason Codes ──────────────────────────────────────────────────
 
 export type AttributionReasonCode =
   | "WITHIN_DIRECT_WINDOW"
@@ -65,15 +36,9 @@ export type AttributionReasonCode =
   | "DUPLICATE_IDEMPOTENT"
   | "EVIDENCE_BACKED_DIRECT"
   | "EVIDENCE_ASSISTED"
+  | "DIRECT_LINK_NOT_AVAILABLE"
   | "NO_EVIDENCE_UNATTRIBUTED";
 
-// ── Attribution Window Config ─────────────────────────────────────────────────
-
-/**
- * Attribution window configuration.
- * Workspace-specific via social_1g_attribution_window_config table.
- * Safe defaults if no workspace config exists.
- */
 export interface AttributionWindowConfig {
   workspace_id: string;
   direct_window_days: number;
@@ -88,8 +53,6 @@ export const ATTRIBUTION_WINDOW_DEFAULTS: Omit<AttributionWindowConfig, "workspa
   attribution_model: "first_touch",
   min_qualifying_intent_band: "low",
 } as const;
-
-// ── Band Ordering ─────────────────────────────────────────────────────────────
 
 const INTENT_BAND_ORDER: Record<IntentScoreBand, number> = {
   none: 0,
@@ -106,13 +69,6 @@ function intentBandMeetsMinimum(
   return INTENT_BAND_ORDER[band] >= INTENT_BAND_ORDER[minimum];
 }
 
-// ── Social Evidence (from NBA record) ────────────────────────────────────────
-
-/**
- * Qualifying social evidence from an upstream NBA record (SOCIAL-1F).
- *
- * This is read-only input; attribution never modifies it.
- */
 export interface SocialEvidenceRef {
   workspace_id: string;
   nba_idempotency_key: string;
@@ -120,9 +76,9 @@ export interface SocialEvidenceRef {
   evidence_refs: string[];
   provider: string;
   channel: string;
-  /** As resolved upstream — never modified here */
+  /** Upstream identity state. SOCIAL-1G never promotes it. */
   identity_state: CanonicalIdentityState;
-  /** Only set when identity_state === 'known_person'; never created here */
+  /** Allowed only when identity_state === "known_person". */
   canonical_person_id?: string;
   intent_score: number;
   intent_score_band: IntentScoreBand;
@@ -130,41 +86,17 @@ export interface SocialEvidenceRef {
   recommendation_status: RecommendationStatus;
   policy_decision: PolicyDecision;
   confidence: number;
-  /** When this NBA was recommended (ISO timestamp) */
   recommended_at: string;
 }
 
-// ── Attribution Input ─────────────────────────────────────────────────────────
-
 export interface AttributionInput {
-  /** Must match evidence workspace_id exactly */
   workspace_id: string;
-
-  /** Outcome / conversion reference (e.g. order ID, deal ID) */
   outcome_ref: string;
-
-  /** When the conversion/revenue event occurred (ISO timestamp) */
   outcome_timestamp: string;
-
-  /**
-   * Qualifying social evidence candidates (from upstream NBA records).
-   * The engine selects qualifying evidence per attribution_model.
-   * May be empty → UNATTRIBUTED.
-   */
   evidence_candidates: SocialEvidenceRef[];
-
-  /** Attribution window config for this workspace */
   window_config: AttributionWindowConfig;
-
-  /**
-   * Stable idempotency key for this attribution event.
-   * Format: 'social_1g_attr:<workspace_id>:<outcome_ref>:<source_nba_idempotency_key>'
-   * Caller provides this to support retry/replay safety.
-   */
   idempotency_key: string;
 }
-
-// ── Attribution Result ────────────────────────────────────────────────────────
 
 export interface AttributionResult {
   workspace_id: string;
@@ -172,16 +104,12 @@ export interface AttributionResult {
   outcome_timestamp: string;
   attribution_method: AttributionMethod;
   attribution_reason_codes: AttributionReasonCode[];
-  /** The evidence record selected as the attribution source (null if UNATTRIBUTED) */
   selected_evidence: SocialEvidenceRef | null;
   attribution_window_direct_days: number;
   attribution_window_assisted_days: number;
-  /** Confidence mirrored from selected evidence; null if UNATTRIBUTED */
   attribution_confidence: number | null;
   idempotency_key: string;
 }
-
-// ── Attribution Error ─────────────────────────────────────────────────────────
 
 export type AttributionError =
   | { kind: "WORKSPACE_MISMATCH"; detail: string }
@@ -189,138 +117,127 @@ export type AttributionError =
   | { kind: "INVALID_INPUT"; detail: string }
   | { kind: "DB_ERROR"; detail: string };
 
-// ── DB Adapter ────────────────────────────────────────────────────────────────
-
 export interface SocialAttributionDb {
   rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
 }
 
-// ── Core Attribution Logic ────────────────────────────────────────────────────
+function validateIdentityInvariant(ev: SocialEvidenceRef): AttributionError | null {
+  if (ev.identity_state !== "known_person" && ev.canonical_person_id != null) {
+    return {
+      kind: "INVALID_INPUT",
+      detail:
+        `canonical_person_id is forbidden for identity_state=${ev.identity_state}; ` +
+        "SOCIAL-1G must not promote or join identities",
+    };
+  }
+  return null;
+}
 
-/**
- * Select qualifying evidence candidates.
- *
- * Rules:
- *   1. Must belong to the same workspace.
- *   2. Must not be anonymous_aggregate (cannot be attributed to a person).
- *   3. Policy must not be BLOCK (blocked evidence is reportable but not attributable).
- *   4. Recommendation status must not be 'blocked' or 'do_nothing'.
- *   5. Intent band must meet or exceed min_qualifying_intent_band.
- *   6. recommended_at must be before outcome_timestamp.
- *
- * This function does NOT create new identity joins.
- */
 function selectQualifyingEvidence(
   candidates: SocialEvidenceRef[],
   workspace_id: string,
-  outcome_ts: Date,
+  outcomeTs: Date,
   config: AttributionWindowConfig,
 ): SocialEvidenceRef[] {
   return candidates.filter((ev) => {
-    // Workspace boundary — hard reject cross-workspace evidence
     if (ev.workspace_id !== workspace_id) return false;
-    // Anonymous aggregate cannot be attributed to a person
     if (ev.identity_state === "anonymous_aggregate") return false;
-    // Policy BLOCK — reportable but not attributable
     if (ev.policy_decision === "BLOCK") return false;
-    // Blocked/do_nothing NBA — not attributable
-    if (ev.recommendation_status === "blocked" || ev.recommendation_status === "do_nothing") return false;
-    // Intent must meet minimum threshold
-    if (!intentBandMeetsMinimum(ev.intent_score_band, config.min_qualifying_intent_band)) return false;
-    // Evidence must precede the outcome
-    const recAt = new Date(ev.recommended_at);
-    if (isNaN(recAt.getTime())) return false;
-    if (recAt >= outcome_ts) return false;
+    if (ev.recommendation_status === "blocked" || ev.recommendation_status === "do_nothing") {
+      return false;
+    }
+    if (!intentBandMeetsMinimum(ev.intent_score_band, config.min_qualifying_intent_band)) {
+      return false;
+    }
+
+    const recommendedAt = new Date(ev.recommended_at);
+    if (Number.isNaN(recommendedAt.getTime())) return false;
+    if (recommendedAt >= outcomeTs) return false;
     return true;
   });
 }
 
 /**
- * Classify a single evidence record as DIRECT or ASSISTED based on window.
+ * Classify by temporal eligibility only.
+ *
+ * IMPORTANT: the repository currently has no independent canonical
+ * outcome↔social-evidence linkage contract. Therefore proximity inside the old
+ * "direct" window is still only assisted/correlative evidence.
  */
 function classifyWindow(
   evidence: SocialEvidenceRef,
-  outcome_ts: Date,
+  outcomeTs: Date,
   config: AttributionWindowConfig,
-): "DIRECT_EVIDENCE_BACKED" | "INFERRED_ASSISTED" | null {
-  const recAt = new Date(evidence.recommended_at);
-  if (isNaN(recAt.getTime())) return null;
-  const diffDays = (outcome_ts.getTime() - recAt.getTime()) / (1000 * 60 * 60 * 24);
-  if (diffDays <= config.direct_window_days) return "DIRECT_EVIDENCE_BACKED";
+): "INFERRED_ASSISTED" | null {
+  const recommendedAt = new Date(evidence.recommended_at);
+  if (Number.isNaN(recommendedAt.getTime())) return null;
+
+  const diffDays =
+    (outcomeTs.getTime() - recommendedAt.getTime()) / (1000 * 60 * 60 * 24);
+
   if (diffDays <= config.assisted_window_days) return "INFERRED_ASSISTED";
   return null;
 }
 
-/**
- * Select a single evidence record per attribution_model from qualifying candidates.
- *
- * first_touch: earliest qualifying evidence within any window
- * last_touch:  latest qualifying evidence within any window
- * linear:      earliest within direct window; fallback to earliest within assisted
- *
- * Returns null if no evidence qualifies within any window.
- */
 function applyAttributionModel(
   qualifying: SocialEvidenceRef[],
-  outcome_ts: Date,
+  outcomeTs: Date,
   config: AttributionWindowConfig,
 ): SocialEvidenceRef | null {
   const withinWindow = qualifying.filter(
-    (ev) => classifyWindow(ev, outcome_ts, config) !== null,
+    (ev) => classifyWindow(ev, outcomeTs, config) !== null,
   );
+
   if (withinWindow.length === 0) return null;
 
-  if (config.attribution_model === "first_touch") {
-    return withinWindow.reduce((a, b) =>
-      new Date(a.recommended_at) <= new Date(b.recommended_at) ? a : b,
-    );
-  }
   if (config.attribution_model === "last_touch") {
     return withinWindow.reduce((a, b) =>
       new Date(a.recommended_at) >= new Date(b.recommended_at) ? a : b,
     );
   }
-  // linear: prefer direct window, then assisted
-  const direct = withinWindow.filter(
-    (ev) => classifyWindow(ev, outcome_ts, config) === "DIRECT_EVIDENCE_BACKED",
-  );
-  if (direct.length > 0) {
-    return direct.reduce((a, b) =>
-      new Date(a.recommended_at) <= new Date(b.recommended_at) ? a : b,
-    );
-  }
+
+  // first_touch and the current safe linear fallback both choose the earliest
+  // qualifying evidence. No proportional causal credit is fabricated here.
   return withinWindow.reduce((a, b) =>
     new Date(a.recommended_at) <= new Date(b.recommended_at) ? a : b,
   );
 }
 
-// ── Deterministic Attribution Decision ───────────────────────────────────────
-
-/**
- * Compute a deterministic attribution result.
- *
- * Pure function: no DB calls. Use persistAttribution() to write the result.
- */
-export function computeAttribution(input: AttributionInput): AttributionResult | AttributionError {
+export function computeAttribution(
+  input: AttributionInput,
+): AttributionResult | AttributionError {
   if (!input.workspace_id || !input.outcome_ref || !input.outcome_timestamp) {
-    return { kind: "INVALID_INPUT", detail: "workspace_id, outcome_ref, outcome_timestamp are required" };
+    return {
+      kind: "INVALID_INPUT",
+      detail: "workspace_id, outcome_ref, outcome_timestamp are required",
+    };
   }
 
-  const outcome_ts = new Date(input.outcome_timestamp);
-  if (isNaN(outcome_ts.getTime())) {
-    return { kind: "INVALID_INPUT", detail: `unparseable outcome_timestamp: ${input.outcome_timestamp}` };
+  if (!input.window_config || input.window_config.workspace_id !== input.workspace_id) {
+    return {
+      kind: "WORKSPACE_MISMATCH",
+      detail:
+        `window_config workspace_id ${input.window_config?.workspace_id ?? "missing"} ` +
+        `does not match ${input.workspace_id}`,
+    };
+  }
+
+  const outcomeTs = new Date(input.outcome_timestamp);
+  if (Number.isNaN(outcomeTs.getTime())) {
+    return {
+      kind: "INVALID_INPUT",
+      detail: `unparseable outcome_timestamp: ${input.outcome_timestamp}`,
+    };
   }
 
   const now = new Date();
-  // Reject future outcome timestamps (allow 1-second clock skew)
-  if (outcome_ts.getTime() > now.getTime() + 1000) {
+  if (outcomeTs.getTime() > now.getTime() + 1000) {
     return {
       kind: "FUTURE_TIMESTAMP",
       detail: `outcome_timestamp ${input.outcome_timestamp} is in the future`,
     };
   }
 
-  // Validate workspace consistency
   for (const ev of input.evidence_candidates) {
     if (ev.workspace_id !== input.workspace_id) {
       return {
@@ -328,34 +245,44 @@ export function computeAttribution(input: AttributionInput): AttributionResult |
         detail: `evidence workspace_id ${ev.workspace_id} does not match ${input.workspace_id}`,
       };
     }
+
+    const identityError = validateIdentityInvariant(ev);
+    if (identityError) return identityError;
   }
 
   const config = input.window_config;
-
-  // Select qualifying evidence
   const qualifying = selectQualifyingEvidence(
     input.evidence_candidates,
     input.workspace_id,
-    outcome_ts,
+    outcomeTs,
     config,
   );
 
   if (qualifying.length === 0) {
     const reasonCodes: AttributionReasonCode[] = [];
+
     if (input.evidence_candidates.length === 0) {
       reasonCodes.push("NO_QUALIFYING_NBA");
     } else {
-      // Check why evidence was disqualified
-      const hasAnon = input.evidence_candidates.some((e) => e.identity_state === "anonymous_aggregate");
-      const hasBlock = input.evidence_candidates.some((e) => e.policy_decision === "BLOCK");
-      const hasInsufficient = input.evidence_candidates.some(
-        (e) => !intentBandMeetsMinimum(e.intent_score_band, config.min_qualifying_intent_band),
+      const hasAnon = input.evidence_candidates.some(
+        (e) => e.identity_state === "anonymous_aggregate",
       );
+      const hasBlock = input.evidence_candidates.some(
+        (e) => e.policy_decision === "BLOCK",
+      );
+      const hasInsufficient = input.evidence_candidates.some(
+        (e) => !intentBandMeetsMinimum(
+          e.intent_score_band,
+          config.min_qualifying_intent_band,
+        ),
+      );
+
       if (hasAnon) reasonCodes.push("ANONYMOUS_AGGREGATE_NOT_ATTRIBUTABLE");
       if (hasBlock) reasonCodes.push("POLICY_BLOCK_NOT_ATTRIBUTABLE");
       if (hasInsufficient) reasonCodes.push("INSUFFICIENT_EVIDENCE");
       if (reasonCodes.length === 0) reasonCodes.push("OUTSIDE_ALL_WINDOWS");
     }
+
     reasonCodes.push("NO_EVIDENCE_UNATTRIBUTED");
 
     return {
@@ -372,15 +299,17 @@ export function computeAttribution(input: AttributionInput): AttributionResult |
     };
   }
 
-  const selected = applyAttributionModel(qualifying, outcome_ts, config);
-
+  const selected = applyAttributionModel(qualifying, outcomeTs, config);
   if (!selected) {
     return {
       workspace_id: input.workspace_id,
       outcome_ref: input.outcome_ref,
       outcome_timestamp: input.outcome_timestamp,
       attribution_method: "UNATTRIBUTED",
-      attribution_reason_codes: ["OUTSIDE_ALL_WINDOWS", "NO_EVIDENCE_UNATTRIBUTED"],
+      attribution_reason_codes: [
+        "OUTSIDE_ALL_WINDOWS",
+        "NO_EVIDENCE_UNATTRIBUTED",
+      ],
       selected_evidence: null,
       attribution_window_direct_days: config.direct_window_days,
       attribution_window_assisted_days: config.assisted_window_days,
@@ -389,33 +318,25 @@ export function computeAttribution(input: AttributionInput): AttributionResult |
     };
   }
 
-  const windowClass = classifyWindow(selected, outcome_ts, config);
-  if (!windowClass) {
-    return {
-      workspace_id: input.workspace_id,
-      outcome_ref: input.outcome_ref,
-      outcome_timestamp: input.outcome_timestamp,
-      attribution_method: "UNATTRIBUTED",
-      attribution_reason_codes: ["OUTSIDE_ALL_WINDOWS", "NO_EVIDENCE_UNATTRIBUTED"],
-      selected_evidence: null,
-      attribution_window_direct_days: config.direct_window_days,
-      attribution_window_assisted_days: config.assisted_window_days,
-      attribution_confidence: null,
-      idempotency_key: input.idempotency_key,
-    };
-  }
+  const recommendedAt = new Date(selected.recommended_at);
+  const diffDays =
+    (outcomeTs.getTime() - recommendedAt.getTime()) / (1000 * 60 * 60 * 24);
 
-  const reasonCode: AttributionReasonCode =
-    windowClass === "DIRECT_EVIDENCE_BACKED" ? "EVIDENCE_BACKED_DIRECT" : "EVIDENCE_ASSISTED";
-  const windowReasonCode: AttributionReasonCode =
-    windowClass === "DIRECT_EVIDENCE_BACKED" ? "WITHIN_DIRECT_WINDOW" : "WITHIN_ASSISTED_WINDOW";
+  const reasonCodes: AttributionReasonCode[] = [
+    "WITHIN_ASSISTED_WINDOW",
+    "EVIDENCE_ASSISTED",
+  ];
+
+  if (diffDays <= config.direct_window_days) {
+    reasonCodes.push("DIRECT_LINK_NOT_AVAILABLE");
+  }
 
   return {
     workspace_id: input.workspace_id,
     outcome_ref: input.outcome_ref,
     outcome_timestamp: input.outcome_timestamp,
-    attribution_method: windowClass,
-    attribution_reason_codes: [windowReasonCode, reasonCode],
+    attribution_method: "INFERRED_ASSISTED",
+    attribution_reason_codes: reasonCodes,
     selected_evidence: selected,
     attribution_window_direct_days: config.direct_window_days,
     attribution_window_assisted_days: config.assisted_window_days,
@@ -424,8 +345,6 @@ export function computeAttribution(input: AttributionInput): AttributionResult |
   };
 }
 
-// ── Persist Attribution ───────────────────────────────────────────────────────
-
 export interface PersistAttributionResult {
   attribution_id: string;
   inserted: boolean;
@@ -433,17 +352,24 @@ export interface PersistAttributionResult {
   idempotency_key: string;
 }
 
-/**
- * Persist a computed attribution result (idempotent).
- *
- * Safe under retries: ON CONFLICT DO NOTHING.
- * Same idempotency_key will return inserted=false on subsequent calls.
- */
 export async function persistAttribution(
   result: AttributionResult,
   db: SocialAttributionDb,
 ): Promise<PersistAttributionResult | AttributionError> {
   const ev = result.selected_evidence;
+
+  if (result.attribution_method === "DIRECT_EVIDENCE_BACKED") {
+    return {
+      kind: "INVALID_INPUT",
+      detail:
+        "DIRECT_EVIDENCE_BACKED cannot be persisted until a canonical outcome↔social-evidence link contract exists",
+    };
+  }
+
+  if (ev) {
+    const identityError = validateIdentityInvariant(ev);
+    if (identityError) return identityError;
+  }
 
   const { data, error } = await db.rpc("record_social_attribution", {
     p_workspace_id: result.workspace_id,
@@ -471,10 +397,20 @@ export async function persistAttribution(
   });
 
   if (error) {
-    return { kind: "DB_ERROR", detail: String((error as any)?.message ?? error) };
+    return {
+      kind: "DB_ERROR",
+      detail: String((error as any)?.message ?? error),
+    };
   }
 
   const row = (data as Array<{ id: string; inserted: boolean }>)[0];
+  if (!row) {
+    return {
+      kind: "DB_ERROR",
+      detail: "record_social_attribution returned no row",
+    };
+  }
+
   return {
     attribution_id: row.id,
     inserted: row.inserted,
@@ -483,15 +419,6 @@ export async function persistAttribution(
   };
 }
 
-// ── Idempotency Key Builder ───────────────────────────────────────────────────
-
-/**
- * Derive a deterministic attribution idempotency key.
- *
- * Covers: workspace + outcome_ref + source_nba_idempotency_key.
- * Two retries for the same outcome + evidence → same key → idempotent.
- * Different outcomes or different evidence → different keys.
- */
 export function deriveAttributionIdempotencyKey(
   workspace_id: string,
   outcome_ref: string,
