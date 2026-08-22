@@ -14,11 +14,21 @@ import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, content-type",
+  "Access-Control-Allow-Headers": "authorization, content-type, x-internal-secret",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
+
+function isTrustedInternal(req: Request): boolean {
+  const auth = req.headers.get("authorization") ?? "";
+  const bearer = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+  const internal = req.headers.get("x-internal-secret");
+  const configuredInternal = Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "";
+  return Boolean(
+    bearer && configuredInternal && bearer === getServiceKey() && internal === configuredInternal,
+  );
+}
 
 // Gjenero slots të lirë për datën
 function generateSlots(start: string, end: string, durationMin: number, bufferMin: number): string[] {
@@ -44,7 +54,7 @@ serve(async (req: Request): Promise<Response> => {
   // ── AVAILABILITY (publik — pa auth) ─────────────────────────
   if (action === "availability" && req.method === "GET") {
     const workspaceId = url.searchParams.get("workspace_id");
-    const date = url.searchParams.get("date"); // YYYY-MM-DD
+    const date = url.searchParams.get("date");
     const typeId = url.searchParams.get("type_id");
 
     if (!workspaceId || !date) return json({ error: "workspace_id dhe date janë të detyrueshme" }, 400);
@@ -57,15 +67,17 @@ serve(async (req: Request): Promise<Response> => {
 
     if (!rule?.is_available) return json({ date, available_slots: [], reason: "E mbyllur" });
 
-    const { data: apptType } = await supabase.from("appointment_types")
+    let typeQuery = supabase.from("appointment_types")
       .select("duration_min, buffer_min, max_per_day")
-      .eq("id", typeId ?? "").maybeSingle();
+      .eq("workspace_id", workspaceId);
+    if (typeId) typeQuery = typeQuery.eq("id", typeId);
+    else typeQuery = typeQuery.eq("is_active", true);
+    const { data: apptType } = await typeQuery.limit(1).maybeSingle();
 
     const duration = apptType?.duration_min ?? 60;
     const buffer = apptType?.buffer_min ?? 15;
     const allSlots = generateSlots(rule.start_time, rule.end_time, duration, buffer);
 
-    // Hiq slots të zëna
     const { data: booked } = await supabase.from("appointments")
       .select("starts_at, ends_at")
       .eq("workspace_id", workspaceId)
@@ -77,26 +89,69 @@ serve(async (req: Request): Promise<Response> => {
       new Date(a.starts_at).toTimeString().slice(0, 5));
 
     const freeSlots = allSlots.filter(s => !bookedTimes.includes(s));
-
     return json({ date, available_slots: freeSlots, duration_min: duration });
   }
 
-  // ── BOOK (publik) ───────────────────────────────────────────
+  // ── BOOK (publik; AI-3 correlation is internal-only) ───────────────────────
   if (action === "book" && req.method === "POST") {
-    let body: { workspace_id: string; type_id?: string; client_name: string; client_email?: string; client_phone?: string; date: string; time: string; notes?: string };
+    let body: {
+      workspace_id: string;
+      type_id?: string;
+      client_name: string;
+      client_email?: string;
+      client_phone?: string;
+      date: string;
+      time: string;
+      notes?: string;
+      ai3_action_id?: string;
+    };
     try { body = await req.json(); } catch { return json({ error: "Body i pavlefshëm" }, 400); }
 
-    const { workspace_id, type_id, client_name, client_email, client_phone, date, time, notes } = body;
-    if (!workspace_id || !client_name || !date || !time) return json({ error: "Fushat e detyrueshme mungojnë" }, 400);
+    const {
+      workspace_id, type_id, client_name, client_email, client_phone, date, time, notes, ai3_action_id,
+    } = body;
+    if (!workspace_id || !client_name || !date || !time) {
+      return json({ error: "Fushat e detyrueshme mungojnë" }, 400);
+    }
 
-    const { data: apptType } = await supabase.from("appointment_types")
-      .select("*").eq("id", type_id ?? "").maybeSingle();
+    if (ai3_action_id && !isTrustedInternal(req)) {
+      return json({ error: "ai3_action_id is internal-only" }, 403);
+    }
+
+    // AI-5 idempotency: a completed downstream call may be retried if the worker
+    // dies before marking its AI-3 action COMPLETED. Reuse the durable appointment.
+    if (ai3_action_id) {
+      const { data: existing } = await supabase.from("appointments")
+        .select("id,confirmation_token")
+        .eq("workspace_id", workspace_id)
+        .eq("ai3_action_id", ai3_action_id)
+        .maybeSingle();
+      if (existing) {
+        return json({
+          success: true,
+          appointment_id: existing.id,
+          confirmation_token: existing.confirmation_token,
+          idempotent_replay: true,
+        });
+      }
+    }
+
+    let apptType: Record<string, any> | null = null;
+    if (type_id) {
+      const { data } = await supabase.from("appointment_types")
+        .select("*")
+        .eq("id", type_id)
+        .eq("workspace_id", workspace_id)
+        .eq("is_active", true)
+        .maybeSingle();
+      if (!data) return json({ error: "Lloji i rezervimit nuk i përket këtij workspace" }, 400);
+      apptType = data;
+    }
+
     const duration = apptType?.duration_min ?? 60;
-
     const startsAt = new Date(`${date}T${time}:00`).toISOString();
     const endsAt = new Date(new Date(`${date}T${time}:00`).getTime() + duration * 60_000).toISOString();
 
-    // Kontrollo disponueshmërinë
     const { data: conflict } = await supabase.from("appointments")
       .select("id")
       .eq("workspace_id", workspace_id)
@@ -106,14 +161,41 @@ serve(async (req: Request): Promise<Response> => {
 
     if (conflict) return json({ error: "Ky slot nuk është i disponueshëm" }, 409);
 
-    const { data: appt } = await supabase.from("appointments").insert({
-      workspace_id, type_id: type_id ?? null, client_name, client_email: client_email ?? null,
-      client_phone: client_phone ?? null, starts_at: startsAt, ends_at: endsAt,
-      status: "confirmed", notes: notes ?? null, amount_lek: apptType?.price_lek ?? 0,
-      source: "online_booking",
+    const { data: appt, error: insertError } = await supabase.from("appointments").insert({
+      workspace_id,
+      type_id: type_id ?? null,
+      client_name,
+      client_email: client_email ?? null,
+      client_phone: client_phone ?? null,
+      starts_at: startsAt,
+      ends_at: endsAt,
+      status: "confirmed",
+      notes: notes ?? null,
+      amount_lek: apptType?.price_lek ?? 0,
+      source: ai3_action_id ? "ai3_golden_journey" : "online_booking",
+      ai3_action_id: ai3_action_id ?? null,
     }).select("id, confirmation_token").single();
 
-    // Email konfirmimi
+    if (insertError) {
+      // Unique ai3_action_id race: return the row created by the competing retry.
+      if (ai3_action_id) {
+        const { data: raced } = await supabase.from("appointments")
+          .select("id,confirmation_token")
+          .eq("workspace_id", workspace_id)
+          .eq("ai3_action_id", ai3_action_id)
+          .maybeSingle();
+        if (raced) {
+          return json({
+            success: true,
+            appointment_id: raced.id,
+            confirmation_token: raced.confirmation_token,
+            idempotent_replay: true,
+          });
+        }
+      }
+      return json({ error: "Rezervimi nuk u krijua" }, 500);
+    }
+
     if (client_email && appt) {
       await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/send-email`, {
         method: "POST",
