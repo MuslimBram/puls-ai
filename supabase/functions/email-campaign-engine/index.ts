@@ -53,12 +53,17 @@ async function sendEmail(to: string, subject: string, html: string, fromName: st
 }
 
 // Gjenero AI-powered subject line B për A/B testing
-async function generateSubjectB(subjectA: string, businessName: string): Promise<string> {
+async function generateSubjectB(
+  subjectA: string,
+  businessName: string,
+  options: { workspaceId: string; authHeader: string; userId: string },
+): Promise<string> {
   try {
     return await askAI(
       "Ti je ekspert email marketing. Gjenero vetëm subject line alternativ (pa asnjë shpjegim).",
       `Subject origjinal: "${subjectA}" për biznesin "${businessName}"\nGjenero variant B që të jetë ≤50 karaktere, emocional dhe intrigues.`,
-      60
+      60,
+      { workspaceId: options.workspaceId, authHeader: options.authHeader, taskType: "high_volume", userId: options.userId },
     );
   } catch { return subjectA; }
 }
@@ -119,7 +124,11 @@ serve(async (req: Request): Promise<Response> => {
     // Gjenero subject B nëse A/B test
     let subjectB = campaign.subject_b;
     if (campaign.ab_test && !subjectB) {
-      subjectB = await generateSubjectB(campaign.subject, "biznes");
+      subjectB = await generateSubjectB(campaign.subject, "biznes", {
+        workspaceId: workspace_id,
+        authHeader,
+        userId: user.id,
+      });
     }
 
     // Shto te queue

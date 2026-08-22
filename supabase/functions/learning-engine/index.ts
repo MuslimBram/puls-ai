@@ -7,11 +7,14 @@ import { getServiceKey } from "../_shared/admin-client.ts";
 const CORS={"Access-Control-Allow-Origin":Deno.env.get("ALLOWED_ORIGIN")??"","Access-Control-Allow-Headers":"authorization, content-type","Access-Control-Allow-Methods":"POST, OPTIONS"};
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...CORS,"Content-Type":"application/json"}});
 
-async function extractKnowledge(text:string):Promise<Array<{entity_type:string;key:string;value:Record<string,unknown>;confidence:number}>>{
+async function extractKnowledge(
+  text:string,
+  options:{workspaceId:string;authHeader:string;userId:string},
+):Promise<Array<{entity_type:string;key:string;value:Record<string,unknown>;confidence:number}>>{
   try{
     const r=await askAI(
       "Extract structured knowledge from this business text. Return ONLY a JSON array: [{entity_type:'product|faq_answer|business_hour|policy',key:string,value:{},confidence:0.0-1.0}]. If there is nothing, return [].",
-      text.slice(0,2000),600
+      text.slice(0,2000),600,{workspaceId:options.workspaceId,authHeader:options.authHeader,taskType:"complex_reasoning",userId:options.userId}
     );
     const p=JSON.parse(r.replace(/```json|```/g,"").trim());
     return Array.isArray(p)?p:[];
@@ -33,7 +36,7 @@ serve(async(req:Request)=>{
   if(body.source==="staff_correction"&&body.original_reply&&body.correction){
     const lesson=await askAI(
       "Analyze the staff correction of the AI reply. Return JSON: {lesson:string,entity_type:string,confidence:number}",
-      `AI said:"${body.original_reply.slice(0,300)}"\nStaff corrected:"${body.correction.slice(0,300)}"\nContext:"${(body.context??"").slice(0,100)}"`,150
+      `AI said:"${body.original_reply.slice(0,300)}"\nStaff corrected:"${body.correction.slice(0,300)}"\nContext:"${(body.context??"").slice(0,100)}"`,150,{workspaceId:wsId,authHeader:auth,taskType:"text_classification",userId:user.id}
     ).catch(()=>"{}");
     try{
       const p=JSON.parse(lesson.replace(/```json|```/g,"").trim());
@@ -58,7 +61,7 @@ serve(async(req:Request)=>{
     learned=1;
 
   }else if(body.source==="document"&&body.document_text){
-    const items=await extractKnowledge(body.document_text);
+    const items=await extractKnowledge(body.document_text,{workspaceId:wsId,authHeader:auth,userId:user.id});
     for(const item of items){
       const{error}=await sb.from("business_memory").upsert({
         business_id:wsId,entity_type:item.entity_type,memory_key:item.key,
@@ -73,7 +76,7 @@ serve(async(req:Request)=>{
       const res=await fetch(body.url,{headers:{"User-Agent":"PulseAI-Bot/1.0"}});
       const html=await res.text();
       const text=html.replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim().slice(0,3000);
-      const items=await extractKnowledge(text);
+      const items=await extractKnowledge(text,{workspaceId:wsId,authHeader:auth,userId:user.id});
       for(const item of items){
         const{error}=await sb.from("business_memory").upsert({
           business_id:wsId,entity_type:item.entity_type,memory_key:item.key,
