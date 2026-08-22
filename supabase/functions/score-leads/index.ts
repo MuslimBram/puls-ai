@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { callAIRouter } from "../_shared/ai-router-helper.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
@@ -35,9 +36,6 @@ serve(async (req) => {
     if (userError || !userData.user) {
       return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const { workspace_id } = await req.json();
     if (!workspace_id) {
@@ -93,18 +91,9 @@ serve(async (req) => {
       interactions: memoryMap.get(lead.source_name || "")?.interaction_count || 0,
     }));
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are a predictive sales AI. For each lead, estimate:
+    const aiRaw = await callAIRouter(
+      [{ role: "user", content: JSON.stringify(leadSummaries) }],
+      `You are a predictive sales AI. For each lead, estimate:
 - score from 0-100 based on conversion likelihood
 - churn_risk from 0-100 for existing contacts
 - predicted_value as a conservative whole-number revenue estimate in USD
@@ -126,29 +115,13 @@ Value estimation rules:
 
 Return JSON array only in this exact shape:
 [{"id":"lead-uuid","score":85,"churn_risk":10,"predicted_value":2400,"factors":{"intent":30,"recency":25,"channel":15,"engagement":15},"churn_factors":{"inactivity":10}}]`,
-          },
-          {
-            role: "user",
-            content: JSON.stringify(leadSummaries),
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 4000,
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return jsonResponse(req, { error: "Rate limited, please try again later." }, 429);
-      }
-      if (aiResponse.status === 402) {
-        return jsonResponse(req, { error: "Credits required. Please add funds." }, 402);
-      }
-      throw new Error(`AI gateway error: ${aiResponse.status}`);
-    }
-
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content || "[]";
+      {
+        taskType: "balanced",
+        workspaceId: workspace_id,
+        authHeader,
+        maxTokens: 4000,
+      },
+    );
 
     let scores: Array<{
       id?: string;
@@ -160,10 +133,10 @@ Return JSON array only in this exact shape:
     }> = [];
 
     try {
-      scores = JSON.parse(content.replace(/```json\n?/g, "").replace(/```/g, "").trim());
+      scores = JSON.parse(aiRaw.replace(/```json\n?/g, "").replace(/```/g, "").trim());
     } catch {
-      console.error("Failed to parse AI scores:", content);
-      scores = [];
+      console.error("Failed to parse AI scores:", aiRaw);
+      return jsonResponse(req, { error: "Invalid AI response format" }, 502);
     }
 
     let scored = 0;
@@ -197,6 +170,11 @@ Return JSON array only in this exact shape:
     return jsonResponse(req, { scored, total: leads.length, predicted_pipeline_value: predictedPipelineValue });
   } catch (error) {
     console.error("Score leads error:", error);
+    if (error instanceof Error && error.message.startsWith("ai-router ")) {
+      const statusMatch = error.message.match(/^ai-router\s+(\d+)/);
+      const status = statusMatch ? Number(statusMatch[1]) : 502;
+      return jsonResponse(req, { error: error.message }, status);
+    }
     return jsonResponse(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

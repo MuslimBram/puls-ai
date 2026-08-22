@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 import type { ChannelCapability, ConnectionMode, AccountType } from "@/hooks/useChannelCapabilities";
 
@@ -16,6 +17,7 @@ export interface ChannelData {
 
 export const useChannels = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
 
   const query = useQuery({
@@ -52,6 +54,7 @@ export const useChannels = () => {
         settings: (channel.settings ?? {}) as any,
         credentials_encrypted: {} as any,
         user_id: user!.id,
+        workspace_id: workspace?.id ?? null,
       };
       const { error } = await supabase.from("channels").insert([row]);
       if (error) throw error;

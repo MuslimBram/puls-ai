@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 
 export interface VisitorProfile {
@@ -84,18 +85,23 @@ export const classificationColor = (c: string) => {
 
 export const useVisitorProfiles = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   return useQuery({
-    queryKey: ["visitor-profiles", user?.id],
+    queryKey: ["visitor-profiles", user?.id, workspace?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("visitor_profiles")
         .select("*")
         .eq("user_id", user!.id)
         .order("intent_score", { ascending: false });
+      if (workspace?.id) {
+        query = query.eq("workspace_id", workspace.id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as unknown as VisitorProfile[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 };
 
@@ -119,28 +125,37 @@ export const useVisitorEvents = (visitorId: string | null) => {
 
 export const useReengagementTasks = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   return useQuery({
-    queryKey: ["reengagement-tasks", user?.id],
+    queryKey: ["reengagement-tasks", user?.id, workspace?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("reengagement_tasks")
         .select("*")
         .eq("user_id", user!.id)
         .order("created_at", { ascending: false });
+      if (workspace?.id) {
+        query = query.eq("workspace_id", workspace.id);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return (data || []) as unknown as ReengagementTask[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 };
 
 export const useScoreVisitors = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { workspace } = useWorkspace();
 
   return useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("score-visitors");
+      if (!workspace?.id) throw new Error("Select a workspace first");
+      const { data, error } = await supabase.functions.invoke("score-visitors", {
+        body: { workspace_id: workspace.id },
+      });
       if (error) throw error;
       return data;
     },

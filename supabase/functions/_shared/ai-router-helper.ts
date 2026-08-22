@@ -49,7 +49,16 @@ export async function callAIRouter(
   });
 
   if (!res.ok) {
-    throw new Error(`ai-router ${res.status}`);
+    let code = "";
+    let message = "";
+    try {
+      const err = await res.json() as Record<string, unknown>;
+      code = String(err.code ?? "");
+      message = String(err.error ?? "");
+    } catch {
+      // noop
+    }
+    throw new Error(`ai-router ${res.status}${code ? ` ${code}` : ""}${message ? `: ${message}` : ""}`);
   }
 
   const data = await res.json() as Record<string, unknown>;

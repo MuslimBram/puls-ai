@@ -4,16 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MessageCircle, X, Send, CheckCircle2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 
 interface ChatWidgetProps {
-  userId: string;
   channelId?: string;
   businessName?: string;
 }
 
-export const ChatWidget = ({ userId, channelId, businessName }: ChatWidgetProps) => {
+export const ChatWidget = ({ channelId, businessName }: ChatWidgetProps) => {
+  const webchatProxyUrl = import.meta.env.VITE_WEBCHAT_PROXY_URL as string | undefined;
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -23,19 +22,28 @@ export const ChatWidget = ({ userId, channelId, businessName }: ChatWidgetProps)
 
   const handleSend = async () => {
     if (!message.trim()) return;
+    if (!channelId) {
+      toast.error("Chat channel is not configured");
+      return;
+    }
+    if (!webchatProxyUrl) {
+      toast.error("WEBCHAT_TRUSTED_PROXY_BLOCKER");
+      return;
+    }
     setSending(true);
     try {
-      const { error } = await supabase.functions.invoke("webchat-ingest", {
-        body: {
-          user_id: userId,
+      const response = await fetch(webchatProxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           visitor_name: name || undefined,
           visitor_email: email || undefined,
           message: message.trim(),
           page_url: window.location.href,
           channel_id: channelId,
-        },
+        }),
       });
-      if (error) throw error;
+      if (!response.ok) throw new Error("Failed to submit chat");
       setSent(true);
       setMessage("");
     } catch (e) {
