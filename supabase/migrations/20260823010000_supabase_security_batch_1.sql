@@ -2,20 +2,28 @@
 -- SUPABASE SECURITY HARDENING — BATCH 1
 --
 -- Scope is intentionally narrow:
---   1) pin search_path on the six functions reported by Security Advisor;
+--   1) pin search_path on the two mutable-path functions not already covered
+--      by canonical B7 hardening;
 --   2) remove public object-listing access from generated-media while
 --      preserving the bucket's public delivery contract.
+--
+-- Canonical B7 migration 20260821121000 already hardens:
+--   notify_admin_on_payment_submission()
+--   verify_white_label_license(text)
+--   validate_nba_against_rules(uuid,text,numeric,text,uuid)
+--   evaluate_contact_policy(uuid,uuid,text,text)
+-- Those warnings remain visible in production until B7 is rolled out.
 --
 -- SECURITY DEFINER EXECUTE grants are deliberately NOT changed here.
 -- They require per-function RLS/trigger dependency triage in a separate batch.
 -- ============================================================
 
 -- ---------------------------------------------------------------------------
--- 1. Function Search Path Mutable
+-- 1. Function Search Path Mutable — residual source gaps
 -- ---------------------------------------------------------------------------
--- Some environments may not yet contain every function below. Use exact
--- signatures and only alter functions that are present, so migration replay
--- remains safe across candidate/production drift.
+-- The live advisor reports these two functions, while they are not guaranteed
+-- to exist in every candidate/reconstructed environment. Exact-signature guards
+-- make replay safe without inventing function definitions.
 DO $$
 BEGIN
   IF to_regprocedure('public.generate_payment_reference()') IS NOT NULL THEN
@@ -24,22 +32,6 @@ BEGIN
 
   IF to_regprocedure('public.set_payment_reference()') IS NOT NULL THEN
     EXECUTE 'ALTER FUNCTION public.set_payment_reference() SET search_path = public, pg_temp';
-  END IF;
-
-  IF to_regprocedure('public.notify_admin_on_payment_submission()') IS NOT NULL THEN
-    EXECUTE 'ALTER FUNCTION public.notify_admin_on_payment_submission() SET search_path = public, pg_temp';
-  END IF;
-
-  IF to_regprocedure('public.verify_white_label_license(text)') IS NOT NULL THEN
-    EXECUTE 'ALTER FUNCTION public.verify_white_label_license(text) SET search_path = public, pg_temp';
-  END IF;
-
-  IF to_regprocedure('public.validate_nba_against_rules(uuid,text,numeric,text,uuid)') IS NOT NULL THEN
-    EXECUTE 'ALTER FUNCTION public.validate_nba_against_rules(uuid, text, numeric, text, uuid) SET search_path = public, pg_temp';
-  END IF;
-
-  IF to_regprocedure('public.evaluate_contact_policy(uuid,uuid,text,text)') IS NOT NULL THEN
-    EXECUTE 'ALTER FUNCTION public.evaluate_contact_policy(uuid, uuid, text, text) SET search_path = public, pg_temp';
   END IF;
 END
 $$;
