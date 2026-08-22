@@ -18,10 +18,12 @@ import {
   standaloneNavItems,
   type NavItem,
 } from "./publicNavConfig";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 export function PublicMobileNav() {
   const [open, setOpen] = useState(false);
   const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
 
   return (
     <>
@@ -86,6 +88,7 @@ export function PublicMobileNav() {
               groupLabel={t(group.groupLabelKey)}
               items={group.items}
               onClose={() => setOpen(false)}
+              localizeHref={localizedPath}
             />
           ))}
 
@@ -99,6 +102,7 @@ export function PublicMobileNav() {
                 key={item.href}
                 item={item}
                 onClose={() => setOpen(false)}
+                href={localizedPath(item.href)}
               />
             ))}
           </div>
@@ -116,6 +120,7 @@ function MobileNavGroup({
   groupLabel: string;
   items: NavItem[];
   onClose: () => void;
+  localizeHref: (href: string) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -143,7 +148,7 @@ function MobileNavGroup({
         <ul className="mb-2 space-y-0.5">
           {items.map((item) => (
             <li key={item.href}>
-              <MobileNavLink item={item} onClose={onClose} />
+              <MobileNavLink item={item} onClose={onClose} href={localizeHref(item.href)} />
             </li>
           ))}
         </ul>
@@ -155,13 +160,15 @@ function MobileNavGroup({
 function MobileNavLink({
   item,
   onClose,
+  href,
 }: {
   item: NavItem;
   onClose: () => void;
+  href: string;
 }) {
   const { t } = useTranslation();
   const { pathname } = useLocation();
-  const isActive = pathname === item.href;
+  const isActive = pathname === href;
 
   if (item.comingSoon) {
     return (
@@ -179,7 +186,7 @@ function MobileNavLink({
 
   return (
     <Link
-      to={item.href}
+      to={href}
       onClick={onClose}
       className={cn(
         "flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors",

@@ -12,6 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { TrustBadge } from "./TrustBadge";
 import { PublicLanguageSelector } from "./PublicLanguageSelector";
 import { cn } from "@/lib/utils";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 const FOOTER_PLATFORM = [
   { labelKey: "nav.platform.aiIntelligence", href: "/#ai" },
@@ -31,8 +32,8 @@ const FOOTER_BUSINESS = [
 
 const FOOTER_COMPANY = [
   { labelKey: "nav.standalone.security",      href: "/security" },
-  { labelKey: "nav.company.about",            href: "/about",   comingSoon: true },
-  { labelKey: "nav.company.contact",          href: "/contact", comingSoon: true },
+  { labelKey: "nav.company.about",            href: "/about" },
+  { labelKey: "nav.company.contact",          href: "/contact" },
 ];
 
 const FOOTER_LEGAL = [
@@ -47,6 +48,7 @@ const FOOTER_LEGAL = [
 
 export function PublicFooter() {
   const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
   const year = new Date().getFullYear();
 
   return (
@@ -56,7 +58,7 @@ export function PublicFooter() {
         <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-2">
             <Link
-              to="/"
+              to={localizedPath("/")}
               className="inline-block text-xl font-bold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
             >
               Pulse <span className="text-primary">AI</span>
@@ -73,20 +75,20 @@ export function PublicFooter() {
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-4">
           <FooterSection title={t("nav.group.platform")}>
             {FOOTER_PLATFORM.map((item) => (
-              <FooterLink key={item.href} href={item.href} label={t(item.labelKey)} muted={item.comingSoon} />
+              <FooterLink key={`${item.labelKey}-${item.href}`} href={item.href} label={t(item.labelKey)} muted={item.comingSoon} />
             ))}
           </FooterSection>
 
           <FooterSection title={t("nav.group.business")}>
             {FOOTER_BUSINESS.map((item) => (
-              <FooterLink key={item.href} href={item.href} label={t(item.labelKey)} muted={item.comingSoon} />
+              <FooterLink key={`${item.labelKey}-${item.href}`} href={item.href} label={t(item.labelKey)} muted={item.comingSoon} />
             ))}
           </FooterSection>
 
           <FooterSection title={t("nav.group.company")}>
             {FOOTER_COMPANY.map((item) => (
               <FooterLink
-                key={item.href}
+                key={`${item.labelKey}-${item.href}`}
                 href={item.href}
                 label={t(item.labelKey)}
                 muted={item.comingSoon}
@@ -96,7 +98,7 @@ export function PublicFooter() {
 
           <FooterSection title={t("footer.legal", { defaultValue: "Legal" })}>
             {FOOTER_LEGAL.map((item) => (
-              <FooterLink key={item.href} href={item.href} label={t(item.labelKey)} />
+              <FooterLink key={`${item.labelKey}-${item.href}`} href={item.href} label={t(item.labelKey)} />
             ))}
           </FooterSection>
         </div>
@@ -141,10 +143,12 @@ function FooterLink({
   label: string;
   muted?: boolean;
 }) {
+  const { localizedPath } = usePublicLocale();
+
   return (
     <li>
       <Link
-        to={href}
+        to={localizedPath(href)}
         className={cn(
           "text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm",
           muted

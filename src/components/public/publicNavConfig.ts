@@ -51,8 +51,8 @@ export const businessNavItems: NavItem[] = [
 
 /** Company nav items */
 export const companyNavItems: NavItem[] = [
-  { labelKey: "nav.company.about",    href: "/about",   comingSoon: true },
-  { labelKey: "nav.company.contact",  href: "/contact", comingSoon: true },
+  { labelKey: "nav.company.about",    href: "/about" },
+  { labelKey: "nav.company.contact",  href: "/contact" },
 ];
 
 /** Growth Suite hub — held back, Coming Soon only */

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PayPalCheckoutButton } from "@/components/PayPalCheckoutButton";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { PricingPlanCard } from "@/components/pricing/PricingPlanCard";
 import { PricingComparison } from "@/components/pricing/PricingComparison";
@@ -21,8 +22,10 @@ import { toast } from "@/components/ui/sonner";
 import { Building2, Heart, Loader2, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
 import type { PackageVariant, PlanKey } from "@/types/monetization";
+import { Seo } from "@/components/Seo";
 
 const Pricing = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [enterpriseOpen, setEnterpriseOpen] = useState(false);
@@ -71,11 +74,11 @@ const Pricing = () => {
 
   const heroStats = useMemo(
     () => [
-      `${plans.length} active plans`,
+      `${plans.length} ${t("pricingPage.planCount").toLowerCase()}`,
       `${comparisonSections.length} comparison sections`,
       `7-day trial + ${selectedVariant.label.toLowerCase()} term`,
     ],
-    [plans.length, comparisonSections.length, selectedVariant.label],
+    [comparisonSections.length, plans.length, selectedVariant.label, t],
   );
 
   const openBillingPortal = async () => {
@@ -181,6 +184,10 @@ const Pricing = () => {
 
   return (
     <DashboardLayout>
+      <Seo
+        title={t("pricingPage.seo.title")}
+        description={t("pricingPage.seo.desc")}
+      />
       <div className="space-y-8 pb-6">
         <section className="overflow-hidden rounded-[2rem] border border-border/60 bg-gradient-to-br from-background via-muted/20 to-primary/10">
           <div className="grid gap-8 px-6 py-10 md:px-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end lg:gap-12 lg:py-14">
@@ -188,10 +195,10 @@ const Pricing = () => {
               <Badge variant="secondary" className="w-fit gap-1"><Sparkles className="h-3 w-3" />Monetization Phase 3</Badge>
               <div className="space-y-4">
                 <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-foreground md:text-5xl">
-                  Choose a plan, then lock your term.
+                  {t("pricingPage.hero.title")}
                 </h1>
                 <p className="max-w-2xl text-base leading-7 text-muted-foreground md:text-lg">
-                  Every paid plan starts with a 7-day trial, then continues on the commitment you choose below with the correct savings applied.
+                  {t("pricingPage.hero.subtitle")}
                 </p>
               </div>
 

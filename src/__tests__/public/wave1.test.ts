@@ -32,25 +32,25 @@ import sq from "../../i18n/sq";
 const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
 describe("Wave 1 route publication scope", () => {
-  it("does NOT publish unfinished public product/company routes in App.tsx", () => {
-    // Wave 3 platform routes (/platform/*) ARE now published — see wave3.test.ts.
-    // These routes remain unpublished:
-    const unpublishedRoutes = [
-      "/about",
-      "/contact",
-      "/growth-suite",
-    ];
+  it("does NOT publish unfinished public product routes in App.tsx", () => {
+    const unpublishedRoutes = ["/growth-suite"];
 
     unpublishedRoutes.forEach((routePath) => {
       expect(appSource).not.toContain(`path="${routePath}"`);
     });
   });
 
-  it("preserves existing /pricing and /security routes", () => {
+  it("registers the locale route shell and localized company pages", () => {
+    expect(appSource).toContain('path="/:locale"');
+    expect(appSource).toContain('path="/about"');
+    expect(appSource).toContain('path="/contact"');
+    expect(appSource).toContain('path="about"');
+    expect(appSource).toContain('path="contact"');
+  });
+
+  it("preserves legacy /pricing and /security entry routes", () => {
     expect(appSource).toContain('path="/pricing"');
-    expect(appSource).toContain("<Pricing />");
     expect(appSource).toContain('path="/security"');
-    expect(appSource).toContain("<SecurityOverview />");
   });
 });
 
@@ -130,6 +130,12 @@ describe("publicNavConfig", () => {
     const hrefs = companyNavItems.map((i) => i.href);
     expect(hrefs).toContain("/about");
     expect(hrefs).toContain("/contact");
+  });
+
+  it("about/contact are live public nav items", () => {
+    companyNavItems.forEach((item) => {
+      expect(item.comingSoon).not.toBe(true);
+    });
   });
 });
 

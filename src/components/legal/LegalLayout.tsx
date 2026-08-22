@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { Download, Zap, Mail, ArrowRight, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,19 +9,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { buildPublicHreflangLinks } from "@/lib/publicLocale";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 
 export const LEGAL_LAST_UPDATED = "31 July 2026";
 
-export const LEGAL_LINKS = [
-  { href: "/privacy", label: "Privacy Policy" },
-  { href: "/terms", label: "Terms of Service" },
-  { href: "/security", label: "Security Overview" },
-  { href: "/cookies", label: "Cookie Policy" },
-  { href: "/refund", label: "Refund & Cancellation" },
-  { href: "/affiliate-terms", label: "Ambassador & Freelancer Terms" },
-  { href: "/dpa", label: "Data Processing Agreement" },
-  { href: "/terms-and-payments", label: "Payment Terms" },
+export const LEGAL_LINKS: { href: string; labelKey: string }[] = [
+  { href: "/privacy",         labelKey: "footer.links.privacy" },
+  { href: "/terms",           labelKey: "footer.links.terms" },
+  { href: "/security",        labelKey: "securityPage.hero.title" },
+  { href: "/cookies",         labelKey: "footer.links.cookies" },
+  { href: "/refund",          labelKey: "footerWave4.refund" },
+  { href: "/affiliate-terms", labelKey: "footerWave4.affiliateTerms" },
+  { href: "/dpa",             labelKey: "footer.links.dpa" },
+  { href: "/terms-and-payments", labelKey: "footerWave4.termsAndPayments" },
 ];
 
 export type LegalSection = { id: string; title: string };
@@ -30,7 +33,16 @@ const SITE = "https://kohablerjeve.top";
 function setMeta(selector: string, attrs: Record<string, string>) {
   let el = document.head.querySelector<HTMLElement>(selector);
   if (!el) {
-    el = document.createElement(selector.startsWith("link") ? "link" : "meta");
+    el = document.createElement("meta");
+    document.head.appendChild(el);
+  }
+  Object.entries(attrs).forEach(([k, v]) => el!.setAttribute(k, v));
+}
+
+function setLink(selector: string, attrs: Record<string, string>) {
+  let el = document.head.querySelector<HTMLElement>(selector);
+  if (!el) {
+    el = document.createElement("link");
     document.head.appendChild(el);
   }
   Object.entries(attrs).forEach(([k, v]) => el!.setAttribute(k, v));
@@ -53,32 +65,42 @@ export function LegalLayout({
   sections,
   children,
 }: LegalLayoutProps) {
+  const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
+
   useEffect(() => {
     document.title = `${title} | Pulse AI`;
     setMeta('meta[name="description"]', { name: "description", content: description });
     setMeta('meta[name="robots"]', { name: "robots", content: "index, follow" });
-    setMeta('link[rel="canonical"]', { rel: "canonical", href: `${SITE}${path}` });
+    setLink('link[rel="canonical"]', { rel: "canonical", href: `${SITE}${localizedPath(path)}` });
     setMeta('meta[property="og:title"]', { property: "og:title", content: `${title} | Pulse AI` });
     setMeta('meta[property="og:description"]', { property: "og:description", content: description });
-    setMeta('meta[property="og:url"]', { property: "og:url", content: `${SITE}${path}` });
+    setMeta('meta[property="og:url"]', { property: "og:url", content: `${SITE}${localizedPath(path)}` });
     setMeta('meta[property="og:type"]', { property: "og:type", content: "article" });
-  }, [title, description, path]);
+    buildPublicHreflangLinks(localizedPath(path), SITE).forEach(({ hrefLang, href }) => {
+      setLink(`link[rel="alternate"][hreflang="${hrefLang}"]`, {
+        rel: "alternate",
+        hreflang: hrefLang,
+        href,
+      });
+    });
+  }, [description, localizedPath, path, title]);
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* HEADER */}
       <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur print:hidden">
         <div className="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 font-semibold">
+          <Link to={localizedPath("/")} className="flex items-center gap-2 font-semibold">
             <Zap className="h-5 w-5 text-primary" />
             Pulse AI
           </Link>
           <nav className="hidden md:flex items-center gap-5 text-sm text-muted-foreground">
-            <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
-            <Link to="/white-label" className="hover:text-foreground">White-Label</Link>
-            <Link to="/login" className="hover:text-foreground">Sign in</Link>
+            <Link to={localizedPath("/pricing")} className="hover:text-foreground">{t("nav.standalone.pricing")}</Link>
+            <Link to={localizedPath("/white-label")} className="hover:text-foreground">{t("nav.business.whiteLabel")}</Link>
+            <Link to="/login" className="hover:text-foreground">{t("cta.login")}</Link>
             <Button size="sm" asChild>
-              <Link to="/register">Start free</Link>
+              <Link to="/register">{t("cta.getStarted")}</Link>
             </Button>
           </nav>
         </div>
@@ -87,7 +109,7 @@ export function LegalLayout({
       {/* HERO */}
       <section className="border-b border-border bg-muted/40">
         <div className="max-w-6xl mx-auto px-5 py-12">
-          <p className="text-xs uppercase tracking-widest text-primary mb-3">Legal</p>
+          <p className="text-xs uppercase tracking-widest text-primary mb-3">{t("footer.legal")}</p>
           <h1 className="text-3xl md:text-4xl font-semibold mb-3">{title}</h1>
           <p className="text-muted-foreground max-w-2xl leading-relaxed">{subtitle}</p>
           <div className="flex flex-wrap items-center gap-3 mt-6">
@@ -144,7 +166,7 @@ export function LegalLayout({
               </Button>
               <Button asChild size="sm" variant="outline" className="gap-2">
                 <Link to="/register">
-                  Start free trial <ArrowRight className="h-4 w-4" />
+                  {t("cta.getStarted")} <ArrowRight className="h-4 w-4" />
                 </Link>
               </Button>
             </div>
@@ -166,10 +188,10 @@ export function LegalLayout({
               {LEGAL_LINKS.filter((l) => l.href !== path).map((l) => (
                 <Link
                   key={l.href}
-                  to={l.href}
+                  to={localizedPath(l.href)}
                   className="block text-muted-foreground hover:text-foreground leading-snug"
                 >
-                  {l.label}
+                  {t(l.labelKey)}
                 </Link>
               ))}
             </nav>
@@ -183,6 +205,9 @@ export function LegalLayout({
 }
 
 export function LegalFooter() {
+  const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
+
   return (
     <footer className="border-t border-border py-10 print:hidden">
       <div className="max-w-6xl mx-auto px-5 text-sm text-muted-foreground">
@@ -197,7 +222,7 @@ export function LegalFooter() {
             <DropdownMenuContent align="start" className="w-60">
               {LEGAL_LINKS.map((l) => (
                 <DropdownMenuItem key={l.href} asChild>
-                  <Link to={l.href}>{l.label}</Link>
+                  <Link to={localizedPath(l.href)}>{t(l.labelKey)}</Link>
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

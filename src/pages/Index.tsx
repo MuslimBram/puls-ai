@@ -30,6 +30,7 @@ import { PublicLeadForm } from "@/components/leads/PublicLeadForm";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 const HERO_CHANNELS = [
   { label: "WhatsApp", icon: Phone },
@@ -96,6 +97,7 @@ const Index = () => {
   const { t } = useTranslation();
   const scrollRef = useScrollAnimation();
   const location = useLocation();
+  const { localizedPath } = usePublicLocale();
 
   const openAIBot = () => {
     window.dispatchEvent(new CustomEvent("pulse-ai-open-bot"));
@@ -131,10 +133,10 @@ const Index = () => {
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     description: t("homepage.hero.description"),
-    url: `${window.location.origin}/`,
+    url: `${window.location.origin}${localizedPath("/")}`,
     offers: {
       "@type": "Offer",
-      url: `${window.location.origin}/pricing`,
+      url: `${window.location.origin}${localizedPath("/pricing")}`,
     },
   };
 
@@ -143,7 +145,6 @@ const Index = () => {
       <Seo
         title={t("homepage.seo.title")}
         description={t("homepage.seo.description")}
-        canonical={`${window.location.origin}/`}
         jsonLd={jsonLd}
       />
 
@@ -531,7 +532,7 @@ const Index = () => {
             </div>
             <div className="mt-8 flex justify-center animate-on-scroll">
               <Button size="lg" variant="outline" asChild>
-                <Link to="/pricing">
+                <Link to={localizedPath("/pricing")}>
                   {t("homepage.pricing.cta")}
                   <ArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
                 </Link>

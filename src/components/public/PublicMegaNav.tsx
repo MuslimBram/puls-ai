@@ -24,9 +24,11 @@ import {
   standaloneNavItems,
   type NavItem,
 } from "./publicNavConfig";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 export function PublicMegaNav() {
   const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
 
   return (
     <NavigationMenu className="hidden lg:flex">
@@ -44,7 +46,7 @@ export function PublicMegaNav() {
                     {t(group.groupLabelKey)}
                   </p>
                   {group.items.map((item) => (
-                    <MegaNavItem key={item.href} item={item} />
+                    <MegaNavItem key={item.href} item={item} href={localizedPath(item.href)} />
                   ))}
                 </div>
               ))}
@@ -73,7 +75,7 @@ export function PublicMegaNav() {
                 className={cn(navigationMenuTriggerStyle(), "h-9 text-sm font-medium")}
                 asChild
               >
-                <Link to={item.href}>
+                <Link to={localizedPath(item.href)}>
                   {t(item.labelKey)}
                 </Link>
               </NavigationMenuLink>
@@ -85,7 +87,7 @@ export function PublicMegaNav() {
   );
 }
 
-function MegaNavItem({ item }: { item: NavItem }) {
+function MegaNavItem({ item, href }: { item: NavItem; href: string }) {
   const { t } = useTranslation();
 
   const content = (
@@ -113,7 +115,7 @@ function MegaNavItem({ item }: { item: NavItem }) {
   return (
     <NavigationMenuLink asChild>
       <Link
-        to={item.href}
+        to={href}
         className={cn(
           "block select-none rounded-md px-3 py-2 leading-none no-underline outline-none",
           "text-sm text-foreground/80 transition-colors",

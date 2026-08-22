@@ -40,6 +40,7 @@ const ctaSource         = readFileSync(resolve(process.cwd(), "src/components/pu
 describe("Wave 4 — /security public route", () => {
   it("registers /security route in App.tsx", () => {
     expect(appSource).toContain('path="/security"');
+    expect(appSource).toContain('path="security"');
   });
 
   it("/security is not wrapped in ProtectedPage", () => {
@@ -55,6 +56,9 @@ describe("Wave 4 — /security public route", () => {
 });
 
 describe("Wave 4 — /security no unsupported certification claims", () => {
+  const securityText = JSON.stringify((en as Record<string, unknown>).securityPage)
+    + JSON.stringify((sq as Record<string, unknown>).securityPage)
+    + securitySource;
   const FORBIDDEN_CLAIMS = [
     "SOC 2 certified",
     "ISO 27001 certified",
@@ -70,12 +74,12 @@ describe("Wave 4 — /security no unsupported certification claims", () => {
 
   FORBIDDEN_CLAIMS.forEach((claim) => {
     it(`SecurityOverview does not claim: "${claim}"`, () => {
-      expect(securitySource.toLowerCase()).not.toContain(claim.toLowerCase());
+      expect(securityText.toLowerCase()).not.toContain(claim.toLowerCase());
     });
   });
 
   it("SecurityOverview states it is not a certification", () => {
-    expect(securitySource).toContain("not a certification");
+    expect(JSON.stringify((en as Record<string, any>).securityPage.sections.sharedDisclaimer)).toContain("not a certification");
   });
 });
 
@@ -142,6 +146,7 @@ describe("Wave 4 — Pricing safe neutral state when data unavailable", () => {
 describe("Wave 4 — /white-label public route", () => {
   it("/white-label route is registered in App.tsx", () => {
     expect(appSource).toContain('path="/white-label"');
+    expect(appSource).toContain('path="white-label"');
   });
 
   it("/white-label is NOT wrapped in ProtectedPage", () => {
@@ -193,7 +198,7 @@ describe("Wave 4 — Legal public routes reachable", () => {
   ];
 
   LEGAL_ROUTES.forEach((route) => {
-    it(`${route} route is registered in App.tsx`, () => {
+    it(`${route} legacy route is registered in App.tsx`, () => {
       expect(appSource).toContain(`path="${route}"`);
     });
   });

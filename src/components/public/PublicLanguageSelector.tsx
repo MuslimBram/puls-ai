@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 const WAVE1_LANGUAGES = [
   { code: "en", label: "English", flag: "🇬🇧" },
@@ -24,11 +25,13 @@ type LangCode = (typeof WAVE1_LANGUAGES)[number]["code"];
 
 export function PublicLanguageSelector() {
   const { i18n } = useTranslation();
+  const { switchLocale } = usePublicLocale();
 
   const current = WAVE1_LANGUAGES.find((l) => l.code === i18n.language) ?? WAVE1_LANGUAGES[0];
 
   const switchTo = (code: LangCode) => {
     void i18n.changeLanguage(code);
+    switchLocale(code);
   };
 
   return (

@@ -43,8 +43,29 @@ describe("Wave 3 route registration in App.tsx", () => {
   ];
 
   PLATFORM_ROUTES.forEach((route) => {
-    it(`registers ${route}`, () => {
+    it(`registers legacy entry route ${route}`, () => {
       expect(appSource).toContain(`path="${route}"`);
+    });
+  });
+
+  it("registers the localized public route shell", () => {
+    expect(appSource).toContain('path="/:locale"');
+  });
+
+  [
+    'path="platform"',
+    'path="platform/ai"',
+    'path="platform/unified-inbox"',
+    'path="platform/crm"',
+    'path="platform/marketing"',
+    'path="platform/automation"',
+    'path="platform/analytics"',
+    'path="platform/developers"',
+    'path="platform/partners"',
+    'path="platform/lidhjet"',
+  ].forEach((routeFragment) => {
+    it(`registers localized route fragment ${routeFragment}`, () => {
+      expect(appSource).toContain(routeFragment);
     });
   });
 
@@ -67,8 +88,8 @@ describe("Wave 3 route registration in App.tsx", () => {
     expect(appSource).toContain('path="/public-api"');
   });
 
-  it("does NOT register /about, /contact, /growth-suite (still unpublished)", () => {
-    ["/about", "/contact", "/growth-suite"].forEach((r) => {
+  it("does NOT register /growth-suite", () => {
+    ["/growth-suite"].forEach((r) => {
       expect(appSource).not.toContain(`path="${r}"`);
     });
   });

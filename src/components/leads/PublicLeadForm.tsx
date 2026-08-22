@@ -6,6 +6,7 @@
 // ============================================================
 import { useMemo, useState, type ChangeEvent } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CheckCircle, Loader2 } from "lucide-react";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 interface PublicLeadFormProps {
   targetWorkspaceId?: string;
@@ -36,6 +38,7 @@ export function PublicLeadForm({
   onSuccess,
 }: PublicLeadFormProps) {
   const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -269,9 +272,9 @@ export function PublicLeadForm({
 
       <p className="text-center text-xs text-muted-foreground">
         {t("leadForm.legalPrefix")}{" "}
-        <a href="/privacy" className="underline">
+        <Link to={localizedPath("/privacy")} className="underline">
           {t("leadForm.privacyPolicy")}
-        </a>
+        </Link>
         .
       </p>
     </div>
