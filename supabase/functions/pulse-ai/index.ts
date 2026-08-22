@@ -46,7 +46,6 @@ import {
   resolveRouterTaskType,
 } from "../_shared/pulse-ai-facade.ts";
 
-// ── Supabase service-role client (used only after authorization) ──────────────
 const SVC = () =>
   createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!, {
     auth: { persistSession: false },
@@ -60,7 +59,6 @@ const json = (req: Request, body: unknown, status = 200) =>
     headers: { ...cors(req), "Content-Type": "application/json" },
   });
 
-// ── Workspace membership verification (USER path only) ───────────────────────
 async function requireWorkspaceMember(
   sb: ReturnType<typeof SVC>,
   userId: string,
@@ -78,9 +76,6 @@ async function requireWorkspaceMember(
   return !!(m || o);
 }
 
-// ── Capability: Customer Brain ────────────────────────────────────────────────
-// Delegates to the existing canonical business brain for customer_evaluation
-// and segment_suggestion. The brain is NOT replaced — it is preserved and reused.
 async function dispatchToCustomerBrain(
   req: PulseAIRequest,
 ): Promise<PulseAIResponse> {
@@ -160,8 +155,6 @@ async function dispatchToCustomerBrain(
   }
 }
 
-// ── Capability: AI Router (workspace use cases) ───────────────────────────────
-// Uses canonical ai-router-helper. Provider/model selection is AI Router's job.
 async function dispatchToAIRouter(
   req: PulseAIRequest,
   memory?: PulseMemoryResponse,
@@ -210,9 +203,6 @@ async function dispatchToAIRouter(
   }
 }
 
-// ── Capability: Public Support (no workspace data) ────────────────────────────
-// Handles customer_support use case. No CRM, Customer Memory, or Business Memory.
-// Calls ai-router with customer_support task type (internal path, no workspace_id).
 async function dispatchPublicSupport(req: PulseAIRequest): Promise<PulseAIResponse> {
   const systemPrompt =
     "You are the Pulse AI product assistant. " +
@@ -276,7 +266,6 @@ function buildMessages(req: PulseAIRequest): Array<{ role: string; content: stri
   return [{ role: "user", content: "Please analyze and respond." }];
 }
 
-// ── Main request handler ──────────────────────────────────────────────────────
 Deno.serve(async (httpReq: Request) => {
   if (httpReq.method === "OPTIONS") {
     return new Response(null, {
@@ -383,6 +372,7 @@ Deno.serve(async (httpReq: Request) => {
       );
     }
     if (!isInternal) {
+      // USER path: NEVER trust browser-provided workspace_id without membership verification.
       const isMember = await requireWorkspaceMember(sb, authedUserId!, rawWorkspaceId);
       if (!isMember) {
         return json(
@@ -398,8 +388,10 @@ Deno.serve(async (httpReq: Request) => {
         );
       }
     }
+    // INTERNAL path: workspace_id is server-provided for scoping; accepted without JWT check.
     verifiedWorkspaceId = rawWorkspaceId;
   }
+  // PUBLIC path: verifiedWorkspaceId remains "" — public support has no workspace scope.
 
   // ── Build canonical request ─────────────────────────────────────────────────
   const input =
@@ -407,6 +399,7 @@ Deno.serve(async (httpReq: Request) => {
       ? (rawInput as { text?: string; structured?: Record<string, unknown> })
       : {};
 
+  // Determine authContextType and canonical source.
   const authContextType = isInternal
     ? "internal_service"
     : isPublicSupportRequest
@@ -438,7 +431,6 @@ Deno.serve(async (httpReq: Request) => {
     authContextType: pulseReq.authContextType,
   }));
 
-  // ── AI-4 canonical memory resolution ───────────────────────────────────────
   let workspaceMemory: PulseMemoryResponse | undefined;
   if (capability === "ai_router_direct") {
     const memoryQuery = pulseReq.input.text ??
