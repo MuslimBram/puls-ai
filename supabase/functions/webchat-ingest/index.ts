@@ -8,8 +8,6 @@ import { getServiceKey } from "../_shared/admin-client.ts";
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-
-// Rate limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 60;
 const RATE_WINDOW = 60_000;
@@ -29,59 +27,87 @@ function checkRateLimit(ip: string): boolean {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
-  // SECURITY: require internal shared secret — public callers must go
-  // through a server proxy that signs requests with INTERNAL_WEBHOOK_SECRET.
   const unauth = requireInternalSecret(req);
-  if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...getCors(req), "Content-Type": "application/json" } });
+  if (unauth) {
+    return new Response(unauth.body, {
+      status: unauth.status,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
+  }
 
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (!checkRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
+      status: 429,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    getServiceKey()!,
-  );
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
 
   try {
     const body = await req.json();
-    const { user_id, visitor_name, visitor_email, message, page_url, channel_id } = body;
+    const { visitor_name, visitor_email, message, page_url, channel_id } = body;
 
-    if (!user_id || !message) {
-      return new Response(JSON.stringify({ error: "user_id and message are required" }), {
-        status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
+    if (!channel_id || !message) {
+      return new Response(JSON.stringify({ error: "channel_id and message are required" }), {
+        status: 400,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
     if (message.length > 5000) {
       return new Response(JSON.stringify({ error: "Message too long" }), {
-        status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
+        status: 400,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
-    // Keyword matching
+    const { data: channels, error: channelErr } = await supabase
+      .from("channels")
+      .select("id, user_id, workspace_id, channel_type, is_enabled")
+      .eq("id", channel_id)
+      .eq("channel_type", "website_chat")
+      .eq("is_enabled", true);
+
+    if (channelErr) throw channelErr;
+    if (!channels || channels.length !== 1) {
+      return new Response(JSON.stringify({ error: "Invalid channel mapping" }), {
+        status: 403,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const channel = channels[0];
+    if (!channel.workspace_id) {
+      return new Response(JSON.stringify({ error: "Channel configuration error" }), {
+        status: 403,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const userId = channel.user_id;
+    const workspaceId = channel.workspace_id;
+
     const { data: keywords } = await supabase
       .from("keywords")
       .select("keyword")
-      .eq("user_id", user_id)
+      .eq("workspace_id", workspaceId)
       .eq("is_active", true);
 
-    const textLower = message.toLowerCase();
+    const textLower = String(message).toLowerCase();
     const matched = (keywords || [])
-      .filter((k: any) => textLower.includes(k.keyword.toLowerCase()))
-      .map((k: any) => k.keyword);
+      .filter((k: { keyword: string }) => textLower.includes(k.keyword.toLowerCase()))
+      .map((k: { keyword: string }) => k.keyword);
 
     const intentScore = matched.length > 0 ? 0.6 : 0.2;
     const priority = matched.length > 0 ? "medium" : "normal";
     const sourceName = page_url ? `Website (${new URL(page_url).pathname})` : "Website Chat";
 
     const { error: inboxErr } = await supabase.from("inbox_messages").insert({
-      user_id,
-      channel_id: channel_id || null,
+      user_id: userId,
+      workspace_id: workspaceId,
+      channel_id,
       channel_type: "website_chat",
       source_name: sourceName,
       sender_name: visitor_name || "Website Visitor",
@@ -96,14 +122,15 @@ serve(async (req) => {
       metadata: { page_url, visitor_email },
     });
 
-    if (inboxErr) console.error("Inbox insert error:", inboxErr);
+    if (inboxErr) throw inboxErr;
 
     let leadId = null;
     if (matched.length > 0) {
-      const { data: lead } = await supabase
+      const { data: lead, error: leadErr } = await supabase
         .from("leads")
         .insert({
-          user_id,
+          user_id: userId,
+          workspace_id: workspaceId,
           message_content: message,
           source_name: sourceName,
           source_type: "website_chat",
@@ -114,6 +141,7 @@ serve(async (req) => {
         })
         .select("id")
         .single();
+      if (leadErr) throw leadErr;
       leadId = lead?.id;
     }
 
@@ -123,7 +151,8 @@ serve(async (req) => {
   } catch (e) {
     console.error("webchat-ingest error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
+      status: 500,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });

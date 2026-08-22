@@ -99,16 +99,23 @@ serve(async (req) => {
           continue;
         }
 
-        const ch = (channels ?? []).find((c) => {
+        const matches = (channels ?? []).filter((c) => {
           const s = (c.settings as any) ?? {};
           return s.phone_number_id === wabaPhone || s.waba_phone_number_id === wabaPhone;
         });
 
-        if (!ch) {
+        if (matches.length === 0) {
           console.warn(`[WA] No channel for phone_number_id ${wabaPhone} — quarantining`);
           quarantined++;
           continue;
         }
+        if (matches.length > 1) {
+          console.warn(`[WA] Ambiguous channel mapping for phone_number_id ${wabaPhone} — quarantining`);
+          quarantined++;
+          continue;
+        }
+
+        const ch = matches[0];
 
         const workspaceId = ch.workspace_id;
         const channelId   = ch.id;

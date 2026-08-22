@@ -6,15 +6,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Globe, CheckCircle2, Copy, Loader2, AlertCircle, MessageCircle } from "lucide-react";
 
 export const WebsiteChatSetup = () => {
-  const { user } = useAuth();
   const { channels, addChannel } = useChannels();
   const chatChannels = channels.filter((c) => c.channel_type === "website_chat");
+  const webchatProxyUrl = import.meta.env.VITE_WEBCHAT_PROXY_URL as string | undefined;
 
   const [config, setConfig] = useState({
     widgetColor: "#3b82f6",
@@ -26,13 +24,15 @@ export const WebsiteChatSetup = () => {
   const [testResult, setTestResult] = useState<{ ok: boolean } | null>(null);
 
   const webchatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webchat-ingest`;
+  const activeChannelId = chatChannels[0]?.id;
 
   const embedSnippet = `<!-- Pulse AI Chat Widget -->
 <script>
 (function() {
   var s = document.createElement('script');
   s.src = '${window.location.origin}/chat-widget.js';
-  s.setAttribute('data-user-id', '${user?.id || "YOUR_USER_ID"}');
+  s.setAttribute('data-channel-id', '${activeChannelId || "YOUR_CHANNEL_ID"}');
+  s.setAttribute('data-proxy-url', '${webchatProxyUrl || "https://your-server.example.com/webchat-proxy"}');
   s.setAttribute('data-color', '${config.widgetColor}');
   s.setAttribute('data-welcome', '${config.welcomeMessage}');
   s.setAttribute('data-name', '${config.businessName}');
@@ -46,20 +46,30 @@ export const WebsiteChatSetup = () => {
   };
 
   const handleTestChat = async () => {
-    if (!user) return;
+    if (!activeChannelId) {
+      toast.error("Connect a Website Chat channel first");
+      return;
+    }
+    if (!webchatProxyUrl) {
+      setTestResult({ ok: false });
+      toast.error("Test blocked: VITE_WEBCHAT_PROXY_URL is not configured.");
+      return;
+    }
     setTestSending(true);
     setTestResult(null);
     try {
-      const { error } = await supabase.functions.invoke("webchat-ingest", {
-        body: {
-          user_id: user.id,
+      const response = await fetch(webchatProxyUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           visitor_name: "Test Visitor",
           visitor_email: "test@example.com",
           message: "This is a test message from the Website Chat setup page.",
           page_url: window.location.href,
-        },
+          channel_id: activeChannelId,
+        }),
       });
-      if (error) throw error;
+      if (!response.ok) throw new Error("Test request failed");
       setTestResult({ ok: true });
       toast.success("Test message sent! Check your inbox.");
     } catch {
@@ -161,7 +171,7 @@ export const WebsiteChatSetup = () => {
               <p className="text-xs font-medium text-foreground">Embed Snippet</p>
               <Button size="sm" variant="ghost" onClick={copySnippet}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
             </div>
-            <p className="text-xs text-muted-foreground mb-2">Add this code to your website's HTML, before the closing &lt;/body&gt; tag.</p>
+            <p className="text-xs text-muted-foreground mb-2">Add this code to your website's HTML, before the closing &lt;/body&gt; tag, and route messages through your trusted server proxy.</p>
             <pre className="text-xs text-muted-foreground bg-background rounded p-2 overflow-x-auto whitespace-pre-wrap">{embedSnippet}</pre>
           </div>
 

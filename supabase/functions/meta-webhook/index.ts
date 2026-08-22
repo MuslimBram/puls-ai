@@ -47,7 +47,7 @@ async function resolveWorkspaceFromPage(
   sb: ReturnType<typeof createClient>,
   pageId: string,
   platform: "instagram" | "facebook",
-): Promise<{ workspace_id: string; channel_id: string } | null> {
+): Promise<{ workspace_id: string; channel_id: string } | null | "AMBIGUOUS"> {
   const { data: channels } = await sb
     .from("channels")
     .select("id, workspace_id, settings")
@@ -56,6 +56,7 @@ async function resolveWorkspaceFromPage(
 
   if (!channels?.length) return null;
 
+  const matches: Array<{ workspace_id: string; channel_id: string }> = [];
   for (const ch of channels) {
     const s = (ch.settings as any) ?? {};
     const storedPageId     = s.page_id            ?? s.facebook_page_id ?? null;
@@ -64,9 +65,11 @@ async function resolveWorkspaceFromPage(
       (storedPageId    && storedPageId    === pageId) ||
       (storedAccountId && storedAccountId === pageId)
     ) {
-      return { workspace_id: ch.workspace_id, channel_id: ch.id };
+      matches.push({ workspace_id: ch.workspace_id, channel_id: ch.id });
     }
   }
+  if (matches.length > 1) return "AMBIGUOUS";
+  if (matches.length === 1) return matches[0];
   return null;  // No match — caller must skip
 }
 
@@ -124,6 +127,10 @@ serve(async (req) => {
       // ── Instagram DMs ─────────────────────────────────────────────────────
       if (objectType === "instagram") {
         const ws = await resolveWorkspaceFromPage(sb, pageId, "instagram");
+        if (ws === "AMBIGUOUS") {
+          console.warn(`[META] Ambiguous Instagram mapping for ${pageId} — quarantining`);
+          continue;
+        }
         if (!ws) {
           console.warn(`[META] No workspace for Instagram account ${pageId} — skipping`);
           continue;  // zero side effects
@@ -204,6 +211,10 @@ serve(async (req) => {
       // ── Facebook Messenger ────────────────────────────────────────────────
       else if (objectType === "page") {
         const ws = await resolveWorkspaceFromPage(sb, pageId, "facebook");
+        if (ws === "AMBIGUOUS") {
+          console.warn(`[META] Ambiguous Facebook mapping for ${pageId} — quarantining`);
+          continue;
+        }
         if (!ws) {
           console.warn(`[META] No workspace for Facebook page ${pageId} — skipping`);
           continue;

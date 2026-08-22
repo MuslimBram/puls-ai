@@ -2,10 +2,60 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { callAIRouter } from "../_shared/ai-router-helper.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
+const jsonResponse = (req: Request, body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCors(req), "Content-Type": "application/json" },
+  });
+
+async function resolveAuthorizedWorkspaceId(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  requestedWorkspaceId?: string,
+): Promise<string> {
+  const adminResult = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+  if (adminResult.error) throw adminResult.error;
+  const isAdmin = Boolean(adminResult.data);
+
+  if (requestedWorkspaceId) {
+    const [memberResult, ownerResult] = await Promise.all([
+      supabase.rpc("is_workspace_member", { _user_id: userId, _workspace_id: requestedWorkspaceId }),
+      supabase.rpc("is_workspace_owner", { _user_id: userId, _workspace_id: requestedWorkspaceId }),
+    ]);
+
+    if (memberResult.error) throw memberResult.error;
+    if (ownerResult.error) throw ownerResult.error;
+
+    if (!memberResult.data && !ownerResult.data && !isAdmin) {
+      throw new Error("FORBIDDEN_WORKSPACE");
+    }
+
+    return requestedWorkspaceId;
+  }
+
+  const [ownedResult, memberResult] = await Promise.all([
+    supabase.from("workspaces").select("id").eq("owner_id", userId),
+    supabase.from("workspace_members").select("workspace_id").eq("user_id", userId),
+  ]);
+
+  if (ownedResult.error) throw ownedResult.error;
+  if (memberResult.error) throw memberResult.error;
+
+  const candidates = new Set<string>();
+  for (const row of ownedResult.data || []) candidates.add(row.id);
+  for (const row of memberResult.data || []) if (row.workspace_id) candidates.add(row.workspace_id);
+
+  if (candidates.size === 0) throw new Error("NO_WORKSPACE");
+  if (candidates.size > 1) throw new Error("WORKSPACE_REQUIRED");
+
+  return [...candidates][0];
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
@@ -13,42 +63,56 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = getServiceKey()!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // Get user from auth header
-    const authHeader = req.headers.get("authorization");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader || "" } },
-    });
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    if (!authHeader) {
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
     }
 
-    const userId = user.id;
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
 
-    // 1. Gather chat conversations to build/update visitor profiles
+    if (authError || !user) {
+      return jsonResponse(req, { error: "Unauthorized" }, 401);
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const requestedWorkspaceId = typeof body?.workspace_id === "string" ? body.workspace_id : undefined;
+
+    let workspaceId: string;
+    try {
+      workspaceId = await resolveAuthorizedWorkspaceId(supabase, user.id, requestedWorkspaceId);
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "WORKSPACE_REQUIRED";
+      if (code === "FORBIDDEN_WORKSPACE") return jsonResponse(req, { error: "Forbidden" }, 403);
+      if (code === "NO_WORKSPACE") return jsonResponse(req, { error: "No workspace available" }, 403);
+      if (code === "WORKSPACE_REQUIRED") {
+        return jsonResponse(req, { error: "workspace_id required when multiple workspaces are available" }, 400);
+      }
+      throw err;
+    }
+
     const { data: conversations } = await supabase
       .from("ai_conversations")
-      .select("*")
-      .eq("user_id", userId)
+      .select("visitor_email, visitor_name, visitor_message, created_at")
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false })
       .limit(500);
 
-    // 2. Gather inbox messages
     const { data: inboxMessages } = await supabase
       .from("inbox_messages")
-      .select("*")
-      .eq("user_id", userId)
+      .select("sender_identifier, sender_name, message_content, created_at")
+      .eq("workspace_id", workspaceId)
       .order("created_at", { ascending: false })
       .limit(500);
 
-    // Build visitor map by identifier
     const visitorMap = new Map<string, {
       name: string | null;
       email: string | null;
@@ -62,8 +126,13 @@ serve(async (req) => {
     for (const conv of conversations ?? []) {
       const id = conv.visitor_email || conv.visitor_name || "anonymous";
       const existing = visitorMap.get(id) || {
-        name: null, email: null, visits: 0, conversations: 0,
-        lastVisit: conv.created_at, firstSeen: conv.created_at, messages: [],
+        name: null,
+        email: null,
+        visits: 0,
+        conversations: 0,
+        lastVisit: conv.created_at,
+        firstSeen: conv.created_at,
+        messages: [],
       };
       existing.name = existing.name || conv.visitor_name;
       existing.email = existing.email || conv.visitor_email;
@@ -77,8 +146,13 @@ serve(async (req) => {
     for (const msg of inboxMessages ?? []) {
       const id = msg.sender_identifier || msg.sender_name || "anonymous";
       const existing = visitorMap.get(id) || {
-        name: null, email: null, visits: 0, conversations: 0,
-        lastVisit: msg.created_at, firstSeen: msg.created_at, messages: [],
+        name: null,
+        email: null,
+        visits: 0,
+        conversations: 0,
+        lastVisit: msg.created_at,
+        firstSeen: msg.created_at,
+        messages: [],
       };
       existing.name = existing.name || msg.sender_name;
       existing.visits++;
@@ -94,85 +168,49 @@ serve(async (req) => {
     for (const [identifier, data] of visitorMap) {
       if (identifier === "anonymous") continue;
 
-      // Calculate intent score heuristically
       const conversationScore = Math.min(data.conversations / 10, 0.4);
       const visitScore = Math.min(data.visits / 20, 0.2);
       const recency = (Date.now() - new Date(data.lastVisit).getTime()) / (1000 * 60 * 60 * 24);
       const recencyScore = recency < 1 ? 0.3 : recency < 7 ? 0.2 : recency < 30 ? 0.1 : 0;
       const engagementScore = data.messages.length > 5 ? 0.1 : 0;
-      
       const intentScore = Math.min(conversationScore + visitScore + recencyScore + engagementScore, 1);
 
-      // Classify
       let classification = "curious_visitor";
       if (intentScore >= 0.8) classification = "high_value_prospect";
       else if (intentScore >= 0.6) classification = "potential_buyer";
       else if (intentScore >= 0.35) classification = "interested_lead";
 
-      // Use AI for richer classification if available
       let aiClassification = classification;
-      if (lovableKey && data.messages.length > 0) {
-        try {
-          const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${lovableKey}`,
-              "Content-Type": "application/json",
+      if (data.messages.length > 0) {
+        const aiRaw = await callAIRouter(
+          [
+            {
+              role: "user",
+              content: `Visitor: ${data.name || identifier}\nConversations: ${data.conversations}\nVisits: ${data.visits}\nLast visit: ${data.lastVisit}\nFirst seen: ${data.firstSeen}\nRecent messages:\n${data.messages.slice(0, 5).join("\n")}`,
             },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash-lite",
-              tools: [{
-                type: "function",
-                function: {
-                  name: "classify_visitor",
-                  description: "Classify visitor intent",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      classification: {
-                        type: "string",
-                        enum: ["curious_visitor", "interested_lead", "potential_buyer", "high_value_prospect", "promoter"],
-                      },
-                      reasoning: { type: "string" },
-                      suggested_action: { type: "string" },
-                    },
-                    required: ["classification", "reasoning"],
-                    additionalProperties: false,
-                  },
-                },
-              }],
-              tool_choice: { type: "function", function: { name: "classify_visitor" } },
-              messages: [
-                {
-                  role: "system",
-                  content: "You classify website visitors based on their behavior. Analyze the messages and engagement data to determine buyer intent.",
-                },
-                {
-                  role: "user",
-                  content: `Visitor: ${data.name || identifier}\nConversations: ${data.conversations}\nVisits: ${data.visits}\nLast visit: ${data.lastVisit}\nFirst seen: ${data.firstSeen}\nRecent messages:\n${data.messages.slice(0, 5).join("\n")}`,
-                },
-              ],
-            }),
-          });
+          ],
+          "You classify website visitors based on their behavior. Return JSON only: {\"classification\":\"curious_visitor|interested_lead|potential_buyer|high_value_prospect|promoter\",\"reasoning\":\"string\",\"suggested_action\":\"string\"}",
+          {
+            taskType: "text_classification",
+            workspaceId,
+            authHeader,
+            maxTokens: 500,
+          },
+        );
 
-          if (aiResp.ok) {
-            const aiData = await aiResp.json();
-            const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-            if (toolCall) {
-              const parsed = JSON.parse(toolCall.function.arguments);
-              aiClassification = parsed.classification || classification;
-            }
-          }
-        } catch (e) {
-          console.error("AI classification error:", e);
+        try {
+          const parsed = JSON.parse(aiRaw.replace(/```json\n?/g, "").replace(/```/g, "").trim()) as Record<string, unknown>;
+          aiClassification = String(parsed.classification || classification);
+        } catch {
+          throw new Error("INVALID_AI_RESPONSE_FORMAT");
         }
       }
 
-      // Upsert visitor profile
       const { data: existing } = await supabase
         .from("visitor_profiles")
         .select("id")
-        .eq("user_id", userId)
+        .eq("workspace_id", workspaceId)
+        .eq("user_id", user.id)
         .eq("visitor_identifier", identifier)
         .maybeSingle();
 
@@ -180,6 +218,7 @@ serve(async (req) => {
         await supabase
           .from("visitor_profiles")
           .update({
+            workspace_id: workspaceId,
             classification: aiClassification,
             intent_score: intentScore,
             total_visits: data.visits,
@@ -192,7 +231,8 @@ serve(async (req) => {
           .eq("id", existing.id);
       } else {
         await supabase.from("visitor_profiles").insert({
-          user_id: userId,
+          user_id: user.id,
+          workspace_id: workspaceId,
           visitor_identifier: identifier,
           visitor_name: data.name,
           visitor_email: data.email,
@@ -205,38 +245,41 @@ serve(async (req) => {
         });
       }
 
-      // Generate re-engagement for inactive high-value visitors
       if (recency > 7 && intentScore > 0.3) {
         const { data: existingTask } = await supabase
           .from("reengagement_tasks")
           .select("id")
-          .eq("user_id", userId)
+          .eq("workspace_id", workspaceId)
+          .eq("user_id", user.id)
           .eq("status", "pending")
           .limit(1);
 
-        // Don't flood with tasks
         if ((existingTask ?? []).length < 20) {
           await supabase.from("reengagement_tasks").insert({
-            user_id: userId,
+            user_id: user.id,
+            workspace_id: workspaceId,
             visitor_id: existing?.id || undefined,
             task_type: "follow_up",
             channel: data.email ? "email" : "chat",
             suggested_message: `Hi ${data.name || "there"}, we noticed you haven't visited in a while. We'd love to help you with anything you need!`,
-          } as any);
+          } as never);
         }
       }
 
       scored++;
     }
 
-    return new Response(JSON.stringify({ scored, total: visitorMap.size }), {
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    return jsonResponse(req, { scored, total: visitorMap.size, workspace_id: workspaceId });
   } catch (e) {
     console.error("score-visitors error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    if (e instanceof Error && e.message.startsWith("ai-router ")) {
+      const statusMatch = e.message.match(/^ai-router\s+(\d+)/);
+      const status = statusMatch ? Number(statusMatch[1]) : 502;
+      return jsonResponse(req, { error: e.message }, status);
+    }
+    if (e instanceof Error && e.message === "INVALID_AI_RESPONSE_FORMAT") {
+      return jsonResponse(req, { error: "Invalid AI response format" }, 502);
+    }
+    return jsonResponse(req, { error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });
