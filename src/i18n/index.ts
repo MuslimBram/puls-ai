@@ -25,35 +25,14 @@ i18n
 
 export default i18n;
 
+/**
+ * Languages with real translation resources loaded by i18next.
+ *
+ * Keep this list aligned with `resources` above. Listing a language here without
+ * a translation resource makes the UI claim support while silently falling back
+ * to English, which is misleading.
+ */
 export const SUPPORTED_LANGUAGES = [
   { code: "en", label: "English", flag: "🇬🇧" },
   { code: "sq", label: "Shqip", flag: "🇦🇱" },
-  { code: "de", label: "Deutsch", flag: "🇩🇪" },
-  { code: "it", label: "Italiano", flag: "🇮🇹" },
-  { code: "fr", label: "Français", flag: "🇫🇷" },
-  { code: "es", label: "Español", flag: "🇪🇸" },
-  { code: "tr", label: "Türkçe", flag: "🇹🇷" },
-  { code: "ar", label: "العربية", flag: "🇸🇦" },
-  { code: "pt", label: "Português", flag: "🇵🇹" },
-  { code: "nl", label: "Nederlands", flag: "🇳🇱" },
-  { code: "pl", label: "Polski", flag: "🇵🇱" },
-  { code: "ro", label: "Română", flag: "🇷🇴" },
-  { code: "el", label: "Ελληνικά", flag: "🇬🇷" },
-  { code: "sr", label: "Srpski", flag: "🇷🇸" },
-  { code: "mk", label: "Македонски", flag: "🇲🇰" },
-  { code: "bg", label: "Български", flag: "🇧🇬" },
-  { code: "hr", label: "Hrvatski", flag: "🇭🇷" },
-  { code: "sl", label: "Slovenščina", flag: "🇸🇮" },
-  { code: "bs", label: "Bosanski", flag: "🇧🇦" },
-  { code: "me", label: "Crnogorski", flag: "🇲🇪" },
-  { code: "zh", label: "中文", flag: "🇨🇳" },
-  { code: "ja", label: "日本語", flag: "🇯🇵" },
-  { code: "ko", label: "한국어", flag: "🇰🇷" },
-  { code: "hi", label: "हिन्दी", flag: "🇮🇳" },
-  { code: "ru", label: "Русский", flag: "🇷🇺" },
-  { code: "uk", label: "Українська", flag: "🇺🇦" },
-  { code: "sv", label: "Svenska", flag: "🇸🇪" },
-  { code: "da", label: "Dansk", flag: "🇩🇰" },
-  { code: "fi", label: "Suomi", flag: "🇫🇮" },
-  { code: "no", label: "Norsk", flag: "🇳🇴" },
 ] as const;
