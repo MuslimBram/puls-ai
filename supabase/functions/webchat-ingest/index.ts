@@ -80,7 +80,6 @@ serve(async (req) => {
 
     const channel = channels[0];
     if (!channel.workspace_id) {
-      console.warn("[WEBCHAT] WEBCHAT_TRUSTED_PROXY_BLOCKER: channel workspace mapping missing");
       return new Response(JSON.stringify({ error: "Channel configuration error" }), {
         status: 403,
         headers: { ...getCors(req), "Content-Type": "application/json" },
