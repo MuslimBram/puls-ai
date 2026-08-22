@@ -593,6 +593,11 @@ export default {
   platform: {
     capabilities: "Capabilities",
     whatYouGet: "What you get",
+    status: {
+      live: "Live",
+      beta: "Beta",
+      comingSoon: "Coming Soon",
+    },
   },
 
   // Footer
@@ -653,5 +658,248 @@ export default {
       required: "Name and email are required.",
       generic: "Something went wrong. Please try again.",
     },
+  },
+  /** /platform hub */
+  platformHub: {
+    seo: {
+      title: "Platform — Pulse AI",
+      desc:  "Explore the full Pulse AI platform: AI intelligence, unified inbox, CRM, marketing, automation, analytics, and more.",
+    },
+    hero: {
+      title: "One Platform. Every Business Tool You Need.",
+      desc:  "Pulse AI is the AI Business Operating System. One intelligent system to run, automate and grow your business.",
+    },
+    modules: {
+      heading: "Explore the Platform",
+      learnMore: "Learn more",
+      learnMoreLabel: "Learn more about {{module}}",
+      ai: {
+        title: "AI & Intelligence",
+        desc:  "AI-powered conversations, intent detection, and smart routing across every channel.",
+      },
+      "unified-inbox": {
+        title: "Unified Inbox",
+        desc:  "All your customer messages from WhatsApp, Instagram, Messenger, Telegram, Email, and more — in one place.",
+      },
+      crm: {
+        title: "CRM & Sales",
+        desc:  "Manage leads, contacts, pipelines, and deals with AI-assisted qualification.",
+      },
+      marketing: {
+        title: "Marketing",
+        desc:  "Campaigns, broadcasts, lead magnets, and content scheduling — all connected.",
+      },
+      automation: {
+        title: "Automation",
+        desc:  "Build powerful workflows that trigger across channels, CRM, and your business logic.",
+      },
+      analytics: {
+        title: "Analytics",
+        desc:  "Deep insights across channels, campaigns, team performance, and revenue.",
+      },
+      developers: {
+        title: "Developers",
+        desc:  "Public API, webhooks, and integrations to extend Pulse AI to your exact needs.",
+      },
+      partners: {
+        title: "Partners",
+        desc:  "Reseller and white-label partner programme for agencies and consultants.",
+      },
+      lidhjet: {
+        title: "Lidhjet",
+        desc:  "Community-driven connections and collaborative growth for Albanian-speaking businesses.",
+      },
+    },
+    cta: {
+      title: "Ready to get started?",
+      desc:  "Join thousands of businesses already running on Pulse AI.",
+    },
+  },
+
+  /** /platform/ai */
+  platformAi: {
+    seo: {
+      title: "AI & Intelligence — Pulse AI Platform",
+      desc:  "Pulse AI brings intelligent conversation management, intent detection, and AI-assisted routing to every business channel.",
+    },
+    hero: {
+      title: "AI Intelligence Built for Business",
+      desc:  "Detect intent, automate responses, and escalate to humans — intelligently.",
+    },
+    capabilities: {
+      heading: "What AI does for your business",
+      intentDetection: {
+        title: "Intent Detection",
+        desc:  "Understand what customers want before you respond.",
+      },
+      smartRouting: {
+        title: "Smart Routing",
+        desc:  "Route conversations to the right team or AI agent automatically.",
+      },
+      multiChannel: {
+        title: "Multi-Channel AI",
+        desc:  "One AI layer across WhatsApp, Instagram, Messenger, Telegram, Email, and Web Chat.",
+      },
+      humanHandoff: {
+        title: "Human Handoff",
+        desc:  "Seamlessly transfer to a human agent when needed, with full context.",
+      },
+    },
+    cta: { title: "Start using AI today", desc: "Get started with AI-powered conversations." },
+  },
+
+  /** /platform/unified-inbox */
+  platformInbox: {
+    seo: {
+      title: "Unified Inbox — Pulse AI Platform",
+      desc:  "Manage all customer messages from every channel in one smart inbox.",
+    },
+    hero: {
+      title: "One Inbox. Every Channel.",
+      desc:  "WhatsApp, Instagram, Messenger, Telegram, SMS, Email, Voice, and Web Chat — unified.",
+    },
+    channels: {
+      heading: "Supported channels",
+    },
+    cta: { title: "Try the Unified Inbox", desc: "Stop switching apps. Start from one place." },
+  },
+
+  /** /platform/crm */
+  platformCrm: {
+    seo: {
+      title: "CRM & Sales — Pulse AI Platform",
+      desc:  "AI-assisted CRM to manage leads, contacts, and deals from first contact to close.",
+    },
+    hero: {
+      title: "CRM That Thinks With You",
+      desc:  "Leads, contacts, pipelines, and deals — with AI qualification built in.",
+    },
+    features: {
+      heading: "CRM capabilities",
+      contacts: { title: "Contact Hub", desc: "Unified profiles with conversation history and channel data." },
+      pipeline: { title: "Sales Pipeline", desc: "Visual kanban pipeline with automated stage moves." },
+      qualification: { title: "AI Lead Qualification", desc: "Score and qualify leads before your team even responds." },
+      followUp: { title: "Automated Follow-ups", desc: "Set rules, let AI handle the timing." },
+    },
+    cta: { title: "Start managing your leads", desc: "Connect your channels and let the CRM do the work." },
+  },
+
+  /** /platform/marketing */
+  platformMarketing: {
+    seo: {
+      title: "Marketing — Pulse AI Platform",
+      desc:  "Run campaigns, broadcasts, and lead generation — all from Pulse AI.",
+    },
+    hero: {
+      title: "Marketing That Converts",
+      desc:  "Broadcasts, campaigns, lead magnets — connected to your CRM and AI.",
+    },
+    features: {
+      heading: "Marketing tools",
+      broadcasts: { title: "Broadcast Messaging", desc: "Send targeted messages to segments across channels." },
+      campaigns: { title: "Campaigns", desc: "Multi-step drip campaigns with smart timing." },
+      leadMagnets: { title: "Lead Magnets", desc: "Capture leads from any channel with smart forms." },
+      contentCalendar: { title: "Content Calendar", desc: "Plan and schedule content across your social channels." },
+    },
+    cta: { title: "Launch your first campaign", desc: "Start converting visitors into customers." },
+  },
+
+  /** /platform/automation */
+  platformAutomation: {
+    seo: {
+      title: "Automation — Pulse AI Platform",
+      desc:  "Build powerful automations across channels, CRM, and your business logic.",
+    },
+    hero: {
+      title: "Automate Everything",
+      desc:  "Trigger workflows from any channel event, CRM update, or AI signal.",
+    },
+    features: {
+      heading: "Automation capabilities",
+      triggers: { title: "Event Triggers", desc: "Start automations from channel messages, CRM changes, or time-based rules." },
+      actions: { title: "Multi-Step Actions", desc: "Send messages, update CRM, notify teams, and more." },
+      aiActions: { title: "AI-Powered Actions", desc: "Let AI decide the next best action based on context." },
+      monitoring: { title: "Flow Monitoring", desc: "Track automation performance and identify drop-offs." },
+    },
+    cta: { title: "Build your first automation", desc: "Save hours every week with smart workflows." },
+  },
+
+  /** /platform/analytics */
+  platformAnalytics: {
+    seo: {
+      title: "Analytics — Pulse AI Platform",
+      desc:  "Deep insights across channels, campaigns, team performance, and revenue.",
+    },
+    hero: {
+      title: "Data That Drives Decisions",
+      desc:  "Understand what's working across every channel, campaign, and team.",
+    },
+    features: {
+      heading: "Analytics modules",
+      channel: { title: "Channel Analytics", desc: "Message volume, response times, and engagement by channel." },
+      campaign: { title: "Campaign Performance", desc: "Open rates, click-throughs, and conversion by campaign." },
+      team: { title: "Team Performance", desc: "Response times, resolution rates, and CSAT by agent." },
+      revenue: { title: "Revenue Intelligence", desc: "Track deals closed, pipeline value, and revenue attribution." },
+    },
+    cta: { title: "Explore your data", desc: "Connect your channels and start seeing insights." },
+  },
+
+  /** /platform/developers */
+  platformDevelopers: {
+    seo: {
+      title: "Developers — Pulse AI Platform",
+      desc:  "Public API, webhooks, and SDK for building on top of Pulse AI.",
+    },
+    hero: {
+      title: "Build on Pulse AI",
+      desc:  "Our API lets you integrate your existing tools, automate workflows, and extend the platform.",
+    },
+    features: {
+      heading: "Developer tools",
+      api: { title: "Public REST API", desc: "Full programmatic access to messages, contacts, CRM, and automations." },
+      webhooks: { title: "Webhooks", desc: "Real-time event delivery to your own systems." },
+      sdk: { title: "SDK & Libraries", desc: "Official client libraries for popular languages." },
+      docs: { title: "Documentation", desc: "Comprehensive API reference and integration guides." },
+    },
+    apiLink: "Explore the API docs",
+    cta: { title: "Start building", desc: "Access the public API and connect your stack." },
+  },
+
+  /** /platform/partners */
+  platformPartners: {
+    seo: {
+      title: "Partners — Pulse AI Platform",
+      desc:  "Reseller and white-label partner programme for agencies and consultants.",
+    },
+    hero: {
+      title: "Grow with Pulse AI",
+      desc:  "Become a reseller, white-label partner, or integration partner.",
+    },
+    features: {
+      heading: "Partner tiers",
+      reseller: { title: "Reseller Partner", desc: "Sell Pulse AI to your clients with competitive margins." },
+      whiteLabel: { title: "White-Label", desc: "Deploy Pulse AI under your own brand." },
+      integration: { title: "Integration Partner", desc: "Build and list integrations in the Pulse AI marketplace." },
+    },
+    cta: { title: "Join the Partner Programme", desc: "Apply to become a Pulse AI partner." },
+  },
+
+  /** /platform/lidhjet */
+  platformLidhjet: {
+    seo: {
+      title: "Lidhjet — Pulse AI Platform",
+      desc:  "Community-driven connections and collaborative growth for Albanian-speaking businesses.",
+    },
+    hero: {
+      title: "Lidhjet — Connect. Collaborate. Grow.",
+      desc:  "Community-driven connections for Albanian-speaking businesses on Pulse AI.",
+    },
+    features: {
+      heading: "Lidhjet features",
+      feed: { title: "Community Feed", desc: "Share updates, insights, and wins with peers." },
+      interests: { title: "Interest Groups", desc: "Connect around shared industries, topics, and goals." },
+      collaboration: { title: "Collaboration", desc: "Find partners, co-founders, and collaborators." },
+    },
+    cta: { title: "Join Lidhjet", desc: "Connect with Albanian-speaking businesses on Pulse AI." },
   },
 } as const;
