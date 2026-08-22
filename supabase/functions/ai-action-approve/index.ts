@@ -247,7 +247,8 @@ serve(async (req: Request) => {
       .select("id");
 
     if (rejectError) {
-      return json({ error: "Failed to reject action", detail: rejectError.message }, 500, req);
+      console.error("[ai-action-approve] Failed to reject action:", rejectError.message);
+      return json({ error: "Failed to reject action" }, 500, req);
     }
     if (!rejectedRows || rejectedRows.length === 0) {
       return json({ error: "Concurrent state change — action no longer in expected state" }, 409, req);
@@ -290,7 +291,8 @@ serve(async (req: Request) => {
       .select("id");
 
     if (cancelError) {
-      return json({ error: "Failed to cancel action", detail: cancelError.message }, 500, req);
+      console.error("[ai-action-approve] Failed to cancel action:", cancelError.message);
+      return json({ error: "Failed to cancel action" }, 500, req);
     }
     if (!cancelledRows || cancelledRows.length === 0) {
       return json({ error: "Concurrent state change — action no longer in expected state" }, 409, req);
@@ -332,8 +334,7 @@ serve(async (req: Request) => {
       return json(
         {
           error: "Configuration failure: workspace policy could not be loaded. Modification rejected (fail-closed).",
-          detail: policyResult.error,
-        },
+          },
         503,
         req,
       );
@@ -379,7 +380,8 @@ serve(async (req: Request) => {
       .select("id");
 
     if (modifyError) {
-      return json({ error: "Failed to record modification", detail: modifyError.message }, 500, req);
+      console.error("[ai-action-approve] Failed to record modification:", modifyError.message);
+      return json({ error: "Failed to record modification" }, 500, req);
     }
     if (!modifiedRows || modifiedRows.length === 0) {
       return json({ error: "Concurrent state change — action no longer in expected state" }, 409, req);
@@ -421,7 +423,6 @@ serve(async (req: Request) => {
     return json(
       {
         error: "Configuration failure: workspace policy could not be loaded. Approval rejected (fail-closed).",
-        detail: policyResult.error,
       },
       503,
       req,
@@ -479,7 +480,8 @@ serve(async (req: Request) => {
     .select("id");
 
   if (approvedErr) {
-    return json({ error: "Failed to record approval", detail: approvedErr.message }, 500, req);
+    console.error("[ai-action-approve] Failed to record approval:", approvedErr.message);
+    return json({ error: "Failed to record approval" }, 500, req);
   }
 
   if (!approvedRows || approvedRows.length === 0) {
@@ -516,7 +518,7 @@ serve(async (req: Request) => {
 
   if (validatingErr || !validatingRows || validatingRows.length === 0) {
     return json(
-      { error: "Failed to transition to VALIDATING", detail: validatingErr?.message },
+      { error: "Failed to transition to VALIDATING" },
       500,
       req,
     );
@@ -553,7 +555,7 @@ serve(async (req: Request) => {
       .eq("id", action_id)
       .eq("lifecycle_status", "VALIDATING");
     return json(
-      { error: "Failed to enqueue action", detail: jobError?.message },
+      { error: "Failed to enqueue action" },
       500,
       req,
     );
@@ -576,7 +578,7 @@ serve(async (req: Request) => {
     // Cancel the orphan job to avoid stale job-queue entry
     await sb.from("job_queue").update({ status: "cancelled" }).eq("id", jobRow.id);
     return json(
-      { error: "Failed to transition to QUEUED", detail: queuedErr?.message },
+      { error: "Failed to transition to QUEUED" },
       500,
       req,
     );
@@ -603,7 +605,6 @@ serve(async (req: Request) => {
     return json(
       {
         error: "Audit durability failure: approval committed but audit record could not be persisted.",
-        detail: auditErr,
         action_id,
         lifecycle_status: "QUEUED",
         job_queue_id: jobRow.id,
