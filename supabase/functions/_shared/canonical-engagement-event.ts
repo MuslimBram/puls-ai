@@ -177,13 +177,16 @@ export function buildCanonicalEngagementEvent(
     identityState = isAnonymous ? "anonymous_aggregate" : "platform_actor";
   }
 
-  // Invariant: known_person is NOT creatable in SOCIAL-1A.
-  // Lawful first-party identity linkage belongs to SOCIAL-1B (not implemented).
-  // Reject here so no code path can accidentally manufacture a known_person event.
-  if (identityState === "known_person") {
+  // Invariant: known_person REQUIRES a non-null actor_provider_id.
+  // SOCIAL-1B implements the lawful first-party identity linkage path.
+  // The DB trigger (trg_social_engagement_known_person_evidence) independently
+  // enforces that a verified identity_link exists before any INSERT succeeds.
+  // Here we enforce the structural invariant: known_person without an actor ID
+  // is always an error regardless of identity graph state.
+  if (identityState === "known_person" && !input.actor_provider_id) {
     throw new Error(
-      "canonical-engagement-event: identity_state=known_person requires a lawful first-party linkage " +
-      "that is not implemented in SOCIAL-1A — this is SOCIAL-1B territory",
+      "canonical-engagement-event: identity_state=known_person requires a non-null actor_provider_id " +
+      "and a verified identity_link in the identity graph (SOCIAL-1B)",
     );
   }
 
