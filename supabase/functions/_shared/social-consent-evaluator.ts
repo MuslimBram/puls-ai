@@ -4,15 +4,26 @@
  * Canonical consent and opt-out evaluation.
  *
  * DESIGN CONTRACT:
- *   - fail-closed: when in doubt, return not_valid
+ *   - fail-closed: when in doubt, return not_valid or unknown
  *   - workspace-scoped: consent is never reused across workspaces
  *   - no side effects: this module only reads, never writes
  *   - no outbound API calls
  *   - a reply-capable conversation is NOT automatic marketing consent
  *   - transactional permission ≠ marketing permission
+ *   - suppression DB errors → UNKNOWN/REVIEW, NEVER ALLOW
+ *   - consent_record.workspace_id is the authoritative workspace source
+ *
+ * SUPPRESSION LOOKUP:
+ *   Uses the canonical `is_contact_suppressed_for_workspace` RPC (see
+ *   migration 20260822190000) which:
+ *     - scopes by workspace_id FK (not user_id)
+ *     - matches exact channel_type OR 'all'
+ *     - covers global_suppression_list AND broadcast_optouts
+ *   Do NOT duplicate this logic with direct table queries.
  *
  * REUSE AUDIT:
- *   global_suppression_list → REUSE (confirmed in 20260317104016 migration)
+ *   global_suppression_list → REUSE via is_contact_suppressed_for_workspace RPC
+ *   broadcast_optouts       → REUSE via is_contact_suppressed_for_workspace RPC
  *   suppressed_emails       → REUSE (confirmed in 20260325090953 migration)
  *   social_engagement_events.consent_classification → REUSE
  *   channel communication preferences → MISSING
@@ -59,39 +70,64 @@ export type ConsentReason =
   | "CONSENT_VALID" | "CONSENT_MISSING" | "OPTED_OUT" | "CONSENT_REVOKED"
   | "GLOBALLY_SUPPRESSED" | "CHANNEL_SUPPRESSED" | "TRANSACTIONAL_ONLY"
   | "MARKETING_NOT_ALLOWED" | "ANONYMOUS_AGGREGATE_INELIGIBLE"
-  | "PLATFORM_ACTOR_PERSON_LEVEL_INELIGIBLE" | "CROSS_WORKSPACE_INELIGIBLE" | "UNKNOWN_CONSENT";
+  | "PLATFORM_ACTOR_PERSON_LEVEL_INELIGIBLE" | "CROSS_WORKSPACE_INELIGIBLE"
+  | "UNKNOWN_CONSENT" | "SUPPRESSION_CHECK_FAILED";
 
 export type ConsentDb = IdentityGraphClient;
 
+/** 3-state suppression result: avoids boolean ambiguity on DB error. */
+type SuppressionState = "suppressed" | "not_suppressed" | "error";
+
 /**
- * NOTE: global_suppression_list uses `user_id` as the workspace-scoping column
- * (the existing canonical table design — see migration 20260317104016).
- * The workspace_id UUID is passed as the `user_id` filter value.
- * If the suppression records were created with the workspace owner's auth user_id
- * rather than the workspace UUID, this query will miss them.
- * That is a known structural limitation of the existing table; do NOT change the
- * column name here without a corresponding additive schema migration.
+ * Canonical workspace-scoped suppression check.
  *
- * On DB read error, suppression returns false (not suppressed) to avoid silently
- * blocking legitimate contacts when the DB is temporarily unavailable.
- * This is an intentional trade-off: suppression errors are visible in logs and
- * should be monitored; the alternative (fail-closed on suppression) could block
- * all outbound communication during a transient DB outage.
+ * Delegates to the `is_contact_suppressed_for_workspace` SECURITY DEFINER
+ * function (migration 20260822190000) which:
+ *   - scopes by workspace_id (the FK column, NOT user_id)
+ *   - matches exact channel_type OR 'all'
+ *   - covers global_suppression_list AND broadcast_optouts
+ *
+ * Returns "error" on any DB failure so the caller can fail closed.
+ * NEVER returns "not_suppressed" when the DB state is unknown.
  */
-async function checkGlobalSuppression(db: ConsentDb, workspace_id: string, contact_identifier: string, channel_type: string): Promise<boolean> {
+async function checkWorkspaceSuppression(
+  db: ConsentDb,
+  workspace_id: string,
+  contact_identifier: string,
+  channel_type: string,
+): Promise<SuppressionState> {
   try {
-    const result = await (db.from<{ id: string }>("global_suppression_list").select("id").eq("user_id", workspace_id).eq("contact_identifier", contact_identifier).eq("channel_type", channel_type).limit(1) as unknown as Promise<{ data: { id: string }[] | null; error: unknown }>);
-    if (result.error) return false;
-    return (result.data?.length ?? 0) > 0;
-  } catch { return false; }
+    const result = await (db.rpc("is_contact_suppressed_for_workspace", {
+      _workspace_id: workspace_id,
+      _contact_identifier: contact_identifier,
+      _channel_type: channel_type,
+    }) as unknown as Promise<{ data: boolean | null; error: unknown }>);
+    if (result.error) return "error";
+    return result.data === true ? "suppressed" : "not_suppressed";
+  } catch {
+    return "error";
+  }
 }
 
-async function checkEmailSuppression(db: ConsentDb, contact_identifier: string): Promise<boolean> {
+/**
+ * Email-specific suppression from the suppressed_emails table.
+ * Returns "error" on DB failure so the caller can fail closed.
+ */
+async function checkEmailSuppression(
+  db: ConsentDb,
+  contact_identifier: string,
+): Promise<SuppressionState> {
   try {
-    const result = await (db.from<{ email: string }>("suppressed_emails").select("email").eq("email", contact_identifier.toLowerCase().trim()).limit(1) as unknown as Promise<{ data: { email: string }[] | null; error: unknown }>);
-    if (result.error) return false;
-    return (result.data?.length ?? 0) > 0;
-  } catch { return false; }
+    const result = await (db
+      .from<{ email: string }>("suppressed_emails")
+      .select("email")
+      .eq("email", contact_identifier.toLowerCase().trim())
+      .limit(1) as unknown as Promise<{ data: { email: string }[] | null; error: unknown }>);
+    if (result.error) return "error";
+    return (result.data?.length ?? 0) > 0 ? "suppressed" : "not_suppressed";
+  } catch {
+    return "error";
+  }
 }
 
 export async function evaluateConsent(opts: {
@@ -111,15 +147,38 @@ export async function evaluateConsent(opts: {
     return { validity: "not_valid", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
   }
 
+  // Cross-workspace guard from caller-supplied metadata.
   if (contact_workspace_id && contact_workspace_id !== workspace_id) {
     reasons.push("CROSS_WORKSPACE_INELIGIBLE");
     return { validity: "not_valid", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
   }
 
-  const isGloballySuppressed = await checkGlobalSuppression(db, workspace_id, contact_identifier, channel_type);
-  const isEmailSuppressed = channel_type === "email" ? await checkEmailSuppression(db, contact_identifier) : false;
+  // Cross-workspace guard from the authoritative consent_record itself.
+  // This check is independent of the optional caller-supplied contact_workspace_id
+  // so a caller cannot bypass isolation simply by omitting that field.
+  if (consent_record && consent_record.workspace_id !== workspace_id) {
+    reasons.push("CROSS_WORKSPACE_INELIGIBLE");
+    return { validity: "not_valid", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
+  }
 
-  if (isGloballySuppressed || isEmailSuppressed) {
+  // Workspace-scoped suppression (global list + broadcast opt-outs, any channel + 'all').
+  const suppressionState = await checkWorkspaceSuppression(db, workspace_id, contact_identifier, channel_type);
+  if (suppressionState === "error") {
+    // Fail closed: unknown suppression state must never become ALLOW.
+    reasons.push("SUPPRESSION_CHECK_FAILED");
+    return { validity: "unknown", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
+  }
+
+  // Email-specific suppression list.
+  const emailSuppressionState = channel_type === "email"
+    ? await checkEmailSuppression(db, contact_identifier)
+    : "not_suppressed";
+  if (emailSuppressionState === "error") {
+    reasons.push("SUPPRESSION_CHECK_FAILED");
+    return { validity: "unknown", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
+  }
+
+  if (suppressionState === "suppressed" || emailSuppressionState === "suppressed") {
     reasons.push("GLOBALLY_SUPPRESSED");
     return { validity: "not_valid", is_opted_out: false, is_globally_suppressed: true, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
   }
@@ -144,9 +203,23 @@ export async function evaluateConsent(opts: {
     return { validity: "not_valid", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: true, marketing_allowed: false, transactional_only: false, consent_source: consent_record.consent_source, consent_given_at: consent_record.consent_given_at, workspace_id, reasons };
   }
 
+  // Unknown consent source cannot silently produce ALLOW.
+  if (consent_record.consent_source === "unknown") {
+    reasons.push("UNKNOWN_CONSENT");
+    return { validity: "unknown", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
+  }
+
+  // Transactional-only path: exactly one of marketing/transactional is permitted.
   if (consent_record.communication_type === "transactional" || (!consent_record.marketing_allowed && consent_record.transactional_allowed)) {
     reasons.push("TRANSACTIONAL_ONLY");
     return { validity: "transactional_only", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: true, consent_source: consent_record.consent_source, consent_given_at: consent_record.consent_given_at, workspace_id, reasons };
+  }
+
+  // Neither marketing nor transactional permission → not valid.
+  // A ConsentRecord object existing is not sufficient evidence on its own.
+  if (!consent_record.marketing_allowed && !consent_record.transactional_allowed) {
+    reasons.push("MARKETING_NOT_ALLOWED");
+    return { validity: "not_valid", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: consent_record.consent_source, consent_given_at: consent_record.consent_given_at, workspace_id, reasons };
   }
 
   reasons.push("CONSENT_VALID");

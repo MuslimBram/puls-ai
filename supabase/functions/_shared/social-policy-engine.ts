@@ -28,7 +28,9 @@ export type PolicyReasonCode =
   | "CHANNEL_SUPPRESSED" | "QUIET_HOURS" | "CHANNEL_NOT_CONNECTED" | "PROVIDER_WINDOW_CLOSED"
   | "TEMPLATE_REQUIRED" | "BUSINESS_VERIFICATION_REQUIRED" | "RATE_LIMIT_RISK"
   | "IDENTITY_NOT_ELIGIBLE" | "ANONYMOUS_AGGREGATE" | "PLATFORM_ACTOR_CRM_INELIGIBLE"
-  | "CROSS_WORKSPACE_CONSENT" | "HUMAN_REVIEW_REQUIRED" | "TRANSACTIONAL_ONLY" | "UNKNOWN_CONSENT";
+  | "CROSS_WORKSPACE_CONSENT" | "HUMAN_REVIEW_REQUIRED" | "TRANSACTIONAL_ONLY" | "UNKNOWN_CONSENT"
+  | "SUPPRESSION_CHECK_FAILED" | "PROVIDER_CHANNEL_MISMATCH" | "CONVERSATION_WINDOW_CLOSED"
+  | "CONVERSATION_WINDOW_UNKNOWN";
 
 export interface PolicyResult {
   decision: PolicyDecision;
@@ -60,6 +62,11 @@ export interface PolicyEvaluationInput {
   consent_workspace_id?: string;
   local_hour?: number;
   quiet_hours?: { start_hour: number; end_hour: number } | null;
+  /** ISO timestamp of most recent inbound message from this contact on this channel.
+   *  Required for providers with a conversation_window rule.
+   *  Omit only if the window is not applicable to the provider.
+   *  When the provider has a conversation window and this is absent → REVIEW. */
+  last_inbound_at?: string | null;
   db: ConsentDb;
 }
 
@@ -83,7 +90,7 @@ function buildResult(decision: PolicyDecision, reasons: PolicyReasonCode[], inpu
 }
 
 export async function evaluatePolicy(input: PolicyEvaluationInput): Promise<PolicyResult> {
-  const { workspace_id, provider, channel_type, identity_state, interaction_type, contact_identifier, channel_connected, consent_record, intent_score, consent_workspace_id, local_hour, quiet_hours, db } = input;
+  const { workspace_id, provider, channel_type, identity_state, interaction_type, contact_identifier, channel_connected, consent_record, intent_score, consent_workspace_id, local_hour, quiet_hours, last_inbound_at, db } = input;
   const reasons: PolicyReasonCode[] = [];
   const evaluated_at = new Date().toISOString();
 
@@ -93,6 +100,13 @@ export async function evaluatePolicy(input: PolicyEvaluationInput): Promise<Poli
 
   const capability = getProviderCapability(provider);
   if (!capability) { reasons.push("PROVIDER_UNSUPPORTED"); return buildResult("BLOCK", reasons, input, false, false, evaluated_at, intent_score); }
+
+  // Provider/channel mismatch: the selected provider's canonical channel must match the
+  // requested channel_type. A caller must NOT reuse, e.g., email consent via meta_ig.
+  if (capability.channel !== channel_type) {
+    reasons.push("PROVIDER_CHANNEL_MISMATCH");
+    return buildResult("BLOCK", reasons, input, false, false, evaluated_at, intent_score);
+  }
 
   const capStatus = resolveCapabilityStatus(capability, interaction_type);
   if (capStatus === "UNSUPPORTED") { reasons.push("CAPABILITY_UNSUPPORTED"); return buildResult("BLOCK", reasons, input, false, false, evaluated_at, intent_score); }
@@ -111,8 +125,14 @@ export async function evaluatePolicy(input: PolicyEvaluationInput): Promise<Poli
   if (consentEval.reasons.includes("ANONYMOUS_AGGREGATE_INELIGIBLE")) { reasons.push("ANONYMOUS_AGGREGATE"); return buildResult("BLOCK", reasons, input, false, false, evaluated_at, intent_score); }
   if (consentEval.reasons.includes("CROSS_WORKSPACE_INELIGIBLE")) { reasons.push("CROSS_WORKSPACE_CONSENT"); return buildResult("BLOCK", reasons, input, capVerified, false, evaluated_at, intent_score); }
 
+  // Suppression DB failure → REVIEW (fail closed; unknown state must never become ALLOW).
+  if (consentEval.reasons.includes("SUPPRESSION_CHECK_FAILED")) {
+    reasons.push("SUPPRESSION_CHECK_FAILED"); return buildResult("REVIEW", reasons, input, capVerified, false, evaluated_at, intent_score);
+  }
+
   if (consentEval.validity === "unknown" || consentEval.reasons.includes("CONSENT_MISSING") || consentEval.reasons.includes("UNKNOWN_CONSENT")) {
-    reasons.push("CONSENT_MISSING"); return buildResult("REVIEW", reasons, input, capVerified, false, evaluated_at, intent_score);
+    const code: PolicyReasonCode = consentEval.reasons.includes("UNKNOWN_CONSENT") ? "UNKNOWN_CONSENT" : "CONSENT_MISSING";
+    reasons.push(code); return buildResult("REVIEW", reasons, input, capVerified, false, evaluated_at, intent_score);
   }
 
   // consent_valid is true ONLY for fully valid (marketing) consent.
@@ -128,6 +148,22 @@ export async function evaluatePolicy(input: PolicyEvaluationInput): Promise<Poli
 
   if (capability.quiet_hours_applicable && quiet_hours != null && local_hour !== undefined && isInQuietHours(local_hour, quiet_hours)) {
     reasons.push("QUIET_HOURS"); return buildResult("BLOCK", reasons, input, capVerified, consentAny, evaluated_at, intent_score);
+  }
+
+  // Conversation window enforcement for providers that have a defined window.
+  // The window applies on outbound_reply / proactive_outbound paths.
+  if (capability.conversation_window && (interaction_type === "outbound_reply" || interaction_type === "proactive_outbound")) {
+    if (last_inbound_at == null) {
+      // Window rule exists but state is unknown: REVIEW, not ALLOW.
+      reasons.push("CONVERSATION_WINDOW_UNKNOWN");
+      return buildResult("REVIEW", reasons, input, capVerified, consentValid, evaluated_at, intent_score);
+    }
+    const windowMs = capability.conversation_window.hours * 60 * 60 * 1000;
+    const elapsed = Date.now() - new Date(last_inbound_at).getTime();
+    if (elapsed > windowMs) {
+      reasons.push("CONVERSATION_WINDOW_CLOSED");
+      return buildResult("BLOCK", reasons, input, capVerified, false, evaluated_at, intent_score);
+    }
   }
 
   const hasReviewFlag = reasons.includes("CAPABILITY_NOT_VERIFIED") || reasons.includes("HUMAN_REVIEW_REQUIRED") || reasons.includes("BUSINESS_VERIFICATION_REQUIRED") || reasons.includes("TRANSACTIONAL_ONLY");

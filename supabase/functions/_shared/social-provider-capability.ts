@@ -183,7 +183,7 @@ const PROVIDER_CAPABILITY_REGISTRY: Record<string, ProviderCapability> = {
     channel: "sms",
     inbound_messaging: "LIVE",
     outbound_reply: "LIVE",
-    proactive_outbound: "LIVE",
+    proactive_outbound: "NOT_VERIFIED",
     comments_support: "UNSUPPORTED",
     reactions_support: "UNSUPPORTED",
     webhook_support: "LIVE",
@@ -197,7 +197,7 @@ const PROVIDER_CAPABILITY_REGISTRY: Record<string, ProviderCapability> = {
     conversation_window: null,
     human_review_required: false,
     overall_status: "LIVE",
-    status_note: "Twilio SMS confirmed via twilio-twiml + twilio-workspace-resolver.",
+    status_note: "Twilio SMS inbound + reply LIVE via twilio-twiml + twilio-workspace-resolver. Proactive outbound NOT_VERIFIED: no canonical SMS proactive send function confirmed (twilio-twiml handles voice, not SMS outbound).",
   },
   voice: {
     provider: "voice",
