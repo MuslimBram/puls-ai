@@ -33,7 +33,7 @@ const SITE = "https://kohablerjeve.top";
 function setMeta(selector: string, attrs: Record<string, string>) {
   let el = document.head.querySelector<HTMLElement>(selector);
   if (!el) {
-    el = document.createElement(selector.startsWith("link") ? "link" : "meta");
+    el = document.createElement("meta");
     document.head.appendChild(el);
   }
   Object.entries(attrs).forEach(([k, v]) => el!.setAttribute(k, v));

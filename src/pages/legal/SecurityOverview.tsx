@@ -31,7 +31,7 @@ export default function SecurityOverview() {
       path="/security"
       sections={sections}
     >
-      <Section id="pillars" title={`1. ${t("securityPage.pillars.heading")}`}>
+      <Section id="pillars" title={sections.find(s => s.id === "pillars")!.title}>
         <div className="grid gap-4 sm:grid-cols-2">
           {pillars.map(({ icon: Icon, title, body }) => (
             <div key={title} className="rounded-xl border border-border p-5">
@@ -43,13 +43,13 @@ export default function SecurityOverview() {
         </div>
       </Section>
 
-      <Section id="encryption" title={`2. ${t("securityPage.sections.encryptionTitle")}`}>
+      <Section id="encryption" title={sections.find(s => s.id === "encryption")!.title}>
         <p>
           {t("securityPage.sections.encryptionBody")}
         </p>
       </Section>
 
-      <Section id="access" title={`3. ${t("securityPage.sections.accessTitle")}`}>
+      <Section id="access" title={sections.find(s => s.id === "access")!.title}>
         <ul className="list-disc pl-5 space-y-1.5">
           <li>{t("securityPage.sections.accessItems.rbac")}</li>
           <li>{t("securityPage.sections.accessItems.server")}</li>
@@ -59,19 +59,19 @@ export default function SecurityOverview() {
         </ul>
       </Section>
 
-      <Section id="hosting" title={`4. ${t("securityPage.sections.hostingTitle")}`}>
+      <Section id="hosting" title={sections.find(s => s.id === "hosting")!.title}>
         <p>
           {t("securityPage.sections.hostingBody")}
         </p>
       </Section>
 
-      <Section id="monitoring" title={`5. ${t("securityPage.sections.monitoringTitle")}`}>
+      <Section id="monitoring" title={sections.find(s => s.id === "monitoring")!.title}>
         <p>
           {t("securityPage.sections.monitoringBody")}
         </p>
       </Section>
 
-      <Section id="responsibility" title={`6. ${t("securityPage.sections.sharedTitle")}`}>
+      <Section id="responsibility" title={sections.find(s => s.id === "responsibility")!.title}>
         <InfoCard title={t("common.weDo", { defaultValue: "What we do" })}>
           {t("securityPage.sections.sharedWeDo")}
         </InfoCard>
@@ -81,7 +81,7 @@ export default function SecurityOverview() {
         <p>{t("securityPage.sections.sharedDisclaimer")}</p>
       </Section>
 
-      <Section id="report" title={`7. ${t("securityPage.sections.reportTitle")}`}>
+      <Section id="report" title={sections.find(s => s.id === "report")!.title}>
         <p>{t("securityPage.sections.reportBody")}</p>
       </Section>
     </LegalLayout>
