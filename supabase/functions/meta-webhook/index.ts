@@ -151,7 +151,10 @@ async function processCanonicalInterestMemory(
   providerEventId: string,
   canonicalEventId?: string,
 ): Promise<"ok" | "error"> {
-  if (!canonicalEventId) return "ok";
+  if (!canonicalEventId) {
+    console.error(`[${provider.toUpperCase()}] missing canonical event id for ${providerEventId}`);
+    return "error";
+  }
 
   const interestResult = await processInterestFromEngagementEventId(sb as any, canonicalEventId);
   if (interestResult.status === "error") {
