@@ -52,7 +52,7 @@ export const WebsiteChatSetup = () => {
     }
     if (!webchatProxyUrl) {
       setTestResult({ ok: false });
-      toast.error("WEBCHAT_TRUSTED_PROXY_BLOCKER");
+      toast.error("Test blocked: VITE_WEBCHAT_PROXY_URL is not configured.");
       return;
     }
     setTestSending(true);

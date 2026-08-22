@@ -96,9 +96,11 @@ describe("SOCIAL-0 security correction pass", () => {
     expect(webchat).toContain("channel_id and message are required");
     expect(webchat).toContain('.eq("id", channel_id)');
     expect(webchat).toContain("WEBCHAT_TRUSTED_PROXY_BLOCKER");
+    expect(webchat).toContain("Channel configuration error");
     expect(webchat).not.toContain("user_id and message are required");
 
-    expect(chatWidget).toContain("WEBCHAT_TRUSTED_PROXY_BLOCKER");
+    expect(chatWidget).toContain("server proxy is not configured");
+    expect(chatWidget).not.toContain("WEBCHAT_TRUSTED_PROXY_BLOCKER");
     expect(websiteSetup).toContain("data-channel-id");
     expect(websiteSetup).not.toContain("data-user-id");
     expect(chatWidget).not.toContain("INTERNAL_WEBHOOK_SECRET");

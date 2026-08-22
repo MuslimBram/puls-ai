@@ -27,7 +27,7 @@ export const ChatWidget = ({ channelId, businessName }: ChatWidgetProps) => {
       return;
     }
     if (!webchatProxyUrl) {
-      toast.error("WEBCHAT_TRUSTED_PROXY_BLOCKER");
+      toast.error("Chat is unavailable because the server proxy is not configured.");
       return;
     }
     setSending(true);

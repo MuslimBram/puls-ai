@@ -123,6 +123,7 @@ serve(async (req) => {
     });
 
     if (claimErr) {
+      let reclaimedForRetry = false;
       if (claimErr.code === "23505" || String(claimErr.message || "").toLowerCase().includes("unique")) {
         const { data: existingClaim } = await supabase
           .from("integration_event_logs")
@@ -144,16 +145,19 @@ serve(async (req) => {
               headers: { ...getCors(req), "Content-Type": "application/json" },
             });
           }
+          reclaimedForRetry = true;
         } else {
           return new Response(JSON.stringify({ ok: true, duplicate: true }), {
             headers: { ...getCors(req), "Content-Type": "application/json" },
           });
         }
       }
-      return new Response(JSON.stringify({ ok: false, error: "idempotency_claim_failed" }), {
-        status: 500,
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+      if (!reclaimedForRetry) {
+        return new Response(JSON.stringify({ ok: false, error: "idempotency_claim_failed" }), {
+          status: 500,
+          headers: { ...getCors(req), "Content-Type": "application/json" },
+        });
+      }
     }
 
     let intentScore = 0.3;

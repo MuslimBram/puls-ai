@@ -202,7 +202,7 @@ serve(async (req) => {
           const parsed = JSON.parse(aiRaw.replace(/```json\n?/g, "").replace(/```/g, "").trim()) as Record<string, unknown>;
           aiClassification = String(parsed.classification || classification);
         } catch {
-          return jsonResponse(req, { error: "Invalid AI response format" }, 502);
+          throw new Error("INVALID_AI_RESPONSE_FORMAT");
         }
       }
 
@@ -276,6 +276,9 @@ serve(async (req) => {
       const statusMatch = e.message.match(/^ai-router\s+(\d+)/);
       const status = statusMatch ? Number(statusMatch[1]) : 502;
       return jsonResponse(req, { error: e.message }, status);
+    }
+    if (e instanceof Error && e.message === "INVALID_AI_RESPONSE_FORMAT") {
+      return jsonResponse(req, { error: "Invalid AI response format" }, 502);
     }
     return jsonResponse(req, { error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
