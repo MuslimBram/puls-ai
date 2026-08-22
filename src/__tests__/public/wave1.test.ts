@@ -33,16 +33,9 @@ const appSource = readFileSync(resolve(process.cwd(), "src/App.tsx"), "utf8");
 
 describe("Wave 1 route publication scope", () => {
   it("does NOT publish unfinished public product/company routes in App.tsx", () => {
+    // Wave 3 platform routes (/platform/*) ARE now published — see wave3.test.ts.
+    // These routes remain unpublished:
     const unpublishedRoutes = [
-      "/platform/ai",
-      "/platform/unified-inbox",
-      "/platform/crm",
-      "/platform/marketing",
-      "/platform/automation",
-      "/platform/analytics",
-      "/platform/developers",
-      "/platform/lidhjet",
-      "/platform/partners",
       "/about",
       "/contact",
       "/growth-suite",
@@ -74,20 +67,13 @@ describe("publicNavConfig", () => {
     expect(devItem?.comingSoon).toBe(true);
   });
 
-  it("does NOT use unpublished platform detail routes", () => {
-    const exposed = allPublicNavItems.some((i) =>
-      [
-        "/platform/ai",
-        "/platform/unified-inbox",
-        "/platform/crm",
-        "/platform/marketing",
-        "/platform/automation",
-        "/platform/analytics",
-        "/platform/developers",
-        "/platform/lidhjet",
-      ].includes(i.href),
-    );
-    expect(exposed).toBe(false);
+  it("platform nav items use canonical /platform/* routes (Wave 3)", () => {
+    // Wave 3: platform detail routes are real pages — no anchor-only hrefs.
+    const liveModules = ["ai", "unified-inbox", "crm", "marketing", "automation", "analytics"];
+    liveModules.forEach((slug) => {
+      const item = platformNavItems.find((i) => i.href === `/platform/${slug}`);
+      expect(item, `Expected nav item for /platform/${slug}`).toBeDefined();
+    });
   });
 
   it("does NOT expose /developer (non-canonical route — must be /platform/developers)", () => {

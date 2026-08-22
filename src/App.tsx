@@ -76,6 +76,17 @@ const DeveloperPortal = lazy(() => import("./pages/DeveloperPortal"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const WaitingApproval = lazy(() => import("./pages/WaitingApproval"));
 const Landing = lazy(() => import("./pages/Landing"));
+// Wave 3 — Platform pages
+const PlatformHub = lazy(() => import("./pages/platform/PlatformHub"));
+const PlatformAi = lazy(() => import("./pages/platform/PlatformAi"));
+const PlatformInbox = lazy(() => import("./pages/platform/PlatformInbox"));
+const PlatformCrm = lazy(() => import("./pages/platform/PlatformCrm"));
+const PlatformMarketing = lazy(() => import("./pages/platform/PlatformMarketing"));
+const PlatformAutomation = lazy(() => import("./pages/platform/PlatformAutomation"));
+const PlatformAnalytics = lazy(() => import("./pages/platform/PlatformAnalytics"));
+const PlatformDevelopers = lazy(() => import("./pages/platform/PlatformDevelopers"));
+const PlatformPartners = lazy(() => import("./pages/platform/PlatformPartners"));
+const PlatformLidhjet = lazy(() => import("./pages/platform/PlatformLidhjet"));
 const Branding = lazy(() => import("./pages/Branding"));
 const SalesEngine = lazy(() => import("./pages/SalesEngine"));
 const FinancialIntelligence = lazy(() => import("./pages/FinancialIntelligence"));
@@ -197,6 +208,20 @@ const App = () => (
                 <Route path="/pricing" element={<Pricing />} />
                 <Route path="/white-label" element={<WhiteLabel />} />
 
+                {/* Wave 3 — Public Platform pages */}
+                <Route path="/platform" element={<Suspense fallback={<LazyFallback />}><PlatformHub /></Suspense>} />
+                <Route path="/platform/ai" element={<Suspense fallback={<LazyFallback />}><PlatformAi /></Suspense>} />
+                <Route path="/platform/unified-inbox" element={<Suspense fallback={<LazyFallback />}><PlatformInbox /></Suspense>} />
+                <Route path="/platform/crm" element={<Suspense fallback={<LazyFallback />}><PlatformCrm /></Suspense>} />
+                <Route path="/platform/marketing" element={<Suspense fallback={<LazyFallback />}><PlatformMarketing /></Suspense>} />
+                <Route path="/platform/automation" element={<Suspense fallback={<LazyFallback />}><PlatformAutomation /></Suspense>} />
+                <Route path="/platform/analytics" element={<Suspense fallback={<LazyFallback />}><PlatformAnalytics /></Suspense>} />
+                <Route path="/platform/developers" element={<Suspense fallback={<LazyFallback />}><PlatformDevelopers /></Suspense>} />
+                <Route path="/platform/partners" element={<Suspense fallback={<LazyFallback />}><PlatformPartners /></Suspense>} />
+                <Route path="/platform/lidhjet" element={<Suspense fallback={<LazyFallback />}><PlatformLidhjet /></Suspense>} />
+                {/* Legacy /developer → canonical /platform/developers */}
+                <Route path="/developer" element={<Navigate to="/platform/developers" replace />} />
+
                 {/* Public legal pages */}
                 <Route path="/privacy" element={<Suspense fallback={<LazyFallback />}><PrivacyPolicy /></Suspense>} />
                 <Route path="/terms" element={<Suspense fallback={<LazyFallback />}><TermsOfService /></Suspense>} />
@@ -248,7 +273,6 @@ const App = () => (
                 <Route path="/deep-analytics" element={<AdminPage><DeepAnalytics /></AdminPage>} />
                 <Route path="/public-api" element={<PermissionPage permission="canConnectChannels"><PublicApi /></PermissionPage>} />
                 <Route path="/marketplace" element={<PermissionPage permission="canConnectChannels"><Marketplace /></PermissionPage>} />
-                <Route path="/developer" element={<PermissionPage permission="canConnectChannels"><DeveloperPortal /></PermissionPage>} />
                 <Route path="/onboarding" element={<ProtectedPage><Onboarding /></ProtectedPage>} />
                 <Route path="/sales-engine" element={<PermissionPage permission="canViewCRM"><SalesEngine /></PermissionPage>} />
                 <Route path="/financial-intelligence" element={<PermissionPage permission="canAccessBilling"><FinancialIntelligence /></PermissionPage>} />

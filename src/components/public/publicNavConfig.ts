@@ -27,18 +27,18 @@ export interface NavGroup {
 
 /** Platform mega-nav items */
 export const platformNavItems: NavItem[] = [
-  { labelKey: "nav.platform.aiIntelligence", href: "/#ai" },
-  { labelKey: "nav.platform.unifiedInbox", href: "/#system" },
-  { labelKey: "nav.platform.crmSales", href: "/#journey" },
-  { labelKey: "nav.platform.marketing", href: "/#capabilities" },
-  { labelKey: "nav.platform.automation", href: "/#journey" },
-  { labelKey: "nav.platform.analytics", href: "/#analytics" },
-  { labelKey: "nav.platform.developers", href: "/#developers", comingSoon: true },
+  { labelKey: "nav.platform.aiIntelligence", href: "/platform/ai" },
+  { labelKey: "nav.platform.unifiedInbox",   href: "/platform/unified-inbox" },
+  { labelKey: "nav.platform.crmSales",       href: "/platform/crm" },
+  { labelKey: "nav.platform.marketing",      href: "/platform/marketing" },
+  { labelKey: "nav.platform.automation",     href: "/platform/automation" },
+  { labelKey: "nav.platform.analytics",      href: "/platform/analytics" },
+  { labelKey: "nav.platform.developers",     href: "/platform/developers", comingSoon: true },
 ];
 
 /** Standalone top-level nav items */
 export const standaloneNavItems: NavItem[] = [
-  { labelKey: "nav.standalone.lidhjet", href: "/#community", comingSoon: true },
+  { labelKey: "nav.standalone.lidhjet", href: "/platform/lidhjet", comingSoon: true },
   { labelKey: "nav.standalone.pricing", href: "/pricing" },
   { labelKey: "nav.standalone.security", href: "/security" },
 ];
