@@ -38,6 +38,8 @@ export interface PolicyResult {
   identity_state: CanonicalIdentityState;
   workspace_id: string;
   capability_verified: boolean;
+  /** true only when consent validity === "valid" (full/marketing consent confirmed).
+   *  false for transactional_only — callers must not infer marketing permission. */
   consent_valid: boolean;
   intent_score_presented?: number;
   evaluated_at: string;
@@ -113,15 +115,19 @@ export async function evaluatePolicy(input: PolicyEvaluationInput): Promise<Poli
     reasons.push("CONSENT_MISSING"); return buildResult("REVIEW", reasons, input, capVerified, false, evaluated_at, intent_score);
   }
 
-  const consentValid = consentEval.validity === "valid" || consentEval.validity === "transactional_only";
+  // consent_valid is true ONLY for fully valid (marketing) consent.
+  // transactional_only consent is NOT treated as marketing consent.
+  const consentValid = consentEval.validity === "valid";
+  // consentAny: whether any recognised consent form exists (used for quiet-hours/review paths).
+  const consentAny = consentEval.validity === "valid" || consentEval.validity === "transactional_only";
 
   if (consentEval.validity === "transactional_only") {
     reasons.push("TRANSACTIONAL_ONLY");
-    if (interaction_type === "proactive_outbound") return buildResult("REVIEW", reasons, input, capVerified, true, evaluated_at, intent_score);
+    if (interaction_type === "proactive_outbound") return buildResult("REVIEW", reasons, input, capVerified, false, evaluated_at, intent_score);
   }
 
   if (capability.quiet_hours_applicable && quiet_hours != null && local_hour !== undefined && isInQuietHours(local_hour, quiet_hours)) {
-    reasons.push("QUIET_HOURS"); return buildResult("BLOCK", reasons, input, capVerified, consentValid, evaluated_at, intent_score);
+    reasons.push("QUIET_HOURS"); return buildResult("BLOCK", reasons, input, capVerified, consentAny, evaluated_at, intent_score);
   }
 
   const hasReviewFlag = reasons.includes("CAPABILITY_NOT_VERIFIED") || reasons.includes("HUMAN_REVIEW_REQUIRED") || reasons.includes("BUSINESS_VERIFICATION_REQUIRED") || reasons.includes("TRANSACTIONAL_ONLY");
