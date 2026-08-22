@@ -260,7 +260,7 @@ export async function persistAggregateSnapshot(
     return { kind: "DB_ERROR", detail: String((error as any)?.message ?? error) };
   }
 
-  const row = data as { id: string; inserted: boolean };
+  const row = (data as Array<{ id: string; inserted: boolean }>)[0];
   return {
     snapshot_id: row.id,
     inserted: row.inserted,

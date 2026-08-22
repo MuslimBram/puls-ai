@@ -138,22 +138,22 @@ function makeMockDb(store: DbStore) {
       if (fn === "record_social_attribution") {
         const key = args.p_idempotency_key as string;
         if (insertedIds.has(key)) {
-          return { data: { id: insertedIds.get(key), inserted: false }, error: null };
+          return { data: [{ id: insertedIds.get(key), inserted: false }], error: null };
         }
         const id = `attr-${Math.random().toString(36).slice(2)}`;
         insertedIds.set(key, id);
         store.set(key, args);
-        return { data: { id, inserted: true }, error: null };
+        return { data: [{ id, inserted: true }], error: null };
       }
       if (fn === "upsert_social_aggregate_snapshot") {
         const key = `${args.p_workspace_id}:${args.p_snapshot_idempotency_key}`;
         if (insertedIds.has(key)) {
-          return { data: { id: insertedIds.get(key), inserted: false }, error: null };
+          return { data: [{ id: insertedIds.get(key), inserted: false }], error: null };
         }
         const id = `snap-${Math.random().toString(36).slice(2)}`;
         insertedIds.set(key, id);
         store.set(key, args);
-        return { data: { id, inserted: true }, error: null };
+        return { data: [{ id, inserted: true }], error: null };
       }
       return { data: null, error: { message: `unknown rpc: ${fn}` } };
     },
