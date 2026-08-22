@@ -33,6 +33,7 @@ import {
   type PulseAIResponse,
   createErrorResponse,
   createSuccessResponse,
+  isPublicUseCase,
   isSupportedUseCase,
   isWorkspaceUseCase,
   resolveCapability,
@@ -353,7 +354,18 @@ Deno.serve(async (httpReq: Request) => {
 
   const useCase = rawUseCase as BusinessUseCase;
 
-  // ── Authentication ──────────────────────────────────────────────────────────
+  // ── Authentication state machine ────────────────────────────────────────────
+  //
+  // Three canonical paths — evaluated in strict priority order:
+  //
+  // 1. INTERNAL: verified internal/cron secret → workspace-scoped dispatch
+  // 2. PUBLIC:   customer_support use case, no JWT → public-support dispatch only
+  //              NEVER gains workspace access even if workspace_id is supplied
+  // 3. USER:     valid JWT required → workspace membership verified → workspace dispatch
+  //
+  // PUBLIC path is checked AFTER internal but BEFORE JWT-required paths, so that a
+  // logged-out public visitor calling customer_support never sees a 401.
+
   const internalSecret = httpReq.headers.get("x-internal-secret");
   // cronSecret is read ONLY from the dedicated header — never falls back to
   // Authorization — to prevent a user JWT from satisfying the CRON_SECRET check.
@@ -365,10 +377,15 @@ Deno.serve(async (httpReq: Request) => {
     (!!configInternal && internalSecret === configInternal) ||
     (!!configCron && cronSecret === configCron);
 
+  // PUBLIC path: customer_support may be called without a JWT.
+  // A supplied workspace_id is silently ignored — public support NEVER scopes to a workspace.
+  const isPublicSupportRequest = !isInternal && isPublicUseCase(useCase);
+
   let authedUserId: string | null = null;
   const sb = SVC();
 
-  if (!isInternal) {
+  if (!isInternal && !isPublicSupportRequest) {
+    // USER path: JWT is mandatory for all workspace use cases.
     const authHeader = httpReq.headers.get("authorization") ?? "";
     if (!authHeader.startsWith("Bearer ")) {
       return json(
@@ -393,10 +410,12 @@ Deno.serve(async (httpReq: Request) => {
 
   // ── Workspace verification ──────────────────────────────────────────────────
   // PUBLIC use cases (customer_support): no workspace required; workspace data never loaded.
+  //   Even if workspace_id is present in the body it is IGNORED — not verified, not used.
   // WORKSPACE use cases: workspace_id required and membership verified.
   let verifiedWorkspaceId = "";
 
   if (isWorkspaceUseCase(useCase)) {
+    // isPublicSupportRequest is false here (customer_support is the only public use case)
     if (!rawWorkspaceId || typeof rawWorkspaceId !== "string") {
       return json(
         httpReq,
@@ -426,6 +445,7 @@ Deno.serve(async (httpReq: Request) => {
     // INTERNAL path: workspace_id is server-provided for scoping; accepted without JWT check.
     verifiedWorkspaceId = rawWorkspaceId;
   }
+  // PUBLIC path: verifiedWorkspaceId remains "" — public support has no workspace scope.
 
   // ── Build canonical request ─────────────────────────────────────────────────
   const input =
@@ -433,15 +453,25 @@ Deno.serve(async (httpReq: Request) => {
       ? (rawInput as { text?: string; structured?: Record<string, unknown> })
       : {};
 
+  // Determine authContextType and canonical source.
+  // - INTERNAL callers get "internal_service" and should pass their own source.
+  // - PUBLIC callers (no JWT) get "public_unauthenticated" and default source "public".
+  // - USER callers (valid JWT) get "user_jwt" and default source "workspace_ui".
+  const authContextType = isInternal
+    ? "internal_service"
+    : isPublicSupportRequest
+    ? "public_unauthenticated"
+    : "user_jwt";
+
+  const defaultSource = isPublicSupportRequest ? "public" : "workspace_ui";
+
   const pulseReq: PulseAIRequest = {
     requestId,
     workspaceId: verifiedWorkspaceId,
     userId: authedUserId ?? undefined,
-    authContextType: isInternal ? "internal_service" : "user_jwt",
+    authContextType,
     useCase,
-    source: (typeof rawSource === "string"
-      ? rawSource
-      : "workspace_ui") as ChannelSource,
+    source: (typeof rawSource === "string" ? rawSource : defaultSource) as ChannelSource,
     contactId: typeof rawContactId === "string" ? rawContactId : undefined,
     conversationId:
       typeof rawConversationId === "string" ? rawConversationId : undefined,
