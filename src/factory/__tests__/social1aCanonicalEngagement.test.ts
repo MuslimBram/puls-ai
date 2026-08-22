@@ -90,14 +90,34 @@ describe("buildCanonicalEngagementEvent — Instagram DM (SOCIAL-1A)", () => {
     ).toThrow(/anonymous_aggregate.*incompatible/i);
   });
 
-  it("throws when known_person is set without an actor_provider_id", () => {
+  it("throws when known_person is set — SOCIAL-1A lawful-linkage guard (SOCIAL-1B territory)", () => {
+    // SOCIAL-1A must NOT allow arbitrary promotion to known_person.
+    // This guard fires regardless of whether actor_provider_id is provided.
+    expect(() =>
+      buildCanonicalEngagementEvent({
+        ...base,
+        actor_identity_state: "known_person",
+        actor_provider_id:    "some_user_id",
+      }),
+    ).toThrow(/known_person.*SOCIAL-1B/i);
+
     expect(() =>
       buildCanonicalEngagementEvent({
         ...base,
         actor_identity_state: "known_person",
         actor_provider_id:    null,
       }),
-    ).toThrow(/known_person.*requires/i);
+    ).toThrow(/known_person.*SOCIAL-1B/i);
+  });
+
+  it("throws when platform_actor is set without an actor_provider_id — fail closed", () => {
+    expect(() =>
+      buildCanonicalEngagementEvent({
+        ...base,
+        actor_identity_state: "platform_actor",
+        actor_provider_id:    null,
+      }),
+    ).toThrow(/platform_actor.*requires.*non-null/i);
   });
 
   it("throws when pseudonymous_visitor is set without an actor_provider_id", () => {
@@ -218,10 +238,11 @@ describe("meta-webhook: existing inbox/lead path preserved (SOCIAL-1A non-regres
   it("processed_webhook_events claim still fires before side effects", () => {
     const claimIdx    = src.indexOf('from("processed_webhook_events")');
     const inboxIdx    = src.indexOf('from("inbox_messages")');
-    const canonicalIdx = src.indexOf('from("social_engagement_events")');
+    // Find the tryCanonicalInsert call in the normal (non-duplicate) path — after inbox
+    const tryCanIdx   = src.indexOf("await tryCanonicalInsert(sb,", inboxIdx);
     expect(claimIdx).toBeGreaterThan(-1);
     expect(inboxIdx).toBeGreaterThan(claimIdx);
-    expect(canonicalIdx).toBeGreaterThan(inboxIdx);
+    expect(tryCanIdx).toBeGreaterThan(inboxIdx);
   });
 
   it("canonical event emission is present in both IG and FB paths", () => {
@@ -309,4 +330,115 @@ describe("migration: social_engagement_events table", () => {
     expect(migration).toContain("service_role_insert_social_engagement_events");
     expect(migration).toContain("FOR INSERT TO service_role");
   });
+
+  // ── DB identity invariant CHECK constraints ──────────────────────────────────
+
+  it("enforces platform_actor requires actor_provider_id via CHECK constraint", () => {
+    expect(migration).toContain("chk_platform_actor_has_actor_id");
+    expect(migration).toContain("actor_identity_state != 'platform_actor' OR actor_provider_id IS NOT NULL");
+  });
+
+  it("enforces pseudonymous_visitor requires actor_provider_id via CHECK constraint", () => {
+    expect(migration).toContain("chk_pseudonymous_visitor_has_actor_id");
+    expect(migration).toContain("actor_identity_state != 'pseudonymous_visitor' OR actor_provider_id IS NOT NULL");
+  });
+
+  it("enforces anonymous_aggregate has null actor_provider_id via CHECK constraint", () => {
+    expect(migration).toContain("chk_anonymous_aggregate_no_actor_id");
+    expect(migration).toContain("actor_identity_state != 'anonymous_aggregate' OR actor_provider_id IS NULL");
+  });
+
+  it("enforces is_anonymous_aggregate flag aligns with identity state via CHECK constraint", () => {
+    expect(migration).toContain("chk_anonymous_aggregate_flag_aligned");
+    expect(migration).toContain("is_anonymous_aggregate = (actor_identity_state = 'anonymous_aggregate')");
+  });
 });
+
+// ── META TIMESTAMP NORMALIZATION ─────────────────────────────────────────────
+
+describe("Meta timestamp normalization — 13-digit ms epoch", () => {
+  it("realistic 13-digit Meta timestamp produces the correct ISO timestamp", () => {
+    // Meta messaging[].timestamp is milliseconds since epoch (13 digits for modern dates).
+    // 1753228800000 ms = 2025-07-23T00:00:00.000Z
+    const metaTimestampMs = 1753228800000;
+    expect(metaTimestampMs.toString()).toHaveLength(13);
+
+    const iso = new Date(metaTimestampMs).toISOString();
+    expect(iso).toBe("2025-07-23T00:00:00.000Z");
+
+    // The canonical event must preserve this timestamp unchanged
+    const ev = buildCanonicalEngagementEvent({
+      workspace_id:      "ws-ts-test",
+      channel_id:        "ch-ts-test",
+      provider:          "meta_ig" as const,
+      account_identifier: "page_ts_test",
+      event_type:        "message_received" as const,
+      provider_event_id: "mid.ts_test",
+      actor_provider_id: "user_ts",
+      content_ref:       "timestamp test",
+      event_timestamp:   iso,
+    });
+    expect(ev.event_timestamp).toBe("2025-07-23T00:00:00.000Z");
+  });
+
+  it("meta-webhook source does NOT multiply timestamp by 1000 (no *1000 pattern)", () => {
+    const src = readFileSync(
+      repoFile("supabase", "functions", "meta-webhook", "index.ts"),
+      "utf-8",
+    );
+    // tryCanonicalInsert must use new Date(raw_timestamp), never new Date(raw_timestamp * 1000)
+    expect(src).not.toContain("* 1000");
+  });
+});
+
+// ── PRODUCT TRUTH: message_sent is STRUCTURAL CAPABILITY, not LIVE ───────────
+
+describe("Product truth: message_sent is structural capability", () => {
+  it("message_sent is NOT in LiveEngagementEventType", () => {
+    // The export type declaration for LiveEngagementEventType must NOT contain message_sent
+    expect(canonicalSrc).not.toMatch(/export type LiveEngagementEventType\s*=[^;]*message_sent/);
+  });
+
+  it("message_sent IS in StructuralCapabilityEventType", () => {
+    expect(canonicalSrc).toContain('"message_sent"');
+    expect(canonicalSrc).toContain("StructuralCapabilityEventType");
+    // Verify message_sent appears in the structural section (after StructuralCapabilityEventType)
+    const structIdx = canonicalSrc.indexOf("StructuralCapabilityEventType");
+    const msgSentIdx = canonicalSrc.indexOf('"message_sent"');
+    expect(msgSentIdx).toBeGreaterThan(structIdx);
+  });
+});
+
+// ── CANONICAL EVENT DURABILITY ────────────────────────────────────────────────
+
+describe("canonical event durability: duplicate claim still attempts canonical insert", () => {
+  const src = readFileSync(
+    repoFile("supabase", "functions", "meta-webhook", "index.ts"),
+    "utf-8",
+  );
+
+  it("on duplicate claim, tryCanonicalInsert is called before continue (IG path)", () => {
+    // After the duplicate claim block, meta-webhook must call tryCanonicalInsert,
+    // not just `continue`, to recover a canonical event that may have been lost
+    // on the first delivery due to a transient DB error.
+    expect(src).toContain('if (claim === "duplicate")');
+    const dupIdx = src.indexOf('if (claim === "duplicate")');
+    const tryIdx = src.indexOf("tryCanonicalInsert", dupIdx);
+    const contIdx = src.indexOf("continue", dupIdx);
+    // tryCanonicalInsert must appear before continue inside the duplicate block
+    expect(tryIdx).toBeGreaterThan(dupIdx);
+    expect(tryIdx).toBeLessThan(contIdx);
+  });
+
+  it("tryCanonicalInsert helper exists and is called for both IG and FB paths", () => {
+    expect(src).toContain("async function tryCanonicalInsert");
+    // Should be called at least twice (IG + FB + durability paths)
+    const count = (src.match(/tryCanonicalInsert\(/g) ?? []).length;
+    expect(count).toBeGreaterThanOrEqual(4); // declaration + IG dup + IG normal + FB dup + FB normal
+  });
+});
+
+const canonicalSrc = readFileSync(
+  repoFile("supabase", "functions", "_shared", "canonical-engagement-event.ts"),
+  "utf-8",
+);

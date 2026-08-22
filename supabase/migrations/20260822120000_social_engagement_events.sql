@@ -37,7 +37,21 @@ CREATE TABLE IF NOT EXISTS public.social_engagement_events (
     )),
   source_ref            text NOT NULL,           -- '<provider>:<event_id>' — no secrets
   idempotency_key       text NOT NULL,           -- 'seg:<provider>:<workspace_id>:<event_id>'
-  created_at            timestamptz NOT NULL DEFAULT now()
+  created_at            timestamptz NOT NULL DEFAULT now(),
+
+  -- IDENTITY INVARIANTS enforced at DB level (mirror the TypeScript builder) ──────────────
+  -- platform_actor requires a provider-scoped actor ID
+  CONSTRAINT chk_platform_actor_has_actor_id
+    CHECK (actor_identity_state != 'platform_actor' OR actor_provider_id IS NOT NULL),
+  -- pseudonymous_visitor requires a first-party pseudonymous identifier
+  CONSTRAINT chk_pseudonymous_visitor_has_actor_id
+    CHECK (actor_identity_state != 'pseudonymous_visitor' OR actor_provider_id IS NOT NULL),
+  -- anonymous_aggregate must NOT have an actor ID
+  CONSTRAINT chk_anonymous_aggregate_no_actor_id
+    CHECK (actor_identity_state != 'anonymous_aggregate' OR actor_provider_id IS NULL),
+  -- is_anonymous_aggregate flag must align with identity state
+  CONSTRAINT chk_anonymous_aggregate_flag_aligned
+    CHECK (is_anonymous_aggregate = (actor_identity_state = 'anonymous_aggregate'))
 );
 
 -- Prevent duplicate canonical events for the same provider delivery

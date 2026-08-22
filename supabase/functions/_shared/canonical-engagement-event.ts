@@ -16,8 +16,8 @@
  * EVENT TAXONOMY (foundational; not all types have live ingestion yet):
  *   LIVE (connected to real ingestion):
  *     message_received   — inbound DM / message to the workspace account
- *     message_sent       — outbound message from the workspace account
  *   STRUCTURAL CAPABILITY (defined; NOT yet connected to live ingestion):
+ *     message_sent       — outbound message from the workspace account (no live path in SOCIAL-1A)
  *     comment            — comment on a post
  *     reaction           — emoji reaction to a post or message
  *     mention            — mention of the workspace account
@@ -37,13 +37,17 @@ export type IdentityState =
 // ── Event taxonomy ────────────────────────────────────────────────────────────
 
 /** LIVE: connected to real ingestion in SOCIAL-1A. */
-export type LiveEngagementEventType = "message_received" | "message_sent";
+export type LiveEngagementEventType = "message_received";
 
 /**
  * STRUCTURAL CAPABILITY: defined for taxonomy completeness but NOT yet connected
  * to any live ingestion path. Marked here to prevent accidental live use.
+ *
+ * message_sent is STRUCTURAL only — no outbound ingestion path exists in SOCIAL-1A.
+ * Promote to LiveEngagementEventType only when a real outbound path is wired.
  */
 export type StructuralCapabilityEventType =
+  | "message_sent"
   | "comment"
   | "reaction"
   | "mention"
@@ -173,17 +177,30 @@ export function buildCanonicalEngagementEvent(
     identityState = isAnonymous ? "anonymous_aggregate" : "platform_actor";
   }
 
+  // Invariant: known_person is NOT creatable in SOCIAL-1A.
+  // Lawful first-party identity linkage belongs to SOCIAL-1B (not implemented).
+  // Reject here so no code path can accidentally manufacture a known_person event.
+  if (identityState === "known_person") {
+    throw new Error(
+      "canonical-engagement-event: identity_state=known_person requires a lawful first-party linkage " +
+      "that is not implemented in SOCIAL-1A — this is SOCIAL-1B territory",
+    );
+  }
+
+  // Invariant: platform_actor MUST have a provider-scoped actor ID.
+  // If the sender is unknown, fail closed to anonymous_aggregate rather than
+  // manufacturing a platform_actor with no real identity.
+  if (identityState === "platform_actor" && !input.actor_provider_id) {
+    throw new Error(
+      "canonical-engagement-event: identity_state=platform_actor requires a non-null actor_provider_id " +
+      "(provider-scoped sender ID). Use anonymous_aggregate when sender identity is unavailable.",
+    );
+  }
+
   // Invariant: anonymous_aggregate MUST NOT have an actor ID
   if (identityState === "anonymous_aggregate" && input.actor_provider_id) {
     throw new Error(
       "canonical-engagement-event: identity_state=anonymous_aggregate is incompatible with a non-null actor_provider_id",
-    );
-  }
-
-  // Invariant: known_person MUST have an actor ID
-  if (identityState === "known_person" && !input.actor_provider_id) {
-    throw new Error(
-      "canonical-engagement-event: identity_state=known_person requires a non-null actor_provider_id",
     );
   }
 

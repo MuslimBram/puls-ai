@@ -80,6 +80,63 @@ async function resolveWorkspaceFromPage(
   return null;  // No match — caller must skip
 }
 
+/** Helper: build and insert a canonical engagement event, idempotent via UNIQUE constraint.
+ *  Returns "inserted" | "duplicate" | "error". */
+async function tryCanonicalInsert(
+  sb: ReturnType<typeof createClient>,
+  params: {
+    workspace_id: string; channel_id: string; provider: "meta_ig" | "meta_fb";
+    account_identifier: string; event_type: "message_received";
+    provider_event_id: string; actor_provider_id: string | null;
+    content_ref: string; raw_timestamp: number | undefined;
+  },
+): Promise<"inserted" | "duplicate" | "error"> {
+  try {
+    const canonicalEvent = buildCanonicalEngagementEvent({
+      workspace_id:        params.workspace_id,
+      channel_id:          params.channel_id,
+      provider:            params.provider,
+      account_identifier:  params.account_identifier,
+      event_type:          params.event_type,
+      provider_event_id:   params.provider_event_id,
+      // Fail closed: omit actor_identity_state — builder derives from actor_provider_id.
+      // null actor_provider_id → anonymous_aggregate; non-null → platform_actor.
+      actor_provider_id:   params.actor_provider_id || null,
+      content_ref:         params.content_ref,
+      // Meta messaging[].timestamp is milliseconds since epoch — do NOT multiply by 1000.
+      event_timestamp:     params.raw_timestamp != null
+        ? new Date(params.raw_timestamp).toISOString()
+        : new Date().toISOString(),
+      normalized_metadata: { page_id: params.account_identifier },
+      consent_classification: "platform_terms",
+    });
+    const { error: segErr } = await sb.from("social_engagement_events").insert({
+      workspace_id:           canonicalEvent.workspace_id,
+      channel_id:             canonicalEvent.channel_id,
+      provider:               canonicalEvent.provider,
+      account_identifier:     canonicalEvent.account_identifier,
+      event_type:             canonicalEvent.event_type,
+      provider_event_id:      canonicalEvent.provider_event_id,
+      actor_provider_id:      canonicalEvent.actor_provider_id,
+      actor_identity_state:   canonicalEvent.actor_identity_state,
+      is_anonymous_aggregate: canonicalEvent.is_anonymous_aggregate,
+      content_ref:            canonicalEvent.content_ref,
+      event_timestamp:        canonicalEvent.event_timestamp,
+      normalized_metadata:    canonicalEvent.normalized_metadata,
+      consent_classification: canonicalEvent.consent_classification,
+      source_ref:             canonicalEvent.source_ref,
+      idempotency_key:        canonicalEvent.idempotency_key,
+    });
+    if (!segErr) return "inserted";
+    if ((segErr as any).code === "23505") return "duplicate";
+    console.error(`[${params.provider.toUpperCase()}] canonical event insert error`, segErr.message);
+    return "error";
+  } catch (buildErr) {
+    console.error(`[${params.provider.toUpperCase()}] canonical event build error`, (buildErr as Error)?.message);
+    return "error";
+  }
+}
+
 serve(async (req) => {
   // GET — webhook verification challenge
   if (req.method === "GET") {
@@ -151,17 +208,30 @@ serve(async (req) => {
 
           // ATOMIC claim BEFORE any side effects
           const claim = await claimEvent(sb, "meta_ig", msgId, ws.workspace_id);
-          if (claim === "duplicate") continue;
           if (claim === "error") {
             console.error("[META-IG] Claim failed for", msgId);
             continue;
           }
 
-          const senderId   = event.sender?.id as string;
+          const senderId   = event.sender?.id as string | undefined;
           const msgText    = event.message?.text ?? "";
           const attachments = event.message?.attachments ?? [];
           const content    = msgText || (attachments.length ? "[attachment]" : "");
           if (!content) continue;
+
+          // DURABILITY: on duplicate claim (Meta retry), still attempt canonical insert.
+          // The canonical UNIQUE constraint makes this idempotent; inbox/lead are skipped
+          // to preserve their own idempotency and avoid duplicate side effects.
+          if (claim === "duplicate") {
+            await tryCanonicalInsert(sb, {
+              workspace_id: ws.workspace_id, channel_id: ws.channel_id,
+              provider: "meta_ig", account_identifier: pageId,
+              event_type: "message_received", provider_event_id: msgId,
+              actor_provider_id: senderId ?? null,
+              content_ref: content, raw_timestamp: event.timestamp,
+            });
+            continue;
+          }
 
           // Store inbox message (workspace_id from channel, not sender)
           const { data: inboxMsg } = await sb.from("inbox_messages").insert({
@@ -212,47 +282,13 @@ serve(async (req) => {
           }
 
           // SOCIAL-1A: emit canonical engagement event (idempotent via UNIQUE constraint)
-          try {
-            const canonicalEvent = buildCanonicalEngagementEvent({
-              workspace_id:        ws.workspace_id,
-              channel_id:          ws.channel_id,
-              provider:            "meta_ig",
-              account_identifier:  pageId,
-              event_type:          "message_received",
-              provider_event_id:   msgId,
-              actor_provider_id:   senderId ?? null,
-              actor_identity_state: "platform_actor",
-              content_ref:         content,
-              event_timestamp:     event.timestamp
-                ? new Date(Number(event.timestamp) * 1000).toISOString()
-                : new Date().toISOString(),
-              normalized_metadata: { page_id: pageId },
-              consent_classification: "platform_terms",
-            });
-            const { error: segErr } = await sb.from("social_engagement_events").insert({
-              workspace_id:         canonicalEvent.workspace_id,
-              channel_id:           canonicalEvent.channel_id,
-              provider:             canonicalEvent.provider,
-              account_identifier:   canonicalEvent.account_identifier,
-              event_type:           canonicalEvent.event_type,
-              provider_event_id:    canonicalEvent.provider_event_id,
-              actor_provider_id:    canonicalEvent.actor_provider_id,
-              actor_identity_state: canonicalEvent.actor_identity_state,
-              is_anonymous_aggregate: canonicalEvent.is_anonymous_aggregate,
-              content_ref:          canonicalEvent.content_ref,
-              event_timestamp:      canonicalEvent.event_timestamp,
-              normalized_metadata:  canonicalEvent.normalized_metadata,
-              consent_classification: canonicalEvent.consent_classification,
-              source_ref:           canonicalEvent.source_ref,
-              idempotency_key:      canonicalEvent.idempotency_key,
-            });
-            // UNIQUE violation (code 23505) = duplicate delivery — safe to ignore
-            if (segErr && (segErr as any).code !== "23505") {
-              console.error("[META-IG] canonical event insert error", segErr.message);
-            }
-          } catch (buildErr) {
-            console.error("[META-IG] canonical event build error", (buildErr as Error)?.message);
-          }
+          await tryCanonicalInsert(sb, {
+            workspace_id: ws.workspace_id, channel_id: ws.channel_id,
+            provider: "meta_ig", account_identifier: pageId,
+            event_type: "message_received", provider_event_id: msgId,
+            actor_provider_id: senderId ?? null,
+            content_ref: content, raw_timestamp: event.timestamp,
+          });
 
           processed++;
         }
@@ -276,12 +312,23 @@ serve(async (req) => {
 
           const msgId = event.message?.mid ?? `${pageId}:${event.timestamp ?? Date.now()}`;
 
-          const claim = await claimEvent(sb, "meta_fb", msgId, ws.workspace_id);
-          if (claim !== "claimed") continue;
-
-          const senderId = event.sender?.id as string;
+          const senderId = event.sender?.id as string | undefined;
           const msgText  = event.message?.text ?? "";
           if (!msgText) continue;
+
+          const claim = await claimEvent(sb, "meta_fb", msgId, ws.workspace_id);
+          // DURABILITY: on duplicate claim, attempt canonical insert only (inbox/lead skipped)
+          if (claim === "duplicate") {
+            await tryCanonicalInsert(sb, {
+              workspace_id: ws.workspace_id, channel_id: ws.channel_id,
+              provider: "meta_fb", account_identifier: pageId,
+              event_type: "message_received", provider_event_id: msgId,
+              actor_provider_id: senderId ?? null,
+              content_ref: msgText, raw_timestamp: event.timestamp,
+            });
+            continue;
+          }
+          if (claim !== "claimed") continue;
 
           await sb.from("inbox_messages").insert({
             workspace_id:       ws.workspace_id,
@@ -328,47 +375,13 @@ serve(async (req) => {
           }
 
           // SOCIAL-1A: emit canonical engagement event (idempotent via UNIQUE constraint)
-          try {
-            const canonicalEvent = buildCanonicalEngagementEvent({
-              workspace_id:        ws.workspace_id,
-              channel_id:          ws.channel_id,
-              provider:            "meta_fb",
-              account_identifier:  pageId,
-              event_type:          "message_received",
-              provider_event_id:   msgId,
-              actor_provider_id:   senderId ?? null,
-              actor_identity_state: "platform_actor",
-              content_ref:         msgText,
-              event_timestamp:     event.timestamp
-                ? new Date(Number(event.timestamp) * 1000).toISOString()
-                : new Date().toISOString(),
-              normalized_metadata: { page_id: pageId },
-              consent_classification: "platform_terms",
-            });
-            const { error: segErr } = await sb.from("social_engagement_events").insert({
-              workspace_id:         canonicalEvent.workspace_id,
-              channel_id:           canonicalEvent.channel_id,
-              provider:             canonicalEvent.provider,
-              account_identifier:   canonicalEvent.account_identifier,
-              event_type:           canonicalEvent.event_type,
-              provider_event_id:    canonicalEvent.provider_event_id,
-              actor_provider_id:    canonicalEvent.actor_provider_id,
-              actor_identity_state: canonicalEvent.actor_identity_state,
-              is_anonymous_aggregate: canonicalEvent.is_anonymous_aggregate,
-              content_ref:          canonicalEvent.content_ref,
-              event_timestamp:      canonicalEvent.event_timestamp,
-              normalized_metadata:  canonicalEvent.normalized_metadata,
-              consent_classification: canonicalEvent.consent_classification,
-              source_ref:           canonicalEvent.source_ref,
-              idempotency_key:      canonicalEvent.idempotency_key,
-            });
-            // UNIQUE violation (code 23505) = duplicate delivery — safe to ignore
-            if (segErr && (segErr as any).code !== "23505") {
-              console.error("[META-FB] canonical event insert error", segErr.message);
-            }
-          } catch (buildErr) {
-            console.error("[META-FB] canonical event build error", (buildErr as Error)?.message);
-          }
+          await tryCanonicalInsert(sb, {
+            workspace_id: ws.workspace_id, channel_id: ws.channel_id,
+            provider: "meta_fb", account_identifier: pageId,
+            event_type: "message_received", provider_event_id: msgId,
+            actor_provider_id: senderId ?? null,
+            content_ref: msgText, raw_timestamp: event.timestamp,
+          });
 
           processed++;
         }
