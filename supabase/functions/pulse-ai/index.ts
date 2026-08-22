@@ -5,6 +5,7 @@
 // ARCHITECTURE:
 //   Application / Channel / Module
 //   → pulse-ai (this function) — canonical application-layer orchestrator
+//   → AI-4 unified memory facade (workspace ai-router path only)
 //   → customer-brain (CANONICAL_BUSINESS_BRAIN) | ai-router (CANONICAL_PROVIDER_ROUTER)
 //   → AI Provider (selected exclusively by ai-router)
 //
@@ -18,7 +19,7 @@
 //   All provider execution delegated exclusively to the canonical ai-router.
 //
 // AI-3 BOUNDARY: No commercial actions executed (no emails, messages, tickets, CRM writes).
-// AI-4 BOUNDARY: No new unified memory architecture built here.
+// AI-4 BOUNDARY: Workspace ai-router requests use canonical scoped memory; public support never loads it.
 // AI-5 BOUNDARY: No end-to-end Golden Journey runtime here.
 // ============================================================
 
@@ -26,6 +27,11 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { getServiceKey } from "../_shared/admin-client.ts";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { callAIRouter } from "../_shared/ai-router-helper.ts";
+import {
+  buildMemoryContextBlock,
+  resolveWorkspaceMemory,
+  type PulseMemoryResponse,
+} from "../_shared/pulse-memory-facade.ts";
 import {
   type BusinessUseCase,
   type ChannelSource,
@@ -161,7 +167,10 @@ async function dispatchToCustomerBrain(
 
 // ── Capability: AI Router (workspace use cases) ───────────────────────────────
 // Uses canonical ai-router-helper. Provider/model selection is AI Router's job.
-async function dispatchToAIRouter(req: PulseAIRequest): Promise<PulseAIResponse> {
+async function dispatchToAIRouter(
+  req: PulseAIRequest,
+  memory?: PulseMemoryResponse,
+): Promise<PulseAIResponse> {
   // Require meaningful input before consuming tokens
   if (!req.input.text && !req.input.structured) {
     return createErrorResponse(
@@ -175,7 +184,7 @@ async function dispatchToAIRouter(req: PulseAIRequest): Promise<PulseAIResponse>
 
   const taskType = resolveRouterTaskType(req.useCase);
 
-  const systemPrompt = buildSystemPrompt(req);
+  const systemPrompt = buildSystemPrompt(req, memory);
   const messages = buildMessages(req);
 
   try {
@@ -255,19 +264,26 @@ async function dispatchPublicSupport(req: PulseAIRequest): Promise<PulseAIRespon
 
 // ── Prompt builders ───────────────────────────────────────────────────────────
 
-function buildSystemPrompt(req: PulseAIRequest): string {
+function buildSystemPrompt(
+  req: PulseAIRequest,
+  memory?: PulseMemoryResponse,
+): string {
   const localeHint = req.locale ? ` Respond in ${req.locale}.` : "";
   const base = `You are Pulse AI, assisting a workspace.${localeHint}`;
+  let instruction: string;
+
   if (req.useCase === "lead_analysis") {
-    return `${base} Analyze the provided lead data and return a structured classification with intent, priority, and recommended next step.`;
+    instruction = `${base} Analyze the provided lead data and return a structured classification with intent, priority, and recommended next step.`;
+  } else if (req.useCase === "business_insight") {
+    instruction = `${base} Provide a concise, actionable business insight based on the provided context.`;
+  } else if (req.useCase === "complex_reasoning") {
+    instruction = `${base} Reason step by step and provide a thorough, evidence-based answer.`;
+  } else {
+    instruction = `${base} Be concise and helpful.`;
   }
-  if (req.useCase === "business_insight") {
-    return `${base} Provide a concise, actionable business insight based on the provided context.`;
-  }
-  if (req.useCase === "complex_reasoning") {
-    return `${base} Reason step by step and provide a thorough, evidence-based answer.`;
-  }
-  return `${base} Be concise and helpful.`;
+
+  // AI-4 memory is evidence only. Denied/empty memory produces an empty block.
+  return `${instruction}${memory ? buildMemoryContextBlock(memory) : ""}`;
 }
 
 function buildMessages(
@@ -493,6 +509,44 @@ Deno.serve(async (httpReq: Request) => {
     }),
   );
 
+  // ── AI-4 canonical memory resolution ───────────────────────────────────────
+  // Only workspace AI Router reasoning receives memory. Public support never calls
+  // this path, and Customer Brain retains its existing specialized context logic.
+  let workspaceMemory: PulseMemoryResponse | undefined;
+  if (capability === "ai_router_direct") {
+    const memoryQuery = pulseReq.input.text ??
+      (pulseReq.input.structured
+        ? JSON.stringify(pulseReq.input.structured).slice(0, 1500)
+        : undefined);
+
+    workspaceMemory = await resolveWorkspaceMemory(sb, {
+      workspaceId: verifiedWorkspaceId,
+      userId: authedUserId ?? undefined,
+      contactId: pulseReq.contactId,
+      conversationId: pulseReq.conversationId,
+      query: memoryQuery,
+      limit: 12,
+      correlationId: requestId,
+      authContext: {
+        type: pulseReq.authContextType,
+        workspaceVerified: Boolean(verifiedWorkspaceId),
+        userId: authedUserId ?? undefined,
+      },
+    });
+
+    console.log(
+      JSON.stringify({
+        event: "pulse_ai_memory_context",
+        requestId,
+        workspaceId: verifiedWorkspaceId,
+        success: workspaceMemory.success,
+        entries: workspaceMemory.entries.length,
+        errorCode: workspaceMemory.errorCode ?? null,
+        sources: workspaceMemory.sourceStatus,
+      }),
+    );
+  }
+
   // ── Dispatch to canonical capability ───────────────────────────────────────
   // Capability selection: facade's responsibility.
   // Provider/model selection: AI Router's responsibility exclusively.
@@ -504,7 +558,7 @@ Deno.serve(async (httpReq: Request) => {
     response = await dispatchPublicSupport(pulseReq);
   } else {
     // ai_router_direct
-    response = await dispatchToAIRouter(pulseReq);
+    response = await dispatchToAIRouter(pulseReq, workspaceMemory);
   }
 
   // ── Observability: log response metadata (no secrets, no provider dumps) ───
