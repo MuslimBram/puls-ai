@@ -36,6 +36,7 @@ ALTER TABLE public.ai_suggested_actions
   ADD COLUMN IF NOT EXISTS failure_reason TEXT,
   ADD COLUMN IF NOT EXISTS queued_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS executing_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS failed_at TIMESTAMPTZ;
 
 -- 6. Queue correlation
@@ -82,7 +83,7 @@ COMMENT ON COLUMN public.ai_suggested_actions.lifecycle_status IS
   'AI-3 controlled action lifecycle: SUGGESTED→(APPROVED|MODIFIED|REJECTED|CANCELLED)→...→COMPLETED/FAILED';
 
 COMMENT ON COLUMN public.ai_suggested_actions.idempotency_key IS
-  'Stable key preventing duplicate approval/execution. Format: ai3:<action_id>:<decision>:<timestamp_s>';
+  'Stable key preventing duplicate approval/execution. Format: ai3:<action_id>:approve';
 
 COMMENT ON COLUMN public.ai_suggested_actions.original_payload IS
   'Snapshot of action_payload at time of AI suggestion, preserved for audit trail.';

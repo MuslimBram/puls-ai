@@ -3,22 +3,23 @@
 // PULSE AI — AI-3 Human Approval Gate
 //
 // Converts an AI-2 recommendation (ai_suggested_actions row) into
-// a safe, authorized, auditable business action through three
+// a safe, authorized, auditable business action through four
 // controlled decisions:
 //
-//   APPROVE  → validate params → enqueue → QUEUED
+//   APPROVE  → APPROVED → VALIDATING → QUEUED (each step via canTransition)
 //   MODIFY   → record modifications → MODIFIED (awaits re-approval)
 //   REJECT   → record rejection → REJECTED (terminal)
 //   CANCEL   → record cancellation → CANCELLED (terminal)
 //
 // Security invariants:
-//   - User identity is always resolved from the JWT; never from request body.
-//   - Workspace membership is verified server-side before any state change.
-//   - State transitions are enforced by the canonical state machine.
-//   - Sensitive action types cannot bypass this gate.
-//   - Idempotency: re-approving an already-queued action returns the
-//     existing state without creating duplicate jobs.
-//   - Every decision is written to the audit log.
+//   - User identity always resolved from JWT; never from request body.
+//   - Workspace membership verified server-side before any state change.
+//   - Role-based: APPROVE/REJECT/CANCEL require owner or admin workspace role.
+//   - State transitions enforced by canTransition() — every persisted step checked.
+//   - Idempotency key: stable ai3:<action_id>:approve (no timestamp drift).
+//   - Atomic claim: row count verified before enqueue — no orphan jobs on race loss.
+//   - Workspace policy loaded server-side; fail closed on DB configuration error.
+//   - Approval audit is mandatory; failure surfaces as 500 rather than swallowed.
 // ============================================================
 
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
@@ -122,14 +123,22 @@ serve(async (req: Request) => {
     return json({ error: "Action not found" }, 404, req);
   }
 
-  // 4. Verify workspace membership — never trust workspace_id from client
+  // 4. Verify workspace membership and role — never trust workspace_id or role from client
   const workspaceId: string = action.workspace_id;
 
   if (!workspaceId) {
     return json({ error: "Forbidden: action has no workspace context" }, 403, req);
   }
 
-  // Check ownership
+  // Load user's workspace membership row (role lives here, not in the request)
+  const { data: memberRow, error: memberErr } = await sb
+    .from("workspace_members")
+    .select("role")
+    .eq("workspace_id", workspaceId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  // Also check workspace ownership (owners may not have a membership row)
   const { data: ownedWs } = await sb
     .from("workspaces")
     .select("id")
@@ -137,14 +146,32 @@ serve(async (req: Request) => {
     .eq("owner_id", user.id)
     .maybeSingle();
 
-  // Check membership
-  const { data: membershipResult } = await sb.rpc("is_workspace_member", {
-    _user_id: user.id,
-    _workspace_id: workspaceId,
-  });
+  const isMember = !memberErr && memberRow !== null;
+  const isOwner = ownedWs !== null;
 
-  if (!ownedWs && !membershipResult) {
+  if (!isMember && !isOwner) {
     return json({ error: "Forbidden: not a member of this workspace" }, 403, req);
+  }
+
+  // Determine effective role. Owners have implicit "owner" role.
+  const effectiveRole: string = isOwner ? "owner" : (memberRow?.role ?? "member");
+
+  // Role gate: APPROVE, REJECT, and CANCEL require owner or admin.
+  // MODIFY is allowed for any workspace member (they propose changes, not authorise execution).
+  // This reuses the existing canonical workspace role model (owner/admin/member/viewer).
+  const PRIVILEGED_DECISIONS = new Set(["APPROVE", "REJECT", "CANCEL"]);
+  if (PRIVILEGED_DECISIONS.has(decision)) {
+    if (effectiveRole !== "owner" && effectiveRole !== "admin") {
+      return json(
+        {
+          error: "Forbidden: only workspace owners and admins may approve, reject, or cancel actions",
+          required_role: "owner or admin",
+          your_role: effectiveRole,
+        },
+        403,
+        req,
+      );
+    }
   }
 
   // 5. Determine the target lifecycle transition
@@ -174,7 +201,7 @@ serve(async (req: Request) => {
   }
 
   if (
-    (currentStatus === "QUEUED" || currentStatus === "EXECUTING" || currentStatus === "COMPLETED") &&
+    (currentStatus === "QUEUED" || currentStatus === "EXECUTING") &&
     decision === "APPROVE"
   ) {
     return json(
@@ -189,7 +216,7 @@ serve(async (req: Request) => {
     );
   }
 
-  // 7. State machine enforcement
+  // 7. State machine enforcement — verify the immediate transition is legal
   if (!canTransition(currentStatus, targetStatus)) {
     return json(
       {
@@ -206,7 +233,7 @@ serve(async (req: Request) => {
   // 8. Decision-specific handling
 
   if (decision === "REJECT") {
-    const { error: rejectError } = await sb
+    const { data: rejectedRows, error: rejectError } = await sb
       .from("ai_suggested_actions")
       .update({
         lifecycle_status: "REJECTED",
@@ -216,13 +243,18 @@ serve(async (req: Request) => {
         status: "dismissed",
       })
       .eq("id", action_id)
-      .eq("lifecycle_status", currentStatus); // optimistic concurrency
+      .eq("lifecycle_status", currentStatus) // optimistic concurrency
+      .select("id");
 
     if (rejectError) {
       return json({ error: "Failed to reject action", detail: rejectError.message }, 500, req);
     }
+    if (!rejectedRows || rejectedRows.length === 0) {
+      return json({ error: "Concurrent state change — action no longer in expected state" }, 409, req);
+    }
 
-    await logAudit(sb, {
+    // Non-mandatory: rejection audit failure is logged but doesn't block the response
+    const auditErr = await logAudit(sb, {
       workspace_id: workspaceId,
       user_id: user.id,
       action_id,
@@ -231,6 +263,9 @@ serve(async (req: Request) => {
       new_status: "REJECTED",
       rejection_reason,
     });
+    if (auditErr) {
+      console.error("[ai-action-approve] non-mandatory audit failed (REJECT):", auditErr);
+    }
 
     return json({
       success: true,
@@ -242,7 +277,7 @@ serve(async (req: Request) => {
   }
 
   if (decision === "CANCEL") {
-    const { error: cancelError } = await sb
+    const { data: cancelledRows, error: cancelError } = await sb
       .from("ai_suggested_actions")
       .update({
         lifecycle_status: "CANCELLED",
@@ -251,13 +286,17 @@ serve(async (req: Request) => {
         status: "dismissed",
       })
       .eq("id", action_id)
-      .eq("lifecycle_status", currentStatus);
+      .eq("lifecycle_status", currentStatus)
+      .select("id");
 
     if (cancelError) {
       return json({ error: "Failed to cancel action", detail: cancelError.message }, 500, req);
     }
+    if (!cancelledRows || cancelledRows.length === 0) {
+      return json({ error: "Concurrent state change — action no longer in expected state" }, 409, req);
+    }
 
-    await logAudit(sb, {
+    const auditErr = await logAudit(sb, {
       workspace_id: workspaceId,
       user_id: user.id,
       action_id,
@@ -265,6 +304,9 @@ serve(async (req: Request) => {
       previous_status: currentStatus,
       new_status: "CANCELLED",
     });
+    if (auditErr) {
+      console.error("[ai-action-approve] non-mandatory audit failed (CANCEL):", auditErr);
+    }
 
     return json({
       success: true,
@@ -284,12 +326,23 @@ serve(async (req: Request) => {
       );
     }
 
-    // Validate the modified parameters against workspace policy before storing
-    const policy = await loadWorkspacePolicy(sb, workspaceId);
+    // Load workspace policy before validating modified params — fail closed on error
+    const policyResult = await loadWorkspacePolicy(sb, workspaceId);
+    if (!policyResult.ok) {
+      return json(
+        {
+          error: "Configuration failure: workspace policy could not be loaded. Modification rejected (fail-closed).",
+          detail: policyResult.error,
+        },
+        503,
+        req,
+      );
+    }
+
     const validation = validateAndClampActionParams(
       action.action_type,
       modifications,
-      policy,
+      policyResult.policy!,
     );
 
     if (!validation.valid) {
@@ -303,16 +356,14 @@ serve(async (req: Request) => {
       );
     }
 
-    // Merge any clamped values back into modifications
     const resolvedModifications = {
       ...modifications,
       ...(validation.clamped_values ?? {}),
     };
 
-    // Preserve the original AI payload on first modification
     const originalPayload = action.original_payload ?? action.action_payload ?? {};
 
-    const { error: modifyError } = await sb
+    const { data: modifiedRows, error: modifyError } = await sb
       .from("ai_suggested_actions")
       .update({
         lifecycle_status: "MODIFIED",
@@ -324,13 +375,17 @@ serve(async (req: Request) => {
         status: "pending",
       })
       .eq("id", action_id)
-      .eq("lifecycle_status", currentStatus);
+      .eq("lifecycle_status", currentStatus)
+      .select("id");
 
     if (modifyError) {
       return json({ error: "Failed to record modification", detail: modifyError.message }, 500, req);
     }
+    if (!modifiedRows || modifiedRows.length === 0) {
+      return json({ error: "Concurrent state change — action no longer in expected state" }, 409, req);
+    }
 
-    await logAudit(sb, {
+    const auditErr = await logAudit(sb, {
       workspace_id: workspaceId,
       user_id: user.id,
       action_id,
@@ -340,6 +395,9 @@ serve(async (req: Request) => {
       modifications: resolvedModifications,
       validation_result: validation,
     });
+    if (auditErr) {
+      console.error("[ai-action-approve] non-mandatory audit failed (MODIFY):", auditErr);
+    }
 
     return json({
       success: true,
@@ -353,16 +411,23 @@ serve(async (req: Request) => {
     }, 200, req);
   }
 
-  // 9. APPROVE path — full server-side validation before queuing
+  // 9. APPROVE path — full lifecycle: SUGGESTED → APPROVED → VALIDATING → QUEUED
+  //    Every persisted transition enforces canTransition().
 
-  // Sensitive action gate: even if it was AI-suggested, require explicit human APPROVE
-  if (SENSITIVE_ACTION_TYPES.has(action.action_type) && action.suggested_by === "ai") {
-    // Allowed — the human is explicitly approving. This is the correct path.
-    // (Blocking would happen in execute path if lifecycle_status were not APPROVED)
+  // Load workspace policy (authoritative server-side — never trust client limits).
+  // Fail closed: DB error → reject rather than silently fall back to invented limits.
+  const policyResult = await loadWorkspacePolicy(sb, workspaceId);
+  if (!policyResult.ok) {
+    return json(
+      {
+        error: "Configuration failure: workspace policy could not be loaded. Approval rejected (fail-closed).",
+        detail: policyResult.error,
+      },
+      503,
+      req,
+    );
   }
-
-  // Load workspace policy (authoritative server-side — never trust client-supplied limits)
-  const policy = await loadWorkspacePolicy(sb, workspaceId);
+  const policy = policyResult.policy!;
 
   // Use modified payload if present, otherwise original AI payload
   const effectivePayload: ActionParams =
@@ -386,16 +451,79 @@ serve(async (req: Request) => {
     );
   }
 
-  // Apply any clamped values
   const resolvedPayload: ActionParams = {
     ...effectivePayload,
     ...(validation.clamped_values ?? {}),
   };
 
-  // 10. Generate idempotency key for this approval
-  const idempotencyKey = `ai3:${action_id}:approve:${Math.floor(Date.now() / 1000)}`;
+  // Stable idempotency key — deterministic, based on action identity not timestamp.
+  // Format: ai3:<action_id>:approve  (no timestamp — stable across retries)
+  const idempotencyKey = `ai3:${action_id}:approve`;
 
-  // 11. Enqueue job to canonical job_queue
+  // ── Step A: currentStatus → APPROVED ────────────────────────────────────────
+  // canTransition(currentStatus, "APPROVED") was already verified in step 7.
+  // We check row count to detect concurrent winners; 0 rows → lost the race.
+
+  const { data: approvedRows, error: approvedErr } = await sb
+    .from("ai_suggested_actions")
+    .update({
+      lifecycle_status: "APPROVED",
+      approved_at: now,
+      approver_id: user.id,
+      idempotency_key: idempotencyKey,
+      original_payload: action.original_payload ?? action.action_payload ?? {},
+      status: "pending",
+    })
+    .eq("id", action_id)
+    .eq("lifecycle_status", currentStatus) // optimistic lock
+    .select("id");
+
+  if (approvedErr) {
+    return json({ error: "Failed to record approval", detail: approvedErr.message }, 500, req);
+  }
+
+  if (!approvedRows || approvedRows.length === 0) {
+    // Zero rows updated — another concurrent request already transitioned this action.
+    // Re-load and return idempotent response.
+    const { data: fresh } = await sb
+      .from("ai_suggested_actions")
+      .select("lifecycle_status, job_queue_id")
+      .eq("id", action_id)
+      .maybeSingle();
+    return json(
+      {
+        idempotent: true,
+        action_id,
+        lifecycle_status: fresh?.lifecycle_status ?? "UNKNOWN",
+        message: "Concurrent approval already in progress — returning existing state",
+      },
+      200,
+      req,
+    );
+  }
+
+  // ── Step B: APPROVED → VALIDATING ───────────────────────────────────────────
+  // canTransition("APPROVED", "VALIDATING") must hold — verified statically.
+  const { data: validatingRows, error: validatingErr } = await sb
+    .from("ai_suggested_actions")
+    .update({
+      lifecycle_status: "VALIDATING",
+      validation_result: validation,
+    })
+    .eq("id", action_id)
+    .eq("lifecycle_status", "APPROVED")
+    .select("id");
+
+  if (validatingErr || !validatingRows || validatingRows.length === 0) {
+    return json(
+      { error: "Failed to transition to VALIDATING", detail: validatingErr?.message },
+      500,
+      req,
+    );
+  }
+
+  // ── Step C: Enqueue job ──────────────────────────────────────────────────────
+  // Enqueue ONLY after VALIDATING is committed — never before state transition is confirmed.
   const { data: jobRow, error: jobError } = await sb
     .from("job_queue")
     .insert({
@@ -418,6 +546,12 @@ serve(async (req: Request) => {
     .single();
 
   if (jobError || !jobRow) {
+    // Roll back to APPROVED so the human can retry
+    await sb
+      .from("ai_suggested_actions")
+      .update({ lifecycle_status: "APPROVED" })
+      .eq("id", action_id)
+      .eq("lifecycle_status", "VALIDATING");
     return json(
       { error: "Failed to enqueue action", detail: jobError?.message },
       500,
@@ -425,34 +559,32 @@ serve(async (req: Request) => {
     );
   }
 
-  // 12. Transition action to QUEUED — store all approval evidence
-  const { error: approveError } = await sb
+  // ── Step D: VALIDATING → QUEUED ─────────────────────────────────────────────
+  const { data: queuedRows, error: queuedErr } = await sb
     .from("ai_suggested_actions")
     .update({
       lifecycle_status: "QUEUED",
-      approved_at: now,
       queued_at: now,
-      approver_id: user.id,
-      idempotency_key: idempotencyKey,
-      original_payload: action.original_payload ?? action.action_payload ?? {},
-      validation_result: validation,
       job_queue_id: jobRow.id,
       status: "pending",
     })
     .eq("id", action_id)
-    .eq("lifecycle_status", currentStatus); // optimistic concurrency — prevents double-queue
+    .eq("lifecycle_status", "VALIDATING")
+    .select("id");
 
-  if (approveError) {
-    // Best-effort: cancel the job we just created to avoid orphan
+  if (queuedErr || !queuedRows || queuedRows.length === 0) {
+    // Cancel the orphan job to avoid stale job-queue entry
     await sb.from("job_queue").update({ status: "cancelled" }).eq("id", jobRow.id);
     return json(
-      { error: "Failed to record approval", detail: approveError.message },
+      { error: "Failed to transition to QUEUED", detail: queuedErr?.message },
       500,
       req,
     );
   }
 
-  await logAudit(sb, {
+  // ── Audit: mandatory for approval ──────────────────────────────────────────
+  // Approval is a sensitive business event — audit failure is surfaced, not swallowed.
+  const auditErr = await logAudit(sb, {
     workspace_id: workspaceId,
     user_id: user.id,
     action_id,
@@ -463,6 +595,23 @@ serve(async (req: Request) => {
     idempotency_key: idempotencyKey,
     validation_result: validation,
   });
+
+  if (auditErr) {
+    // The business action is already QUEUED — do not cancel it.
+    // Surface the audit failure so operators can investigate.
+    console.error("[ai-action-approve] mandatory audit failed:", auditErr);
+    return json(
+      {
+        error: "Audit durability failure: approval committed but audit record could not be persisted.",
+        detail: auditErr,
+        action_id,
+        lifecycle_status: "QUEUED",
+        job_queue_id: jobRow.id,
+      },
+      500,
+      req,
+    );
+  }
 
   return json(
     {
@@ -483,47 +632,68 @@ serve(async (req: Request) => {
 
 // ── Helpers ───────────────────────────────────────────────────
 
+interface PolicyResult {
+  ok: boolean;
+  policy?: WorkspacePolicy;
+  error?: string;
+}
+
+/**
+ * Loads workspace-specific action policy from workspace_settings.
+ *
+ * Fail-closed: returns ok=false if the DB itself errors (table permission,
+ * network failure, etc.) so the caller can reject rather than silently apply
+ * invented limits. Returns ok=true with an empty policy (hard limits apply)
+ * when no workspace_settings row is configured.
+ */
 async function loadWorkspacePolicy(
   // deno-lint-ignore no-explicit-any
   sb: any,
   workspaceId: string,
-): Promise<WorkspacePolicy> {
-  // Load from workspace_settings or plan limits if they exist.
-  // Returns an empty policy (falls back to hard limits) if not configured.
-  try {
-    const { data } = await sb
-      .from("workspace_settings")
-      .select(
-        "max_discount_percent, max_offer_value, max_reward_points, max_referral_credit, max_campaign_contacts, max_message_batch",
-      )
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
+): Promise<PolicyResult> {
+  const { data, error } = await sb
+    .from("workspace_settings")
+    .select(
+      "max_discount_percent, max_offer_value, max_reward_points, max_referral_credit, max_campaign_contacts, max_message_batch",
+    )
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
 
-    return (data as WorkspacePolicy | null) ?? {};
-  } catch {
-    return {};
+  if (error) {
+    // A real DB error — fail closed. Do not hide configuration failures.
+    return { ok: false, error: error.message };
   }
+
+  // No row → no configured policy; hard limits in action-contract.ts apply.
+  return { ok: true, policy: (data as WorkspacePolicy | null) ?? {} };
 }
 
+interface AuditContext {
+  workspace_id: string;
+  user_id: string;
+  action_id: string;
+  decision: string;
+  previous_status: string;
+  new_status: string;
+  rejection_reason?: string;
+  modifications?: Record<string, unknown>;
+  validation_result?: unknown;
+  job_queue_id?: string;
+  idempotency_key?: string;
+}
+
+/**
+ * Writes an audit record.
+ * Returns null on success, or an error string on failure.
+ * Callers decide whether to treat failure as fatal (mandatory) or non-fatal.
+ */
 async function logAudit(
   // deno-lint-ignore no-explicit-any
   sb: any,
-  context: {
-    workspace_id: string;
-    user_id: string;
-    action_id: string;
-    decision: string;
-    previous_status: string;
-    new_status: string;
-    rejection_reason?: string;
-    modifications?: Record<string, unknown>;
-    validation_result?: unknown;
-    job_queue_id?: string;
-    idempotency_key?: string;
-  },
-): Promise<void> {
+  context: AuditContext,
+): Promise<string | null> {
   try {
-    await sb.rpc("log_audit", {
+    const { error } = await sb.rpc("log_audit", {
       p_workspace_id: context.workspace_id,
       p_user_id: context.user_id,
       p_action: `ai_action_${context.decision.toLowerCase()}`,
@@ -537,13 +707,14 @@ async function logAudit(
         ...(context.rejection_reason ? { rejection_reason: context.rejection_reason } : {}),
         ...(context.job_queue_id ? { job_queue_id: context.job_queue_id } : {}),
         ...(context.idempotency_key ? { idempotency_key: context.idempotency_key } : {}),
-        // Do not log raw modifications (may contain PII or sensitive offer data)
+        // Do not log raw modifications (may contain PII or sensitive offer/pricing data)
         has_modifications: context.modifications !== undefined,
         validation_valid: (context.validation_result as { valid?: boolean } | undefined)?.valid,
       },
     });
-  } catch {
-    // Audit logging failures must never block the approval response
-    console.error("[ai-action-approve] audit log failed for action:", context.action_id);
+    if (error) return error.message;
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
   }
 }

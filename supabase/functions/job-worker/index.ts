@@ -382,48 +382,22 @@ async function processAiControlledActionJob(
     };
   }
 
-  // Execute the action — actual side-effects are dispatched here.
-  // In this implementation the execution layer records completion and logs
-  // the audit trail. Real integrations (campaigns, offers, etc.) are wired
-  // through their own canonical functions and are NOT called here directly,
-  // to avoid bypassing their own validation and consent checks.
+  const effectivePayload = action.modified_payload ?? action.action_payload ?? {};
+
+  // Dispatch to the canonical executor for this action type.
+  // COMPLETED means the downstream operation actually succeeded.
+  // Unsupported action types fail closed — they can never become COMPLETED here.
   try {
-    const effectivePayload = action.modified_payload ?? action.action_payload ?? {};
-
-    await supabase.rpc("log_audit", {
-      p_workspace_id: workspaceId,
-      p_action: "ai_action_executed",
-      p_resource_type: "ai_suggested_actions",
-      p_resource_id: actionId,
-      p_severity: "info",
-      p_new_values: {
-        action_type: action.action_type,
-        lifecycle_status: "EXECUTING",
-        attempt: attempts + 1,
-        idempotency_key: idempotencyKey || null,
-        correlation_id: action.correlation_id,
-        suggested_by: action.suggested_by,
-        // Do not log raw payload — may contain sensitive offer/pricing data
-        payload_keys: Object.keys(effectivePayload),
-      },
-    }).catch(() => {});
-
-    // Mark COMPLETED
-    await supabase
-      .from("ai_suggested_actions")
-      .update({
-        lifecycle_status: "COMPLETED",
-        executed_at: now,
-        status: "executed",
-        failure_reason: null,
-      })
-      .eq("id", actionId);
-
-    return { status: "completed" };
+    await dispatchToCanonicalExecutor(supabase, action.action_type, {
+      actionId,
+      workspaceId,
+      payload: effectivePayload,
+      correlationId: action.correlation_id,
+    });
   } catch (execErr) {
     const reason = execErr instanceof Error ? execErr.message : String(execErr);
-
     const nextStatus = attempts + 1 >= MAX_EXECUTION_ATTEMPTS ? "FAILED" : "QUEUED";
+
     await supabase
       .from("ai_suggested_actions")
       .update({
@@ -432,7 +406,184 @@ async function processAiControlledActionJob(
       })
       .eq("id", actionId);
 
+    // Emit non-fatal audit entry for execution failure
+    await supabase.rpc("log_audit", {
+      p_workspace_id: workspaceId,
+      p_action: "ai_action_execution_failed",
+      p_resource_type: "ai_suggested_actions",
+      p_resource_id: actionId,
+      p_severity: "warning",
+      p_new_values: {
+        action_type: action.action_type,
+        next_lifecycle_status: nextStatus,
+        attempt: attempts + 1,
+        failure_reason: reason,
+      },
+    }).catch(() => {});
+
     throw new Error(`[AI-3] Execution error for action ${actionId}: ${reason}`);
+  }
+
+  // Execution succeeded — transition EXECUTING → COMPLETED
+  await supabase
+    .from("ai_suggested_actions")
+    .update({
+      lifecycle_status: "COMPLETED",
+      completed_at: now,
+      status: "executed",
+      failure_reason: null,
+    })
+    .eq("id", actionId)
+    .eq("lifecycle_status", "EXECUTING");
+
+  // Mandatory audit for successful execution
+  const { error: auditErr } = await supabase.rpc("log_audit", {
+    p_workspace_id: workspaceId,
+    p_action: "ai_action_executed",
+    p_resource_type: "ai_suggested_actions",
+    p_resource_id: actionId,
+    p_severity: "info",
+    p_new_values: {
+      action_type: action.action_type,
+      lifecycle_status: "COMPLETED",
+      attempt: attempts + 1,
+      idempotency_key: idempotencyKey || null,
+      correlation_id: action.correlation_id,
+      suggested_by: action.suggested_by,
+      // Do not log raw payload — may contain sensitive offer/pricing data
+      payload_keys: Object.keys(effectivePayload),
+    },
+  });
+
+  if (auditErr) {
+    // The action is already COMPLETED — do not revert. Log and alert.
+    console.error(`[AI-3] Mandatory audit failed for completed action ${actionId}:`, auditErr.message);
+  }
+
+  return { status: "completed" };
+}
+
+// ── AI-3 Canonical Executor Dispatch ─────────────────────────────────────────
+//
+// Maps supported action types to their existing canonical edge functions.
+// Unsupported types throw — the worker transitions action to FAILED.
+//
+// COMPLETED must mean the downstream operation actually succeeded.
+// Never mark COMPLETED merely because an audit entry was written.
+
+interface DispatchContext {
+  actionId: string;
+  workspaceId: string;
+  payload: Record<string, unknown>;
+  correlationId?: string;
+}
+
+async function dispatchToCanonicalExecutor(
+  supabase: any,
+  actionType: string,
+  ctx: DispatchContext,
+): Promise<void> {
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const serviceKey = getServiceKey();
+
+  // Helper: invoke an edge function by name and throw on non-ok response
+  async function invokeFunction(fnName: string, body: Record<string, unknown>): Promise<void> {
+    const url = `${supabaseUrl}/functions/v1/${fnName}`;
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${serviceKey}`,
+        "x-internal-secret": Deno.env.get("INTERNAL_SECRET") ?? "",
+        "x-correlation-id": ctx.correlationId ?? ctx.actionId,
+      },
+      body: JSON.stringify({ workspace_id: ctx.workspaceId, ...body }),
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "(no body)");
+      throw new Error(`[AI-3] ${fnName} returned ${res.status}: ${detail}`);
+    }
+  }
+
+  switch (actionType) {
+    // ── Messaging ─────────────────────────────────────────────
+    case "send_message":
+      await invokeFunction("broadcast-send-engine", {
+        contact_id: ctx.payload.contact_id,
+        channel: ctx.payload.channel ?? "whatsapp",
+        message: ctx.payload.message,
+        ai3_action_id: ctx.actionId,
+      });
+      return;
+
+    // ── Campaigns ─────────────────────────────────────────────
+    case "launch_campaign":
+      await invokeFunction("launch-campaign-broadcast", {
+        campaign_id: ctx.payload.campaign_id,
+        ai3_action_id: ctx.actionId,
+      });
+      return;
+
+    case "bulk_email":
+      await invokeFunction("email-campaign-engine", {
+        campaign_id: ctx.payload.campaign_id,
+        subject: ctx.payload.subject,
+        body: ctx.payload.body,
+        contact_ids: ctx.payload.contact_ids,
+        ai3_action_id: ctx.actionId,
+      });
+      return;
+
+    case "bulk_sms":
+      await invokeFunction("send-sms", {
+        contact_ids: ctx.payload.contact_ids,
+        message: ctx.payload.message,
+        ai3_action_id: ctx.actionId,
+      });
+      return;
+
+    // ── Bookings ──────────────────────────────────────────────
+    case "create_booking":
+      await invokeFunction("appointment-booking", {
+        contact_id: ctx.payload.contact_id,
+        service_id: ctx.payload.service_id,
+        scheduled_at: ctx.payload.scheduled_at,
+        ai3_action_id: ctx.actionId,
+      });
+      return;
+
+    // ── Automations ───────────────────────────────────────────
+    case "execute_automation":
+      await invokeFunction("execute-automation", {
+        automation_id: ctx.payload.automation_id,
+        contact_id: ctx.payload.contact_id,
+        ai3_action_id: ctx.actionId,
+      });
+      return;
+
+    // ── Unsupported ───────────────────────────────────────────
+    // These types have no canonical safe executor in this codebase.
+    // They must NOT become COMPLETED. Fail closed.
+    case "suggest_offer":
+    case "suggest_campaign":
+    case "suggest_reply":
+    case "create_offer":
+    case "issue_reward":
+    case "issue_discount":
+    case "issue_referral":
+    case "seo_opportunity":
+    case "competitor_insight":
+      throw new Error(
+        `[AI-3] Action type '${actionType}' has no canonical executor. ` +
+        `Execution blocked (fail-closed). This action type requires a dedicated canonical ` +
+        `integration to be implemented before it can be executed.`,
+      );
+
+    default:
+      throw new Error(
+        `[AI-3] Unknown action type '${actionType}'. No executor available. ` +
+        `Execution blocked (fail-closed).`,
+      );
   }
 }
 
