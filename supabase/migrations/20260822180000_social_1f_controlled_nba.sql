@@ -20,6 +20,8 @@ ALTER TABLE public.next_best_actions
     CHECK (social_intent_score >= 0 AND social_intent_score <= 1),
   ADD COLUMN IF NOT EXISTS social_intent_score_band text
     CHECK (social_intent_score_band IN ('none','low','moderate','strong','high')),
+  ADD COLUMN IF NOT EXISTS social_confidence_band text
+    CHECK (social_confidence_band IN ('low','medium','high')),
   ADD COLUMN IF NOT EXISTS social_journey_phase text,
   ADD COLUMN IF NOT EXISTS social_evidence_refs text[] NOT NULL DEFAULT '{}',
   ADD COLUMN IF NOT EXISTS social_recommendation_status text
@@ -81,7 +83,8 @@ CREATE OR REPLACE FUNCTION public.upsert_social_nba_next_best_action(
   p_lead_id uuid,
   p_action_type text,
   p_reason text,
-  p_confidence text,
+  p_confidence numeric,
+  p_social_confidence_band text,
   p_priority integer,
   p_suggested_channel text,
   p_offer_value numeric,
@@ -114,6 +117,11 @@ SECURITY DEFINER
 SET search_path = public, pg_temp
 AS $$
 BEGIN
+  -- Enforce canonical confidence bounds: must be 0.0 <= confidence <= 1.0
+  IF p_confidence IS NOT NULL AND (p_confidence < 0 OR p_confidence > 1) THEN
+    RAISE EXCEPTION 'confidence must be between 0 and 1, got: %', p_confidence;
+  END IF;
+
   RETURN QUERY
   WITH inserted_row AS (
     INSERT INTO public.next_best_actions (
@@ -143,6 +151,7 @@ BEGIN
     social_canonical_person_id,
     social_intent_score,
     social_intent_score_band,
+    social_confidence_band,
     social_journey_phase,
     social_evidence_refs,
     social_recommendation_status,
@@ -165,6 +174,7 @@ BEGIN
       'canonical_person_id', p_canonical_person_id,
       'intent_score', p_intent_score,
       'intent_score_band', p_intent_score_band,
+      'confidence_band', p_social_confidence_band,
       'journey_phase', p_journey_phase,
       'policy_decision', p_policy_decision,
       'policy_reasons', p_policy_reasons,
@@ -194,6 +204,7 @@ BEGIN
     p_canonical_person_id,
     p_intent_score,
     p_intent_score_band,
+    p_social_confidence_band,
     p_journey_phase,
     COALESCE(p_evidence_refs, '{}'),
     p_recommendation_status,
@@ -227,12 +238,12 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.upsert_social_nba_next_best_action(
-  uuid, uuid, text, text, text, integer, text, numeric, text, timestamptz,
+  uuid, uuid, text, text, numeric, text, integer, text, numeric, text, timestamptz,
   uuid, boolean, text, text, text[], timestamptz, boolean, text, text, text,
   text, uuid, numeric, text, text, text[], text, text[], text, timestamptz
 ) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.upsert_social_nba_next_best_action(
-  uuid, uuid, text, text, text, integer, text, numeric, text, timestamptz,
+  uuid, uuid, text, text, numeric, text, integer, text, numeric, text, timestamptz,
   uuid, boolean, text, text, text[], timestamptz, boolean, text, text, text,
   text, uuid, numeric, text, text, text[], text, text[], text, timestamptz
 ) TO service_role;

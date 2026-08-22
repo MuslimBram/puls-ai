@@ -79,6 +79,34 @@ export type NbaReasonCode =
   | "SAFE_FALLBACK"
   | "NBA_GENERATED";
 
+// ── Social Confidence Band ────────────────────────────────────────────────────
+
+/**
+ * SOCIAL-1F categorical confidence band.
+ *
+ * This is a SOCIAL-only field and MUST NOT overwrite the canonical
+ * next_best_actions.confidence column, which is numeric 0.0–1.0.
+ * It is persisted in the separate social_confidence_band column.
+ */
+export type SocialConfidenceBand = "low" | "medium" | "high";
+
+/**
+ * Deterministic, documented mapping from SOCIAL categorical confidence band
+ * to canonical numeric confidence (0.0–1.0).
+ *
+ * low    → 0.25  (weak signal; insufficient evidence or unverified config)
+ * medium → 0.55  (moderate signal; some evidence, single journey phase)
+ * high   → 0.80  (strong signal; multiple consistent evidence points)
+ *
+ * These thresholds are intentionally conservative and fixed.
+ * They must not be changed without a documented contract revision.
+ */
+export const SOCIAL_CONFIDENCE_BAND_TO_NUMERIC: Record<SocialConfidenceBand, number> = {
+  low: 0.25,
+  medium: 0.55,
+  high: 0.80,
+} as const;
+
 // ── Social NBA Result ─────────────────────────────────────────────────────────
 
 /**
@@ -147,10 +175,24 @@ export interface SocialNbaResult {
   evidence_refs: string[];
 
   /**
-   * Confidence in the recommendation (propagated from intent score confidence
-   * and downgraded where business config is unverified).
+   * Canonical numeric confidence in the recommendation (0.0–1.0).
+   *
+   * Derived deterministically from social_confidence_band using
+   * SOCIAL_CONFIDENCE_BAND_TO_NUMERIC. This value is persisted into the
+   * canonical next_best_actions.confidence column (NUMERIC type).
+   *
+   * MUST be >= 0 and <= 1. Never a text value.
    */
-  confidence: "low" | "medium" | "high";
+  confidence: number;
+
+  /**
+   * SOCIAL-only categorical confidence band (low | medium | high).
+   *
+   * Stored in the separate social_confidence_band column so the canonical
+   * next_best_actions.confidence (numeric 0–1) is never overloaded with
+   * a text value.
+   */
+  social_confidence_band: SocialConfidenceBand;
 
   /**
    * Idempotency key — prevents duplicate active recommendations for the same
@@ -362,19 +404,32 @@ function requiresHumanApproval(
 
 // ── Confidence Propagation ────────────────────────────────────────────────────
 
+/**
+ * Derive canonical numeric confidence and social confidence band from intent
+ * band, action type, and business config.
+ *
+ * Commercial actions with missing business config are downgraded to "low"
+ * (0.25) regardless of the upstream intent band.
+ *
+ * Numeric confidence is derived deterministically from the band using
+ * SOCIAL_CONFIDENCE_BAND_TO_NUMERIC. The caller must store numeric confidence
+ * into next_best_actions.confidence and the band into social_confidence_band.
+ */
 function deriveConfidence(
-  intent_confidence: "low" | "medium" | "high",
+  intent_confidence: SocialConfidenceBand,
   action_type: SocialNbaActionType,
   business_config?: BusinessConfig,
-): "low" | "medium" | "high" {
+): { confidence: number; social_confidence_band: SocialConfidenceBand } {
   // Commercial actions with missing config downgrade to low
-  if (
+  const band: SocialConfidenceBand = (
     (action_type === "personalized_offer" || action_type === "upsell" || action_type === "cross_sell") &&
     (!business_config?.configured_offer_ids || business_config.configured_offer_ids.length === 0)
-  ) {
-    return "low";
-  }
-  return intent_confidence;
+  ) ? "low" : intent_confidence;
+
+  return {
+    confidence: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC[band],
+    social_confidence_band: band,
+  };
 }
 
 // ── Main NBA Function ─────────────────────────────────────────────────────────
@@ -393,7 +448,7 @@ function deriveConfidence(
  */
 export function generateSocialNba(
   input: SocialNbaInput,
-  intentConfidence: "low" | "medium" | "high" = "low",
+  intentConfidence: SocialConfidenceBand = "low",
 ): SocialNbaResult {
   const {
     workspace_id,
@@ -440,7 +495,8 @@ export function generateSocialNba(
       policy_reasons: [...new Set([...policy_result.reasons, "POLICY_CONTEXT_MISMATCH"])],
       policy_evaluated_at: policy_result.evaluated_at,
       evidence_refs,
-      confidence: "low",
+      confidence: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low,
+      social_confidence_band: "low" as const,
       idempotency_key,
       recommended_at,
     };
@@ -469,7 +525,8 @@ export function generateSocialNba(
       policy_reasons: policy_result.reasons as string[],
       policy_evaluated_at: policy_result.evaluated_at,
       evidence_refs,
-      confidence: "low",
+      confidence: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low,
+      social_confidence_band: "low" as const,
       idempotency_key,
       recommended_at,
     };
@@ -495,7 +552,8 @@ export function generateSocialNba(
       policy_reasons: policy_result.reasons as string[],
       policy_evaluated_at: policy_result.evaluated_at,
       evidence_refs,
-      confidence: "low",
+      confidence: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low,
+      social_confidence_band: "low" as const,
       idempotency_key,
       recommended_at,
     };
@@ -521,7 +579,8 @@ export function generateSocialNba(
       policy_reasons: policy_result.reasons as string[],
       policy_evaluated_at: policy_result.evaluated_at,
       evidence_refs,
-      confidence: "low",
+      confidence: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low,
+      social_confidence_band: "low" as const,
       idempotency_key,
       recommended_at,
     };
@@ -549,7 +608,8 @@ export function generateSocialNba(
       policy_reasons: policy_result.reasons as string[],
       policy_evaluated_at: policy_result.evaluated_at,
       evidence_refs,
-      confidence: "low",
+      confidence: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low,
+      social_confidence_band: "low" as const,
       idempotency_key,
       recommended_at,
     };
@@ -559,7 +619,7 @@ export function generateSocialNba(
   // Recommendation may be generated but must be marked human-review-required.
   if (policy_result.decision === "REVIEW") {
     const action_type = selectActionType(input);
-    const confidence = deriveConfidence(intentConfidence, action_type, business_config);
+    const { confidence, social_confidence_band } = deriveConfidence(intentConfidence, action_type, business_config);
     return {
       workspace_id,
       resolved_identity_key,
@@ -579,6 +639,7 @@ export function generateSocialNba(
       policy_evaluated_at: policy_result.evaluated_at,
       evidence_refs,
       confidence,
+      social_confidence_band,
       idempotency_key,
       recommended_at,
     };
@@ -607,14 +668,15 @@ export function generateSocialNba(
       policy_reasons: policy_result.reasons as string[],
       policy_evaluated_at: policy_result.evaluated_at,
       evidence_refs,
-      confidence: "low",
+      confidence: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low,
+      social_confidence_band: "low" as const,
       idempotency_key,
       recommended_at,
     };
   }
 
   const reason_codes: NbaReasonCode[] = ["POLICY_ALLOW", "NBA_GENERATED"];
-  const confidence = deriveConfidence(intentConfidence, action_type, business_config);
+  const { confidence, social_confidence_band } = deriveConfidence(intentConfidence, action_type, business_config);
   const human_approval_required = requiresHumanApproval("recommended", action_type, policy_result);
 
   return {
@@ -636,6 +698,7 @@ export function generateSocialNba(
     policy_evaluated_at: policy_result.evaluated_at,
     evidence_refs,
     confidence,
+    social_confidence_band,
     idempotency_key,
     recommended_at,
   };
@@ -670,7 +733,8 @@ function applyBusinessRuleGuard(
     action_type: "do_nothing",
     recommendation_status: "do_nothing",
     human_approval_required: true,
-    confidence: "low",
+    confidence: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low,
+    social_confidence_band: "low" as const,
     reason_codes: [...new Set([...recommendation.reason_codes, "BUSINESS_RULES_NOT_ELIGIBLE", "SAFE_FALLBACK"])],
   };
 }
@@ -712,6 +776,7 @@ export async function persistSocialNbaRecommendation(
     p_action_type: guardedRecommendation.action_type,
     p_reason: guardedRecommendation.reason_codes.join(","),
     p_confidence: guardedRecommendation.confidence,
+    p_social_confidence_band: guardedRecommendation.social_confidence_band,
     p_priority: guardedRecommendation.recommendation_status === "recommended" ? 6 : 1,
     p_suggested_channel: guardedRecommendation.channel,
     p_offer_value: null,

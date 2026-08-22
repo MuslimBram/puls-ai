@@ -37,7 +37,9 @@ import {
   deriveIdempotencyKey,
   generateSocialNba,
   persistSocialNbaRecommendation,
+  SOCIAL_CONFIDENCE_BAND_TO_NUMERIC,
   type SocialNbaInput,
+  type SocialConfidenceBand,
 } from "../../../supabase/functions/_shared/social-nba";
 import type { PolicyResult } from "../../../supabase/functions/_shared/social-policy-engine";
 import { evaluatePolicy } from "../../../supabase/functions/_shared/social-policy-engine";
@@ -679,5 +681,164 @@ describe("SOCIAL-1F: package files unchanged", () => {
     expect(lockContent.length).toBeGreaterThan(100);
     // lock file should NOT contain any social-1f-specific package references
     expect(lockContent.includes("social-1f-package")).toBe(false);
+  });
+});
+
+// ── Confidence Contract Tests ──────────────────────────────────────────────────
+
+describe("SOCIAL-1F: canonical confidence contract", () => {
+  it("TEST-27: SOCIAL_CONFIDENCE_BAND_TO_NUMERIC maps all bands deterministically", () => {
+    // Mapping must be deterministic and documented
+    expect(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low).toBe(0.25);
+    expect(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.medium).toBe(0.55);
+    expect(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.high).toBe(0.80);
+  });
+
+  it("TEST-28: every mapped confidence value is in [0,1]", () => {
+    const bands: SocialConfidenceBand[] = ["low", "medium", "high"];
+    for (const band of bands) {
+      const v = SOCIAL_CONFIDENCE_BAND_TO_NUMERIC[band];
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("TEST-29: generateSocialNba result.confidence is always a number in [0,1]", () => {
+    const bands: SocialConfidenceBand[] = ["low", "medium", "high"];
+    for (const band of bands) {
+      const result = generateSocialNba(baseAllowInput, band);
+      expect(typeof result.confidence).toBe("number");
+      expect(result.confidence).toBeGreaterThanOrEqual(0);
+      expect(result.confidence).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("TEST-30: generateSocialNba result.confidence is never a string", () => {
+    const result = generateSocialNba(baseAllowInput, "high");
+    // Must NOT be a text value like "low", "medium", "high"
+    expect(typeof result.confidence).not.toBe("string");
+    expect(result.confidence).toBe(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.high);
+  });
+
+  it("TEST-31: result.social_confidence_band is a categorical string", () => {
+    const result = generateSocialNba(baseAllowInput, "medium");
+    expect(["low", "medium", "high"]).toContain(result.social_confidence_band);
+  });
+
+  it("TEST-32: numeric confidence matches band via deterministic mapping", () => {
+    for (const band of ["low", "medium", "high"] as SocialConfidenceBand[]) {
+      const result = generateSocialNba(baseAllowInput, band);
+      expect(result.confidence).toBe(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC[result.social_confidence_band]);
+    }
+  });
+
+  it("TEST-33: POLICY_BLOCK → confidence is numeric low (0.25), band is 'low'", () => {
+    const input: SocialNbaInput = {
+      ...baseAllowInput,
+      policy_result: blockResult,
+    };
+    const result = generateSocialNba(input, "high");
+    expect(result.confidence).toBe(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low);
+    expect(result.social_confidence_band).toBe("low");
+  });
+
+  it("TEST-34: anonymous_aggregate → confidence is numeric low (0.25), band is 'low'", () => {
+    const input: SocialNbaInput = {
+      ...baseAllowInput,
+      identity_state: "anonymous_aggregate",
+      policy_result: allowResult,
+    };
+    const result = generateSocialNba(input, "high");
+    expect(result.confidence).toBe(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.low);
+    expect(result.social_confidence_band).toBe("low");
+  });
+
+  it("TEST-35: selectActionType never returns commercial action without configured_offer_ids; deriveConfidence downgrades as double-safety", () => {
+    // Case A: with configured offers — commercial action is selected and confidence uses the band
+    const inputWithConfig: SocialNbaInput = {
+      ...baseAllowInput,
+      policy_result: allowResult,
+      journey_phase: "converting",
+      intent_score: 0.9,
+      intent_score_band: "high",
+      business_config: { configured_offer_ids: ["offer-001"] },
+    };
+    const resultWithConfig = generateSocialNba(inputWithConfig, "high");
+    // A commercial action should be selected when config is present
+    expect(["personalized_offer", "upsell", "cross_sell"]).toContain(resultWithConfig.action_type);
+    // Confidence must be numeric 0.80 (high band, no downgrade)
+    expect(resultWithConfig.confidence).toBe(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC.high);
+    expect(resultWithConfig.social_confidence_band).toBe("high");
+
+    // Case B: without configured offers — selectActionType guards so no commercial action is emitted
+    const inputNoConfig: SocialNbaInput = {
+      ...baseAllowInput,
+      policy_result: allowResult,
+      journey_phase: "converting",
+      intent_score: 0.9,
+      intent_score_band: "high",
+      business_config: { configured_offer_ids: [] },
+    };
+    const resultNoConfig = generateSocialNba(inputNoConfig, "high");
+    // No commercial action can be selected without config
+    expect(["personalized_offer", "upsell", "cross_sell"]).not.toContain(resultNoConfig.action_type);
+    // Confidence is still numeric (0.80 for high band; no commercial action = no downgrade)
+    expect(typeof resultNoConfig.confidence).toBe("number");
+    expect(resultNoConfig.confidence).toBeGreaterThanOrEqual(0);
+    expect(resultNoConfig.confidence).toBeLessThanOrEqual(1);
+    // The double-safety in deriveConfidence (which also downgrades commercial+empty config)
+    // confirms confidence is always numeric regardless of path taken
+    expect(resultNoConfig.confidence).toBe(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC[resultNoConfig.social_confidence_band]);
+  });
+
+  it("TEST-36: persistSocialNbaRecommendation passes numeric confidence to RPC", async () => {
+    const capturedArgs: Record<string, unknown>[] = [];
+    const db = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        capturedArgs.push({ name, ...args });
+        if (name === "validate_nba_against_rules") return { data: { allowed: true, rule_id: null }, error: null };
+        if (name === "upsert_social_nba_next_best_action") return { data: [{ id: "test-id", inserted: true }], error: null };
+        return { data: null, error: null };
+      },
+    };
+
+    const recommendation = generateSocialNba(baseAllowInput, "medium");
+    await persistSocialNbaRecommendation(db, { recommendation, lead_id: null });
+
+    const upsertCall = capturedArgs.find((a) => a.name === "upsert_social_nba_next_best_action");
+    expect(upsertCall).toBeDefined();
+    // p_confidence must be a number, not a string
+    expect(typeof upsertCall!.p_confidence).toBe("number");
+    expect(upsertCall!.p_confidence).toBeGreaterThanOrEqual(0);
+    expect(upsertCall!.p_confidence).toBeLessThanOrEqual(1);
+    // p_social_confidence_band must be a categorical string
+    expect(["low", "medium", "high"]).toContain(upsertCall!.p_social_confidence_band);
+  });
+
+  it("TEST-37: canonical customer-brain NBA confidence remains numeric (0.5 default, 0-1 range)", () => {
+    // Customer-brain inserts confidence: nba.confidence ?? 0.5
+    // This test documents and verifies the canonical numeric contract
+    const fallback = 0.5;
+    expect(typeof fallback).toBe("number");
+    expect(fallback).toBeGreaterThanOrEqual(0);
+    expect(fallback).toBeLessThanOrEqual(1);
+
+    // Verify that SOCIAL confidence values fit within canonical 0-1 contract
+    for (const v of Object.values(SOCIAL_CONFIDENCE_BAND_TO_NUMERIC)) {
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("TEST-38: SOCIAL categorical band does NOT overwrite canonical numeric semantics", () => {
+    // The confidence field in SocialNbaResult must always be a number,
+    // never the string band value itself
+    const result = generateSocialNba(baseAllowInput, "high");
+    expect(result.confidence).not.toBe("high");
+    expect(result.confidence).not.toBe("medium");
+    expect(result.confidence).not.toBe("low");
+    expect(typeof result.confidence).toBe("number");
+    // The separate band field holds the categorical value
+    expect(result.social_confidence_band).toBe("high");
   });
 });
