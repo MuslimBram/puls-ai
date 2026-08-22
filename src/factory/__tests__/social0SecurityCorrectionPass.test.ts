@@ -97,6 +97,7 @@ describe("SOCIAL-0 security correction pass", () => {
     const chatWidget = readFileSync(repoFile("src", "components", "ChatWidget.tsx"), "utf-8");
     const websiteSetup = readFileSync(repoFile("src", "components", "WebsiteChatSetup.tsx"), "utf-8");
     const webchatProxy = readFileSync(repoFile("supabase", "functions", "webchat-proxy", "index.ts"), "utf-8");
+    const configToml = readFileSync(repoFile("supabase", "config.toml"), "utf-8");
 
     // webchat-ingest: server-side channel resolution; blocker marker removed (proxy now present)
     expect(webchat).toContain("channel_id and message are required");
@@ -114,6 +115,10 @@ describe("SOCIAL-0 security correction pass", () => {
     expect(chatWidget).not.toContain("WEBCHAT_TRUSTED_PROXY_BLOCKER");
     expect(websiteSetup).toContain("data-channel-id");
     expect(websiteSetup).not.toContain("data-user-id");
+
+    // Canonical Supabase gateway contract must explicitly allow both webchat handlers
+    expect(configToml).toMatch(/\[functions\.webchat-proxy\]\s+verify_jwt = false/);
+    expect(configToml).toMatch(/\[functions\.webchat-ingest\]\s+verify_jwt = false/);
 
     // webchat-proxy: injects secret server-side; proxy endpoint exists
     expect(webchatProxy).toContain("x-internal-secret");

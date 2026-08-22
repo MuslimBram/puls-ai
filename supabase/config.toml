@@ -39,6 +39,10 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.webhook-ingest]
     verify_jwt = false
+  [functions.webchat-proxy]
+    verify_jwt = false
+  [functions.webchat-ingest]
+    verify_jwt = false
   [functions.community-profile]
     verify_jwt = true
   [functions.community-feed]
