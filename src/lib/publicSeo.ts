@@ -1,11 +1,11 @@
 import {
   DEFAULT_PUBLIC_LOCALE,
-  PublicLocale,
   isSupportedPublicLocale,
   localizePublicPath,
   normalizePublicPathname,
   stripPublicLocale,
 } from "@/lib/publicLocale";
+import type { PublicLocale } from "@/lib/publicLocale";
 
 export const DEFAULT_PUBLIC_SITE_URL = "https://kohablerjeve.top";
 
@@ -66,8 +66,7 @@ export function normalizePublicSiteUrl(raw?: string | null) {
 }
 
 export function getPublicSiteUrl() {
-  const envUrl = typeof import.meta !== "undefined" ? import.meta.env?.VITE_PUBLIC_SITE_URL : undefined;
-  return normalizePublicSiteUrl(envUrl);
+  return normalizePublicSiteUrl(import.meta.env.VITE_PUBLIC_SITE_URL);
 }
 
 export function getLocaleFromPublicPath(pathname: string): PublicLocale {
