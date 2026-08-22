@@ -84,6 +84,25 @@ describe("Wave 6 public SEO policy", () => {
     },
   );
 
+  it.each(Array.from(BLOCKED_SQ_PATHS))(
+    "keeps EN route %s indexable without advertising a false SQ alternate",
+    async (path) => {
+      setPath(`/en${path}`);
+      render(<Seo title="Approved EN" description="Approved English content" />);
+
+      await waitFor(() => expect(robotsContent()).toBe("index, follow"));
+      expect(canonicalHref()).toBe(`${ORIGIN}/en${path}`);
+      const links = hreflangs();
+      expect(links).toEqual(
+        expect.arrayContaining([
+          { lang: "en", href: `${ORIGIN}/en${path}` },
+          { lang: "x-default", href: `${ORIGIN}/en${path}` },
+        ]),
+      );
+      expect(links.some((link) => link.lang === "sq")).toBe(false);
+    },
+  );
+
   it("defaults unknown/private routes to noindex and emits no public hreflang", async () => {
     setPath("/dashboard");
     render(<Seo title="Dashboard" description="Private workspace" />);
@@ -131,5 +150,9 @@ describe("Wave 6 public SEO policy", () => {
     });
     expect(canonicalUrlForPath("/sq/security", ORIGIN)).toBe(`${ORIGIN}/sq/security`);
     expect(buildPolicyHreflangLinks("/sq/security", ORIGIN)).toHaveLength(3);
+    expect(buildPolicyHreflangLinks("/en/privacy", ORIGIN)).toEqual([
+      { hrefLang: "en", href: `${ORIGIN}/en/privacy` },
+      { hrefLang: "x-default", href: `${ORIGIN}/en/privacy` },
+    ]);
   });
 });
