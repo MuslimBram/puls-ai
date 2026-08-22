@@ -99,12 +99,6 @@ serve(async (req) => {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
-    if (workspaceId && campaign.workspace_id !== workspaceId) {
-      return new Response(JSON.stringify({ error: "Forbidden: campaign workspace mismatch" }), {
-        status: 403,
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
 
     // 2. Load campaign content (pick top-of-funnel pieces per channel)
     const { data: contents } = await supabase

@@ -407,6 +407,7 @@ async function processAiControlledActionJob(
       .from("ai_suggested_actions")
       .update({
         lifecycle_status: nextStatus,
+        ...(nextStatus === "QUEUED" ? { queued_at: now } : {}),
         ...(nextStatus === "FAILED" ? { failed_at: now, failure_reason: reason } : {}),
       })
       .eq("id", actionId);
