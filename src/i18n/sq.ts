@@ -902,4 +902,108 @@ export default {
     },
     cta: { title: "Bashkohuni me Lidhjet", desc: "Lidhuni me bizneset shqipfolëse në Pulse AI." },
   },
+
+  // ── Vala 4 — Besimi + Komerciale ─────────────────────────────────────────────
+
+  /** /security faqja publike */
+  securityPage: {
+    seo: {
+      title: "Siguria — Pulse AI",
+      desc:  "Si mbron Pulse AI hapësinën tuaj të punës: enkriptim, qasje e bazuar në role, strehim EU, autentifikim me dy faktorë dhe regjistrim i auditit.",
+    },
+    hero: {
+      title:    "Pasqyrë e Sigurisë",
+      subtitle: "Kontrollet që Pulse AI përdor për të mbrojtur hapësinën tuaj, të dhënat e klientëve tuaj dhe kanalet e lidhura.",
+    },
+    pillars: {
+      heading:    "Gjashtë shtylla të sigurisë",
+      encryption: { title: "Enkriptim",               body: "TLS 1.2+ gjatë transmetimit, enkriptim në pushim dhe AES-256-GCM për kredencialet e integrimeve." },
+      rls:        { title: "Siguria e Rreshtave",      body: "Çdo tabelë e hapësirës së punës mbrohet nga politikat e nivelit të bazës së të dhënave." },
+      auth:       { title: "Autentifikim",             body: "Verifikim i detyrueshëm i emailit, TOTP me dy faktorë opsionale, skanim sesioni 24-orësh dhe miratim i pajisjes." },
+      hosting:    { title: "Strehim EU",               body: "Bazat e të dhënave të prodhimit, ruajtja dhe funksionet funksionojnë në Bashkimin Europian (Frankfurt)." },
+      audit:      { title: "Regjistrim auditit",       body: "Veprimet administrative, ndryshimet e kredencialeve dhe aktiviteti i webhook-eve regjistrohen." },
+      webhook:    { title: "Integriteti i webhook-it", body: "Webhook-et hyrëse verifikohen me nënshkrime HMAC-SHA256 dhe kredenciale për çdo tenant." },
+    },
+    sections: {
+      encryptionTitle:       "Enkriptim",
+      encryptionBody:        "Trafiku ndërmjet shfletuesit tuaj dhe Pulse AI përdor TLS 1.2 ose më të lartë. Të dhënat në pushim enkriptohen nga shtresa e bazës së të dhënave të menaxhuar. Çelësat API, tokenat OAuth dhe kredencialet e kanaleve enkriptohen me AES-256-GCM para ruajtjes.",
+      accessTitle:           "Kontrolli i qasjes",
+      accessItems: {
+        rbac:    "Qasje e bazuar në role: pronar, admin, menaxher, agjent dhe partner me leje të ndryshme.",
+        server:  "Rolet ruhen në tabelë dedikuar dhe vërtetohen nga ana e serverit, kurrë në shfletues.",
+        totp:    "Autentifikimi me dy faktorë (TOTP) është i disponueshëm për të gjitha llogaritë.",
+        device:  "Hyrjet nga pajisje të panjohura kërkojnë miratim nga administratori.",
+        session: "Seanset skadojnë automatikisht pas 24 orëve pasiviteti.",
+      },
+      hostingTitle:          "Strehimi dhe vendndodhja",
+      hostingBody:           "Të dhënat e aplikacionit strehohen në infrastrukturë EU të menaxhuar në Frankfurt, Gjermani. Nënprocesuesit listohen në Politikën e Privatësisë dhe Marrëveshjen e Përpunimit të të Dhënave.",
+      monitoringTitle:       "Monitorimi dhe rezervimet",
+      monitoringBody:        "Rezervimet automatike të bazës së të dhënave kryhen çdo ditë me rikuperim në çast. Normat e gabimeve, dështimet e funksioneve dhe trafiku anormal i webhook-eve monitorihen vazhdimisht.",
+      sharedTitle:           "Përgjegjësia e ndarë",
+      sharedWeDo:            "Ngurtësimi i platformës, enkriptimi, izolimi i bazës së të dhënave, arnimisja, monitorimi dhe reagimi ndaj incidenteve për infrastrukturën Pulse AI.",
+      sharedYouDo:           "Përdorni fjalëkalime të forta unike, aktivizoni autentifikimin me dy faktorë, rishikoni kush ka qasje në hapësinën tuaj dhe revokon integrimet që nuk i përdorni më.",
+      sharedDisclaimer:      "Kjo faqe përshkruan kontrollet që janë aktive sot. Nuk është certifikim dhe nuk pretendon siguri absolute; asnjë platformë online nuk mund ta ofrojë këtë.",
+      reportTitle:           "Raportimi i një dobësie",
+      reportBody:            "Dërgoni email në info@mso.re me subjektin \"Siguria\" dhe përfshini hapat e riprodhimit. Njohim raportet brenda dy ditëve pune dhe do t'ju mbajmë të informuar deri sa çështja të zgjidhet.",
+    },
+  },
+
+  /** /pricing prezantimi publik komercial */
+  pricingPage: {
+    seo: {
+      title: "Çmimet — Pulse AI",
+      desc:  "Çmime të thjeshta dhe transparente për Pulse AI. Filloni falas, rrituni me nevojat tuaja. Planet merren drejtpërdrejt nga cilësimet tona.",
+    },
+    hero: {
+      title:          "Çmime të Thjeshta dhe Transparente",
+      subtitle:       "Filloni falas, rrituni me nevojat tuaja. Detajet e plota të çmimeve janë të disponueshme brenda llogarisë tuaj.",
+      neutralNotice:  "Çmimet e detajuara të planit shfaqen brenda llogarisë tuaj pas regjistrimit, drejtpërdrejt nga cilësimet tona.",
+    },
+    trial:            "Çdo plan i paguar fillon me 7 ditë provë falas.",
+    planCount:        "Planet aktive",
+    loadingPlans:     "Po ngarkohen planet…",
+    unavailable:      "Të dhënat e çmimeve nuk janë disponueshme momentalisht. Hyni në llogari për të parë opsionet e planit.",
+    ctaLoggedOut:     "Shiko Planet dhe Çmimet",
+    ctaLoggedIn:      "Menaxho Abonim",
+    trialBadge:       "7 ditë provë falas",
+    canonicalSource:  "Çmimet merren drejtpërdrejt nga cilësimet tona. Asnjë çmim nuk është i koduar direkt në këtë faqe.",
+  },
+
+  /** /white-label faqja publike e informacionit */
+  whiteLabelPage: {
+    seo: {
+      title: "Etiketa e Bardhë — Pulse AI",
+      desc:  "Shisni Pulse AI nën markën tuaj. Logoja juaj, domeni juaj, çmimet tuaja. Ne drejtojmë infrastrukturën, AI dhe përditësimet.",
+    },
+    hero: {
+      title:    "Shisni Pulse AI Nën Markën Tuaj",
+      subtitle: "Logoja juaj, domeni juaj, çmimet tuaja. Ne drejtojmë infrastrukturën, AI dhe përditësimet — ju zotëroni marrëdhënien me klientin dhe mbani marzhin.",
+    },
+    features: {
+      branding:     { title: "Markë e plotë",       body: "Logoja, ngjyrat, emailet dhe raportet mbajnë identitetin tuaj." },
+      domain:       { title: "Domeni juaj",          body: "Klientët nuk shohin kurrë Pulse AI — shohin agjencinë tuaj." },
+      hosting:      { title: "Ne mbajmë gjithçka",   body: "Strehimi, përditësimet e sigurisë dhe rregullimet e gabimeve përfshihen." },
+    },
+    applyNote:    "Ekipi ynë shqyrton çdo aplikim para aktivizimit. Hyni ose krijoni llogari për të dërguar aplikimin tuaj.",
+    configNote:   "Konfigurimi i markës dhe cilësimet e rishitësit kërkojnë llogari aktive etikete të bardhë.",
+  },
+
+  /** Arkitektura e besimit — vargu i ndarë */
+  trust: {
+    dataControl:    "Ju kontrolloni të dhënat e hapësirës suaj",
+    dataControlDesc:"Të dhënat tuaja mbeten në hapësinën tuaj. Siguria e Rreshtave zbatohet izolimin e tenant-it në shtresën e bazës së të dhënave.",
+    securityLink:   "Lexoni Pasqyrën tonë të Sigurisë",
+    privacyLink:    "Politika e Privatësisë",
+    termsLink:      "Kushtet e Shërbimit",
+    euHosting:      "Strehuar në EU (Frankfurt)",
+    e2eEncryption:  "Enkriptuar gjatë transmetimit dhe në pushim",
+    rbac:           "Kontrolli i qasjes me role",
+  },
+
+  /** Zgjerime të footer-it (Vala 4) */
+  footerWave4: {
+    refund:           "Politika e Rimbursimit",
+    affiliateTerms:   "Kushtet e Ambasadorit",
+    termsAndPayments: "Kushtet e Pagesës",
+  },
 } as const;
