@@ -20,8 +20,7 @@ CREATE TABLE IF NOT EXISTS public.social_policy_evaluation_log (
   consent_valid         boolean NOT NULL DEFAULT false,
   intent_score_presented numeric(5,4),
   evaluated_at          timestamptz NOT NULL DEFAULT now(),
-  created_at            timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT chk_social_policy_decision_valid CHECK (decision IN ('ALLOW', 'REVIEW', 'BLOCK'))
+  created_at            timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_social_policy_log_workspace
