@@ -33,6 +33,7 @@ const termsPaySource    = readFileSync(resolve(process.cwd(), "src/pages/TermsAn
 const securitySource    = readFileSync(resolve(process.cwd(), "src/pages/legal/SecurityOverview.tsx"), "utf8");
 const pricingSource     = readFileSync(resolve(process.cwd(), "src/pages/Pricing.tsx"), "utf8");
 const whiteLabelSource  = readFileSync(resolve(process.cwd(), "src/pages/WhiteLabel.tsx"), "utf8");
+const ctaSource         = readFileSync(resolve(process.cwd(), "src/components/public/PublicCTA.tsx"), "utf8");
 
 // ── 1. /security public route ─────────────────────────────────────────────────
 
@@ -199,10 +200,12 @@ describe("Wave 4 — Legal public routes reachable", () => {
 
   it("all legal routes are publicly accessible (none wrapped in ProtectedPage)", () => {
     LEGAL_ROUTES.forEach((route) => {
-      const routeLine = appSource.match(new RegExp(`path="${route.replace("/", "\\/")}[^"]*"[^\\n]*`));
-      if (routeLine) {
-        expect(routeLine[0], `${route} must not be in ProtectedPage`).not.toContain("ProtectedPage");
-      }
+      // Find the line containing the route path definition using plain string search
+      const lines = appSource.split("\n");
+      const routeLines = lines.filter((l) => l.includes(`path="${route}"`));
+      routeLines.forEach((line) => {
+        expect(line, `${route} must not be in ProtectedPage`).not.toContain("ProtectedPage");
+      });
     });
   });
 });
@@ -331,17 +334,14 @@ describe("Wave 4 — EN/SQ i18n parity", () => {
 
 describe("Wave 4 — CTA safe-return behavior intact", () => {
   it("PublicCTA.tsx exists and exports PublicCTA", () => {
-    const ctaSource = readFileSync(resolve(process.cwd(), "src/components/public/PublicCTA.tsx"), "utf8");
     expect(ctaSource).toContain("export function PublicCTA");
   });
 
   it("PublicCTA uses validateInternalPath for safe navigation", () => {
-    const ctaSource = readFileSync(resolve(process.cwd(), "src/components/public/PublicCTA.tsx"), "utf8");
     expect(ctaSource).toContain("validateInternalPath");
   });
 
   it("no public CTA links to admin routes", () => {
-    const ctaSource = readFileSync(resolve(process.cwd(), "src/components/public/PublicCTA.tsx"), "utf8");
     expect(ctaSource).not.toContain('"/admin"');
     expect(ctaSource).not.toContain("admin-only");
   });
