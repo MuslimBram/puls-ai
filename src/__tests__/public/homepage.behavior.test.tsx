@@ -46,11 +46,12 @@ describe("Homepage behavior", () => {
 
   it("renders for logged-out visitors without crashing", () => {
     renderHomepage();
+    const publicAiCta = i18n.t("homepage.hero.secondaryCta");
 
     expect(
       screen.getByRole("heading", { name: "The AI Business Operating System" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Try Pulse AI" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: publicAiCta })).toBeInTheDocument();
   });
 
   it("renders the English homepage and keeps logged-out CTAs on the safe login flow", () => {
@@ -79,13 +80,17 @@ describe("Homepage behavior", () => {
 
   it("opens the existing floating AI bot when the public AI action is triggered", async () => {
     renderHomepage();
+    const floatingBotTriggerLabel = i18n.t("homepage.aiSection.primaryCta");
+    const publicAiCta = i18n.t("homepage.hero.secondaryCta");
+    const closeLabel = i18n.t("common.close");
+    expect(screen.getByLabelText(floatingBotTriggerLabel)).toBeInTheDocument();
 
-    expect(screen.queryByPlaceholderText("Type your question...")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: publicAiCta }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Try Pulse AI" }));
-
-    expect(await screen.findByPlaceholderText("Type your question...")).toBeInTheDocument();
-    expect(screen.getByText("Happy to help! What questions do you have?")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByLabelText(floatingBotTriggerLabel)).not.toBeInTheDocument();
+    });
+    expect(await screen.findByRole("button", { name: closeLabel })).toBeInTheDocument();
   });
 
   it("scrolls to homepage sections for hash navigation links instead of only changing the URL", async () => {

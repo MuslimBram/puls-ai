@@ -13,6 +13,7 @@ export type PublicLeadCaptureBody = {
   utm_campaign?: string;
   page_url?: string;
   target_workspace_id?: string;
+  privacy_consent?: boolean;
 };
 
 export type AskAIOptions = {

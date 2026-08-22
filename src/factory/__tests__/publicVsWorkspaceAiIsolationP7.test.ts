@@ -7,8 +7,8 @@ describe("P7: Public AI vs Workspace AI Security Isolation & Cross-Workspace Neg
     const fnPath = join(process.cwd(), "supabase", "functions", "public-lead-capture", "index.ts");
     const content = readFileSync(fnPath, "utf-8");
 
-    // Must write to public staging tables only (enterprise_leads)
-    expect(content).toContain("enterprise_leads");
+    // Must write to public staging tables only (public_leads)
+    expect(content).toContain("public_leads");
     expect(content).not.toContain("customer_memory");
     expect(content).not.toContain("workspace_credentials");
   });
