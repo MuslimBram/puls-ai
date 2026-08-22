@@ -161,6 +161,17 @@ async function dispatchToCustomerBrain(
 // ── Capability: AI Router (workspace use cases) ───────────────────────────────
 // Uses canonical ai-router-helper. Provider/model selection is AI Router's job.
 async function dispatchToAIRouter(req: PulseAIRequest): Promise<PulseAIResponse> {
+  // Require meaningful input before consuming tokens
+  if (!req.input.text && !req.input.structured) {
+    return createErrorResponse(
+      req.requestId,
+      req.workspaceId,
+      req.useCase,
+      "MISSING_CONTEXT",
+      "input.text or input.structured is required",
+    );
+  }
+
   const taskType = resolveRouterTaskType(req.useCase);
 
   const systemPrompt = buildSystemPrompt(req);
@@ -209,6 +220,10 @@ async function dispatchPublicSupport(req: PulseAIRequest): Promise<PulseAIRespon
     "workspace-private information. If asked for private data, politely decline. " +
     `Respond in ${req.locale ?? "en"}.`;
 
+  // Public support uses its own inline fallback ("How can I help you?") rather than
+  // buildMessages, because: (a) structured input is not meaningful without workspace
+  // context, and (b) the greeting produces a better public-facing default than
+  // "Please analyze and respond."
   const messages = req.input.text
     ? [{ role: "user", content: req.input.text }]
     : [{ role: "user", content: "How can I help you?" }];
@@ -340,9 +355,9 @@ Deno.serve(async (httpReq: Request) => {
 
   // ── Authentication ──────────────────────────────────────────────────────────
   const internalSecret = httpReq.headers.get("x-internal-secret");
-  const cronSecret =
-    httpReq.headers.get("x-cron-secret") ??
-    httpReq.headers.get("authorization")?.replace("Bearer ", "");
+  // cronSecret is read ONLY from the dedicated header — never falls back to
+  // Authorization — to prevent a user JWT from satisfying the CRON_SECRET check.
+  const cronSecret = httpReq.headers.get("x-cron-secret");
   const configInternal = Deno.env.get("INTERNAL_WEBHOOK_SECRET");
   const configCron = Deno.env.get("CRON_SECRET");
 
