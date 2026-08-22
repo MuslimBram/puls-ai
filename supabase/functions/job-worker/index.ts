@@ -3,6 +3,10 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import {
+  buildAi3ExecutorInvocation,
+  isSuccessfulExecutorResult,
+} from "../_shared/ai3-executor-contract.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -316,7 +320,7 @@ async function processAiControlledActionJob(
   const { data: action, error: loadErr } = await supabase
     .from("ai_suggested_actions")
     .select(
-      "id, workspace_id, lifecycle_status, action_type, action_payload, modified_payload, execution_attempts, suggested_by, correlation_id",
+      "id, workspace_id, user_id, lifecycle_status, action_type, action_payload, modified_payload, execution_attempts, suggested_by, correlation_id",
     )
     .eq("id", actionId)
     .maybeSingle();
@@ -391,6 +395,7 @@ async function processAiControlledActionJob(
     await dispatchToCanonicalExecutor(supabase, action.action_type, {
       actionId,
       workspaceId,
+      userId: action.user_id,
       payload: effectivePayload,
       correlationId: action.correlation_id,
     });
@@ -474,6 +479,7 @@ async function processAiControlledActionJob(
 interface DispatchContext {
   actionId: string;
   workspaceId: string;
+  userId?: string | null;
   payload: Record<string, unknown>;
   correlationId?: string;
 }
@@ -485,85 +491,58 @@ async function dispatchToCanonicalExecutor(
 ): Promise<void> {
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = getServiceKey();
+  const internalSecret = Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "";
 
-  // Helper: invoke an edge function by name and throw on non-ok response
-  async function invokeFunction(fnName: string, body: Record<string, unknown>): Promise<void> {
-    const url = `${supabaseUrl}/functions/v1/${fnName}`;
+  async function invokeFunction(): Promise<void> {
+    const resolution = buildAi3ExecutorInvocation({
+      actionId: ctx.actionId,
+      workspaceId: ctx.workspaceId,
+      userId: ctx.userId,
+      payload: ctx.payload,
+    }, actionType);
+
+    if (!resolution.supported) {
+      throw new Error(`${resolution.code}: ${resolution.message}`);
+    }
+
+    const query = resolution.invocation.query
+      ? `?${new URLSearchParams(resolution.invocation.query).toString()}`
+      : "";
+    const url = `${supabaseUrl}/functions/v1/${resolution.invocation.functionName}${query}`;
     const res = await fetch(url, {
-      method: "POST",
+      method: resolution.invocation.method,
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceKey}`,
-        "x-internal-secret": Deno.env.get("INTERNAL_SECRET") ?? "",
+        Authorization: ["Bearer", serviceKey].join(" "),
+        "x-internal-secret": internalSecret,
         "x-correlation-id": ctx.correlationId ?? ctx.actionId,
       },
-      body: JSON.stringify({ workspace_id: ctx.workspaceId, ...body }),
+      body: JSON.stringify(resolution.invocation.body),
     });
+
+    const contentType = res.headers.get("content-type") ?? "";
+    const responseBody = contentType.includes("application/json")
+      ? await res.json().catch(() => null)
+      : null;
+
     if (!res.ok) {
-      const detail = await res.text().catch(() => "(no body)");
-      throw new Error(`[AI-3] ${fnName} returned ${res.status}: ${detail}`);
+      const detail = responseBody ? JSON.stringify(responseBody) : await res.text().catch(() => "(no body)");
+      throw new Error(`[AI-3] ${resolution.invocation.functionName} returned ${res.status}: ${detail}`);
+    }
+
+    if (!isSuccessfulExecutorResult(actionType, responseBody as Record<string, unknown> | null)) {
+      throw new Error(
+        `[AI-3] ${resolution.invocation.functionName} returned 2xx without durable success for ${actionType}`,
+      );
     }
   }
 
   switch (actionType) {
-    // ── Messaging ─────────────────────────────────────────────
-    case "send_message":
-      await invokeFunction("broadcast-send-engine", {
-        contact_id: ctx.payload.contact_id,
-        channel: ctx.payload.channel ?? "whatsapp",
-        message: ctx.payload.message,
-        ai3_action_id: ctx.actionId,
-      });
-      return;
-
-    // ── Campaigns ─────────────────────────────────────────────
     case "launch_campaign":
-      await invokeFunction("launch-campaign-broadcast", {
-        campaign_id: ctx.payload.campaign_id,
-        ai3_action_id: ctx.actionId,
-      });
-      return;
-
-    case "bulk_email":
-      await invokeFunction("email-campaign-engine", {
-        campaign_id: ctx.payload.campaign_id,
-        subject: ctx.payload.subject,
-        body: ctx.payload.body,
-        contact_ids: ctx.payload.contact_ids,
-        ai3_action_id: ctx.actionId,
-      });
-      return;
-
-    case "bulk_sms":
-      await invokeFunction("send-sms", {
-        contact_ids: ctx.payload.contact_ids,
-        message: ctx.payload.message,
-        ai3_action_id: ctx.actionId,
-      });
-      return;
-
-    // ── Bookings ──────────────────────────────────────────────
     case "create_booking":
-      await invokeFunction("appointment-booking", {
-        contact_id: ctx.payload.contact_id,
-        service_id: ctx.payload.service_id,
-        scheduled_at: ctx.payload.scheduled_at,
-        ai3_action_id: ctx.actionId,
-      });
+      await invokeFunction();
       return;
 
-    // ── Automations ───────────────────────────────────────────
-    case "execute_automation":
-      await invokeFunction("execute-automation", {
-        automation_id: ctx.payload.automation_id,
-        contact_id: ctx.payload.contact_id,
-        ai3_action_id: ctx.actionId,
-      });
-      return;
-
-    // ── Unsupported ───────────────────────────────────────────
-    // These types have no canonical safe executor in this codebase.
-    // They must NOT become COMPLETED. Fail closed.
     case "suggest_offer":
     case "suggest_campaign":
     case "suggest_reply":
@@ -573,8 +552,12 @@ async function dispatchToCanonicalExecutor(
     case "issue_referral":
     case "seo_opportunity":
     case "competitor_insight":
+    case "send_message":
+    case "bulk_email":
+    case "bulk_sms":
+    case "execute_automation":
       throw new Error(
-        `[AI-3] Action type '${actionType}' has no canonical executor. ` +
+        `[AI-3] Action type '${actionType}' has no verified safe canonical executor. ` +
         `Execution blocked (fail-closed). This action type requires a dedicated canonical ` +
         `integration to be implemented before it can be executed.`,
       );
@@ -586,7 +569,6 @@ async function dispatchToCanonicalExecutor(
       );
   }
 }
-
 async function processScanPostProcessJob(supabase: any, job: any, payload: Record<string, unknown>): Promise<JobOutcome> {
   const scanHistoryId = String(payload.scan_history_id ?? "");
   const businessId = String(payload.business_id ?? "");

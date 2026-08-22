@@ -339,6 +339,16 @@ serve(async (req: Request) => {
         req,
       );
     }
+    if (!policyResult.configured && requiresExplicitPolicy(action.action_type, modifications)) {
+      return json(
+        {
+          error: "POLICY_NOT_CONFIGURED",
+          message: "Workspace policy is not configured for this action type. Modification rejected (fail-closed).",
+        },
+        503,
+        req,
+      );
+    }
 
     const validation = validateAndClampActionParams(
       action.action_type,
@@ -416,6 +426,10 @@ serve(async (req: Request) => {
   // 9. APPROVE path — full lifecycle: SUGGESTED → APPROVED → VALIDATING → QUEUED
   //    Every persisted transition enforces canTransition().
 
+  // Use modified payload if present, otherwise original AI payload
+  const effectivePayload: ActionParams =
+    action.modified_payload ?? action.action_payload ?? {};
+
   // Load workspace policy (authoritative server-side — never trust client limits).
   // Fail closed: DB error → reject rather than silently fall back to invented limits.
   const policyResult = await loadWorkspacePolicy(sb, workspaceId);
@@ -428,11 +442,17 @@ serve(async (req: Request) => {
       req,
     );
   }
+  if (!policyResult.configured && requiresExplicitPolicy(action.action_type, effectivePayload)) {
+    return json(
+      {
+        error: "POLICY_NOT_CONFIGURED",
+        message: "Workspace policy is not configured for this action type. Approval rejected (fail-closed).",
+      },
+      503,
+      req,
+    );
+  }
   const policy = policyResult.policy!;
-
-  // Use modified payload if present, otherwise original AI payload
-  const effectivePayload: ActionParams =
-    action.modified_payload ?? action.action_payload ?? {};
 
   const validation = validateAndClampActionParams(
     action.action_type,
@@ -636,6 +656,7 @@ serve(async (req: Request) => {
 interface PolicyResult {
   ok: boolean;
   policy?: WorkspacePolicy;
+  configured?: boolean;
   error?: string;
 }
 
@@ -644,8 +665,7 @@ interface PolicyResult {
  *
  * Fail-closed: returns ok=false if the DB itself errors (table permission,
  * network failure, etc.) so the caller can reject rather than silently apply
- * invented limits. Returns ok=true with an empty policy (hard limits apply)
- * when no workspace_settings row is configured.
+ * invented limits. Returns configured=false when no workspace_settings row exists.
  */
 async function loadWorkspacePolicy(
   // deno-lint-ignore no-explicit-any
@@ -665,8 +685,36 @@ async function loadWorkspacePolicy(
     return { ok: false, error: error.message };
   }
 
-  // No row → no configured policy; hard limits in action-contract.ts apply.
-  return { ok: true, policy: (data as WorkspacePolicy | null) ?? {} };
+  if (!data) {
+    return { ok: true, configured: false, policy: {} };
+  }
+
+  return { ok: true, configured: true, policy: data as WorkspacePolicy };
+}
+
+function requiresExplicitPolicy(actionType: string, params: Record<string, unknown>): boolean {
+  if ([
+    "send_message",
+    "launch_campaign",
+    "bulk_email",
+    "bulk_sms",
+    "create_offer",
+    "suggest_offer",
+    "issue_reward",
+    "issue_discount",
+    "issue_referral",
+  ].includes(actionType)) {
+    return true;
+  }
+
+  return [
+    "discount_percent",
+    "offer_value",
+    "reward_points",
+    "referral_credit",
+    "campaign_contacts",
+    "message_batch_size",
+  ].some((key) => params[key] !== undefined);
 }
 
 interface AuditContext {

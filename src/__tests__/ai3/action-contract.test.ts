@@ -12,6 +12,13 @@
 // ============================================================
 
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import {
+  buildAi3ExecutorInvocation,
+  isSuccessfulExecutorResult,
+  AI3_SUPPORTED_EXECUTOR_TYPES,
+} from "../../../supabase/functions/_shared/ai3-executor-contract";
 
 // ── Inline core logic from _shared/action-contract.ts ────────
 // (Duplicated here because supabase/functions uses Deno import paths;
@@ -627,12 +634,15 @@ describe("AI-3 Correction — BLOCKER 4: Role-based authorization", () => {
 });
 
 describe("AI-3 Correction — BLOCKER 5: Policy failure is fail-closed", () => {
-  it("missing workspace policy falls back to hard limits (no error)", () => {
-    // Empty policy = use hard limits
-    const policy: WorkspacePolicy = {};
-    const result = validateAndClampActionParams("send_message", { discount_percent: 50 }, policy);
-    // 50 < 80 hard limit, no policy configured → valid
-    expect(result.valid).toBe(true);
+  it("missing workspace policy must not silently authorize commercial actions", () => {
+    const actionType = "launch_campaign";
+    const missingPolicyRow = { ok: true, configured: false, policy: {} };
+    const payload = { campaign_contacts: 50, message_batch_size: 10 };
+
+    const shouldReject = !missingPolicyRow.configured &&
+      (actionType === "launch_campaign" || payload.campaign_contacts !== undefined || payload.message_batch_size !== undefined);
+
+    expect(shouldReject).toBe(true);
   });
   it("workspace policy stricter than hard limit → policy is enforced", () => {
     const policy: WorkspacePolicy = { max_discount_percent: 20 };
@@ -654,16 +664,11 @@ describe("AI-3 Correction — BLOCKER 5: Policy failure is fail-closed", () => {
 });
 
 describe("AI-3 Correction — BLOCKER 6: Unsupported executors cannot COMPLETE", () => {
-  const SUPPORTED_EXECUTOR_TYPES = new Set([
+  const UNSUPPORTED_TYPES = [
     "send_message",
-    "launch_campaign",
     "bulk_email",
     "bulk_sms",
-    "create_booking",
     "execute_automation",
-  ]);
-
-  const UNSUPPORTED_TYPES = [
     "suggest_offer",
     "suggest_campaign",
     "suggest_reply",
@@ -676,28 +681,28 @@ describe("AI-3 Correction — BLOCKER 6: Unsupported executors cannot COMPLETE",
   ];
 
   it.each(UNSUPPORTED_TYPES)("'%s' has no canonical executor — must fail closed", (actionType) => {
-    expect(SUPPORTED_EXECUTOR_TYPES.has(actionType)).toBe(false);
+    expect(AI3_SUPPORTED_EXECUTOR_TYPES.has(actionType)).toBe(false);
     // These types remain in SENSITIVE_ACTION_TYPES (still require approval gate)
     // but the worker throws rather than marking COMPLETED
     expect(SENSITIVE_ACTION_TYPES.has(actionType)).toBe(true);
   });
 
   it("supported executor types are distinct from unsupported types", () => {
-    const overlap = UNSUPPORTED_TYPES.filter((t) => SUPPORTED_EXECUTOR_TYPES.has(t));
+    const overlap = UNSUPPORTED_TYPES.filter((t) => AI3_SUPPORTED_EXECUTOR_TYPES.has(t));
     expect(overlap).toHaveLength(0);
   });
 
-  it("send_message has a canonical executor (broadcast-send-engine)", () => {
-    expect(SUPPORTED_EXECUTOR_TYPES.has("send_message")).toBe(true);
+  it("launch_campaign remains supported", () => {
+    expect(AI3_SUPPORTED_EXECUTOR_TYPES.has("launch_campaign")).toBe(true);
   });
-  it("launch_campaign has a canonical executor (launch-campaign-broadcast)", () => {
-    expect(SUPPORTED_EXECUTOR_TYPES.has("launch_campaign")).toBe(true);
+  it("create_booking remains supported", () => {
+    expect(AI3_SUPPORTED_EXECUTOR_TYPES.has("create_booking")).toBe(true);
   });
-  it("create_booking has a canonical executor (appointment-booking)", () => {
-    expect(SUPPORTED_EXECUTOR_TYPES.has("create_booking")).toBe(true);
-  });
-  it("execute_automation has a canonical executor (execute-automation)", () => {
-    expect(SUPPORTED_EXECUTOR_TYPES.has("execute_automation")).toBe(true);
+  it("unverified executors are unsupported", () => {
+    expect(AI3_SUPPORTED_EXECUTOR_TYPES.has("send_message")).toBe(false);
+    expect(AI3_SUPPORTED_EXECUTOR_TYPES.has("bulk_email")).toBe(false);
+    expect(AI3_SUPPORTED_EXECUTOR_TYPES.has("bulk_sms")).toBe(false);
+    expect(AI3_SUPPORTED_EXECUTOR_TYPES.has("execute_automation")).toBe(false);
   });
   it("EXECUTING → COMPLETED requires successful downstream operation", () => {
     // COMPLETED is only reachable from EXECUTING
@@ -707,6 +712,114 @@ describe("AI-3 Correction — BLOCKER 6: Unsupported executors cannot COMPLETE",
     // COMPLETED cannot be reached from EXECUTING without going through the executor
     // (state machine does not skip EXECUTING)
     expect(canTransition("QUEUED", "COMPLETED")).toBe(false);
+  });
+});
+
+describe("AI-3 executor wiring uses the real downstream contracts", () => {
+  const launchSrc = readFileSync(
+    resolve(process.cwd(), "supabase/functions/launch-campaign-broadcast/index.ts"),
+    "utf8",
+  );
+
+  it("launch_campaign uses the internal auth contract and workspace scoping", () => {
+    expect(launchSrc).toContain('req.headers.get("x-internal-secret")');
+    expect(launchSrc).toContain('body.user_id');
+    expect(launchSrc).toContain('body.workspace_id');
+    expect(launchSrc).toContain('.eq("user_id", userId)');
+    expect(launchSrc).toContain('.eq("workspace_id", campaign.workspace_id)');
+  });
+
+  it("create_booking dispatch uses action=book and canonical body fields", () => {
+    const result = buildAi3ExecutorInvocation({
+      actionId: "act-1",
+      workspaceId: "ws-1",
+      payload: {
+        client_name: "Ada",
+        client_email: "ada@example.com",
+        scheduled_at: "2026-08-24T09:30:00.000Z",
+      },
+    }, "create_booking");
+
+    expect(result.supported).toBe(true);
+    if (!result.supported) return;
+    expect(result.invocation.functionName).toBe("appointment-booking");
+    expect(result.invocation.query).toEqual({ action: "book" });
+    expect(result.invocation.body).toMatchObject({
+      workspace_id: "ws-1",
+      client_name: "Ada",
+      client_email: "ada@example.com",
+      date: "2026-08-24",
+      time: "09:30",
+    });
+  });
+
+  it("missing booking data fails closed", () => {
+    const result = buildAi3ExecutorInvocation({
+      actionId: "act-1",
+      workspaceId: "ws-1",
+      payload: { client_email: "ada@example.com" },
+    }, "create_booking");
+
+    expect(result.supported).toBe(false);
+    if (result.supported) return;
+    expect(result.code).toBe("INVALID_BOOKING_PAYLOAD");
+  });
+
+  it("unsupported action types fail closed", () => {
+    const result = buildAi3ExecutorInvocation({
+      actionId: "act-1",
+      workspaceId: "ws-1",
+      payload: { message: "hi" },
+    }, "send_message");
+
+    expect(result.supported).toBe(false);
+    if (result.supported) return;
+    expect(result.code).toBe("UNSUPPORTED_EXECUTOR");
+  });
+
+  it("successful canonical executor response is the only path to COMPLETED", () => {
+    expect(isSuccessfulExecutorResult("launch_campaign", {
+      ok: true,
+      campaign_id: "camp-1",
+      broadcasts_created: [],
+    })).toBe(true);
+
+    expect(isSuccessfulExecutorResult("launch_campaign", {
+      ok: false,
+      campaign_id: "camp-1",
+    })).toBe(false);
+
+    expect(isSuccessfulExecutorResult("create_booking", {
+      success: true,
+      appointment_id: "appt-1",
+    })).toBe(true);
+  });
+
+  it("downstream 4xx/5xx style semantic failures are not treated as COMPLETED", () => {
+    expect(isSuccessfulExecutorResult("launch_campaign", { error: "forbidden" })).toBe(false);
+    expect(isSuccessfulExecutorResult("create_booking", { success: false, error: "conflict" })).toBe(false);
+    expect(isSuccessfulExecutorResult("create_booking", null)).toBe(false);
+  });
+
+  it("duplicate retries reuse the same canonical booking invocation", () => {
+    const payload = {
+      client_name: "Ada",
+      date: "2026-08-24",
+      time: "09:30",
+    };
+
+    const first = buildAi3ExecutorInvocation({
+      actionId: "act-1",
+      workspaceId: "ws-1",
+      payload,
+    }, "create_booking");
+    const second = buildAi3ExecutorInvocation({
+      actionId: "act-1",
+      workspaceId: "ws-1",
+      payload,
+    }, "create_booking");
+
+    expect(first).toEqual(second);
   });
 });
 

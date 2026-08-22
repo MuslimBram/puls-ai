@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { isInternalServiceRequest } from "../_shared/ai3-executor-contract.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -32,21 +33,15 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = getServiceKey()!;
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
-    if (userErr || !userData.user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-    const userId = userData.user.id;
-
+    const internalSecret = Deno.env.get("INTERNAL_WEBHOOK_SECRET");
     const body = await req.json().catch(() => ({}));
     const { campaign_id, segment_id, channel_override, scheduled_at } = body;
+    const isInternal = isInternalServiceRequest({
+      authHeader,
+      internalSecretHeader: req.headers.get("x-internal-secret"),
+      serviceRoleKey: serviceKey,
+      internalSecret,
+    });
 
     if (!campaign_id) {
       return new Response(JSON.stringify({ error: "campaign_id required" }), {
@@ -59,16 +54,54 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
 
+    let userId: string;
+    let workspaceId: string | null | undefined;
+
+    if (isInternal) {
+      const internalUserId = typeof body.user_id === "string" ? body.user_id : "";
+      const internalWorkspaceId = typeof body.workspace_id === "string" ? body.workspace_id : "";
+      if (!internalUserId || !internalWorkspaceId) {
+        return new Response(JSON.stringify({ error: "user_id and workspace_id required for internal launch" }), {
+          status: 400,
+          headers: { ...getCors(req), "Content-Type": "application/json" },
+        });
+      }
+      userId = internalUserId;
+      workspaceId = internalWorkspaceId;
+    } else {
+      const userClient = createClient(supabaseUrl, anonKey, {
+        global: { headers: { Authorization: authHeader } },
+      });
+      const { data: userData, error: userErr } = await userClient.auth.getUser();
+      if (userErr || !userData.user) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...getCors(req), "Content-Type": "application/json" },
+        });
+      }
+      userId = userData.user.id;
+      workspaceId = typeof body.workspace_id === "string" ? body.workspace_id : undefined;
+    }
+
     // 1. Load campaign
-    const { data: campaign, error: cErr } = await supabase
+    let campaignQuery = supabase
       .from("campaigns")
       .select("*")
       .eq("id", campaign_id)
-      .eq("user_id", userId)
-      .maybeSingle();
+      .eq("user_id", userId);
+    if (workspaceId) {
+      campaignQuery = campaignQuery.eq("workspace_id", workspaceId);
+    }
+    const { data: campaign, error: cErr } = await campaignQuery.maybeSingle();
     if (cErr || !campaign) {
       return new Response(JSON.stringify({ error: "Campaign not found" }), {
         status: 404,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    if (workspaceId && campaign.workspace_id !== workspaceId) {
+      return new Response(JSON.stringify({ error: "Forbidden: campaign workspace mismatch" }), {
+        status: 403,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
@@ -103,6 +136,7 @@ serve(async (req) => {
         .select("filter_criteria")
         .eq("id", segment_id)
         .eq("user_id", userId)
+        .eq("workspace_id", campaign.workspace_id)
         .maybeSingle();
       const criteria = (segment?.filter_criteria as any) || {};
       const segChannels = criteria.channels || channels;
@@ -111,6 +145,7 @@ serve(async (req) => {
         .from("conversation_threads")
         .select("channel_type, contact_identifier, contact_name")
         .eq("user_id", userId)
+        .eq("workspace_id", campaign.workspace_id)
         .in("channel_type", segChannels)
         .not("contact_identifier", "is", null);
 
@@ -125,6 +160,7 @@ serve(async (req) => {
         .from("conversation_threads")
         .select("channel_type, contact_identifier, contact_name")
         .eq("user_id", userId)
+        .eq("workspace_id", campaign.workspace_id)
         .in("channel_type", channels)
         .not("contact_identifier", "is", null);
 
