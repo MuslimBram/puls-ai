@@ -83,7 +83,7 @@ describe("AI-4 integration with canonical Pulse AI", () => {
     for (const source of expectedSources) {
       const positions: number[] = [];
       let from = 0;
-      const token = `.from(\"${source}\")`;
+      const token = `.from("${source}")`;
       while (true) {
         const index = src.indexOf(token, from);
         if (index < 0) break;
