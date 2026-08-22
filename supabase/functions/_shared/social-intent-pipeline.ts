@@ -10,6 +10,7 @@ export interface SocialIntentPipelineResult {
     | "skipped_anonymous"
     | "skipped_ambiguous"
     | "skipped_no_evidence"
+    | "not_found"
     | "error";
   evidence_inserted: number;
   journey_status?: string;
@@ -144,4 +145,21 @@ export async function processIntentFromCanonicalEvent(
     evidence_inserted: scoring.evidence_inserted,
     journey_status: journeyStatus,
   };
+}
+
+export async function processIntentFromCanonicalEventId(
+  db: PipelineDb,
+  engagementEventId: string,
+  asOf = new Date().toISOString(),
+): Promise<SocialIntentPipelineResult> {
+  const event = await db
+    .from<CanonicalEngagementRow>("social_engagement_events")
+    .select(
+      "id, workspace_id, provider, account_identifier, event_type, actor_provider_id, actor_identity_state, is_anonymous_aggregate, content_ref, event_timestamp, source_ref, normalized_metadata",
+    )
+    .eq("id", engagementEventId)
+    .limit(1)
+    .single();
+  if (event.error || !event.data) return { status: "not_found", evidence_inserted: 0 };
+  return processIntentFromCanonicalEvent(db, event.data, asOf);
 }
