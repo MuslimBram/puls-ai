@@ -137,6 +137,7 @@ serve(async (req: Request): Promise<Response> => {
         utm_medium: cleanOptional(body.utm_medium, 200),
         utm_campaign: cleanOptional(body.utm_campaign, 200),
         page_url: cleanOptional(body.page_url, 1_000),
+        notes: source === "live_demo" ? "Privacy consent recorded at capture." : null,
         target_workspace_id: null,
       })
       .select("id")
