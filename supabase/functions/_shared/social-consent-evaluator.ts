@@ -178,9 +178,14 @@ export async function evaluateConsent(opts: {
     return { validity: "unknown", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
   }
 
-  if (suppressionState === "suppressed" || emailSuppressionState === "suppressed") {
+  if (suppressionState === "suppressed") {
     reasons.push("GLOBALLY_SUPPRESSED");
     return { validity: "not_valid", is_opted_out: false, is_globally_suppressed: true, is_channel_suppressed: false, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
+  }
+
+  if (emailSuppressionState === "suppressed") {
+    reasons.push("CHANNEL_SUPPRESSED");
+    return { validity: "not_valid", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: true, marketing_allowed: false, transactional_only: false, consent_source: "unknown", workspace_id, reasons };
   }
 
   if (!consent_record) {
@@ -210,7 +215,7 @@ export async function evaluateConsent(opts: {
   }
 
   // Transactional-only path: exactly one of marketing/transactional is permitted.
-  if (consent_record.communication_type === "transactional" || (!consent_record.marketing_allowed && consent_record.transactional_allowed)) {
+  if (consent_record.communication_type === "transactional" && consent_record.transactional_allowed || (!consent_record.marketing_allowed && consent_record.transactional_allowed)) {
     reasons.push("TRANSACTIONAL_ONLY");
     return { validity: "transactional_only", is_opted_out: false, is_globally_suppressed: false, is_channel_suppressed: false, marketing_allowed: false, transactional_only: true, consent_source: consent_record.consent_source, consent_given_at: consent_record.consent_given_at, workspace_id, reasons };
   }

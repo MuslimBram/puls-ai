@@ -342,3 +342,43 @@ describe("SOCIAL-1E: High intent cannot override new safety gates", () => {
     expect(r.decision).toBe("BLOCK");
   });
 });
+
+describe("SOCIAL-1E: Email channel suppression (suppressed_emails table)", () => {
+  /** DB mock whose from("suppressed_emails") query returns the address as suppressed. */
+  function emailSuppressedDb(suppressedEmail: string): Parameters<typeof evaluateConsent>[0]["db"] {
+    return {
+      from: (table: string) => {
+        if (table === "suppressed_emails") {
+          return {
+            select: () => ({
+              eq: (_col: string, val: string) => ({
+                limit: () => Promise.resolve({ data: val === suppressedEmail ? [{ email: val }] : [], error: null }),
+              }),
+            }),
+          };
+        }
+        return (noOpDb as any).from(table);
+      },
+      rpc: () => Promise.resolve({ data: false, error: null }),
+    } as unknown as Parameters<typeof evaluateConsent>[0]["db"];
+  }
+
+  it("email in suppressed_emails → CHANNEL_SUPPRESSED (not GLOBALLY_SUPPRESSED)", async () => {
+    const db = emailSuppressedDb("blocked@example.com");
+    const emailRecord: ConsentRecord = { ...validConsentRecord, workspace_id: WORKSPACE, channel_type: "email", contact_identifier: "blocked@example.com" };
+    const r = await evaluateConsent({ workspace_id: WORKSPACE, contact_identifier: "blocked@example.com", channel_type: "email", identity_state: "known_person", consent_record: emailRecord, db });
+    expect(r.validity).toBe("not_valid");
+    expect(r.is_channel_suppressed).toBe(true);
+    expect(r.is_globally_suppressed).toBe(false);
+    expect(r.reasons).toContain("CHANNEL_SUPPRESSED");
+    expect(r.reasons).not.toContain("GLOBALLY_SUPPRESSED");
+  });
+
+  it("email suppression blocks via policy engine with CHANNEL_SUPPRESSED reason", async () => {
+    const db = emailSuppressedDb("blocked@example.com");
+    const emailRecord: ConsentRecord = { ...validConsentRecord, workspace_id: WORKSPACE, channel_type: "email", contact_identifier: "blocked@example.com" };
+    const r = await evaluatePolicy({ ...baseInput, provider: "email", channel_type: "email", contact_identifier: "blocked@example.com", consent_record: emailRecord, db });
+    expect(r.decision).toBe("BLOCK");
+    expect(r.reasons).toContain("CHANNEL_SUPPRESSED");
+  });
+});

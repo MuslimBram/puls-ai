@@ -170,5 +170,5 @@ export async function evaluatePolicy(input: PolicyEvaluationInput): Promise<Poli
   if (hasReviewFlag) return buildResult("REVIEW", reasons, input, capVerified, consentValid, evaluated_at, intent_score);
 
   reasons.push("POLICY_OK");
-  return buildResult("ALLOW", reasons, input, true, consentValid, evaluated_at, intent_score);
+  return buildResult("ALLOW", reasons, input, capVerified, consentValid, evaluated_at, intent_score);
 }
