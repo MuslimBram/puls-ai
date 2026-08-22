@@ -124,9 +124,31 @@ serve(async (req) => {
 
     if (claimErr) {
       if (claimErr.code === "23505" || String(claimErr.message || "").toLowerCase().includes("unique")) {
-        return new Response(JSON.stringify({ ok: true, duplicate: true }), {
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
+        const { data: existingClaim } = await supabase
+          .from("integration_event_logs")
+          .select("id, status")
+          .eq("idempotency_key", idempotencyKey)
+          .maybeSingle();
+
+        if (existingClaim?.status === "failed") {
+          const { data: reclaimed } = await supabase
+            .from("integration_event_logs")
+            .update({ status: "processing" })
+            .eq("id", existingClaim.id)
+            .eq("status", "failed")
+            .select("id")
+            .maybeSingle();
+
+          if (!reclaimed) {
+            return new Response(JSON.stringify({ ok: true, duplicate: true }), {
+              headers: { ...getCors(req), "Content-Type": "application/json" },
+            });
+          }
+        } else {
+          return new Response(JSON.stringify({ ok: true, duplicate: true }), {
+            headers: { ...getCors(req), "Content-Type": "application/json" },
+          });
+        }
       }
       return new Response(JSON.stringify({ ok: false, error: "idempotency_claim_failed" }), {
         status: 500,
@@ -152,6 +174,10 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       intentScore = Number(parsed.intent_score ?? 0.3);
       suggestedReply = String(parsed.suggested_reply ?? "");
     } catch {
+      await supabase
+        .from("integration_event_logs")
+        .update({ status: "failed", event_message: "Telegram AI parse failure" })
+        .eq("idempotency_key", idempotencyKey);
       return new Response(JSON.stringify({ ok: false, error: "invalid_ai_response" }), {
         status: 502,
         headers: { ...getCors(req), "Content-Type": "application/json" },

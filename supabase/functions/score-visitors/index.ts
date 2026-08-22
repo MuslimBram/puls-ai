@@ -19,9 +19,7 @@ async function resolveAuthorizedWorkspaceId(
   userId: string,
   requestedWorkspaceId?: string,
 ): Promise<string> {
-  const [adminResult] = await Promise.all([
-    supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
-  ]);
+  const adminResult = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
   if (adminResult.error) throw adminResult.error;
   const isAdmin = Boolean(adminResult.data);
 
