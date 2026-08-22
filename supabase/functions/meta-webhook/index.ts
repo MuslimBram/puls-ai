@@ -11,12 +11,19 @@
  *   INSERT processed_webhook_events(provider, event_id) BEFORE side effects
  *   UNIQUE conflict = already_processed → skip with 200
  *   No SELECT+INSERT race — atomic claim
+ *
+ * SOCIAL-1A:
+ *   After existing inbox/lead writes, emit a canonical CanonicalEngagementEvent
+ *   into social_engagement_events.  Idempotency is enforced by the UNIQUE
+ *   constraint on social_engagement_events.idempotency_key independently of
+ *   processed_webhook_events so neither table is a prerequisite of the other.
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyMetaSignature } from "../_shared/webhook-signatures.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { buildCanonicalEngagementEvent } from "../_shared/canonical-engagement-event.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 const rateLimitMap = new Map<string, { n: number; t: number }>();
@@ -204,6 +211,50 @@ serve(async (req) => {
             }).catch(() => {});
           }
 
+          // SOCIAL-1A: emit canonical engagement event (idempotent via UNIQUE constraint)
+          try {
+            const canonicalEvent = buildCanonicalEngagementEvent({
+              workspace_id:        ws.workspace_id,
+              channel_id:          ws.channel_id,
+              provider:            "meta_ig",
+              account_identifier:  pageId,
+              event_type:          "message_received",
+              provider_event_id:   msgId,
+              actor_provider_id:   senderId ?? null,
+              actor_identity_state: "platform_actor",
+              content_ref:         content,
+              event_timestamp:     event.timestamp
+                ? new Date(Number(event.timestamp) * 1000).toISOString()
+                : new Date().toISOString(),
+              normalized_metadata: { page_id: pageId },
+              consent_classification: "platform_terms",
+            });
+            await sb.from("social_engagement_events").insert({
+              workspace_id:         canonicalEvent.workspace_id,
+              channel_id:           canonicalEvent.channel_id,
+              provider:             canonicalEvent.provider,
+              account_identifier:   canonicalEvent.account_identifier,
+              event_type:           canonicalEvent.event_type,
+              provider_event_id:    canonicalEvent.provider_event_id,
+              actor_provider_id:    canonicalEvent.actor_provider_id,
+              actor_identity_state: canonicalEvent.actor_identity_state,
+              is_anonymous_aggregate: canonicalEvent.is_anonymous_aggregate,
+              content_ref:          canonicalEvent.content_ref,
+              event_timestamp:      canonicalEvent.event_timestamp,
+              normalized_metadata:  canonicalEvent.normalized_metadata,
+              consent_classification: canonicalEvent.consent_classification,
+              source_ref:           canonicalEvent.source_ref,
+              idempotency_key:      canonicalEvent.idempotency_key,
+            }).catch((err: Error) => {
+              // UNIQUE violation (23505) = duplicate delivery — safe to ignore
+              if (err?.message && !err.message.includes("23505")) {
+                console.error("[META-IG] canonical event insert error", err.message);
+              }
+            });
+          } catch (buildErr) {
+            console.error("[META-IG] canonical event build error", (buildErr as Error)?.message);
+          }
+
           processed++;
         }
       }
@@ -275,6 +326,50 @@ serve(async (req) => {
                 event_data:   { msg_id: msgId, page_id: pageId },
               }),
             }).catch(() => {});
+          }
+
+          // SOCIAL-1A: emit canonical engagement event (idempotent via UNIQUE constraint)
+          try {
+            const canonicalEvent = buildCanonicalEngagementEvent({
+              workspace_id:        ws.workspace_id,
+              channel_id:          ws.channel_id,
+              provider:            "meta_fb",
+              account_identifier:  pageId,
+              event_type:          "message_received",
+              provider_event_id:   msgId,
+              actor_provider_id:   senderId ?? null,
+              actor_identity_state: "platform_actor",
+              content_ref:         msgText,
+              event_timestamp:     event.timestamp
+                ? new Date(Number(event.timestamp) * 1000).toISOString()
+                : new Date().toISOString(),
+              normalized_metadata: { page_id: pageId },
+              consent_classification: "platform_terms",
+            });
+            await sb.from("social_engagement_events").insert({
+              workspace_id:         canonicalEvent.workspace_id,
+              channel_id:           canonicalEvent.channel_id,
+              provider:             canonicalEvent.provider,
+              account_identifier:   canonicalEvent.account_identifier,
+              event_type:           canonicalEvent.event_type,
+              provider_event_id:    canonicalEvent.provider_event_id,
+              actor_provider_id:    canonicalEvent.actor_provider_id,
+              actor_identity_state: canonicalEvent.actor_identity_state,
+              is_anonymous_aggregate: canonicalEvent.is_anonymous_aggregate,
+              content_ref:          canonicalEvent.content_ref,
+              event_timestamp:      canonicalEvent.event_timestamp,
+              normalized_metadata:  canonicalEvent.normalized_metadata,
+              consent_classification: canonicalEvent.consent_classification,
+              source_ref:           canonicalEvent.source_ref,
+              idempotency_key:      canonicalEvent.idempotency_key,
+            }).catch((err: Error) => {
+              // UNIQUE violation (23505) = duplicate delivery — safe to ignore
+              if (err?.message && !err.message.includes("23505")) {
+                console.error("[META-FB] canonical event insert error", err.message);
+              }
+            });
+          } catch (buildErr) {
+            console.error("[META-FB] canonical event build error", (buildErr as Error)?.message);
           }
 
           processed++;
