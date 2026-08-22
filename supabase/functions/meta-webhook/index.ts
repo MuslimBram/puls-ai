@@ -101,7 +101,7 @@ async function tryCanonicalInsert(
       provider_event_id:   params.provider_event_id,
       // Fail closed: omit actor_identity_state — builder derives from actor_provider_id.
       // null actor_provider_id → anonymous_aggregate; non-null → platform_actor.
-      actor_provider_id:   params.actor_provider_id || null,
+      actor_provider_id:   params.actor_provider_id ?? null,
       content_ref:         params.content_ref,
       // Meta messaging[].timestamp is milliseconds since epoch — do NOT multiply by 1000.
       event_timestamp:     params.raw_timestamp != null
@@ -223,13 +223,19 @@ serve(async (req) => {
           // The canonical UNIQUE constraint makes this idempotent; inbox/lead are skipped
           // to preserve their own idempotency and avoid duplicate side effects.
           if (claim === "duplicate") {
-            await tryCanonicalInsert(sb, {
+            const dupIgResult = await tryCanonicalInsert(sb, {
               workspace_id: ws.workspace_id, channel_id: ws.channel_id,
               provider: "meta_ig", account_identifier: pageId,
               event_type: "message_received", provider_event_id: msgId,
               actor_provider_id: senderId ?? null,
               content_ref: content, raw_timestamp: event.timestamp,
             });
+            if (dupIgResult === "error") {
+              console.error(`[META-IG] canonical insert failed on retry for ${msgId} — returning 500`);
+              return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
+                status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
+              });
+            }
             continue;
           }
 
@@ -328,13 +334,17 @@ serve(async (req) => {
 
           // DURABILITY: on duplicate claim, attempt canonical insert only (inbox/lead skipped)
           if (claim === "duplicate") {
-            if (msgText) {
-              await tryCanonicalInsert(sb, {
-                workspace_id: ws.workspace_id, channel_id: ws.channel_id,
-                provider: "meta_fb", account_identifier: pageId,
-                event_type: "message_received", provider_event_id: msgId,
-                actor_provider_id: senderId ?? null,
-                content_ref: msgText, raw_timestamp: event.timestamp,
+            const dupFbResult = await tryCanonicalInsert(sb, {
+              workspace_id: ws.workspace_id, channel_id: ws.channel_id,
+              provider: "meta_fb", account_identifier: pageId,
+              event_type: "message_received", provider_event_id: msgId,
+              actor_provider_id: senderId ?? null,
+              content_ref: msgText || "[attachment]", raw_timestamp: event.timestamp,
+            });
+            if (dupFbResult === "error") {
+              console.error(`[META-FB] canonical insert failed on retry for ${msgId} — returning 500`);
+              return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
+                status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
               });
             }
             continue;
