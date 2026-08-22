@@ -62,6 +62,43 @@ CREATE POLICY ai5_runs_member_read ON public.ai_golden_journey_runs
     )
   );
 
+-- 3. Factual attribution: the appointment row is the durable proof of BOOKED.
+-- This trigger cannot manufacture PAID/CONVERTED/revenue; it only links the real
+-- appointment to the already-created AI-3 controlled action and correlation row.
+CREATE OR REPLACE FUNCTION public.ai5_link_booked_appointment()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF NEW.ai3_action_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  UPDATE public.ai_golden_journey_runs
+  SET appointment_id = NEW.id,
+      outcome = 'BOOKED',
+      booked_at = COALESCE(booked_at, now()),
+      failure_reason = NULL,
+      updated_at = now()
+  WHERE ai3_action_id = NEW.ai3_action_id
+    AND workspace_id = NEW.workspace_id;
+
+  RETURN NEW;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.ai5_link_booked_appointment() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.ai5_link_booked_appointment() TO service_role;
+
+DROP TRIGGER IF EXISTS trg_ai5_link_booked_appointment ON public.appointments;
+CREATE TRIGGER trg_ai5_link_booked_appointment
+  AFTER INSERT OR UPDATE OF ai3_action_id ON public.appointments
+  FOR EACH ROW
+  WHEN (NEW.ai3_action_id IS NOT NULL)
+  EXECUTE FUNCTION public.ai5_link_booked_appointment();
+
 COMMENT ON TABLE public.ai_golden_journey_runs IS
   'AI-5 correlation bridge. BOOKED means a durable appointment exists; it never implies payment, conversion, or revenue.';
 
