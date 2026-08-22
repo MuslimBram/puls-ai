@@ -29,7 +29,6 @@ Server-side audit covered `/supabase/functions` generative AI call sites (direct
 | path | provider | reason | customer-facing | workspace data | why ai-router is inappropriate |
 |---|---|---|---|---|---|
 | `supabase/functions/transcribe-recording/index.ts` | OpenAI audio transcription endpoint | Speech-to-text transport endpoint (`/v1/audio/transcriptions`) is non-chat modality | YES | YES | Canonical router currently routes chat/message generation, not binary audio transcription transport |
-| `supabase/functions/transcribe-recording/index.ts` | Anthropic Messages | Post-transcription structured call intelligence analysis coupled to telephony transcript workflow | YES | YES | Specialized voice pipeline combines Twilio transcript + fallback transcription + analysis in one modality-specific flow |
 | `supabase/functions/job-worker/index.ts` | Lovable AI Gateway image model | Image/media generation worker path (`google/gemini-3.1-flash-image-preview`) | NO | YES | Canonical router currently targets text/chat provider contracts, not image generation job orchestration |
 
 ### EMBEDDINGS_OR_SPECIALIZED_NON_ROUTER_PATH
