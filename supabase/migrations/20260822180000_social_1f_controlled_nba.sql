@@ -115,7 +115,8 @@ SET search_path = public, pg_temp
 AS $$
 BEGIN
   RETURN QUERY
-  INSERT INTO public.next_best_actions (
+  WITH inserted_row AS (
+    INSERT INTO public.next_best_actions (
     workspace_id,
     lead_id,
     action_type,
@@ -150,7 +151,7 @@ BEGIN
     lifecycle_status,
     recommended_at,
     updated_at
-  ) VALUES (
+    ) VALUES (
     p_workspace_id,
     p_lead_id,
     p_action_type,
@@ -201,12 +202,27 @@ BEGIN
     'active',
     COALESCE(p_recommended_at, now()),
     now()
+    )
+    ON CONFLICT (workspace_id, idempotency_key)
+      WHERE idempotency_key IS NOT NULL AND lifecycle_status = 'active'
+    DO NOTHING
+    RETURNING next_best_actions.id
+  ),
+  existing_row AS (
+    SELECT nba.id
+    FROM public.next_best_actions nba
+    WHERE nba.workspace_id = p_workspace_id
+      AND nba.idempotency_key = p_idempotency_key
+      AND nba.lifecycle_status = 'active'
+    ORDER BY nba.recommended_at DESC, nba.id DESC
+    LIMIT 1
   )
-  ON CONFLICT (workspace_id, idempotency_key)
-    WHERE idempotency_key IS NOT NULL AND lifecycle_status = 'active'
-  DO UPDATE
-    SET updated_at = now()
-  RETURNING next_best_actions.id, (xmax = 0) AS inserted;
+  SELECT inserted_row.id, true AS inserted
+  FROM inserted_row
+  UNION ALL
+  SELECT existing_row.id, false AS inserted
+  FROM existing_row
+  WHERE NOT EXISTS (SELECT 1 FROM inserted_row);
 END;
 $$;
 

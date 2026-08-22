@@ -475,115 +475,6 @@ export function generateSocialNba(
     };
   }
 
-  export interface CanonicalNbaDbClient {
-    rpc: (name: string, args?: Record<string, unknown>) => Promise<{ data: any; error: any }>;
-  }
-
-  export interface PersistSocialNbaParams {
-    recommendation: SocialNbaResult;
-    lead_id?: string | null;
-  }
-
-  export interface PersistSocialNbaResult {
-    status: "inserted" | "duplicate_active" | "error";
-    nba_id: string | null;
-    recommendation: SocialNbaResult;
-    rule_allows: boolean;
-    rule_id: string | null;
-  }
-
-  function applyBusinessRuleGuard(
-    recommendation: SocialNbaResult,
-    ruleAllows: boolean,
-  ): SocialNbaResult {
-    if (ruleAllows) return recommendation;
-    if (recommendation.recommendation_status !== "recommended") return recommendation;
-
-    return {
-      ...recommendation,
-      action_type: "do_nothing",
-      recommendation_status: "do_nothing",
-      human_approval_required: true,
-      confidence: "low",
-      reason_codes: [...new Set([...recommendation.reason_codes, "BUSINESS_RULES_NOT_ELIGIBLE", "SAFE_FALLBACK"])],
-    };
-  }
-
-  /**
-   * Persist Social NBA via canonical NBA storage path (`next_best_actions`) only.
-   * This adapter reuses canonical business-rule authority and canonical persistence.
-   */
-  export async function persistSocialNbaRecommendation(
-    db: CanonicalNbaDbClient,
-    params: PersistSocialNbaParams,
-  ): Promise<PersistSocialNbaResult> {
-    const { recommendation, lead_id = null } = params;
-
-    const { data: ruleCheck, error: ruleError } = await db.rpc("validate_nba_against_rules", {
-      p_workspace_id: recommendation.workspace_id,
-      p_action_type: recommendation.action_type,
-      p_offer_value: 0,
-      p_offer_unit: "pct",
-      p_lead_id: lead_id,
-    });
-
-    const ruleAllows = !ruleError && (ruleCheck as any)?.allowed !== false;
-    const guardedRecommendation = applyBusinessRuleGuard(recommendation, ruleAllows);
-
-    const { data, error } = await db.rpc("upsert_social_nba_next_best_action", {
-      p_workspace_id: guardedRecommendation.workspace_id,
-      p_lead_id: lead_id,
-      p_action_type: guardedRecommendation.action_type,
-      p_reason: guardedRecommendation.reason_codes.join(","),
-      p_confidence: guardedRecommendation.confidence,
-      p_priority: guardedRecommendation.recommendation_status === "recommended" ? 6 : 1,
-      p_suggested_channel: guardedRecommendation.channel,
-      p_offer_value: null,
-      p_offer_unit: null,
-      p_expires_at: null,
-      p_rule_id: (ruleCheck as any)?.rule_id ?? null,
-      p_rule_allows: ruleAllows,
-      p_status: guardedRecommendation.recommendation_status,
-      p_policy_decision: guardedRecommendation.policy_decision,
-      p_policy_reasons: guardedRecommendation.policy_reasons,
-      p_policy_evaluated_at: guardedRecommendation.policy_evaluated_at,
-      p_human_approval_required: guardedRecommendation.human_approval_required,
-      p_provider: guardedRecommendation.provider,
-      p_channel: guardedRecommendation.channel,
-      p_identity_state: guardedRecommendation.identity_state,
-      p_resolved_identity_key: guardedRecommendation.resolved_identity_key,
-      p_canonical_person_id: guardedRecommendation.canonical_person_id ?? null,
-      p_intent_score: guardedRecommendation.intent_score,
-      p_intent_score_band: guardedRecommendation.intent_score_band,
-      p_journey_phase: guardedRecommendation.journey_phase,
-      p_evidence_refs: guardedRecommendation.evidence_refs,
-      p_recommendation_status: guardedRecommendation.recommendation_status,
-      p_reason_codes: guardedRecommendation.reason_codes,
-      p_idempotency_key: guardedRecommendation.idempotency_key,
-      p_recommended_at: guardedRecommendation.recommended_at,
-    });
-
-    if (error) {
-      return {
-        status: "error",
-        nba_id: null,
-        recommendation: guardedRecommendation,
-        rule_allows: ruleAllows,
-        rule_id: (ruleCheck as any)?.rule_id ?? null,
-      };
-    }
-
-    const row = Array.isArray(data) ? data[0] : data;
-    const wasInserted = Boolean(row?.inserted);
-    return {
-      status: wasInserted ? "inserted" : "duplicate_active",
-      nba_id: row?.id ?? null,
-      recommendation: guardedRecommendation,
-      rule_allows: ruleAllows,
-      rule_id: (ruleCheck as any)?.rule_id ?? null,
-    };
-  }
-
   // ── Gate 1: Anonymous aggregate ────────────────────────────────────────────
   if (identity_state === "anonymous_aggregate") {
     return {
@@ -747,5 +638,124 @@ export function generateSocialNba(
     confidence,
     idempotency_key,
     recommended_at,
+  };
+}
+
+export interface CanonicalNbaDbClient {
+  rpc: (name: string, args?: Record<string, unknown>) => Promise<{ data: any; error: any }>;
+}
+
+export interface PersistSocialNbaParams {
+  recommendation: SocialNbaResult;
+  lead_id?: string | null;
+}
+
+export interface PersistSocialNbaResult {
+  status: "inserted" | "duplicate_active" | "error";
+  nba_id: string | null;
+  recommendation: SocialNbaResult;
+  rule_allows: boolean;
+  rule_id: string | null;
+}
+
+function applyBusinessRuleGuard(
+  recommendation: SocialNbaResult,
+  ruleAllows: boolean,
+): SocialNbaResult {
+  if (ruleAllows) return recommendation;
+  if (recommendation.recommendation_status !== "recommended") return recommendation;
+
+  return {
+    ...recommendation,
+    action_type: "do_nothing",
+    recommendation_status: "do_nothing",
+    human_approval_required: true,
+    confidence: "low",
+    reason_codes: [...new Set([...recommendation.reason_codes, "BUSINESS_RULES_NOT_ELIGIBLE", "SAFE_FALLBACK"])],
+  };
+}
+
+/**
+ * Persist Social NBA via canonical NBA storage path (`next_best_actions`) only.
+ * This adapter reuses canonical business-rule authority and canonical persistence.
+ */
+export async function persistSocialNbaRecommendation(
+  db: CanonicalNbaDbClient,
+  params: PersistSocialNbaParams,
+): Promise<PersistSocialNbaResult> {
+  const { recommendation, lead_id = null } = params;
+
+  const { data: ruleCheck, error: ruleError } = await db.rpc("validate_nba_against_rules", {
+    p_workspace_id: recommendation.workspace_id,
+    p_action_type: recommendation.action_type,
+    p_offer_value: 0,
+    p_offer_unit: "pct",
+    p_lead_id: lead_id,
+  });
+
+  if (ruleError) {
+    return {
+      status: "error",
+      nba_id: null,
+      recommendation,
+      rule_allows: false,
+      rule_id: null,
+    };
+  }
+
+  const ruleAllows = (ruleCheck as any)?.allowed === true;
+  const guardedRecommendation = applyBusinessRuleGuard(recommendation, ruleAllows);
+
+  const { data, error } = await db.rpc("upsert_social_nba_next_best_action", {
+    p_workspace_id: guardedRecommendation.workspace_id,
+    p_lead_id: lead_id,
+    p_action_type: guardedRecommendation.action_type,
+    p_reason: guardedRecommendation.reason_codes.join(","),
+    p_confidence: guardedRecommendation.confidence,
+    p_priority: guardedRecommendation.recommendation_status === "recommended" ? 6 : 1,
+    p_suggested_channel: guardedRecommendation.channel,
+    p_offer_value: null,
+    p_offer_unit: null,
+    p_expires_at: null,
+    p_rule_id: (ruleCheck as any)?.rule_id ?? null,
+    p_rule_allows: ruleAllows,
+    p_status: guardedRecommendation.recommendation_status,
+    p_policy_decision: guardedRecommendation.policy_decision,
+    p_policy_reasons: guardedRecommendation.policy_reasons,
+    p_policy_evaluated_at: guardedRecommendation.policy_evaluated_at,
+    p_human_approval_required: guardedRecommendation.human_approval_required,
+    p_provider: guardedRecommendation.provider,
+    p_channel: guardedRecommendation.channel,
+    p_identity_state: guardedRecommendation.identity_state,
+    p_resolved_identity_key: guardedRecommendation.resolved_identity_key,
+    p_canonical_person_id: guardedRecommendation.canonical_person_id ?? null,
+    p_intent_score: guardedRecommendation.intent_score,
+    p_intent_score_band: guardedRecommendation.intent_score_band,
+    p_journey_phase: guardedRecommendation.journey_phase,
+    p_evidence_refs: guardedRecommendation.evidence_refs,
+    p_recommendation_status: guardedRecommendation.recommendation_status,
+    p_reason_codes: guardedRecommendation.reason_codes,
+    p_idempotency_key: guardedRecommendation.idempotency_key,
+    p_recommended_at: guardedRecommendation.recommended_at,
+  });
+
+  if (error) {
+    return {
+      status: "error",
+      nba_id: null,
+      recommendation: guardedRecommendation,
+      rule_allows: ruleAllows,
+      rule_id: (ruleCheck as any)?.rule_id ?? null,
+    };
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  const wasInserted = Boolean(row?.inserted);
+  return {
+    status: wasInserted ? "inserted" : "duplicate_active",
+    nba_id: row?.id ?? null,
+    recommendation: guardedRecommendation,
+    rule_allows: ruleAllows,
+    rule_id: (ruleCheck as any)?.rule_id ?? null,
   };
 }

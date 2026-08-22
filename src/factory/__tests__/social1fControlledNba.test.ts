@@ -213,7 +213,7 @@ describe("SOCIAL-1F: anonymous_aggregate → do_nothing", () => {
     const result = generateSocialNba({
       ...baseAllowInput,
       identity_state: "anonymous_aggregate",
-      policy_result: allowResult,
+      policy_result: { ...allowResult, identity_state: "anonymous_aggregate" },
     });
     expect(result.recommendation_status).toBe("do_nothing");
     expect(result.action_type).toBe("do_nothing");
@@ -489,6 +489,7 @@ describe("SOCIAL-1F: action type selection", () => {
     const result = generateSocialNba({
       ...baseAllowInput,
       identity_state: "platform_actor",
+      policy_result: { ...allowResult, identity_state: "platform_actor" },
     });
     expect(result.action_type).toBe("do_nothing");
     expect(result.recommendation_status).toBe("do_nothing");
