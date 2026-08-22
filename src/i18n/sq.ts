@@ -593,6 +593,11 @@ export default {
   platform: {
     capabilities: "Aftësi",
     whatYouGet: "Çfarë merrni",
+    status: {
+      live: "Aktiv",
+      beta: "Beta",
+      comingSoon: "Së shpejti",
+    },
   },
 
   // Shtylla e poshtme
@@ -653,5 +658,352 @@ export default {
       required: "Emri dhe email-i janë të detyrueshëm.",
       generic: "Diçka shkoi keq. Ju lutem provoni përsëri.",
     },
+  },
+  /** /platform hub */
+  platformHub: {
+    seo: {
+      title: "Platforma — Pulse AI",
+      desc:  "Eksploroni platformën e plotë Pulse AI: inteligjencë artificiale, kutia e unifikuar, CRM, marketing, automatizim, analitikë dhe më shumë.",
+    },
+    hero: {
+      title: "Një Platformë. Çdo Mjet Biznesi që Keni Nevojë.",
+      desc:  "Pulse AI është Sistemi Operativ i Biznesit me AI. Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.",
+    },
+    modules: {
+      heading: "Eksploroni Platformën",
+      learnMore: "Mëso më shumë",
+      learnMoreLabel: "Mëso më shumë rreth {{module}}",
+      ai: {
+        title: "AI & Inteligjencë",
+        desc:  "Biseda me AI, zbulim i qëllimit dhe drejtim inteligjent nëpër çdo kanal.",
+      },
+      "unified-inbox": {
+        title: "Kutia e Unifikuar",
+        desc:  "Të gjitha mesazhet e klientëve nga WhatsApp, Instagram, Messenger, Telegram, Email dhe më shumë — në një vend.",
+      },
+      crm: {
+        title: "CRM & Shitje",
+        desc:  "Menaxhoni drejtimet, kontaktet, tubacionet dhe marrëveshjet me kualifikim të asistuar nga AI.",
+      },
+      marketing: {
+        title: "Marketing",
+        desc:  "Fushata, transmetime, magnet drejtime dhe orare përmbajtjeje — të gjitha të lidhura.",
+      },
+      automation: {
+        title: "Automatizim",
+        desc:  "Ndërtoni flukse pune të fuqishme që aktivizohen nëpër kanale, CRM dhe logjikën tuaj të biznesit.",
+      },
+      analytics: {
+        title: "Analitikë",
+        desc:  "Njohuri të thella nëpër kanale, fushata, performancë ekipi dhe të ardhura.",
+      },
+      developers: {
+        title: "Zhvilluesit",
+        desc:  "API publike, webhook dhe integrime për ta zgjeruar Pulse AI sipas nevojave tuaja.",
+      },
+      partners: {
+        title: "Partnerët",
+        desc:  "Program partneriteti rishitës dhe me etiketë të bardhë për agjenci dhe konsulentë.",
+      },
+      lidhjet: {
+        title: "Lidhjet",
+        desc:  "Lidhje të drejtuara nga komuniteti dhe rritje bashkëpunuese për bizneset shqipfolëse.",
+      },
+    },
+    cta: {
+      title: "Gati për të filluar?",
+      desc:  "Bashkohuni me mijëra biznese që tashmë punojnë me Pulse AI.",
+    },
+  },
+
+  /** /platform/ai */
+  platformAi: {
+    seo: {
+      title: "AI & Inteligjencë — Platforma Pulse AI",
+      desc:  "Pulse AI sjell menaxhim inteligjent të bisedave, zbulim të qëllimit dhe drejtim me AI në çdo kanal biznesi.",
+    },
+    hero: {
+      title: "Inteligjencë AI e Ndërtuar për Biznesin",
+      desc:  "Zbuloni qëllimin, automatizoni përgjigjet dhe kaloni te njerëzit — me inteligjencë.",
+    },
+    capabilities: {
+      heading: "Çfarë bën AI për biznesin tuaj",
+      intentDetection: {
+        title: "Zbulimi i Qëllimit",
+        desc:  "Kuptoni çfarë duan klientët para se të përgjigjeni.",
+      },
+      smartRouting: {
+        title: "Drejtim Inteligjent",
+        desc:  "Drejtoni bisedat te ekipi ose agjenti AI i duhur automatikisht.",
+      },
+      multiChannel: {
+        title: "AI Multi-Kanal",
+        desc:  "Një shtresë AI nëpër WhatsApp, Instagram, Messenger, Telegram, Email dhe Chat Web.",
+      },
+      humanHandoff: {
+        title: "Kalimi te Njeriu",
+        desc:  "Transferoni pa probleme te një agjent njerëzor kur nevojitet, me kontekst të plotë.",
+      },
+    },
+    cta: { title: "Filloni të përdorni AI sot", desc: "Filloni me biseda të fuqizuara nga AI." },
+  },
+
+  /** /platform/unified-inbox */
+  platformInbox: {
+    seo: {
+      title: "Kutia e Unifikuar — Platforma Pulse AI",
+      desc:  "Menaxhoni të gjitha mesazhet e klientëve nga çdo kanal në një kuti të zgjuar.",
+    },
+    hero: {
+      title: "Një Kuti. Çdo Kanal.",
+      desc:  "WhatsApp, Instagram, Messenger, Telegram, SMS, Email, Zëri dhe Chat Web — të unifikuara.",
+    },
+    channels: {
+      heading: "Kanalet e mbështetura",
+    },
+    cta: { title: "Provoni Kutinë e Unifikuar", desc: "Ndaloni ndërrimin e aplikacioneve. Filloni nga një vend." },
+  },
+
+  /** /platform/crm */
+  platformCrm: {
+    seo: {
+      title: "CRM & Shitje — Platforma Pulse AI",
+      desc:  "CRM me asistencë AI për të menaxhuar drejtuesit, kontaktet dhe marrëveshjet nga kontakti i parë deri në mbyllje.",
+    },
+    hero: {
+      title: "CRM që Mendon me Ju",
+      desc:  "Drejtuesit, kontaktet, tubacionet dhe marrëveshjet — me kualifikim AI të integruar.",
+    },
+    features: {
+      heading: "Aftësitë CRM",
+      contacts: { title: "Qendra e Kontakteve", desc: "Profile të unifikuara me historik bisedash dhe të dhëna kanali." },
+      pipeline: { title: "Tubacioni i Shitjeve", desc: "Tubacion vizual kanban me lëvizje automatike të fazave." },
+      qualification: { title: "Kualifikim Drejtuesish me AI", desc: "Vlerësoni dhe kualifikoni drejtuesit para se ekipi juaj të përgjigjet." },
+      followUp: { title: "Ndjekjet Automatike", desc: "Vendosni rregulla, lëreni AI të menaxhojë kohën." },
+    },
+    cta: { title: "Filloni të menaxhoni drejtuesit tuaj", desc: "Lidhni kanalet tuaja dhe lëreni CRM-in të punojë." },
+  },
+
+  /** /platform/marketing */
+  platformMarketing: {
+    seo: {
+      title: "Marketing — Platforma Pulse AI",
+      desc:  "Drejtoni fushata, transmetime dhe gjenerim drejtuesish — të gjitha nga Pulse AI.",
+    },
+    hero: {
+      title: "Marketing që Konverton",
+      desc:  "Transmetime, fushata, magnet drejtime — të lidhura me CRM dhe AI tuaj.",
+    },
+    features: {
+      heading: "Mjetet e marketingut",
+      broadcasts: { title: "Mesazhet e Transmetimit", desc: "Dërgoni mesazhe të synuara në segmente nëpër kanale." },
+      campaigns: { title: "Fushatat", desc: "Fushata pikë-pikë me hapësi të zgjuara." },
+      leadMagnets: { title: "Magnet Drejtuesish", desc: "Kapni drejtuesit nga çdo kanal me forma inteligjente." },
+      contentCalendar: { title: "Kalendari i Përmbajtjes", desc: "Planifikoni dhe orare përmbajtjen nëpër kanalet tuaja sociale." },
+    },
+    cta: { title: "Nisni fushatën tuaj të parë", desc: "Filloni të konvertoni vizitorët në klientë." },
+  },
+
+  /** /platform/automation */
+  platformAutomation: {
+    seo: {
+      title: "Automatizim — Platforma Pulse AI",
+      desc:  "Ndërtoni automatizime të fuqishme nëpër kanale, CRM dhe logjikën tuaj të biznesit.",
+    },
+    hero: {
+      title: "Automatizoni Gjithçka",
+      desc:  "Aktivizoni flukse pune nga çdo ngjarje kanali, përditësim CRM ose sinjal AI.",
+    },
+    features: {
+      heading: "Aftësitë e automatizimit",
+      triggers: { title: "Aktivizuesit e Ngjarjeve", desc: "Nisni automatizime nga mesazhet e kanaleve, ndryshimet CRM ose rregullat bazuar në kohë." },
+      actions: { title: "Veprime me Shumë Hapa", desc: "Dërgoni mesazhe, përditësoni CRM, njoftoni ekipet dhe më shumë." },
+      aiActions: { title: "Veprime të Fuqizuara nga AI", desc: "Lëreni AI të vendosë veprimin tjetër më të mirë bazuar në kontekst." },
+      monitoring: { title: "Monitorimi i Rrjedhës", desc: "Gjurmoni performancën e automatizimit dhe identifikoni rëniet." },
+    },
+    cta: { title: "Ndërtoni automatizimin tuaj të parë", desc: "Kurseni orë çdo javë me flukse pune inteligjente." },
+  },
+
+  /** /platform/analytics */
+  platformAnalytics: {
+    seo: {
+      title: "Analitikë — Platforma Pulse AI",
+      desc:  "Njohuri të thella nëpër kanale, fushata, performancë ekipi dhe të ardhura.",
+    },
+    hero: {
+      title: "Të Dhëna që Drejtojnë Vendime",
+      desc:  "Kuptoni çfarë funksionon nëpër çdo kanal, fushatë dhe ekip.",
+    },
+    features: {
+      heading: "Modulet e analitikës",
+      channel: { title: "Analitika e Kanaleve", desc: "Vëllimi i mesazheve, kohët e përgjigjes dhe angazhimi sipas kanalit." },
+      campaign: { title: "Performanca e Fushatës", desc: "Normat e hapjes, klikimeve dhe konvertimit sipas fushatës." },
+      team: { title: "Performanca e Ekipit", desc: "Kohët e përgjigjes, normat e zgjidhjes dhe CSAT sipas agjentit." },
+      revenue: { title: "Inteligjenca e të Ardhurave", desc: "Gjurmoni marrëveshjet e mbyllura, vlerën e tubacionit dhe atribuimin e të ardhurave." },
+    },
+    cta: { title: "Eksploroni të dhënat tuaja", desc: "Lidhni kanalet tuaja dhe filloni të shihni njohuri." },
+  },
+
+  /** /platform/developers */
+  platformDevelopers: {
+    seo: {
+      title: "Zhvilluesit — Platforma Pulse AI",
+      desc:  "API publike, webhook dhe SDK për ndërtim mbi Pulse AI.",
+    },
+    hero: {
+      title: "Ndërtoni mbi Pulse AI",
+      desc:  "API jonë ju lejon të integroni mjetet tuaja ekzistuese, të automatizoni flukset e punës dhe të zgjeroni platformën.",
+    },
+    features: {
+      heading: "Mjetet e zhvilluesve",
+      api: { title: "API REST Publike", desc: "Akses i plotë programatik në mesazhe, kontakte, CRM dhe automatizime." },
+      webhooks: { title: "Webhook", desc: "Dërgim ngjarjesh në kohë reale në sistemet tuaja." },
+      sdk: { title: "SDK & Biblioteka", desc: "Biblioteka zyrtare klienti për gjuhë të njohura." },
+      docs: { title: "Dokumentacioni", desc: "Referenca e plotë e API dhe udhëzues integrimi." },
+    },
+    apiLink: "Eksploroni dokumentacionin e API",
+    cta: { title: "Filloni të ndërtoni", desc: "Hyni në API publike dhe lidhni stackun tuaj." },
+  },
+
+  /** /platform/partners */
+  platformPartners: {
+    seo: {
+      title: "Partnerët — Platforma Pulse AI",
+      desc:  "Program partneriteti rishitës dhe me etiketë të bardhë për agjenci dhe konsulentë.",
+    },
+    hero: {
+      title: "Rrituni me Pulse AI",
+      desc:  "Bëhuni rishitës, partner me etiketë të bardhë ose partner integrimi.",
+    },
+    features: {
+      heading: "Nivelet e partneritetit",
+      reseller: { title: "Partner Rishitës", desc: "Shisni Pulse AI klientëve tuaj me marzhe konkurruese." },
+      whiteLabel: { title: "Etiketë e Bardhë", desc: "Vendosni Pulse AI nën markën tuaj." },
+      integration: { title: "Partner Integrimi", desc: "Ndërtoni dhe listoni integrimet në treg Pulse AI." },
+    },
+    cta: { title: "Bashkohuni me Programin e Partneritetit", desc: "Aplikoni për t'u bërë partner Pulse AI." },
+  },
+
+  /** /platform/lidhjet */
+  platformLidhjet: {
+    seo: {
+      title: "Lidhjet — Platforma Pulse AI",
+      desc:  "Lidhje të drejtuara nga komuniteti dhe rritje bashkëpunuese për bizneset shqipfolëse.",
+    },
+    hero: {
+      title: "Lidhjet — Lidhu. Bashkëpuno. Rrit.",
+      desc:  "Lidhje të drejtuara nga komuniteti për bizneset shqipfolëse në Pulse AI.",
+    },
+    features: {
+      heading: "Veçoritë e Lidhjeve",
+      feed: { title: "Ushqimi i Komunitetit", desc: "Ndani përditësime, njohuri dhe suksese me bashkëmoshatarë." },
+      interests: { title: "Grupet e Interesit", desc: "Lidhuni rreth industrive, temave dhe qëllimeve të përbashkëta." },
+      collaboration: { title: "Bashkëpunim", desc: "Gjeni partnerë, bashkëthemeluese dhe bashkëpunëtorë." },
+    },
+    cta: { title: "Bashkohuni me Lidhjet", desc: "Lidhuni me bizneset shqipfolëse në Pulse AI." },
+  },
+
+  // ── Vala 4 — Besimi + Komerciale ─────────────────────────────────────────────
+
+  /** /security faqja publike */
+  securityPage: {
+    seo: {
+      title: "Siguria — Pulse AI",
+      desc:  "Si mbron Pulse AI hapësinën tuaj të punës: enkriptim, qasje e bazuar në role, strehim EU, autentifikim me dy faktorë dhe regjistrim i auditit.",
+    },
+    hero: {
+      title:    "Pasqyrë e Sigurisë",
+      subtitle: "Kontrollet që Pulse AI përdor për të mbrojtur hapësinën tuaj, të dhënat e klientëve tuaj dhe kanalet e lidhura.",
+    },
+    pillars: {
+      heading:    "Gjashtë shtylla të sigurisë",
+      encryption: { title: "Enkriptim",               body: "TLS 1.2+ gjatë transmetimit, enkriptim në pushim dhe AES-256-GCM për kredencialet e integrimeve." },
+      rls:        { title: "Siguria e Rreshtave",      body: "Çdo tabelë e hapësirës së punës mbrohet nga politikat e nivelit të bazës së të dhënave." },
+      auth:       { title: "Autentifikim",             body: "Verifikim i detyrueshëm i emailit, TOTP me dy faktorë opsionale, skanim sesioni 24-orësh dhe miratim i pajisjes." },
+      hosting:    { title: "Strehim EU",               body: "Bazat e të dhënave të prodhimit, ruajtja dhe funksionet funksionojnë në Bashkimin Europian (Frankfurt)." },
+      audit:      { title: "Regjistrim auditit",       body: "Veprimet administrative, ndryshimet e kredencialeve dhe aktiviteti i webhook-eve regjistrohen." },
+      webhook:    { title: "Integriteti i webhook-it", body: "Webhook-et hyrëse verifikohen me nënshkrime HMAC-SHA256 dhe kredenciale për çdo tenant." },
+    },
+    sections: {
+      encryptionTitle:       "Enkriptim",
+      encryptionBody:        "Trafiku ndërmjet shfletuesit tuaj dhe Pulse AI përdor TLS 1.2 ose më të lartë. Të dhënat në pushim enkriptohen nga shtresa e bazës së të dhënave të menaxhuar. Çelësat API, tokenat OAuth dhe kredencialet e kanaleve enkriptohen me AES-256-GCM para ruajtjes.",
+      accessTitle:           "Kontrolli i qasjes",
+      accessItems: {
+        rbac:    "Qasje e bazuar në role: pronar, admin, menaxher, agjent dhe partner me leje të ndryshme.",
+        server:  "Rolet ruhen në tabelë dedikuar dhe vërtetohen nga ana e serverit, kurrë në shfletues.",
+        totp:    "Autentifikimi me dy faktorë (TOTP) është i disponueshëm për të gjitha llogaritë.",
+        device:  "Hyrjet nga pajisje të panjohura kërkojnë miratim nga administratori.",
+        session: "Seanset skadojnë automatikisht pas 24 orëve pasiviteti.",
+      },
+      hostingTitle:          "Strehimi dhe vendndodhja",
+      hostingBody:           "Të dhënat e aplikacionit strehohen në infrastrukturë EU të menaxhuar në Frankfurt, Gjermani. Nënprocesuesit listohen në Politikën e Privatësisë dhe Marrëveshjen e Përpunimit të të Dhënave.",
+      monitoringTitle:       "Monitorimi dhe rezervimet",
+      monitoringBody:        "Rezervimet automatike të bazës së të dhënave kryhen çdo ditë me rikuperim në çast. Normat e gabimeve, dështimet e funksioneve dhe trafiku anormal i webhook-eve monitorihen vazhdimisht.",
+      sharedTitle:           "Përgjegjësia e ndarë",
+      sharedWeDo:            "Ngurtësimi i platformës, enkriptimi, izolimi i bazës së të dhënave, arnimisja, monitorimi dhe reagimi ndaj incidenteve për infrastrukturën Pulse AI.",
+      sharedYouDo:           "Përdorni fjalëkalime të forta unike, aktivizoni autentifikimin me dy faktorë, rishikoni kush ka qasje në hapësinën tuaj dhe revokon integrimet që nuk i përdorni më.",
+      sharedDisclaimer:      "Kjo faqe përshkruan kontrollet që janë aktive sot. Nuk është certifikim dhe nuk pretendon siguri absolute; asnjë platformë online nuk mund ta ofrojë këtë.",
+      reportTitle:           "Raportimi i një dobësie",
+      reportBody:            "Dërgoni email në info@mso.re me subjektin \"Siguria\" dhe përfshini hapat e riprodhimit. Njohim raportet brenda dy ditëve pune dhe do t'ju mbajmë të informuar deri sa çështja të zgjidhet.",
+    },
+  },
+
+  /** /pricing prezantimi publik komercial */
+  pricingPage: {
+    seo: {
+      title: "Çmimet — Pulse AI",
+      desc:  "Çmime të thjeshta dhe transparente për Pulse AI. Filloni falas, rrituni me nevojat tuaja. Planet merren drejtpërdrejt nga cilësimet tona.",
+    },
+    hero: {
+      title:          "Çmime të Thjeshta dhe Transparente",
+      subtitle:       "Filloni falas, rrituni me nevojat tuaja. Detajet e plota të çmimeve janë të disponueshme brenda llogarisë tuaj.",
+      neutralNotice:  "Çmimet e detajuara të planit shfaqen brenda llogarisë tuaj pas regjistrimit, drejtpërdrejt nga cilësimet tona.",
+    },
+    trial:            "Çdo plan i paguar fillon me 7 ditë provë falas.",
+    planCount:        "Planet aktive",
+    loadingPlans:     "Po ngarkohen planet…",
+    unavailable:      "Të dhënat e çmimeve nuk janë disponueshme momentalisht. Hyni në llogari për të parë opsionet e planit.",
+    ctaLoggedOut:     "Shiko Planet dhe Çmimet",
+    ctaLoggedIn:      "Menaxho Abonim",
+    trialBadge:       "7 ditë provë falas",
+    canonicalSource:  "Çmimet merren drejtpërdrejt nga cilësimet tona. Asnjë çmim nuk është i koduar direkt në këtë faqe.",
+  },
+
+  /** /white-label faqja publike e informacionit */
+  whiteLabelPage: {
+    seo: {
+      title: "Etiketa e Bardhë — Pulse AI",
+      desc:  "Shisni Pulse AI nën markën tuaj. Logoja juaj, domeni juaj, çmimet tuaja. Ne drejtojmë infrastrukturën, AI dhe përditësimet.",
+    },
+    hero: {
+      title:    "Shisni Pulse AI Nën Markën Tuaj",
+      subtitle: "Logoja juaj, domeni juaj, çmimet tuaja. Ne drejtojmë infrastrukturën, AI dhe përditësimet — ju zotëroni marrëdhënien me klientin dhe mbani marzhin.",
+    },
+    features: {
+      branding:     { title: "Markë e plotë",       body: "Logoja, ngjyrat, emailet dhe raportet mbajnë identitetin tuaj." },
+      domain:       { title: "Domeni juaj",          body: "Klientët nuk shohin kurrë Pulse AI — shohin agjencinë tuaj." },
+      hosting:      { title: "Ne mbajmë gjithçka",   body: "Strehimi, përditësimet e sigurisë dhe rregullimet e gabimeve përfshihen." },
+    },
+    applyNote:    "Ekipi ynë shqyrton çdo aplikim para aktivizimit. Hyni ose krijoni llogari për të dërguar aplikimin tuaj.",
+    configNote:   "Konfigurimi i markës dhe cilësimet e rishitësit kërkojnë llogari aktive etikete të bardhë.",
+  },
+
+  /** Arkitektura e besimit — vargu i ndarë */
+  trust: {
+    dataControl:    "Ju kontrolloni të dhënat e hapësirës suaj",
+    dataControlDesc:"Të dhënat tuaja mbeten në hapësinën tuaj. Siguria e Rreshtave zbatohet izolimin e tenant-it në shtresën e bazës së të dhënave.",
+    securityLink:   "Lexoni Pasqyrën tonë të Sigurisë",
+    privacyLink:    "Politika e Privatësisë",
+    termsLink:      "Kushtet e Shërbimit",
+    euHosting:      "Strehuar në EU (Frankfurt)",
+    e2eEncryption:  "Enkriptuar gjatë transmetimit dhe në pushim",
+    rbac:           "Kontrolli i qasjes me role",
+  },
+
+  /** Zgjerime të footer-it (Vala 4) */
+  footerWave4: {
+    refund:           "Politika e Rimbursimit",
+    affiliateTerms:   "Kushtet e Ambasadorit",
+    termsAndPayments: "Kushtet e Pagesës",
   },
 } as const;

@@ -40,6 +40,9 @@ const FOOTER_LEGAL = [
   { labelKey: "footer.links.terms", href: "/terms" },
   { labelKey: "footer.links.cookies", href: "/cookies" },
   { labelKey: "footer.links.dpa", href: "/dpa" },
+  { labelKey: "footerWave4.refund", href: "/refund" },
+  { labelKey: "footerWave4.affiliateTerms", href: "/affiliate-terms" },
+  { labelKey: "footerWave4.termsAndPayments", href: "/terms-and-payments" },
 ];
 
 export function PublicFooter() {

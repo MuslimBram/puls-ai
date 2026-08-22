@@ -593,6 +593,11 @@ export default {
   platform: {
     capabilities: "Capabilities",
     whatYouGet: "What you get",
+    status: {
+      live: "Live",
+      beta: "Beta",
+      comingSoon: "Coming Soon",
+    },
   },
 
   // Footer
@@ -653,5 +658,352 @@ export default {
       required: "Name and email are required.",
       generic: "Something went wrong. Please try again.",
     },
+  },
+  /** /platform hub */
+  platformHub: {
+    seo: {
+      title: "Platform — Pulse AI",
+      desc:  "Explore the full Pulse AI platform: AI intelligence, unified inbox, CRM, marketing, automation, analytics, and more.",
+    },
+    hero: {
+      title: "One Platform. Every Business Tool You Need.",
+      desc:  "Pulse AI is the AI Business Operating System. One intelligent system to run, automate and grow your business.",
+    },
+    modules: {
+      heading: "Explore the Platform",
+      learnMore: "Learn more",
+      learnMoreLabel: "Learn more about {{module}}",
+      ai: {
+        title: "AI & Intelligence",
+        desc:  "AI-powered conversations, intent detection, and smart routing across every channel.",
+      },
+      "unified-inbox": {
+        title: "Unified Inbox",
+        desc:  "All your customer messages from WhatsApp, Instagram, Messenger, Telegram, Email, and more — in one place.",
+      },
+      crm: {
+        title: "CRM & Sales",
+        desc:  "Manage leads, contacts, pipelines, and deals with AI-assisted qualification.",
+      },
+      marketing: {
+        title: "Marketing",
+        desc:  "Campaigns, broadcasts, lead magnets, and content scheduling — all connected.",
+      },
+      automation: {
+        title: "Automation",
+        desc:  "Build powerful workflows that trigger across channels, CRM, and your business logic.",
+      },
+      analytics: {
+        title: "Analytics",
+        desc:  "Deep insights across channels, campaigns, team performance, and revenue.",
+      },
+      developers: {
+        title: "Developers",
+        desc:  "Public API, webhooks, and integrations to extend Pulse AI to your exact needs.",
+      },
+      partners: {
+        title: "Partners",
+        desc:  "Reseller and white-label partner programme for agencies and consultants.",
+      },
+      lidhjet: {
+        title: "Lidhjet",
+        desc:  "Community-driven connections and collaborative growth for Albanian-speaking businesses.",
+      },
+    },
+    cta: {
+      title: "Ready to get started?",
+      desc:  "Join thousands of businesses already running on Pulse AI.",
+    },
+  },
+
+  /** /platform/ai */
+  platformAi: {
+    seo: {
+      title: "AI & Intelligence — Pulse AI Platform",
+      desc:  "Pulse AI brings intelligent conversation management, intent detection, and AI-assisted routing to every business channel.",
+    },
+    hero: {
+      title: "AI Intelligence Built for Business",
+      desc:  "Detect intent, automate responses, and escalate to humans — intelligently.",
+    },
+    capabilities: {
+      heading: "What AI does for your business",
+      intentDetection: {
+        title: "Intent Detection",
+        desc:  "Understand what customers want before you respond.",
+      },
+      smartRouting: {
+        title: "Smart Routing",
+        desc:  "Route conversations to the right team or AI agent automatically.",
+      },
+      multiChannel: {
+        title: "Multi-Channel AI",
+        desc:  "One AI layer across WhatsApp, Instagram, Messenger, Telegram, Email, and Web Chat.",
+      },
+      humanHandoff: {
+        title: "Human Handoff",
+        desc:  "Seamlessly transfer to a human agent when needed, with full context.",
+      },
+    },
+    cta: { title: "Start using AI today", desc: "Get started with AI-powered conversations." },
+  },
+
+  /** /platform/unified-inbox */
+  platformInbox: {
+    seo: {
+      title: "Unified Inbox — Pulse AI Platform",
+      desc:  "Manage all customer messages from every channel in one smart inbox.",
+    },
+    hero: {
+      title: "One Inbox. Every Channel.",
+      desc:  "WhatsApp, Instagram, Messenger, Telegram, SMS, Email, Voice, and Web Chat — unified.",
+    },
+    channels: {
+      heading: "Supported channels",
+    },
+    cta: { title: "Try the Unified Inbox", desc: "Stop switching apps. Start from one place." },
+  },
+
+  /** /platform/crm */
+  platformCrm: {
+    seo: {
+      title: "CRM & Sales — Pulse AI Platform",
+      desc:  "AI-assisted CRM to manage leads, contacts, and deals from first contact to close.",
+    },
+    hero: {
+      title: "CRM That Thinks With You",
+      desc:  "Leads, contacts, pipelines, and deals — with AI qualification built in.",
+    },
+    features: {
+      heading: "CRM capabilities",
+      contacts: { title: "Contact Hub", desc: "Unified profiles with conversation history and channel data." },
+      pipeline: { title: "Sales Pipeline", desc: "Visual kanban pipeline with automated stage moves." },
+      qualification: { title: "AI Lead Qualification", desc: "Score and qualify leads before your team even responds." },
+      followUp: { title: "Automated Follow-ups", desc: "Set rules, let AI handle the timing." },
+    },
+    cta: { title: "Start managing your leads", desc: "Connect your channels and let the CRM do the work." },
+  },
+
+  /** /platform/marketing */
+  platformMarketing: {
+    seo: {
+      title: "Marketing — Pulse AI Platform",
+      desc:  "Run campaigns, broadcasts, and lead generation — all from Pulse AI.",
+    },
+    hero: {
+      title: "Marketing That Converts",
+      desc:  "Broadcasts, campaigns, lead magnets — connected to your CRM and AI.",
+    },
+    features: {
+      heading: "Marketing tools",
+      broadcasts: { title: "Broadcast Messaging", desc: "Send targeted messages to segments across channels." },
+      campaigns: { title: "Campaigns", desc: "Multi-step drip campaigns with smart timing." },
+      leadMagnets: { title: "Lead Magnets", desc: "Capture leads from any channel with smart forms." },
+      contentCalendar: { title: "Content Calendar", desc: "Plan and schedule content across your social channels." },
+    },
+    cta: { title: "Launch your first campaign", desc: "Start converting visitors into customers." },
+  },
+
+  /** /platform/automation */
+  platformAutomation: {
+    seo: {
+      title: "Automation — Pulse AI Platform",
+      desc:  "Build powerful automations across channels, CRM, and your business logic.",
+    },
+    hero: {
+      title: "Automate Everything",
+      desc:  "Trigger workflows from any channel event, CRM update, or AI signal.",
+    },
+    features: {
+      heading: "Automation capabilities",
+      triggers: { title: "Event Triggers", desc: "Start automations from channel messages, CRM changes, or time-based rules." },
+      actions: { title: "Multi-Step Actions", desc: "Send messages, update CRM, notify teams, and more." },
+      aiActions: { title: "AI-Powered Actions", desc: "Let AI decide the next best action based on context." },
+      monitoring: { title: "Flow Monitoring", desc: "Track automation performance and identify drop-offs." },
+    },
+    cta: { title: "Build your first automation", desc: "Save hours every week with smart workflows." },
+  },
+
+  /** /platform/analytics */
+  platformAnalytics: {
+    seo: {
+      title: "Analytics — Pulse AI Platform",
+      desc:  "Deep insights across channels, campaigns, team performance, and revenue.",
+    },
+    hero: {
+      title: "Data That Drives Decisions",
+      desc:  "Understand what's working across every channel, campaign, and team.",
+    },
+    features: {
+      heading: "Analytics modules",
+      channel: { title: "Channel Analytics", desc: "Message volume, response times, and engagement by channel." },
+      campaign: { title: "Campaign Performance", desc: "Open rates, click-throughs, and conversion by campaign." },
+      team: { title: "Team Performance", desc: "Response times, resolution rates, and CSAT by agent." },
+      revenue: { title: "Revenue Intelligence", desc: "Track deals closed, pipeline value, and revenue attribution." },
+    },
+    cta: { title: "Explore your data", desc: "Connect your channels and start seeing insights." },
+  },
+
+  /** /platform/developers */
+  platformDevelopers: {
+    seo: {
+      title: "Developers — Pulse AI Platform",
+      desc:  "Public API, webhooks, and SDK for building on top of Pulse AI.",
+    },
+    hero: {
+      title: "Build on Pulse AI",
+      desc:  "Our API lets you integrate your existing tools, automate workflows, and extend the platform.",
+    },
+    features: {
+      heading: "Developer tools",
+      api: { title: "Public REST API", desc: "Full programmatic access to messages, contacts, CRM, and automations." },
+      webhooks: { title: "Webhooks", desc: "Real-time event delivery to your own systems." },
+      sdk: { title: "SDK & Libraries", desc: "Official client libraries for popular languages." },
+      docs: { title: "Documentation", desc: "Comprehensive API reference and integration guides." },
+    },
+    apiLink: "Explore the API docs",
+    cta: { title: "Start building", desc: "Access the public API and connect your stack." },
+  },
+
+  /** /platform/partners */
+  platformPartners: {
+    seo: {
+      title: "Partners — Pulse AI Platform",
+      desc:  "Reseller and white-label partner programme for agencies and consultants.",
+    },
+    hero: {
+      title: "Grow with Pulse AI",
+      desc:  "Become a reseller, white-label partner, or integration partner.",
+    },
+    features: {
+      heading: "Partner tiers",
+      reseller: { title: "Reseller Partner", desc: "Sell Pulse AI to your clients with competitive margins." },
+      whiteLabel: { title: "White-Label", desc: "Deploy Pulse AI under your own brand." },
+      integration: { title: "Integration Partner", desc: "Build and list integrations in the Pulse AI marketplace." },
+    },
+    cta: { title: "Join the Partner Programme", desc: "Apply to become a Pulse AI partner." },
+  },
+
+  /** /platform/lidhjet */
+  platformLidhjet: {
+    seo: {
+      title: "Lidhjet — Pulse AI Platform",
+      desc:  "Community-driven connections and collaborative growth for Albanian-speaking businesses.",
+    },
+    hero: {
+      title: "Lidhjet — Connect. Collaborate. Grow.",
+      desc:  "Community-driven connections for Albanian-speaking businesses on Pulse AI.",
+    },
+    features: {
+      heading: "Lidhjet features",
+      feed: { title: "Community Feed", desc: "Share updates, insights, and wins with peers." },
+      interests: { title: "Interest Groups", desc: "Connect around shared industries, topics, and goals." },
+      collaboration: { title: "Collaboration", desc: "Find partners, co-founders, and collaborators." },
+    },
+    cta: { title: "Join Lidhjet", desc: "Connect with Albanian-speaking businesses on Pulse AI." },
+  },
+
+  // ── Wave 4 — Trust + Commercial ─────────────────────────────────────────────
+
+  /** /security public page */
+  securityPage: {
+    seo: {
+      title: "Security — Pulse AI",
+      desc:  "How Pulse AI protects your workspace: encryption, role-based access, EU hosting, two-factor authentication, and audit logging.",
+    },
+    hero: {
+      title:    "Security Overview",
+      subtitle: "The controls Pulse AI uses to protect your workspace, your customers' data and your connected channels.",
+    },
+    pillars: {
+      heading:    "Six security pillars",
+      encryption: { title: "Encryption",          body: "TLS 1.2+ in transit, encryption at rest, and AES-256-GCM for stored integration credentials." },
+      rls:        { title: "Row Level Security",   body: "Every workspace table is protected by database-level policies so data cannot cross workspaces." },
+      auth:       { title: "Authentication",       body: "Mandatory email verification, optional TOTP two-factor, 24-hour session expiry and new-device approval." },
+      hosting:    { title: "EU hosting",           body: "Production databases, storage and functions run in the European Union (Frankfurt region)." },
+      audit:      { title: "Audit logging",        body: "Administrative actions, credential changes and webhook activity are recorded for review." },
+      webhook:    { title: "Webhook integrity",    body: "Inbound webhooks are verified with HMAC-SHA256 signatures and per-tenant credentials." },
+    },
+    sections: {
+      encryptionTitle:       "Encryption",
+      encryptionBody:        "Traffic between your browser and Pulse AI uses TLS 1.2 or higher. Data at rest is encrypted by the managed database layer. API keys, OAuth tokens and channel credentials are encrypted with AES-256-GCM before storage and are never returned to the browser in plain text.",
+      accessTitle:           "Access control",
+      accessItems: {
+        rbac:    "Role-based access: owner, admin, manager, agent and partner roles with distinct permissions.",
+        server:  "Roles are stored in a dedicated table and validated server-side, never in the browser.",
+        totp:    "Two-factor authentication (TOTP) is available for all accounts.",
+        device:  "Logins from unrecognised devices require administrator approval.",
+        session: "Sessions expire automatically after 24 hours of inactivity.",
+      },
+      hostingTitle:          "Hosting and location",
+      hostingBody:           "Application data is hosted on managed EU infrastructure in Frankfurt, Germany. Serverless functions execute in the same region. Sub-processors are listed in the Privacy Policy and the Data Processing Agreement.",
+      monitoringTitle:       "Monitoring and backups",
+      monitoringBody:        "Automated database backups run daily with point-in-time recovery. Error rates, function failures and abnormal webhook traffic are monitored continuously, and rate limiting protects public endpoints from abuse.",
+      sharedTitle:           "Shared responsibility",
+      sharedWeDo:            "Platform hardening, encryption, database isolation, patching, monitoring and incident response for the Pulse AI infrastructure.",
+      sharedYouDo:           "Use strong unique passwords, enable two-factor authentication, review who has access to your workspace, and revoke integrations you no longer use.",
+      sharedDisclaimer:      "This page describes controls that are in place today. It is not a certification, and it does not claim absolute security; no online platform can offer that.",
+      reportTitle:           "Reporting a vulnerability",
+      reportBody:            "Email info@mso.re with the subject \"Security\" and include reproduction steps. We acknowledge reports within two business days and will keep you updated until the issue is resolved. Please do not publicly disclose an issue before we have had a chance to fix it.",
+    },
+  },
+
+  /** /pricing public commercial presentation */
+  pricingPage: {
+    seo: {
+      title: "Pricing — Pulse AI",
+      desc:  "Simple, transparent pricing for Pulse AI. Start free, scale as you grow. Plans drawn live from our pricing settings.",
+    },
+    hero: {
+      title:          "Simple, Transparent Pricing",
+      subtitle:       "Start free, scale as you grow. Full pricing details are available inside your account.",
+      neutralNotice:  "Detailed plan pricing is displayed inside your account after sign-up, drawn live from our pricing settings.",
+    },
+    trial:            "Every paid plan starts with a 7-day free trial.",
+    planCount:        "Active plans",
+    loadingPlans:     "Loading plans…",
+    unavailable:      "Pricing data is currently unavailable. Sign in to view your plan options.",
+    ctaLoggedOut:     "See Plans & Pricing",
+    ctaLoggedIn:      "Manage Subscription",
+    trialBadge:       "7-day free trial",
+    canonicalSource:  "Prices are fetched live from our pricing settings. No prices are hard-coded on this page.",
+  },
+
+  /** /white-label public information page */
+  whiteLabelPage: {
+    seo: {
+      title: "White Label — Pulse AI",
+      desc:  "Sell Pulse AI under your own brand. Your logo, your domain, your pricing. We run the infrastructure, AI and updates.",
+    },
+    hero: {
+      title:    "Sell Pulse AI Under Your Own Brand",
+      subtitle: "Your logo, your domain, your pricing. We run the infrastructure, AI and updates — you own the client relationship and keep the margin.",
+    },
+    features: {
+      branding:     { title: "Full branding",      body: "Logo, colours, emails and reports carry your identity." },
+      domain:       { title: "Your own domain",    body: "Clients never see Pulse AI — they see your agency." },
+      hosting:      { title: "We keep it running", body: "Hosting, security updates and bug fixes included." },
+    },
+    applyNote:    "Our team reviews every application before activation. Sign in or create an account to submit your application.",
+    configNote:   "Branding configuration and reseller settings require an active white-label account.",
+  },
+
+  /** Trust architecture shared strings */
+  trust: {
+    dataControl:    "You control your workspace data",
+    dataControlDesc:"Your data stays in your workspace. Row Level Security enforces tenant isolation at the database layer.",
+    securityLink:   "Read our Security Overview",
+    privacyLink:    "Privacy Policy",
+    termsLink:      "Terms of Service",
+    euHosting:      "EU-hosted (Frankfurt)",
+    e2eEncryption:  "Encrypted in transit and at rest",
+    rbac:           "Role-based access control",
+  },
+
+  /** Footer extensions (Wave 4) */
+  footerWave4: {
+    refund:           "Refund Policy",
+    affiliateTerms:   "Ambassador Terms",
+    termsAndPayments: "Payment Terms",
   },
 } as const;
