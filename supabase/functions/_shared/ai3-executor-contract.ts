@@ -152,6 +152,7 @@ export function buildAi3ExecutorInvocation(ctx: ExecutorDispatchContext, actionT
 
       const body: Record<string, unknown> = {
         workspace_id: ctx.workspaceId,
+        ai3_action_id: ctx.actionId,
         client_name: clientName,
         date,
         time,
