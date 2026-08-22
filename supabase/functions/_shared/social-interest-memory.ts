@@ -1,5 +1,4 @@
 import { resolveIdentity, type IdentityGraphClient } from "./identity-graph.ts";
-import { processIntentFromCanonicalEvent } from "./social-intent-pipeline.ts";
 
 export type InterestType = "topic" | "category" | "product" | "service";
 
@@ -248,18 +247,5 @@ export async function processInterestFromEngagementEventId(
     return { status: "not_found", evidence_inserted: 0 };
   }
 
-  const interestResult = await processInterestFromEngagementEvent(db, event.data);
-  if (interestResult.status === "error") return interestResult;
-
-  // SOCIAL-1D: this helper is already the canonical post-engagement pipeline
-  // used by meta-webhook. Run intent only AFTER SOCIAL-1C has had the chance to
-  // persist/update Interest Memory, so scoring sees the canonical current state.
-  // Any transient intent/Journey persistence failure returns error, causing the
-  // provider webhook path to retry. All SOCIAL-1D writes are idempotent.
-  const intentResult = await processIntentFromCanonicalEvent(db as any, event.data);
-  if (intentResult.status === "error") {
-    return { status: "error", evidence_inserted: interestResult.evidence_inserted };
-  }
-
-  return interestResult;
+  return processInterestFromEngagementEvent(db, event.data);
 }
