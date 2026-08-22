@@ -20,6 +20,7 @@ export const LEGAL_LINKS = [
   { href: "/refund", label: "Refund & Cancellation" },
   { href: "/affiliate-terms", label: "Ambassador & Freelancer Terms" },
   { href: "/dpa", label: "Data Processing Agreement" },
+  { href: "/terms-and-payments", label: "Payment Terms" },
 ];
 
 export type LegalSection = { id: string; title: string };
