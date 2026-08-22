@@ -65,13 +65,35 @@ export function normalizePublicSiteUrl(raw?: string | null) {
   }
 }
 
-export function getPublicSiteUrl() {
-  const envUrl = import.meta.env?.VITE_PUBLIC_SITE_URL;
-  if (envUrl) return normalizePublicSiteUrl(envUrl);
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return normalizePublicSiteUrl(window.location.origin);
+function isLocalDevelopmentOrigin(raw?: string | null) {
+  if (!raw) return false;
+  try {
+    const parsed = new URL(raw);
+    return ["localhost", "127.0.0.1", "::1"].includes(parsed.hostname);
+  } catch {
+    return false;
   }
+}
+
+export function resolvePublicSiteUrl(envUrl?: string | null, browserOrigin?: string | null) {
+  if (envUrl) return normalizePublicSiteUrl(envUrl);
+
+  // Keep localhost/dev tests truthful without allowing an arbitrary preview host
+  // to become the public canonical origin when VITE_PUBLIC_SITE_URL is absent.
+  if (isLocalDevelopmentOrigin(browserOrigin)) {
+    return normalizePublicSiteUrl(browserOrigin);
+  }
+
   return DEFAULT_PUBLIC_SITE_URL;
+}
+
+export function getPublicSiteUrl() {
+  const browserOrigin =
+    typeof window !== "undefined" && window.location?.origin
+      ? window.location.origin
+      : undefined;
+
+  return resolvePublicSiteUrl(import.meta.env?.VITE_PUBLIC_SITE_URL, browserOrigin);
 }
 
 export function getLocaleFromPublicPath(pathname: string): PublicLocale {
