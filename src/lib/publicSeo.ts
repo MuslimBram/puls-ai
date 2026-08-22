@@ -66,7 +66,7 @@ export function normalizePublicSiteUrl(raw?: string | null) {
 }
 
 export function getPublicSiteUrl() {
-  return normalizePublicSiteUrl(import.meta.env.VITE_PUBLIC_SITE_URL);
+  return normalizePublicSiteUrl(import.meta.env?.VITE_PUBLIC_SITE_URL);
 }
 
 export function getLocaleFromPublicPath(pathname: string): PublicLocale {
