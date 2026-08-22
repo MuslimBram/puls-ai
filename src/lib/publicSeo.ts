@@ -84,7 +84,8 @@ export function getPublicSeoPolicy(pathname: string): PublicSeoPolicy {
   const locale = getLocaleFromPublicPath(pathname);
   const strippedPath = normalizePublicPathname(stripPublicLocale(pathname));
   const knownPublic = isKnownPublicIndexablePath(strippedPath);
-  const blockedSq = locale === "sq" && BLOCKED_SQ_PATHS.has(strippedPath);
+  const sqContentBlocked = BLOCKED_SQ_PATHS.has(strippedPath);
+  const blockedSq = locale === "sq" && sqContentBlocked;
   const indexable = knownPublic && !blockedSq;
 
   return {
@@ -95,7 +96,7 @@ export function getPublicSeoPolicy(pathname: string): PublicSeoPolicy {
     canonicalPath: blockedSq
       ? localizePublicPath(strippedPath, "en")
       : localizePublicPath(strippedPath, locale),
-    alternateLocales: blockedSq ? ["en"] : ["en", "sq"],
+    alternateLocales: sqContentBlocked ? ["en"] : ["en", "sq"],
   };
 }
 
