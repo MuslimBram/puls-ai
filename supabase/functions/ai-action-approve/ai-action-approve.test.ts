@@ -31,6 +31,7 @@ import {
   SENSITIVE_ACTION_TYPES,
   ActionLifecycleStatus,
 } from "../_shared/action-contract.ts";
+import { resolveValidationPolicyForAction } from "../_shared/ai3-policy-gate.ts";
 
 // ── Mini test harness ─────────────────────────────────────────
 
@@ -552,6 +553,33 @@ section("TEST 12 — AI recommendation alone is insufficient authorization");
   assert(
     isExecutableStatus("QUEUED"),
     "QUEUED (post-human-approval) is the only directly executable status",
+  );
+}
+
+// ── TEST 13: Policy dependency gate is action-sensitive ─────────
+
+section("TEST 13 — Policy dependency gate");
+{
+  let loadCalls = 0;
+  const createBookingPolicy = await resolveValidationPolicyForAction(
+    "create_booking",
+    { client_name: "Ada", date: "2026-08-24", time: "09:30" },
+    async () => {
+      loadCalls++;
+      return { ok: false, error: 'relation "workspace_settings" does not exist' };
+    },
+  );
+  assert(loadCalls === 0, "create_booking does not query workspace_settings policy source");
+  assert(createBookingPolicy.ok, "create_booking policy resolution succeeds without explicit policy");
+
+  const launchCampaignPolicy = await resolveValidationPolicyForAction(
+    "launch_campaign",
+    { campaign_id: "cmp-1" },
+    async () => ({ ok: false, error: 'relation "workspace_settings" does not exist' }),
+  );
+  assert(
+    !launchCampaignPolicy.ok && launchCampaignPolicy.status === "POLICY_NOT_CONFIGURED",
+    "launch_campaign fails closed with POLICY_NOT_CONFIGURED when policy source is absent",
   );
 }
 

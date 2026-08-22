@@ -37,6 +37,10 @@ import {
   type ActionParams,
   type WorkspacePolicy,
 } from "../_shared/action-contract.ts";
+import {
+  resolveValidationPolicyForAction,
+  type PolicyResult,
+} from "../_shared/ai3-policy-gate.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) =>
@@ -328,9 +332,12 @@ serve(async (req: Request) => {
       );
     }
 
-    // Load workspace policy before validating modified params — fail closed on error
-    const policyResult = await loadWorkspacePolicy(sb, workspaceId);
-    if (!policyResult.ok) {
+    const resolvedPolicy = await resolveValidationPolicyForAction(
+      action.action_type,
+      modifications,
+      () => loadWorkspacePolicy(sb, workspaceId),
+    );
+    if (resolvedPolicy.status === "POLICY_LOAD_FAILED") {
       return json(
         {
           error: "Configuration failure: workspace policy could not be loaded. Modification rejected (fail-closed).",
@@ -339,7 +346,7 @@ serve(async (req: Request) => {
         req,
       );
     }
-    if (!policyResult.configured && requiresExplicitPolicy(action.action_type, modifications)) {
+    if (resolvedPolicy.status === "POLICY_NOT_CONFIGURED") {
       return json(
         {
           error: "POLICY_NOT_CONFIGURED",
@@ -353,7 +360,7 @@ serve(async (req: Request) => {
     const validation = validateAndClampActionParams(
       action.action_type,
       modifications,
-      policyResult.policy!,
+      resolvedPolicy.policy,
     );
 
     if (!validation.valid) {
@@ -430,10 +437,12 @@ serve(async (req: Request) => {
   const effectivePayload: ActionParams =
     action.modified_payload ?? action.action_payload ?? {};
 
-  // Load workspace policy (authoritative server-side — never trust client limits).
-  // Fail closed: DB error → reject rather than silently fall back to invented limits.
-  const policyResult = await loadWorkspacePolicy(sb, workspaceId);
-  if (!policyResult.ok) {
+  const resolvedPolicy = await resolveValidationPolicyForAction(
+    action.action_type,
+    effectivePayload,
+    () => loadWorkspacePolicy(sb, workspaceId),
+  );
+  if (resolvedPolicy.status === "POLICY_LOAD_FAILED") {
     return json(
       {
         error: "Configuration failure: workspace policy could not be loaded. Approval rejected (fail-closed).",
@@ -442,7 +451,7 @@ serve(async (req: Request) => {
       req,
     );
   }
-  if (!policyResult.configured && requiresExplicitPolicy(action.action_type, effectivePayload)) {
+  if (resolvedPolicy.status === "POLICY_NOT_CONFIGURED") {
     return json(
       {
         error: "POLICY_NOT_CONFIGURED",
@@ -452,7 +461,7 @@ serve(async (req: Request) => {
       req,
     );
   }
-  const policy = policyResult.policy!;
+  const policy = resolvedPolicy.policy;
 
   const validation = validateAndClampActionParams(
     action.action_type,
@@ -653,13 +662,6 @@ serve(async (req: Request) => {
 
 // ── Helpers ───────────────────────────────────────────────────
 
-interface PolicyResult {
-  ok: boolean;
-  policy?: WorkspacePolicy;
-  configured?: boolean;
-  error?: string;
-}
-
 /**
  * Loads workspace-specific action policy from workspace_settings.
  *
@@ -691,32 +693,6 @@ async function loadWorkspacePolicy(
 
   return { ok: true, configured: true, policy: data as WorkspacePolicy };
 }
-
-function requiresExplicitPolicy(actionType: string, params: Record<string, unknown>): boolean {
-  if ([
-    "send_message",
-    "launch_campaign",
-    "bulk_email",
-    "bulk_sms",
-    "create_offer",
-    "suggest_offer",
-    "issue_reward",
-    "issue_discount",
-    "issue_referral",
-  ].includes(actionType)) {
-    return true;
-  }
-
-  return [
-    "discount_percent",
-    "offer_value",
-    "reward_points",
-    "referral_credit",
-    "campaign_contacts",
-    "message_batch_size",
-  ].some((key) => params[key] !== undefined);
-}
-
 interface AuditContext {
   workspace_id: string;
   user_id: string;
