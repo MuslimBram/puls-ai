@@ -35,6 +35,12 @@ const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30;
 const RATE_WINDOW = 60_000;
 
+// Note: this in-process map provides best-effort rate limiting within a single
+// worker instance. Supabase Edge Functions (Deno Deploy) may run multiple
+// instances, so this does not provide a hard per-IP guarantee across all
+// instances. webchat-ingest applies its own rate limit as the authoritative
+// server-side control.
+
 function checkRateLimit(ip: string): boolean {
   const now = Date.now();
   const entry = rateLimitMap.get(ip);
