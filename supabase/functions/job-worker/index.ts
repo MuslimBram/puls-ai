@@ -276,8 +276,160 @@ async function processJob(supabase: any, job: any): Promise<JobOutcome> {
       return { status: "completed" };
     }
 
+    case "ai_controlled_action":
+      return await processAiControlledActionJob(supabase, job, payload);
+
     default:
       throw new Error(`Unknown job type: ${job.job_type}`);
+  }
+}
+
+// ── AI-3: Controlled Action Executor ─────────────────────────────────────────
+//
+// Processes an AI-3 controlled action job.
+//
+// Invariants enforced here (second validation layer after approval gate):
+//   - action_id must exist in ai_suggested_actions with lifecycle_status=QUEUED
+//   - workspace_id in job payload must match the row's workspace_id
+//   - Sensitive actions cannot be executed if lifecycle_status is not QUEUED
+//   - Execution is idempotent: completed actions return success without re-executing
+//   - At most MAX_EXECUTION_ATTEMPTS total attempts before permanent failure
+
+const MAX_EXECUTION_ATTEMPTS = 3;
+
+async function processAiControlledActionJob(
+  supabase: any,
+  job: any,
+  payload: Record<string, unknown>,
+): Promise<JobOutcome> {
+  const actionId = String(payload.action_id ?? "");
+  const workspaceId = String(payload.workspace_id ?? "");
+  const idempotencyKey = String(payload.idempotency_key ?? "");
+
+  if (!actionId || !workspaceId) {
+    throw new Error("[AI-3] ai_controlled_action job missing action_id or workspace_id");
+  }
+
+  const now = new Date().toISOString();
+
+  // Load action with service role — re-validate all state server-side
+  const { data: action, error: loadErr } = await supabase
+    .from("ai_suggested_actions")
+    .select(
+      "id, workspace_id, lifecycle_status, action_type, action_payload, modified_payload, execution_attempts, suggested_by, correlation_id",
+    )
+    .eq("id", actionId)
+    .maybeSingle();
+
+  if (loadErr || !action) {
+    throw new Error(`[AI-3] Action ${actionId} not found or DB error: ${loadErr?.message}`);
+  }
+
+  // Workspace isolation: reject if job payload workspace doesn't match the row
+  if (action.workspace_id !== workspaceId) {
+    throw new Error(
+      `[AI-3] Workspace mismatch: job payload workspace ${workspaceId} ≠ action workspace ${action.workspace_id}`,
+    );
+  }
+
+  // Idempotency: already completed — do not re-execute
+  if (action.lifecycle_status === "COMPLETED") {
+    console.log(`[AI-3] Action ${actionId} already COMPLETED — idempotent skip`);
+    return { status: "completed" };
+  }
+
+  // Sensitive action gate: must be QUEUED (= human-approved) to execute
+  if (action.lifecycle_status !== "QUEUED") {
+    throw new Error(
+      `[AI-3] Action ${actionId} is not in QUEUED state (got: ${action.lifecycle_status}). Execution blocked.`,
+    );
+  }
+
+  // Attempt limit guard
+  const attempts = Number(action.execution_attempts ?? 0);
+  if (attempts >= MAX_EXECUTION_ATTEMPTS) {
+    await supabase
+      .from("ai_suggested_actions")
+      .update({
+        lifecycle_status: "FAILED",
+        failed_at: now,
+        failure_reason: `Exceeded maximum execution attempts (${MAX_EXECUTION_ATTEMPTS})`,
+      })
+      .eq("id", actionId);
+    throw new Error(`[AI-3] Action ${actionId} exceeded max execution attempts`);
+  }
+
+  // Transition to EXECUTING — optimistic lock on QUEUED
+  const { error: lockErr } = await supabase
+    .from("ai_suggested_actions")
+    .update({
+      lifecycle_status: "EXECUTING",
+      executing_at: now,
+      execution_attempts: attempts + 1,
+    })
+    .eq("id", actionId)
+    .eq("lifecycle_status", "QUEUED");
+
+  if (lockErr) {
+    // Concurrent worker beat us — defer
+    return {
+      status: "deferred",
+      nextRetryAt: new Date(Date.now() + 30_000).toISOString(),
+      message: "Concurrent lock — deferred",
+    };
+  }
+
+  // Execute the action — actual side-effects are dispatched here.
+  // In this implementation the execution layer records completion and logs
+  // the audit trail. Real integrations (campaigns, offers, etc.) are wired
+  // through their own canonical functions and are NOT called here directly,
+  // to avoid bypassing their own validation and consent checks.
+  try {
+    const effectivePayload = action.modified_payload ?? action.action_payload ?? {};
+
+    await supabase.rpc("log_audit", {
+      p_workspace_id: workspaceId,
+      p_action: "ai_action_executed",
+      p_resource_type: "ai_suggested_actions",
+      p_resource_id: actionId,
+      p_severity: "info",
+      p_new_values: {
+        action_type: action.action_type,
+        lifecycle_status: "EXECUTING",
+        attempt: attempts + 1,
+        idempotency_key: idempotencyKey || null,
+        correlation_id: action.correlation_id,
+        suggested_by: action.suggested_by,
+        // Do not log raw payload — may contain sensitive offer/pricing data
+        payload_keys: Object.keys(effectivePayload),
+      },
+    }).catch(() => {});
+
+    // Mark COMPLETED
+    await supabase
+      .from("ai_suggested_actions")
+      .update({
+        lifecycle_status: "COMPLETED",
+        executed_at: now,
+        status: "executed",
+        failure_reason: null,
+      })
+      .eq("id", actionId);
+
+    return { status: "completed" };
+  } catch (execErr) {
+    const reason = execErr instanceof Error ? execErr.message : String(execErr);
+
+    const nextStatus = attempts + 1 >= MAX_EXECUTION_ATTEMPTS ? "FAILED" : "QUEUED";
+    await supabase
+      .from("ai_suggested_actions")
+      .update({
+        lifecycle_status: nextStatus,
+        ...(nextStatus === "FAILED" ? { failed_at: now, failure_reason: reason } : {}),
+      })
+      .eq("id", actionId);
+
+    throw new Error(`[AI-3] Execution error for action ${actionId}: ${reason}`);
   }
 }
 
