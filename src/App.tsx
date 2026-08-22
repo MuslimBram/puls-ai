@@ -72,7 +72,6 @@ const Pricing = lazy(() => import("./pages/Pricing"));
 const PublicApi = lazy(() => import("./pages/PublicApi"));
 const Telephony = lazy(() => import("./pages/Telephony"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
-const DeveloperPortal = lazy(() => import("./pages/DeveloperPortal"));
 const Onboarding = lazy(() => import("./pages/Onboarding"));
 const WaitingApproval = lazy(() => import("./pages/WaitingApproval"));
 const Landing = lazy(() => import("./pages/Landing"));
@@ -219,8 +218,8 @@ const App = () => (
                 <Route path="/platform/developers" element={<Suspense fallback={<LazyFallback />}><PlatformDevelopers /></Suspense>} />
                 <Route path="/platform/partners" element={<Suspense fallback={<LazyFallback />}><PlatformPartners /></Suspense>} />
                 <Route path="/platform/lidhjet" element={<Suspense fallback={<LazyFallback />}><PlatformLidhjet /></Suspense>} />
-                {/* Legacy /developer → canonical /platform/developers */}
-                <Route path="/developer" element={<Navigate to="/platform/developers" replace />} />
+                {/* Legacy /developer → canonical /public-api */}
+                <Route path="/developer" element={<Navigate to="/public-api" replace />} />
 
                 {/* Public legal pages */}
                 <Route path="/privacy" element={<Suspense fallback={<LazyFallback />}><PrivacyPolicy /></Suspense>} />

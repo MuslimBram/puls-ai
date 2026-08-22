@@ -48,9 +48,23 @@ describe("Wave 3 route registration in App.tsx", () => {
     });
   });
 
-  it("registers /developer legacy redirect", () => {
+  it("registers /developer legacy redirect to /public-api", () => {
     expect(appSource).toContain('path="/developer"');
-    expect(appSource).toContain('to="/platform/developers"');
+    expect(appSource).toContain('to="/public-api"');
+  });
+
+  it("/developer does NOT redirect to /platform/developers", () => {
+    // The redirect must point to /public-api, not the marketing page
+    expect(appSource).not.toMatch(/path="\/developer"[^}]*to="\/platform\/developers"/s);
+  });
+
+  it("/platform/developers renders the public Developers marketing page", () => {
+    expect(appSource).toContain('path="/platform/developers"');
+    expect(appSource).toContain("PlatformDevelopers");
+  });
+
+  it("/public-api is the canonical authenticated Developers app route", () => {
+    expect(appSource).toContain('path="/public-api"');
   });
 
   it("does NOT register /about, /contact, /growth-suite (still unpublished)", () => {
