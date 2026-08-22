@@ -284,8 +284,8 @@ serve(async (req: Request): Promise<Response> => {
     content.length > 500 ||
     /(?:help|urgent|transfer|account|verify|confirm|link)/i.test(content);
 
-  if (needsDeepScan) {
-    aiThreat = await aiDeepScan(content, `source: ${source}, workspace: ${workspace_id ?? "unknown"}`, workspace_id ?? "internal");
+  if (needsDeepScan && workspace_id) {
+    aiThreat = await aiDeepScan(content, `source: ${source}, workspace: ${workspace_id}`, workspace_id);
   }
 
   // ── 5. KOMBINO REZULTATET ─────────────────────────────────

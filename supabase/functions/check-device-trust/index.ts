@@ -304,6 +304,25 @@ serve(async (req: Request): Promise<Response> => {
   );
   if (authErr || !user) return json({ error: "Unauthorized" }, 401);
 
+  const { data: ownedWorkspace } = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const { data: memberWorkspace } = ownedWorkspace
+    ? { data: null as { workspace_id: string } | null }
+    : await supabase
+      .from("workspace_members")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+  const workspaceId = ownedWorkspace?.id ?? memberWorkspace?.workspace_id ?? null;
+  if (!workspaceId) return json({ error: "Forbidden: no workspace context" }, 403);
+
   let body: {
     user_agent: string;
     ip_address?: string;
@@ -365,7 +384,7 @@ serve(async (req: Request): Promise<Response> => {
     accountAgeDays,
     isAdmin,
     deviceType: deviceInfo.type,
-    workspaceId: user.id,
+    workspaceId,
     authHeader,
     userId: user.id,
   });

@@ -27,7 +27,7 @@ function renderTemplate(template: string, data: Record<string, string>): string 
 async function personalizeWithAI(
   template: string,
   contactData: Record<string, string>,
-  workspaceId: string,
+  workspaceId?: string,
 ): Promise<string> {
   if (!template.includes("{{ai_personalize}}")) {
     return renderTemplate(template, contactData);
@@ -37,6 +37,10 @@ async function personalizeWithAI(
     template.replace("{{ai_personalize}}", ""),
     contactData
   );
+  if (!workspaceId) {
+    console.warn("[sales-sequence-engine] skipping AI personalization: missing workspace context");
+    return base;
+  }
 
   try {
     const personalized = await askAI(
@@ -73,7 +77,11 @@ async function executeStep(
   const body = await personalizeWithAI(
     bodyTemplate,
     contactData,
-    String(enrollment.workspace_id ?? enrollment.business_id ?? "internal"),
+    typeof enrollment.workspace_id === "string"
+      ? enrollment.workspace_id
+      : typeof enrollment.business_id === "string"
+        ? enrollment.business_id
+        : undefined,
   );
   const subject = renderTemplate((step.subject as string) ?? "", contactData);
   const channel = step.channel as string;

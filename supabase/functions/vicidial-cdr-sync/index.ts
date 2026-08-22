@@ -133,6 +133,24 @@ serve(async (req: Request): Promise<Response> => {
     const d = new Date(); d.setDate(d.getDate() - 7);
     return d.toISOString().split("T")[0];
   })();
+  const resolvedWorkspaceId = await (async () => {
+    if (body.workspace_id) {
+      const { data: member } = await supabase.rpc("is_workspace_member",
+        { _user_id: user.id, _workspace_id: body.workspace_id });
+      const { data: owned } = await supabase.from("workspaces")
+        .select("id").eq("id", body.workspace_id).eq("owner_id", user.id).maybeSingle();
+      return (member || owned) ? body.workspace_id : null;
+    }
+    const { data: ownedWs } = await supabase.from("workspaces")
+      .select("id").eq("owner_id", user.id)
+      .order("created_at", { ascending: true }).limit(1).maybeSingle();
+    if (ownedWs?.id) return ownedWs.id;
+    const { data: memWs } = await supabase.from("workspace_members")
+      .select("workspace_id").eq("user_id", user.id)
+      .order("created_at", { ascending: true }).limit(1).maybeSingle();
+    return memWs?.workspace_id ?? null;
+  })();
+  if (!resolvedWorkspaceId) return json({ error: "Forbidden: no workspace context" }, 403);
 
   try {
     const calls = await fetchVicidialCDR(dateStart, dateStop);
@@ -156,13 +174,13 @@ serve(async (req: Request): Promise<Response> => {
       if (body.analyze_with_ai && call.recording_filename) {
         aiData = await analyzeCall(
           `Agjent: ${call.agent_user}, Dispozicion: ${call.disposition}, Kohëzgjatja: ${call.length_in_sec}s`,
-          { workspaceId: body.workspace_id ?? user.id, authHeader, userId: user.id },
+          { workspaceId: resolvedWorkspaceId, authHeader, userId: user.id },
         );
         aiAnalyzed++;
       }
 
       await supabase.from("call_records").insert({
-        workspace_id: body.workspace_id ?? user.id,
+        workspace_id: resolvedWorkspaceId,
         vicidial_id: call.uniqueid,
         caller_phone: call.phone_number,
         agent_name: call.agent_user,
@@ -181,7 +199,7 @@ serve(async (req: Request): Promise<Response> => {
 
     // Përditëso KPI snapshot me të dhënat e thirrjeve
     await supabase.from("kpi_daily_snapshots").upsert({
-      workspace_id: body.workspace_id ?? user.id,
+      workspace_id: resolvedWorkspaceId,
       snapshot_date: dateStop,
       total_calls: calls.length,
       answered_calls: calls.filter(c => parseInt(c.length_in_sec ?? "0") > 10).length,

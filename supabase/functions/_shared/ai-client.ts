@@ -39,7 +39,7 @@ export async function callAI(
     .filter((m) => m.role !== "system")
     .map((m) => ({ role: m.role, content: m.content }));
 
-  if (!options.workspaceId && !options.authHeader && taskType !== "customer_support") {
+  if (!options.workspaceId && !options.authHeader) {
     throw new Error("ai-router requires workspace context or verified auth");
   }
 
@@ -51,7 +51,7 @@ export async function callAI(
     maxTokens,
   });
 
-  return { text, provider: "ai-router", model: taskType };
+  return { text, provider: "ai-router", model: "ai-router" };
 }
 
 export async function askAI(

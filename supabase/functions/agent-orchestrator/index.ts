@@ -8,13 +8,18 @@ const CORS={"Access-Control-Allow-Origin":Deno.env.get("ALLOWED_ORIGIN")??"","Ac
 const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{...CORS,"Content-Type":"application/json"}});
 const DANGEROUS=["bulk_email","delete_contact","issue_refund","send_contract","export_data","delete_data"];
 
-async function classify(trigger:string){
+async function classify(
+  trigger:string,
+  workspaceId:string,
+  authHeader:string,
+  userId:string,
+){
   const d=DANGEROUS.find(a=>trigger.toLowerCase().includes(a.replace("_"," ")));
   if(d) return{agents:[],priority:"urgent",requires_approval:true,approval_action:d};
   try{
     const r=await askAI(
       "Classify the trigger and pick agents from: sales_manager,marketing_manager,customer_success,ceo_assistant,coach. Return JSON:{agents:[],priority:urgent|normal|low}",
-      `Trigger: ${trigger}`,100,{taskType:"text_classification",workspaceId:"internal"});
+      `Trigger: ${trigger}`,100,{taskType:"text_classification",workspaceId,authHeader,userId});
     const p=JSON.parse(r.replace(/```json|```/g,"").trim());
     return{agents:p.agents??["marketing_manager"],priority:p.priority??"normal",requires_approval:false};
   }catch{
@@ -33,8 +38,19 @@ serve(async(req:Request)=>{
   if(!user) return json({error:"Unauthorized"},401);
   let body:{trigger:string;workspace_id?:string;force_agents?:string[]};
   try{body=await req.json();}catch{return json({error:"Body invalid"},400);}
-  const wsId=body.workspace_id??user.id;
-  const{agents,priority,requires_approval,approval_action}=await classify(body.trigger);
+  const wsId=await (async()=>{
+    if(body.workspace_id){
+      const { data: member } = await sb.rpc("is_workspace_member",{ _user_id:user.id,_workspace_id:body.workspace_id });
+      const { data: owned } = await sb.from("workspaces").select("id").eq("id",body.workspace_id).eq("owner_id",user.id).maybeSingle();
+      return (member || owned) ? body.workspace_id : null;
+    }
+    const { data: ownedWs } = await sb.from("workspaces").select("id").eq("owner_id",user.id).order("created_at",{ascending:true}).limit(1).maybeSingle();
+    if(ownedWs?.id) return ownedWs.id;
+    const { data: memWs } = await sb.from("workspace_members").select("workspace_id").eq("user_id",user.id).order("created_at",{ascending:true}).limit(1).maybeSingle();
+    return memWs?.workspace_id ?? null;
+  })();
+  if(!wsId) return json({error:"Forbidden: no workspace context"},403);
+  const{agents,priority,requires_approval,approval_action}=await classify(body.trigger,wsId,auth,user.id);
   if(requires_approval) return json({requires_approval:true,action:approval_action,message:`The action "${approval_action}" requires approval.`},202);
   const selected=body.force_agents??agents;
   const PROMPTS:Record<string,string>={
