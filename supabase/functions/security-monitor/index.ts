@@ -9,6 +9,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { askAI } from "../_shared/ai-client.ts";
+import {
+  runVerifiedDeepScan,
+  type Severity,
+  type ThreatCategory,
+  type ThreatResult,
+  type VerifiedWorkspaceAIContext,
+} from "./deep-scan.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS = {
@@ -20,22 +27,6 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...CORS, "Content-Type": "application/json" } });
 
 type ScanSource = "message" | "comment" | "payment" | "login" | "api" | "webhook" | "email" | "document" | "file_upload";
-type Severity = "low" | "medium" | "high" | "critical";
-type ThreatCategory = 
-  | "malware" | "phishing" | "sql_injection" | "xss" | "prompt_injection"
-  | "command_injection" | "spam" | "scam" | "fraud" | "brute_force"
-  | "bot_activity" | "api_abuse" | "ddos" | "account_takeover" | "chargeback_abuse"
-  | "dangerous_link" | "suspicious_file" | "clean";
-
-interface ThreatResult {
-  found: boolean;
-  category: ThreatCategory;
-  severity: Severity;
-  score: number;
-  matched: string;
-  action: "allow" | "flag" | "block" | "quarantine";
-  reason: string;
-}
 
 // ── PATTERNS STATIKE (pa DB call) ────────────────────────────
 const STATIC_PATTERNS: Array<{
@@ -102,31 +93,42 @@ function staticScan(content: string): ThreatResult[] {
   return threats;
 }
 
-// ── SKANIM I THELLË ME AI (për raste të dyshimta) ─────────────
-async function aiDeepScan(content: string, context: string, workspaceId: string): Promise<ThreatResult | null> {
-  try {
-    const result = await askAI(
-      `You are an enterprise-grade security analyst. Analyze this content and return ONLY JSON.
-Kategoritë e mundshme: malware,phishing,sql_injection,xss,prompt_injection,command_injection,spam,scam,fraud,brute_force,bot_activity,api_abuse,account_takeover,dangerous_link,clean
-Return: {"found":boolean,"category":"...","severity":"low|medium|high|critical","score":0.0-1.0,"reason":"...","action":"allow|flag|block|quarantine"}`,
-      `Content: "${content.slice(0, 800)}"\nContext: ${context}`,
-      200,
-      { workspaceId, taskType: "text_classification" },
-    );
-    const p = JSON.parse(result.replace(/```json|```/g, "").trim());
-    if (!p.found || p.category === "clean") return null;
-    return {
-      found: true,
-      category: p.category as ThreatCategory,
-      severity: p.severity as Severity,
-      score: p.score ?? 0.5,
-      matched: content.slice(0, 30),
-      action: p.action ?? "flag",
-      reason: p.reason ?? "AI detektoi kërcënim",
-    };
-  } catch {
+// ── SKANIM I THELLË ME AI (vetëm me auth + workspace të verifikuar) ─────
+async function resolveAuthorizedWorkspaceAIContext(
+  supabase: ReturnType<typeof createClient>,
+  authHeader: string | null,
+  workspaceId: string | undefined,
+): Promise<VerifiedWorkspaceAIContext | null> {
+  if (!authHeader || !workspaceId) {
     return null;
   }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) {
+    throw new Error("SECURITY_MONITOR_AI_UNAUTHORIZED");
+  }
+
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData.user?.id) {
+    throw new Error("SECURITY_MONITOR_AI_UNAUTHORIZED");
+  }
+
+  const userId = userData.user.id;
+  const [memberResult, ownerResult, adminResult] = await Promise.all([
+    supabase.rpc("is_workspace_member", { _user_id: userId, _workspace_id: workspaceId }),
+    supabase.rpc("is_workspace_owner", { _user_id: userId, _workspace_id: workspaceId }),
+    supabase.rpc("has_role", { _user_id: userId, _role: "admin" }),
+  ]);
+
+  if (memberResult.error) throw memberResult.error;
+  if (ownerResult.error) throw ownerResult.error;
+  if (adminResult.error) throw adminResult.error;
+
+  if (!memberResult.data && !ownerResult.data && !adminResult.data) {
+    throw new Error("SECURITY_MONITOR_AI_FORBIDDEN_WORKSPACE");
+  }
+
+  return { workspaceId, authHeader, userId };
 }
 
 // ── DËRGIMI I NJOFTIMIT ───────────────────────────────────────
@@ -203,6 +205,7 @@ serve(async (req: Request): Promise<Response> => {
   catch { return json({ error: "Body i pavlefshëm" }, 400); }
 
   const { content, source, source_id, workspace_id, user_id, ip_address, user_agent } = body;
+  const authHeader = req.headers.get("Authorization");
   if (!content || !source) return json({ error: "content dhe source janë të detyrueshme" }, 400);
 
   const startTime = Date.now();
@@ -285,7 +288,24 @@ serve(async (req: Request): Promise<Response> => {
     /(?:help|urgent|transfer|account|verify|confirm|link)/i.test(content);
 
   if (needsDeepScan && workspace_id) {
-    aiThreat = await aiDeepScan(content, `source: ${source}, workspace: ${workspace_id}`, workspace_id);
+    try {
+      const aiContext = await resolveAuthorizedWorkspaceAIContext(supabase, authHeader, workspace_id);
+      aiThreat = await runVerifiedDeepScan(
+        content,
+        `source: ${source}, workspace: ${workspace_id}`,
+        aiContext,
+        askAI,
+      );
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "SECURITY_MONITOR_AI_UNAUTHORIZED";
+      if (code === "SECURITY_MONITOR_AI_UNAUTHORIZED") {
+        return json({ error: "Unauthorized" }, 401);
+      }
+      if (code === "SECURITY_MONITOR_AI_FORBIDDEN_WORKSPACE") {
+        return json({ error: "Forbidden" }, 403);
+      }
+      throw err;
+    }
   }
 
   // ── 5. KOMBINO REZULTATET ─────────────────────────────────
