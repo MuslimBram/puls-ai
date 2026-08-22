@@ -121,7 +121,7 @@ const Campaigns = () => {
                     onView={() => setSelectedCampaign(campaign)}
                     onDelete={() => deleteMutation.mutate(campaign.id)}
                     onRegenerate={() => generateMutation.mutate({ campaignId: campaign.id, campaignData: campaign })}
-                    onLaunch={() => launchMutation.mutate({ campaignId: campaign.id })}
+                    onLaunch={() => launchMutation.mutate({ campaignId: campaign.id, workspaceId: campaign.workspace_id })}
                     isRegenerating={generateMutation.isPending}
                     isLaunching={launchMutation.isPending}
                   />

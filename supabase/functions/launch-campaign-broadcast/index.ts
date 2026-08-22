@@ -54,20 +54,25 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
 
+    const requestedWorkspaceId = typeof body.workspace_id === "string" ? body.workspace_id : "";
+    if (!requestedWorkspaceId) {
+      return new Response(JSON.stringify({ error: "workspace_id required" }), {
+        status: 400,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
     let userId: string;
-    let workspaceId: string | null | undefined;
 
     if (isInternal) {
       const internalUserId = typeof body.user_id === "string" ? body.user_id : "";
-      const internalWorkspaceId = typeof body.workspace_id === "string" ? body.workspace_id : "";
-      if (!internalUserId || !internalWorkspaceId) {
+      if (!internalUserId) {
         return new Response(JSON.stringify({ error: "user_id and workspace_id required for internal launch" }), {
           status: 400,
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
       userId = internalUserId;
-      workspaceId = internalWorkspaceId;
     } else {
       const userClient = createClient(supabaseUrl, anonKey, {
         global: { headers: { Authorization: authHeader } },
@@ -80,7 +85,6 @@ serve(async (req) => {
         });
       }
       userId = userData.user.id;
-      workspaceId = typeof body.workspace_id === "string" ? body.workspace_id : undefined;
     }
 
     // 1. Load campaign
@@ -88,10 +92,8 @@ serve(async (req) => {
       .from("campaigns")
       .select("*")
       .eq("id", campaign_id)
-      .eq("user_id", userId);
-    if (workspaceId) {
-      campaignQuery = campaignQuery.eq("workspace_id", workspaceId);
-    }
+      .eq("user_id", userId)
+      .eq("workspace_id", requestedWorkspaceId);
     const { data: campaign, error: cErr } = await campaignQuery.maybeSingle();
     if (cErr || !campaign) {
       return new Response(JSON.stringify({ error: "Campaign not found" }), {

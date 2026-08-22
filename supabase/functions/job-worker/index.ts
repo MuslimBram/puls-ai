@@ -570,6 +570,8 @@ async function dispatchToCanonicalExecutor(
       );
   }
 }
+
+
 async function processScanPostProcessJob(supabase: any, job: any, payload: Record<string, unknown>): Promise<JobOutcome> {
   const scanHistoryId = String(payload.scan_history_id ?? "");
   const businessId = String(payload.business_id ?? "");
