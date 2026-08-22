@@ -44,7 +44,7 @@ import { evaluatePolicy } from "../../../supabase/functions/_shared/social-polic
 import type { ConsentRecord } from "../../../supabase/functions/_shared/social-consent-evaluator";
 import type { PolicyEvaluationInput } from "../../../supabase/functions/_shared/social-policy-engine";
 
-// ── Minimal mock DB (no real DB calls) ───────────────────────────────────────────
+// ── Minimal mock DB (no real DB calls) ──────────────────────────────────────
 
 const noOpDb = {
   from: () => ({
@@ -73,7 +73,7 @@ const noOpDb = {
   rpc: () => Promise.resolve({ data: null, error: null }),
 } as unknown as Parameters<typeof evaluateConsent>[0]["db"];
 
-// ── Shared fixtures ───────────────────────────────────────────────────────────────
+// ── Shared fixtures ──────────────────────────────────────────────────────────
 
 const WORKSPACE = "ws-test-001";
 const CONTACT = "actor-123";
@@ -104,7 +104,7 @@ const baseInput: PolicyEvaluationInput = {
   db: noOpDb,
 };
 
-// ── Test suite ───────────────────────────────────────────────────────────────────
+// ── Test suite ────────────────────────────────────────────────────────────────
 
 describe("SOCIAL-1E: Provider Capability Registry", () => {
   it("returns a capability record for meta_ig", () => {
@@ -400,7 +400,7 @@ describe("SOCIAL-1E: Policy Engine", () => {
     fetchSpy.mockRestore();
   });
 
-  it("TEST-15+16: policy engine exports no NBA/campaign functions", async () => {
+  it("TEST-15+16: policy engine exports no NBA/campaign/send functions", async () => {
     // Verify no NBA/campaign/send exports exist on the policy engine module
     const mod = await import("../../../supabase/functions/_shared/social-policy-engine");
     const keys = Object.keys(mod);
@@ -419,12 +419,13 @@ describe("SOCIAL-1E: Policy Engine", () => {
 describe("SOCIAL-1E: File Safety Invariants", () => {
   it("TEST-17: AI-3 autonomous agent file is not modified by SOCIAL-1E", async () => {
     const { readFileSync } = await import("fs");
+    const { resolve } = await import("path");
     // This simply verifies the file still exists (not deleted/replaced)
     expect(() =>
       readFileSync(
-        new URL(
-          "../../../../supabase/functions/autonomous-ai-agent/index.ts",
-          import.meta.url,
+        resolve(
+          __dirname,
+          "../../../supabase/functions/autonomous-ai-agent/index.ts",
         ),
       ),
     ).not.toThrow();
@@ -432,23 +433,23 @@ describe("SOCIAL-1E: File Safety Invariants", () => {
 
   it("TEST-18: i18n localization files unchanged (Website PR #28 scope)", async () => {
     const { readFileSync } = await import("fs");
+    const { resolve } = await import("path");
     expect(() =>
-      readFileSync(
-        new URL("../../../../src/i18n/en.ts", import.meta.url),
-      ),
+      readFileSync(resolve(__dirname, "../../../src/i18n/en.ts")),
     ).not.toThrow();
   });
 
   it("TEST-19+20: package.json and package-lock.json exist and are unchanged", async () => {
     const { readFileSync } = await import("fs");
+    const { resolve } = await import("path");
     const pkg = JSON.parse(
-      readFileSync(new URL("../../../../package.json", import.meta.url), "utf-8"),
+      readFileSync(resolve(__dirname, "../../../package.json"), "utf-8"),
     );
     expect(typeof pkg.name).toBe("string");
     expect(typeof pkg.version).toBe("string");
     // Lock file presence
     expect(() =>
-      readFileSync(new URL("../../../../package-lock.json", import.meta.url)),
+      readFileSync(resolve(__dirname, "../../../package-lock.json")),
     ).not.toThrow();
   });
 });
