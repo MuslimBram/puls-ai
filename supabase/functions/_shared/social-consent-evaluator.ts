@@ -63,6 +63,21 @@ export type ConsentReason =
 
 export type ConsentDb = IdentityGraphClient;
 
+/**
+ * NOTE: global_suppression_list uses `user_id` as the workspace-scoping column
+ * (the existing canonical table design — see migration 20260317104016).
+ * The workspace_id UUID is passed as the `user_id` filter value.
+ * If the suppression records were created with the workspace owner's auth user_id
+ * rather than the workspace UUID, this query will miss them.
+ * That is a known structural limitation of the existing table; do NOT change the
+ * column name here without a corresponding additive schema migration.
+ *
+ * On DB read error, suppression returns false (not suppressed) to avoid silently
+ * blocking legitimate contacts when the DB is temporarily unavailable.
+ * This is an intentional trade-off: suppression errors are visible in logs and
+ * should be monitored; the alternative (fail-closed on suppression) could block
+ * all outbound communication during a transient DB outage.
+ */
 async function checkGlobalSuppression(db: ConsentDb, workspace_id: string, contact_identifier: string, channel_type: string): Promise<boolean> {
   try {
     const result = await (db.from<{ id: string }>("global_suppression_list").select("id").eq("user_id", workspace_id).eq("contact_identifier", contact_identifier).eq("channel_type", channel_type).limit(1) as unknown as Promise<{ data: { id: string }[] | null; error: unknown }>);
