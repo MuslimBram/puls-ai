@@ -96,24 +96,32 @@ describe("buildCanonicalEngagementEvent — Instagram DM (SOCIAL-1A)", () => {
     ).toThrow(/anonymous_aggregate.*incompatible/i);
   });
 
-  it("throws when known_person is set — SOCIAL-1A lawful-linkage guard (SOCIAL-1B territory)", () => {
-    // SOCIAL-1A must NOT allow arbitrary promotion to known_person.
-    // This guard fires regardless of whether actor_provider_id is provided.
-    expect(() =>
-      buildCanonicalEngagementEvent({
-        ...base,
-        actor_identity_state: "known_person",
-        actor_provider_id:    "some_user_id",
-      }),
-    ).toThrow(/known_person.*SOCIAL-1B/i);
-
+  it("known_person with null actor_provider_id still throws (structural invariant)", () => {
+    // SOCIAL-1B replaced the unconditional TS builder throw with a DB trigger.
+    // The structural invariant (known_person requires actor_provider_id) is
+    // preserved: the builder still rejects null actor_provider_id for known_person.
     expect(() =>
       buildCanonicalEngagementEvent({
         ...base,
         actor_identity_state: "known_person",
         actor_provider_id:    null,
       }),
-    ).toThrow(/known_person.*SOCIAL-1B/i);
+    ).toThrow(/known_person/i);
+  });
+
+  it("known_person with a valid actor_provider_id is now structurally allowed (SOCIAL-1B DB enforcement handles evidence)", () => {
+    // SOCIAL-1B implements lawful-linkage enforcement at the DB layer
+    // (trg_social_engagement_known_person_evidence).  The TypeScript builder
+    // no longer unconditionally rejects known_person when actor_provider_id is
+    // present — the DB trigger enforces that a verified identity_link exists.
+    // This test verifies the builder does NOT throw in this case.
+    expect(() =>
+      buildCanonicalEngagementEvent({
+        ...base,
+        actor_identity_state: "known_person",
+        actor_provider_id:    "some_user_id",
+      }),
+    ).not.toThrow();
   });
 
   it("throws when platform_actor is set without an actor_provider_id — fail closed", () => {
@@ -555,9 +563,10 @@ describe("SOCIAL-1A production-logic: DB-level known_person guard (migration con
     expect(guard).toContain("SOCIAL-1B");
   });
 
-  it("known_person is also rejected by the TypeScript builder (builder + DB parity)", () => {
-    // Builder throws for known_person — verified here alongside the migration test
-    // to confirm both layers enforce the same contract.
+  it("known_person without actor_provider_id still rejected by the TypeScript builder (structural invariant)", () => {
+    // SOCIAL-1B moved the primary enforcement to the DB trigger.
+    // The TS builder still enforces the structural invariant: known_person
+    // requires actor_provider_id.  The DB trigger enforces the evidence contract.
     expect(() =>
       buildCanonicalEngagementEvent({
         workspace_id:       "ws-guard",
@@ -566,9 +575,9 @@ describe("SOCIAL-1A production-logic: DB-level known_person guard (migration con
         account_identifier: "page_guard",
         event_type:         "message_received" as const,
         provider_event_id:  "mid.guard",
-        actor_provider_id:  "user_guard",
+        actor_provider_id:  null,
         actor_identity_state: "known_person",
       }),
-    ).toThrow(/known_person.*SOCIAL-1B/i);
+    ).toThrow(/known_person/i);
   });
 });
