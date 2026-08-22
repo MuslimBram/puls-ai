@@ -99,11 +99,14 @@ async function resolveAuthorizedWorkspaceAIContext(
   authHeader: string | null,
   workspaceId: string | undefined,
 ): Promise<VerifiedWorkspaceAIContext | null> {
-  if (!authHeader || !workspaceId) {
+  if (!workspaceId) {
     return null;
   }
+  if (!authHeader) {
+    throw new Error("SECURITY_MONITOR_AI_UNAUTHORIZED");
+  }
 
-  const token = authHeader.replace("Bearer ", "").trim();
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
     throw new Error("SECURITY_MONITOR_AI_UNAUTHORIZED");
   }
