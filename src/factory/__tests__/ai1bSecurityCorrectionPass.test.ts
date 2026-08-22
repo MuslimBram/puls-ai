@@ -117,6 +117,7 @@ describe("AI-1B security correction pass", () => {
   it("audits internal no-auth callers to server-derived workspace contracts only", () => {
     const telegramWebhook = readFileSync(repoFile("supabase", "functions", "telegram-webhook", "index.ts"), "utf-8");
     const salesSequence = readFileSync(repoFile("supabase", "functions", "sales-sequence-engine", "index.ts"), "utf-8");
+    const autonomousAgent = readFileSync(repoFile("supabase", "functions", "autonomous-ai-agent", "index.ts"), "utf-8");
     const publicLeadCapture = readFileSync(repoFile("supabase", "functions", "public-lead-capture", "index.ts"), "utf-8");
     const securityMonitor = readFileSync(repoFile("supabase", "functions", "security-monitor", "index.ts"), "utf-8");
 
@@ -125,6 +126,9 @@ describe("AI-1B security correction pass", () => {
 
     expect(salesSequence).toContain("enrollment.workspace_id");
     expect(salesSequence).not.toContain("req.json().workspace_id");
+
+    expect(autonomousAgent).toContain("workspaceId: businessId");
+    expect(autonomousAgent).not.toContain("req.json().workspace_id");
 
     expect(publicLeadCapture).toContain("resolveTrustedWorkspaceId: () => null");
     expect(publicLeadCapture).not.toContain("workspaceId: body.target_workspace_id");
