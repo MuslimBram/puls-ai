@@ -212,16 +212,19 @@ CREATE TABLE IF NOT EXISTS public.identity_links (
   revocation_reason       text,
 
   created_at              timestamptz NOT NULL DEFAULT now(),
-  updated_at              timestamptz NOT NULL DEFAULT now(),
-
-  -- Only one active (non-revoked) link between a node and a person per workspace.
-  -- Revoked links are preserved for audit; they do not block re-linkage.
-  CONSTRAINT uq_identity_link_active
-    UNIQUE NULLS NOT DISTINCT (workspace_id, canonical_person_id, identity_node_id)
+  updated_at              timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE INDEX IF NOT EXISTS idx_identity_links_workspace
   ON public.identity_links (workspace_id);
+
+-- Active-link uniqueness: only one non-revoked link per (workspace, person, node).
+-- Using a partial index (WHERE is_revoked = false) so that soft-deleted links
+-- do not block re-linkage after revocation.  This is intentional: a link may
+-- be revoked and then re-created with fresh evidence.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_identity_link_active
+  ON public.identity_links (workspace_id, canonical_person_id, identity_node_id)
+  WHERE is_revoked = false;
 
 CREATE INDEX IF NOT EXISTS idx_identity_links_node
   ON public.identity_links (identity_node_id, is_revoked, created_at DESC);

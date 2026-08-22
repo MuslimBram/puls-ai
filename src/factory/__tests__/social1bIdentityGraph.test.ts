@@ -123,7 +123,11 @@ function makeInMemoryDb(tables: TableRows = {
         if (pendingUpdate !== null) {
           const matched = rows.filter(r => filters.every(f => f(r)));
           if (matched.length === 0) {
-            return Promise.resolve({ data: null, error: { message: "no rows matched update" } });
+            pendingUpdate = null;
+            // Simulate Supabase single() returning null data when no row matched
+            // (real Supabase raises PGRST116 for .single() with no match, but
+            // callers handle the !result.data path, so null+no-error suffices here)
+            return Promise.resolve({ data: null, error: null });
           }
           Object.assign(matched[0], pendingUpdate, { updated_at: new Date().toISOString() });
           pendingUpdate = null;
@@ -525,6 +529,13 @@ describe("revokeIdentityLink", () => {
     expect(links.length).toBe(1);
     expect(links[0].is_revoked).toBe(true);
     expect(links[0].revocation_reason).toBe("GDPR test");
+  });
+
+  it("revokeIdentityLink throws when link_id does not exist in workspace", async () => {
+    const db = makeInMemoryDb();
+    await expect(
+      revokeIdentityLink({ workspace_id: "ws-A", link_id: "nonexistent-id", reason: "test", db })
+    ).rejects.toThrow(/not found/i);
   });
 });
 

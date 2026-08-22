@@ -420,6 +420,9 @@ export async function revokeIdentityLink(opts: {
   if (result.error) {
     throw new Error(`revokeIdentityLink: DB error: ${result.error.message}`);
   }
+  if (!result.data) {
+    throw new Error(`revokeIdentityLink: link ${link_id} not found in workspace ${workspace_id}`);
+  }
 }
 
 // ── Inspect link evidence ─────────────────────────────────────────────────────
