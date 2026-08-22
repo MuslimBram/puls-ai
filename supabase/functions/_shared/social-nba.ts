@@ -270,17 +270,8 @@ function selectActionType(input: SocialNbaInput): SocialNbaActionType {
     return "do_nothing";
   }
 
-  // Converting / active journey + strong/high intent + configured offer → personalized_offer
-  if (
-    (journey_phase === "converting" || journey_phase === "active") &&
-    (intent_score_band === "strong" || intent_score_band === "high") &&
-    business_config?.configured_offer_ids &&
-    business_config.configured_offer_ids.length > 0
-  ) {
-    return "personalized_offer";
-  }
-
-  // Active customers + high intent + configured offer → upsell
+  // Active customers + high intent + configured offer → upsell (checked before personalized_offer
+  // to differentiate: upsell targets existing actives at peak intent)
   if (
     journey_phase === "active" &&
     intent_score_band === "high" &&
@@ -288,6 +279,16 @@ function selectActionType(input: SocialNbaInput): SocialNbaActionType {
     business_config.configured_offer_ids.length > 0
   ) {
     return "upsell";
+  }
+
+  // Converting journey + strong/high intent + configured offer → personalized_offer
+  if (
+    journey_phase === "converting" &&
+    (intent_score_band === "strong" || intent_score_band === "high") &&
+    business_config?.configured_offer_ids &&
+    business_config.configured_offer_ids.length > 0
+  ) {
+    return "personalized_offer";
   }
 
   // Champion + referral program → referral_invitation

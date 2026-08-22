@@ -137,6 +137,7 @@ COMMENT ON COLUMN public.social_nba_recommendations.policy_decision IS
   'Authoritative SOCIAL-1E policy decision preserved for downstream execution proof.';
 
 COMMENT ON COLUMN public.social_nba_recommendations.human_approval_required IS
-  'True for all review_required and blocked statuses. '
+  'True for all review_required, blocked, and do_nothing statuses. '
   'Also true for human_handoff, unverified capability, and risky commercial actions. '
-  'MUST be checked by any downstream execution layer before acting.';
+  'MUST be checked by any downstream execution layer before acting — '
+  'no action is safe to take automatically without verifying this flag is false.';
