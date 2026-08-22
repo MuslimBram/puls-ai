@@ -60,8 +60,49 @@ describe("transcribe-recording: direct Anthropic bypass removed", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// 2. Text analysis reaches canonical AI Router
+// 2. Text analysis reaches canonical AI Router with an accepted task type
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract the normalizeTaskType function and its supporting data from the
+ * real ai-router source so the test validates against the live contract —
+ * not a stale copy.  We pull out CANONICAL_TASK_TYPES, TASK_TYPE_ALIASES,
+ * and the function body, then rebuild them in Node via vm so no Deno runtime
+ * is needed.
+ */
+function buildNormalizeTaskType(): (t?: string) => string | null {
+  const routerSrc = readFileSync(
+    repoFile("supabase", "functions", "ai-router", "index.ts"),
+    "utf-8",
+  );
+
+  // Extract canonical types array literal
+  const canonicalMatch = routerSrc.match(
+    /const CANONICAL_TASK_TYPES[^=]*=\s*\[([^\]]+)\]/s,
+  );
+  if (!canonicalMatch) throw new Error("Could not extract CANONICAL_TASK_TYPES");
+  // deno-style: parse string literals from the array
+  const canonicalTypes: string[] = [];
+  for (const m of canonicalMatch[1].matchAll(/"([^"]+)"/g)) canonicalTypes.push(m[1]);
+
+  // Extract aliases object literal
+  const aliasMatch = routerSrc.match(
+    /const TASK_TYPE_ALIASES[^=]*=\s*\{([^}]+)\}/s,
+  );
+  if (!aliasMatch) throw new Error("Could not extract TASK_TYPE_ALIASES");
+  const aliases: Record<string, string> = {};
+  for (const m of aliasMatch[1].matchAll(/"?(\w+)"?\s*:\s*"([^"]+)"/g)) {
+    aliases[m[1]] = m[2];
+  }
+
+  return (taskType?: string): string | null => {
+    if (!taskType) return null;
+    const normalized = taskType.trim().toLowerCase();
+    if (canonicalTypes.includes(normalized)) return normalized;
+    return aliases[normalized] ?? null;
+  };
+}
+
 describe("transcribe-recording: canonical AI Router used for text analysis", () => {
   it("imports callAIRouter from the shared ai-router-helper", () => {
     const src = transcribeSrc();
@@ -71,6 +112,32 @@ describe("transcribe-recording: canonical AI Router used for text analysis", () 
   it("calls callAIRouter for post-transcription analysis", () => {
     const src = transcribeSrc();
     expect(src).toContain("callAIRouter(");
+  });
+
+  it("task type sent to router is accepted by the REAL normalizeTaskType contract", () => {
+    const src = transcribeSrc();
+    // Extract all taskType values passed to callAIRouter in routerOptions blocks
+    const taskTypeMatches = [...src.matchAll(/taskType:\s*["']([^"']+)["']/g)];
+    expect(taskTypeMatches.length).toBeGreaterThan(0);
+
+    const normalize = buildNormalizeTaskType();
+
+    for (const match of taskTypeMatches) {
+      const taskType = match[1];
+      const resolved = normalize(taskType);
+      expect(
+        resolved,
+        `taskType "${taskType}" is NOT accepted by the canonical AI Router (normalizeTaskType returned null)`,
+      ).not.toBeNull();
+    }
+  });
+
+  it("uses complex_reasoning (not text_analysis) as the router task type", () => {
+    const src = transcribeSrc();
+    expect(src).not.toContain('"text_analysis"');
+    expect(src).not.toContain("'text_analysis'");
+    // Verify the correct canonical type is present in routerOptions
+    expect(src).toContain('"complex_reasoning"');
   });
 });
 

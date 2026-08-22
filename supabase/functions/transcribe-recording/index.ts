@@ -220,7 +220,7 @@ serve(async (req) => {
       ? {
           // Internal path: service-role + internal secret, server-derived workspace only.
           workspaceId: recordingWorkspaceId ?? undefined,
-          taskType: "text_analysis",
+          taskType: "complex_reasoning",
           maxTokens: 1200,
         }
       : {
@@ -228,7 +228,7 @@ serve(async (req) => {
           // standard router membership/entitlement semantics apply.
           authHeader: authHeader ?? undefined,
           workspaceId: recordingWorkspaceId ?? undefined,
-          taskType: "text_analysis",
+          taskType: "complex_reasoning",
           maxTokens: 1200,
         };
 
