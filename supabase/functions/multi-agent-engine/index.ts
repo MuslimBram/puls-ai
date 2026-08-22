@@ -39,7 +39,7 @@ serve(async(req:Request)=>{
     const{data:t}=await sb.from("ai_agent_tasks").insert({workspace_id:wsId,task_type:ag.taskType,agent_name:k,input:{ctx:ctx.slice(0,100),input:body.input??""},status:"running",started_at:new Date().toISOString()}).select("id").single();
     try{
       const r=await askAI(`${ag.prompt}
-Context: ${ctx}`,body.input??"Analyze and recommend",500);
+Context: ${ctx}`,body.input??"Analyze and recommend",500,{workspaceId:wsId,authHeader:auth,taskType:"complex_reasoning",userId:user.id});
       let out:Record<string,unknown>;try{out=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{out={response:r};}
       await sb.from("ai_agent_tasks").update({output:out,status:"completed",completed_at:new Date().toISOString()}).eq("id",t?.id??"");
       results[k]=out;

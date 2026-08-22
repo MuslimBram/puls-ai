@@ -1,9 +1,10 @@
 // supabase/functions/_shared/ai-client.ts
 // ============================================================
-// AI Client i unifikuar
-// Primary:  Lovable AI Gateway (ai.gateway.lovable.dev)
-// Fallback: Anthropic API (api.anthropic.com)
+// AI Client i unifikuar (AI-1B)
+// Canonical path: ai-router only
 // ============================================================
+
+import { callAIRouter } from "./ai-router-helper.ts";
 
 export interface AIMessage {
   role: "system" | "user" | "assistant";
@@ -12,121 +13,64 @@ export interface AIMessage {
 
 export interface AIResponse {
   text: string;
-  provider: "lovable" | "anthropic";
+  provider: string;
   model: string;
 }
 
-/**
- * Thirr AI me fallback automatik.
- * Provon Lovable Gateway fillimisht, kalon te Anthropic nëse dështon.
- */
 export async function callAI(
   messages: AIMessage[],
   options: {
     maxTokens?: number;
-    model?: string;
     systemPrompt?: string;
-  } = {}
+    taskType?: string;
+    workspaceId?: string;
+    userId?: string;
+    authHeader?: string | null;
+  } = {},
 ): Promise<AIResponse> {
   const maxTokens = options.maxTokens ?? 1000;
-  const lovableModel = options.model ?? "google/gemini-3-flash-preview";
-  const anthropicModel = "claude-sonnet-4-6";
+  const taskType = options.taskType ?? "balanced";
 
-  // Ndaj system nga user messages
   const systemMsg = messages.find((m) => m.role === "system")?.content
     ?? options.systemPrompt
     ?? "You are a helpful AI assistant.";
-  const userMessages = messages.filter((m) => m.role !== "system");
 
-  // ── 1. Provo Lovable Gateway ──────────────────────────────
-  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-  if (lovableKey) {
-    try {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${lovableKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: lovableModel,
-          max_tokens: maxTokens,
-          messages: [
-            { role: "system", content: systemMsg },
-            ...userMessages,
-          ],
-        }),
-      });
+  const routerMessages = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role, content: m.content }));
 
-      if (res.ok) {
-        const data = await res.json() as {
-          choices?: Array<{ message?: { content?: string } }>;
-        };
-        const text = data.choices?.[0]?.message?.content ?? "";
-        if (text) return { text, provider: "lovable", model: lovableModel };
-      }
-
-      // Rate limit ose credits të mbaruar → kalon te Anthropic
-      if (res.status === 429 || res.status === 402) {
-        console.warn(`Lovable Gateway: ${res.status} — duke kaluar te Anthropic`);
-      }
-    } catch (err) {
-      console.warn("Lovable Gateway dështoi:", err);
-    }
+  if (!options.workspaceId && !options.authHeader) {
+    throw new Error("ai-router requires workspace context or verified auth");
   }
 
-  // ── 2. Fallback: Anthropic API ────────────────────────────
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-  if (!anthropicKey) {
-    throw new Error(
-      "Asnjë AI provider i disponueshëm. Vendos LOVABLE_API_KEY ose ANTHROPIC_API_KEY."
-    );
-  }
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: anthropicModel,
-      max_tokens: maxTokens,
-      system: systemMsg,
-      messages: userMessages.map((m) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
-    }),
+  const text = await callAIRouter(routerMessages, systemMsg, {
+    taskType,
+    workspaceId: options.workspaceId,
+    userId: options.userId,
+    authHeader: options.authHeader ?? null,
+    maxTokens,
   });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Anthropic API dështoi: ${res.status} — ${err}`);
-  }
-
-  const data = await res.json() as {
-    content?: Array<{ text?: string }>;
-  };
-  const text = data.content?.[0]?.text ?? "";
-  return { text, provider: "anthropic", model: anthropicModel };
+  return { text, provider: "ai-router", model: "ai-router" };
 }
 
-/**
- * Thirrje e thjeshtë: sistem + një mesazh përdoruesi
- */
 export async function askAI(
   systemPrompt: string,
   userPrompt: string,
-  maxTokens = 800
+  maxTokens = 800,
+  options: {
+    taskType?: string;
+    workspaceId?: string;
+    userId?: string;
+    authHeader?: string | null;
+  } = {},
 ): Promise<string> {
   const result = await callAI(
     [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    { maxTokens }
+    { maxTokens, ...options },
   );
   return result.text;
 }

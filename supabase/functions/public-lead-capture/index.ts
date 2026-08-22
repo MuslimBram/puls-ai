@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { askAI } from "../_shared/ai-client.ts";
+import { analyzePublicLead, type PublicLeadCaptureBody } from "./lead-analysis.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const CORS = {
@@ -35,22 +36,7 @@ serve(async (req: Request): Promise<Response> => {
     return json({ error: "Shumë kërkesa. Provo pas 1 minute." }, 429);
   }
 
-  let body: {
-    name: string;
-    email: string;
-    phone?: string;
-    business_name?: string;
-    message?: string;
-    interested_plan?: string;
-    team_size?: string;
-    honeypot?: string;
-    source?: string;
-    utm_source?: string;
-    utm_medium?: string;
-    utm_campaign?: string;
-    page_url?: string;
-    target_workspace_id?: string;
-  };
+  let body: PublicLeadCaptureBody;
 
   try {
     body = await req.json();
@@ -78,32 +64,10 @@ serve(async (req: Request): Promise<Response> => {
   );
 
   try {
-    let aiScore = 0.5;
-    let aiIntent = "interested";
-    let aiNotes = "";
-
-    try {
-      const aiPrompt = `Analizo këtë lead dhe kthe VETËM JSON të vlefshëm:
-Emri: ${body.name}
-Email: ${body.email}
-Biznesi: ${body.business_name ?? "i panjohur"}
-Mesazhi: ${body.message ?? "nuk ka mesazh"}
-Plani: ${body.interested_plan ?? "i panjohur"}
-
-Kthe: {"score": 0.0-1.0, "intent": "cold|warm|hot", "notes": "1 fjali"}`;
-
-      const aiResult = await askAI(
-        "Ti je analizues i leads. Kthen VETËM JSON të vlefshëm pa markdown.",
-        aiPrompt,
-        150
-      );
-      const parsed = JSON.parse(aiResult.replace(/```json|```/g, "").trim());
-      aiScore = Math.min(1, Math.max(0, Number(parsed.score ?? 0.5)));
-      aiIntent = parsed.intent ?? "warm";
-      aiNotes = parsed.notes ?? "";
-    } catch {
-      aiScore = body.message ? 0.6 : 0.4;
-    }
+    const analysis = await analyzePublicLead(body, {
+      askAI,
+      resolveTrustedWorkspaceId: () => null,
+    });
 
     const { data: lead, error: leadErr } = await supabase
       .from("enterprise_leads")
@@ -121,9 +85,9 @@ Kthe: {"score": 0.0-1.0, "intent": "cold|warm|hot", "notes": "1 fjali"}`;
           utm_source: body.utm_source ?? null,
           utm_medium: body.utm_medium ?? null,
           utm_campaign: body.utm_campaign ?? null,
-          ai_score: aiScore,
-          ai_intent: aiIntent,
-          ai_notes: aiNotes,
+          ai_score: analysis.score,
+          ai_intent: analysis.intent,
+          ai_notes: analysis.notes,
         },
       })
       .select("id")

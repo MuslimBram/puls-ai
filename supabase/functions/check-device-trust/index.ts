@@ -65,6 +65,9 @@ async function assessRisk(context: {
   accountAgeDays: number;
   isAdmin: boolean;
   deviceType: string;
+  workspaceId: string;
+  authHeader: string;
+  userId: string;
 }): Promise<{
   score: number;
   level: "low" | "medium" | "high" | "critical";
@@ -144,7 +147,8 @@ async function assessRisk(context: {
 - Faktorë: ${factors.join(", ")}
 
 Kthe JSON: {"score":0.0-1.0,"level":"low|medium|high|critical","recommendation":"approve|review|reject","reasoning":"arsyeja"}`,
-      200
+      200,
+      { workspaceId: context.workspaceId, authHeader: context.authHeader, taskType: "text_classification", userId: context.userId },
     );
 
     const parsed = JSON.parse(aiResp.replace(/```json|```/g, "").trim());
@@ -300,6 +304,25 @@ serve(async (req: Request): Promise<Response> => {
   );
   if (authErr || !user) return json({ error: "Unauthorized" }, 401);
 
+  const { data: ownedWorkspace } = await supabase
+    .from("workspaces")
+    .select("id")
+    .eq("owner_id", user.id)
+    .order("created_at", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const { data: memberWorkspace } = ownedWorkspace
+    ? { data: null as { workspace_id: string } | null }
+    : await supabase
+      .from("workspace_members")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+  const workspaceId = ownedWorkspace?.id ?? memberWorkspace?.workspace_id ?? null;
+  if (!workspaceId) return json({ error: "Forbidden: no workspace context" }, 403);
+
   let body: {
     user_agent: string;
     ip_address?: string;
@@ -361,6 +384,9 @@ serve(async (req: Request): Promise<Response> => {
     accountAgeDays,
     isAdmin,
     deviceType: deviceInfo.type,
+    workspaceId,
+    authHeader,
+    userId: user.id,
   });
 
   // Vendim: ALLOW / PENDING / BLOCK
