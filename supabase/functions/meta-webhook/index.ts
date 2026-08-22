@@ -312,23 +312,26 @@ serve(async (req) => {
 
           const msgId = event.message?.mid ?? `${pageId}:${event.timestamp ?? Date.now()}`;
 
+          // ATOMIC claim BEFORE any side effects (consistent with IG path contract)
+          const claim = await claimEvent(sb, "meta_fb", msgId, ws.workspace_id);
           const senderId = event.sender?.id as string | undefined;
           const msgText  = event.message?.text ?? "";
-          if (!msgText) continue;
 
-          const claim = await claimEvent(sb, "meta_fb", msgId, ws.workspace_id);
           // DURABILITY: on duplicate claim, attempt canonical insert only (inbox/lead skipped)
           if (claim === "duplicate") {
-            await tryCanonicalInsert(sb, {
-              workspace_id: ws.workspace_id, channel_id: ws.channel_id,
-              provider: "meta_fb", account_identifier: pageId,
-              event_type: "message_received", provider_event_id: msgId,
-              actor_provider_id: senderId ?? null,
-              content_ref: msgText, raw_timestamp: event.timestamp,
-            });
+            if (msgText) {
+              await tryCanonicalInsert(sb, {
+                workspace_id: ws.workspace_id, channel_id: ws.channel_id,
+                provider: "meta_fb", account_identifier: pageId,
+                event_type: "message_received", provider_event_id: msgId,
+                actor_provider_id: senderId ?? null,
+                content_ref: msgText, raw_timestamp: event.timestamp,
+              });
+            }
             continue;
           }
           if (claim !== "claimed") continue;
+          if (!msgText) continue;
 
           await sb.from("inbox_messages").insert({
             workspace_id:       ws.workspace_id,

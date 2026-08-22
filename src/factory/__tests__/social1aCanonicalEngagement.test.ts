@@ -23,6 +23,12 @@ import {
 
 const repoFile = (...parts: string[]) => join(process.cwd(), ...parts);
 
+// Module-level file reads — evaluated before any it() callbacks execute
+const canonicalSrc = readFileSync(
+  repoFile("supabase", "functions", "_shared", "canonical-engagement-event.ts"),
+  "utf-8",
+);
+
 // ── 1 & 3 & 5. Valid Meta IG DM → canonical event with correct fields ────────
 
 describe("buildCanonicalEngagementEvent — Instagram DM (SOCIAL-1A)", () => {
@@ -437,8 +443,3 @@ describe("canonical event durability: duplicate claim still attempts canonical i
     expect(count).toBeGreaterThanOrEqual(4); // declaration + IG dup + IG normal + FB dup + FB normal
   });
 });
-
-const canonicalSrc = readFileSync(
-  repoFile("supabase", "functions", "_shared", "canonical-engagement-event.ts"),
-  "utf-8",
-);
