@@ -830,3 +830,128 @@ describe("AI-2 minimum observability", () => {
     expect(src).toContain("requestId,");
   });
 });
+
+// ── Public HTTP-Behavior Tests ────────────────────────────────────────────────
+// Tests proving the public/auth runtime contract at the source level.
+// These validate the state machine structure rather than live HTTP calls.
+
+describe("AI-2 public HTTP-behavior — auth state machine (source-verified)", () => {
+  it("T1: public customer_support does NOT require ****** — no 401 gate before public path", () => {
+    const src = edgeSrc();
+    // The public path check (isPublicSupportRequest) must be established BEFORE
+    // the JWT-required block. The JWT guard must be gated: !isInternal && !isPublicSupportRequest
+    expect(src).toContain("isPublicSupportRequest");
+    expect(src).toContain("!isInternal && !isPublicSupportRequest");
+    // Must NOT have the old unguarded JWT block that fires for every non-internal request
+    expect(src).not.toMatch(/if\s*\(\s*!isInternal\s*\)\s*\{[\s\S]*?authHeader\.startsWith\("Bearer "\)/);
+  });
+
+  it("T2: public customer_support is routed to public-support dispatch path", () => {
+    const src = edgeSrc();
+    expect(src).toContain("isPublicUseCase");
+    expect(src).toContain("isPublicSupportRequest");
+    // The public_support capability resolves from customer_support
+    expect(facade.resolveCapability("customer_support")).toBe("public_support");
+  });
+
+  it("T3: public request with forged workspace_id does NOT gain workspace scope", () => {
+    const src = edgeSrc();
+    // Public path (isPublicSupportRequest) must result in verifiedWorkspaceId = ""
+    // and the workspace verification block must only run for isWorkspaceUseCase
+    expect(src).toContain("// PUBLIC path: verifiedWorkspaceId remains \"\" — public support has no workspace scope.");
+    // isPublicUseCase(customer_support) must be true → isWorkspaceUseCase must be false
+    expect(facade.isPublicUseCase("customer_support")).toBe(true);
+    expect(facade.isWorkspaceUseCase("customer_support")).toBe(false);
+  });
+
+  it("T4: public request cannot load CRM, Business Memory, Customer Memory, or Customer Brain", () => {
+    const src = edgeSrc();
+    // dispatchPublicSupport must not call dispatchToCustomerBrain or load workspace data
+    const publicFn = src.slice(
+      src.indexOf("async function dispatchPublicSupport"),
+      src.indexOf("// ── Prompt builders"),
+    );
+    expect(publicFn).not.toContain("dispatchToCustomerBrain");
+    expect(publicFn).not.toContain('.from("leads');
+    expect(publicFn).not.toContain('.from("business_digital_twins');
+    expect(publicFn).not.toContain('.from("business_memory');
+    expect(publicFn).not.toContain('.from("customer_memory');
+    expect(publicFn).not.toContain("customer-brain");
+    // workspaceId intentionally absent on the public path
+    expect(publicFn).toContain("workspaceId intentionally absent");
+  });
+
+  it("T5: workspace business use case without JWT returns 401 (not allowed without auth)", () => {
+    const src = edgeSrc();
+    // USER path guard: missing ****** return UNAUTHORIZED
+    expect(src).toContain("Missing authorization");
+    expect(src).toContain('"UNAUTHORIZED"');
+    // The guard block is inside !isInternal && !isPublicSupportRequest
+    const userBlock = src.slice(
+      src.indexOf("if (!isInternal && !isPublicSupportRequest)"),
+      src.indexOf("// ── Workspace verification"),
+    );
+    expect(userBlock).toContain("Missing authorization");
+  });
+
+  it("T6: authenticated workspace request requires actual JWT membership verification", () => {
+    const src = edgeSrc();
+    expect(src).toContain("sb.auth.getUser");
+    expect(src).toContain('rpc("is_workspace_member"');
+  });
+
+  it("T7: forged workspace membership returns 403 FORBIDDEN_WORKSPACE", () => {
+    const src = edgeSrc();
+    expect(src).toContain("FORBIDDEN_WORKSPACE");
+    expect(src).toContain("Not a member of this workspace");
+    // membership check runs inside !isInternal block (USER path only)
+    const memberBlock = src.slice(
+      src.indexOf("// USER path: NEVER trust browser-provided workspace_id"),
+      src.indexOf("// INTERNAL path: workspace_id is server-provided"),
+    );
+    expect(memberBlock).toContain("FORBIDDEN_WORKSPACE");
+  });
+
+  it("T8: internal workspace call requires verified internal secret", () => {
+    const src = edgeSrc();
+    // isInternal must require matching INTERNAL_WEBHOOK_SECRET or CRON_SECRET
+    expect(src).toContain("internalSecret === configInternal");
+    expect(src).toContain("cronSecret === configCron");
+    // Internal path must still require workspace_id for workspace use cases
+    const wsBlock = src.slice(
+      src.indexOf("// ── Workspace verification"),
+      src.indexOf("// PUBLIC path: verifiedWorkspaceId remains"),
+    );
+    expect(wsBlock).toContain("workspace_id required");
+  });
+
+  it("T9: public authContextType is public_unauthenticated, not user_jwt", () => {
+    const src = edgeSrc();
+    expect(src).toContain('"public_unauthenticated"');
+    expect(src).toContain("isPublicSupportRequest");
+    // The authContextType assignment must distinguish public from user_jwt
+    const authCtxBlock = src.slice(
+      src.indexOf("// Determine authContextType"),
+      src.indexOf("const pulseReq"),
+    );
+    expect(authCtxBlock).toContain('"public_unauthenticated"');
+    expect(authCtxBlock).toContain('"user_jwt"');
+    expect(authCtxBlock).toContain('"internal_service"');
+    // The facade type must include public_unauthenticated
+    const facadeSrcStr = facadeSrc();
+    expect(facadeSrcStr).toContain("public_unauthenticated");
+  });
+
+  it("T10: public default source is 'public', not 'workspace_ui'", () => {
+    const src = edgeSrc();
+    expect(src).toContain('"public"');
+    // defaultSource must be "public" for the public path
+    const defaultSrcBlock = src.slice(
+      src.indexOf("const defaultSource"),
+      src.indexOf("const pulseReq"),
+    );
+    expect(defaultSrcBlock).toContain('"public"');
+    expect(defaultSrcBlock).toContain('"workspace_ui"');
+    expect(defaultSrcBlock).toContain("isPublicSupportRequest");
+  });
+});

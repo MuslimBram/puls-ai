@@ -79,8 +79,13 @@ export interface PulseAIRequest {
   /** Authenticated user ID derived from JWT. Absent for internal/cron paths. */
   userId?: string;
 
-  /** Auth path type. "user_jwt" for user-initiated; "internal_service" for automation. */
-  authContextType: "user_jwt" | "internal_service";
+  /**
+   * Auth path type.
+   * - "public_unauthenticated": logged-out public caller (customer_support only, no workspace)
+   * - "user_jwt": authenticated workspace user (JWT verified, workspace membership checked)
+   * - "internal_service": server/cron call (internal secret verified, workspace required)
+   */
+  authContextType: "public_unauthenticated" | "user_jwt" | "internal_service";
 
   /** Application-level business use case (NOT an AI Router task type). */
   useCase: BusinessUseCase;
