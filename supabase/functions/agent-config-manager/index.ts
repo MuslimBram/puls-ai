@@ -153,7 +153,8 @@ Toni: ${tone}
 Knowledge base: ${JSON.stringify((training ?? []).slice(0, 5))}
 
 Kthe udhëzime në shqip, 3-5 paragrafë, konkrete dhe të zbatueshme.`,
-        500
+        500,
+        { workspaceId, authHeader, taskType: "complex_reasoning", userId: user.id },
       );
 
       // Ruaj te config

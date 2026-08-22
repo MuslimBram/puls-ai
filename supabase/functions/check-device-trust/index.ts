@@ -65,6 +65,9 @@ async function assessRisk(context: {
   accountAgeDays: number;
   isAdmin: boolean;
   deviceType: string;
+  workspaceId: string;
+  authHeader: string;
+  userId: string;
 }): Promise<{
   score: number;
   level: "low" | "medium" | "high" | "critical";
@@ -144,7 +147,8 @@ async function assessRisk(context: {
 - Faktorë: ${factors.join(", ")}
 
 Kthe JSON: {"score":0.0-1.0,"level":"low|medium|high|critical","recommendation":"approve|review|reject","reasoning":"arsyeja"}`,
-      200
+      200,
+      { workspaceId: context.workspaceId, authHeader: context.authHeader, taskType: "text_classification", userId: context.userId },
     );
 
     const parsed = JSON.parse(aiResp.replace(/```json|```/g, "").trim());
@@ -361,6 +365,9 @@ serve(async (req: Request): Promise<Response> => {
     accountAgeDays,
     isAdmin,
     deviceType: deviceInfo.type,
+    workspaceId: user.id,
+    authHeader,
+    userId: user.id,
   });
 
   // Vendim: ALLOW / PENDING / BLOCK

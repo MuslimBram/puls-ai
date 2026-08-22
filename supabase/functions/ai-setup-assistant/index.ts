@@ -34,7 +34,7 @@ serve(async(req:Request)=>{
   const current=STEPS.find(s=>!completed.find(c=>c.id===s.id))??STEPS[STEPS.length-1];
   const pct=Math.round(completed.length/STEPS.length*100);
   let guidance="";
-  try{guidance=await askAI("You are the Pulse AI onboarding assistant. Give one concrete instruction (max 2 sentences), in English.",`Step: "${current.title}". Progress: ${pct}%.`,100);}
+  try{guidance=await askAI("You are the Pulse AI onboarding assistant. Give one concrete instruction (max 2 sentences), in English.",`Step: "${current.title}". Progress: ${pct}%.`,100,{workspaceId:wsId,authHeader:auth,taskType:"customer_support",userId:user.id});}
   catch{guidance=`Next step: ${current.title}. Click the button to continue.`;}
   const agents=[];
   if(ints.instagram?.status==="connected"||ints.whatsapp?.status==="connected"){

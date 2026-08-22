@@ -26,7 +26,8 @@ function renderTemplate(template: string, data: Record<string, string>): string 
 // ── Personalizo me AI nëse template ka {{ai_personalize}} ────
 async function personalizeWithAI(
   template: string,
-  contactData: Record<string, string>
+  contactData: Record<string, string>,
+  workspaceId: string,
 ): Promise<string> {
   if (!template.includes("{{ai_personalize}}")) {
     return renderTemplate(template, contactData);
@@ -42,7 +43,8 @@ async function personalizeWithAI(
       `Ti je ekspert shitjesh. Personalizoje këtë mesazh për kontaktin duke e bërë të natyrshëm dhe bindës. 
 Kthe VETËM mesazhin e personalizuar, asgjë tjetër.`,
       `Mesazhi bazë: ${base}\nKontakti: ${JSON.stringify(contactData)}`,
-      300
+      300,
+      { workspaceId, taskType: "high_volume" },
     );
     return personalized;
   } catch {
@@ -68,7 +70,11 @@ async function executeStep(
   if (variant === "a" && step.variant_a_body) bodyTemplate = step.variant_a_body as string;
   if (variant === "b" && step.variant_b_body) bodyTemplate = step.variant_b_body as string;
 
-  const body = await personalizeWithAI(bodyTemplate, contactData);
+  const body = await personalizeWithAI(
+    bodyTemplate,
+    contactData,
+    String(enrollment.workspace_id ?? enrollment.business_id ?? "internal"),
+  );
   const subject = renderTemplate((step.subject as string) ?? "", contactData);
   const channel = step.channel as string;
 

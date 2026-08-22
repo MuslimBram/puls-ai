@@ -305,7 +305,7 @@ serve(async (req: Request): Promise<Response> => {
           // Gjenero me AI
           const result = await callAI(
             [...msgs, { role: "user" as const, content: messageText }],
-            { systemPrompt, maxTokens: 500 }
+            { systemPrompt, maxTokens: 500, workspaceId: businessId, taskType: "customer_support" }
           );
 
           const reply = result.text;

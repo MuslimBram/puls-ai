@@ -14,7 +14,7 @@ async function classify(trigger:string){
   try{
     const r=await askAI(
       "Classify the trigger and pick agents from: sales_manager,marketing_manager,customer_success,ceo_assistant,coach. Return JSON:{agents:[],priority:urgent|normal|low}",
-      `Trigger: ${trigger}`,100);
+      `Trigger: ${trigger}`,100,{taskType:"text_classification",workspaceId:"internal"});
     const p=JSON.parse(r.replace(/```json|```/g,"").trim());
     return{agents:p.agents??["marketing_manager"],priority:p.priority??"normal",requires_approval:false};
   }catch{
@@ -48,7 +48,7 @@ serve(async(req:Request)=>{
   for(const k of selected){
     try{
       const{data:t}=await sb.from("ai_agent_tasks").insert({workspace_id:wsId,task_type:k,agent_name:k,input:{trigger:body.trigger},status:"running",started_at:new Date().toISOString()}).select("id").single();
-      const r=await askAI(PROMPTS[k]??PROMPTS.marketing_manager,body.trigger,400);
+      const r=await askAI(PROMPTS[k]??PROMPTS.marketing_manager,body.trigger,400,{workspaceId:wsId,authHeader:auth,taskType:"complex_reasoning",userId:user.id});
       let out:Record<string,unknown>;try{out=JSON.parse(r.replace(/```json|```/g,"").trim());}catch{out={response:r};}
       await sb.from("ai_agent_tasks").update({output:out,status:"completed",completed_at:new Date().toISOString()}).eq("id",t?.id??"");
       results[k]=out;

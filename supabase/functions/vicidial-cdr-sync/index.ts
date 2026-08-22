@@ -74,7 +74,10 @@ async function fetchVicidialCDR(
 }
 
 // AI analizon bisedën (nëse ka transkript)
-async function analyzeCall(transcript: string): Promise<{
+async function analyzeCall(
+  transcript: string,
+  options: { workspaceId: string; authHeader: string; userId: string },
+): Promise<{
   summary: string;
   sentiment: string;
   lead_detected: boolean;
@@ -84,7 +87,8 @@ async function analyzeCall(transcript: string): Promise<{
     const result = await askAI(
       "Ti je analizues i bisedave të shitjeve. Kthe VETËM JSON.",
       `Analize këtë bisedë telefonike dhe kthe:\n${transcript.substring(0, 1500)}\n\nJSON: {"summary":"1 fjali","sentiment":"positive|neutral|negative","lead_detected":true/false,"key_topics":["topic1"]}`,
-      200
+      200,
+      { workspaceId: options.workspaceId, authHeader: options.authHeader, taskType: "complex_reasoning", userId: options.userId },
     );
     return JSON.parse(result.replace(/```json|```/g, "").trim());
   } catch {
@@ -150,7 +154,10 @@ serve(async (req: Request): Promise<Response> => {
 
       // AI analizo nëse ka transkript dhe është kërkuar
       if (body.analyze_with_ai && call.recording_filename) {
-        aiData = await analyzeCall(`Agjent: ${call.agent_user}, Dispozicion: ${call.disposition}, Kohëzgjatja: ${call.length_in_sec}s`);
+        aiData = await analyzeCall(
+          `Agjent: ${call.agent_user}, Dispozicion: ${call.disposition}, Kohëzgjatja: ${call.length_in_sec}s`,
+          { workspaceId: body.workspace_id ?? user.id, authHeader, userId: user.id },
+        );
         aiAnalyzed++;
       }
 

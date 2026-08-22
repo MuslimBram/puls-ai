@@ -103,14 +103,15 @@ function staticScan(content: string): ThreatResult[] {
 }
 
 // ── SKANIM I THELLË ME AI (për raste të dyshimta) ─────────────
-async function aiDeepScan(content: string, context: string): Promise<ThreatResult | null> {
+async function aiDeepScan(content: string, context: string, workspaceId: string): Promise<ThreatResult | null> {
   try {
     const result = await askAI(
       `You are an enterprise-grade security analyst. Analyze this content and return ONLY JSON.
 Kategoritë e mundshme: malware,phishing,sql_injection,xss,prompt_injection,command_injection,spam,scam,fraud,brute_force,bot_activity,api_abuse,account_takeover,dangerous_link,clean
 Return: {"found":boolean,"category":"...","severity":"low|medium|high|critical","score":0.0-1.0,"reason":"...","action":"allow|flag|block|quarantine"}`,
       `Content: "${content.slice(0, 800)}"\nContext: ${context}`,
-      200
+      200,
+      { workspaceId, taskType: "text_classification" },
     );
     const p = JSON.parse(result.replace(/```json|```/g, "").trim());
     if (!p.found || p.category === "clean") return null;
@@ -284,7 +285,7 @@ serve(async (req: Request): Promise<Response> => {
     /(?:help|urgent|transfer|account|verify|confirm|link)/i.test(content);
 
   if (needsDeepScan) {
-    aiThreat = await aiDeepScan(content, `source: ${source}, workspace: ${workspace_id ?? "unknown"}`);
+    aiThreat = await aiDeepScan(content, `source: ${source}, workspace: ${workspace_id ?? "unknown"}`, workspace_id ?? "internal");
   }
 
   // ── 5. KOMBINO REZULTATET ─────────────────────────────────

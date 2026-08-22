@@ -95,7 +95,8 @@ Kthe: {"score": 0.0-1.0, "intent": "cold|warm|hot", "notes": "1 fjali"}`;
       const aiResult = await askAI(
         "Ti je analizues i leads. Kthen VETËM JSON të vlefshëm pa markdown.",
         aiPrompt,
-        150
+        150,
+        { workspaceId: body.target_workspace_id, taskType: "text_classification" },
       );
       const parsed = JSON.parse(aiResult.replace(/```json|```/g, "").trim());
       aiScore = Math.min(1, Math.max(0, Number(parsed.score ?? 0.5)));
