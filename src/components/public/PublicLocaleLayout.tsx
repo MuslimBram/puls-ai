@@ -10,6 +10,7 @@ import {
   isSupportedPublicLocale,
   localizePublicPath,
   stripPotentialLocaleSegment,
+  type PublicLocale,
 } from "@/lib/publicLocale";
 
 function upsertMeta(selector: string, attrs: Record<string, string>) {
@@ -25,8 +26,7 @@ function upsertMeta(selector: string, attrs: Record<string, string>) {
 export default function PublicLocaleLayout() {
   const { i18n } = useTranslation();
   const { pathname, search, hash } = useLocation();
-  const { locale } = useParams();
-  const hasLocaleParam = Boolean(locale);
+  const { locale = "" } = useParams();
   const isValidLocale = isSupportedPublicLocale(locale);
   const isLocaleLike = /^[a-z]{2}$/i.test(locale ?? "");
 
@@ -37,26 +37,26 @@ export default function PublicLocaleLayout() {
     : localizePublicPath("/", preferredLocale);
 
   useEffect(() => {
-    if (!isValidLocale || !locale) return;
+    if (!isValidLocale) return;
+    const safeLocale = locale as PublicLocale;
 
-    document.documentElement.lang = locale;
+    document.documentElement.lang = safeLocale;
     upsertMeta('meta[property="og:locale"]', {
       property: "og:locale",
-      content: getPublicLocaleOgValue(locale),
+      content: getPublicLocaleOgValue(safeLocale),
     });
 
     try {
-      window.localStorage.setItem(PUBLIC_LOCALE_STORAGE_KEY, locale);
+      window.localStorage.setItem(PUBLIC_LOCALE_STORAGE_KEY, safeLocale);
     } catch {
       // no-op
     }
 
-    if (i18n.resolvedLanguage !== locale && i18n.language !== locale) {
-      void i18n.changeLanguage(locale);
+    if (i18n.resolvedLanguage !== safeLocale && i18n.language !== safeLocale) {
+      void i18n.changeLanguage(safeLocale);
     }
   }, [i18n, isValidLocale, locale]);
 
-  if (!hasLocaleParam) return <NotFound />;
   if (!isValidLocale) {
     if (!isLocaleLike) return <NotFound />;
     return <Navigate to={fallbackTarget} replace />;

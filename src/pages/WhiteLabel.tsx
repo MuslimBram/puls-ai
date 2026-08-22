@@ -247,9 +247,9 @@ const WhiteLabel = () => {
           <CardContent className="space-y-4">
             {!user && (
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-muted-foreground">
+                <p className="mb-2">{t("whiteLabelPage.applyNote")}</p>
                 <Link to="/login" className="font-medium text-primary underline">{t("cta.login")}</Link> or{" "}
-                <Link to="/register" className="font-medium text-primary underline">{t("auth.createAccount")}</Link> first so we
-                can link the application to you.
+                <Link to="/register" className="font-medium text-primary underline">{t("auth.createAccount")}</Link>.
               </div>
             )}
             <div className="grid gap-4 sm:grid-cols-2">
