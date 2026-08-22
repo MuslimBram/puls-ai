@@ -23,6 +23,7 @@ import { PublicCTA } from "@/components/public/PublicCTA";
 import { Seo } from "@/components/Seo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 const PLATFORM_MODULES = [
   {
@@ -89,6 +90,7 @@ const statusBadgeVariant = {
 
 export default function PlatformHub() {
   const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
 
   return (
     <PublicShell>
@@ -140,7 +142,7 @@ export default function PlatformHub() {
                     {t(`platformHub.modules.${slug}.desc`)}
                   </p>
                   <Link
-                    to={`/platform/${slug}`}
+                    to={localizedPath(`/platform/${slug}`)}
                     className="mt-4 inline-block text-sm font-medium text-primary hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     aria-label={t("platformHub.modules.learnMoreLabel", {
                       module: t(`platformHub.modules.${slug}.title`),

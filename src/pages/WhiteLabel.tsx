@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +14,8 @@ import { toast } from "@/components/ui/sonner";
 import { Check, Crown, Palette, Globe, LifeBuoy, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatALL } from "@/lib/currency";
+import { Seo } from "@/components/Seo";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 interface WhiteLabelPackage {
   id: string;
@@ -36,7 +39,9 @@ const COMPETITORS = [
 ];
 
 const WhiteLabel = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
+  const { localizedPath } = usePublicLocale();
   const [selected, setSelected] = useState<string | null>(null);
   const [form, setForm] = useState({
     contact_name: "",
@@ -94,9 +99,14 @@ const WhiteLabel = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <Seo
+        title={t("whiteLabelPage.seo.title")}
+        description={t("whiteLabelPage.seo.desc")}
+      />
+
       <header className="border-b border-border">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4">
-          <Link to="/" className="flex items-center gap-2 font-semibold text-foreground">
+          <Link to={localizedPath("/")} className="flex items-center gap-2 font-semibold text-foreground">
             <Zap className="h-5 w-5 text-primary" /> Pulse AI
           </Link>
           <Button asChild variant="outline" size="sm"><Link to="/register">Create account</Link></Button>
@@ -106,17 +116,16 @@ const WhiteLabel = () => {
       <section className="mx-auto max-w-6xl px-4 py-14 text-center">
         <Badge variant="secondary" className="mb-4">Partner programme</Badge>
         <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-          Sell Pulse AI under your own brand
+          {t("whiteLabelPage.hero.title")}
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-muted-foreground">
-          Your logo, your domain, your pricing. We run the infrastructure, AI and updates — you own the client
-          relationship and keep the margin.
+          {t("whiteLabelPage.hero.subtitle")}
         </p>
         <div className="mt-8 grid gap-4 sm:grid-cols-3">
           {[
-            { icon: Palette, title: "Full branding", text: "Logo, colours, emails and reports carry your identity." },
-            { icon: Globe, title: "Your own domain", text: "Clients never see Pulse AI — they see your agency." },
-            { icon: LifeBuoy, title: "We keep it running", text: "Hosting, security updates and bug fixes included." },
+            { icon: Palette, title: t("whiteLabelPage.features.branding.title"), text: t("whiteLabelPage.features.branding.body") },
+            { icon: Globe, title: t("whiteLabelPage.features.domain.title"), text: t("whiteLabelPage.features.domain.body") },
+            { icon: LifeBuoy, title: t("whiteLabelPage.features.hosting.title"), text: t("whiteLabelPage.features.hosting.body") },
           ].map(({ icon: Icon, title, text }) => (
             <div key={title} className="rounded-xl border border-border p-5 text-left">
               <Icon className="mb-3 h-6 w-6 text-primary" />
@@ -238,8 +247,8 @@ const WhiteLabel = () => {
           <CardContent className="space-y-4">
             {!user && (
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-muted-foreground">
-                <Link to="/login" className="font-medium text-primary underline">Sign in</Link> or{" "}
-                <Link to="/register" className="font-medium text-primary underline">create an account</Link> first so we
+                <Link to="/login" className="font-medium text-primary underline">{t("cta.login")}</Link> or{" "}
+                <Link to="/register" className="font-medium text-primary underline">{t("auth.createAccount")}</Link> first so we
                 can link the application to you.
               </div>
             )}

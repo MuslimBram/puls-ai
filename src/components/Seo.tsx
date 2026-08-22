@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { buildPublicHreflangLinks } from "@/lib/publicLocale";
 
 export interface SeoProps {
   title: string;
@@ -15,6 +16,16 @@ function upsertMeta(selector: string, attrs: Record<string, string>) {
   let el = document.head.querySelector<HTMLMetaElement>(selector);
   if (!el) {
     el = document.createElement("meta");
+    document.head.appendChild(el);
+  }
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
+  return el;
+}
+
+function upsertLink(selector: string, attrs: Record<string, string>) {
+  let el = document.head.querySelector<HTMLLinkElement>(selector);
+  if (!el) {
+    el = document.createElement("link");
     document.head.appendChild(el);
   }
   for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, v);
@@ -48,14 +59,17 @@ export function Seo({ title, description, canonical, type = "website", noindex, 
     });
 
     const href = canonical || window.location.origin + window.location.pathname;
-    let link = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
-    if (!link) {
-      link = document.createElement("link");
-      link.rel = "canonical";
-      document.head.appendChild(link);
-    }
-    link.href = href;
+    upsertLink('link[rel="canonical"]', { rel: "canonical", href });
     upsertMeta('meta[property="og:url"]', { property: "og:url", content: href });
+
+    const hreflangLinks = buildPublicHreflangLinks(window.location.pathname, window.location.origin);
+    hreflangLinks.forEach(({ hrefLang, href: altHref }) => {
+      upsertLink(`link[rel="alternate"][hreflang="${hrefLang}"]`, {
+        rel: "alternate",
+        hreflang: hrefLang,
+        href: altHref,
+      });
+    });
 
     let script: HTMLScriptElement | null = null;
     if (jsonLd) {

@@ -1,6 +1,6 @@
 import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +13,8 @@ import { PermissionRoute } from "@/components/PermissionRoute";
 import type { RolePermissions } from "@/hooks/useRolePermissions";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { CookieConsentBanner } from "@/components/legal/CookieConsentBanner";
+import PublicLocaleLayout from "@/components/public/PublicLocaleLayout";
+import { getPreferredPublicLocale, localizePublicPath } from "@/lib/publicLocale";
 
 // Public legal pages
 const PrivacyPolicy = lazy(() => import("./pages/legal/PrivacyPolicy"));
@@ -24,6 +26,8 @@ const AffiliateTerms = lazy(() => import("./pages/legal/AffiliateTerms"));
 const DPA = lazy(() => import("./pages/legal/DPA"));
 const TermsAndPayments = lazy(() => import("./pages/TermsAndPayments"));
 const WhiteLabel = lazy(() => import("./pages/WhiteLabel"));
+const About = lazy(() => import("./pages/About"));
+const Contact = lazy(() => import("./pages/Contact"));
 
 // Eagerly loaded (critical path)
 import Login from "./pages/Login";
@@ -185,6 +189,18 @@ const PermissionPage = ({
   </ProtectedRoute>
 );
 
+const PublicLocaleRedirect = ({ target }: { target: string }) => {
+  const location = useLocation();
+  const preferredLocale = getPreferredPublicLocale();
+
+  return (
+    <Navigate
+      replace
+      to={localizePublicPath(`${target}${location.search}${location.hash}`, preferredLocale)}
+    />
+  );
+};
+
 const App = () => (
   <ErrorBoundary fallback={<PageErrorFallback />}>
     <QueryClientProvider client={queryClient}>
@@ -195,7 +211,7 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <Routes>
-                <Route path="/" element={<Index />} />
+                <Route path="/" element={<PublicLocaleRedirect target="/" />} />
                 <Route path="/install" element={<Suspense fallback={<LazyFallback />}><InstallPage /></Suspense>} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
@@ -204,33 +220,62 @@ const App = () => (
                 <Route path="/unsubscribe" element={<Suspense fallback={<LazyFallback />}><Unsubscribe /></Suspense>} />
                 <Route path="/auth/callback" element={<Suspense fallback={<LazyFallback />}><AuthCallback /></Suspense>} />
                 <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<LazyFallback />}><OAuthConsent /></Suspense>} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/white-label" element={<WhiteLabel />} />
+                <Route path="/pricing" element={<PublicLocaleRedirect target="/pricing" />} />
+                <Route path="/white-label" element={<PublicLocaleRedirect target="/white-label" />} />
+                <Route path="/about" element={<PublicLocaleRedirect target="/about" />} />
+                <Route path="/contact" element={<PublicLocaleRedirect target="/contact" />} />
 
                 {/* Wave 3 — Public Platform pages */}
-                <Route path="/platform" element={<Suspense fallback={<LazyFallback />}><PlatformHub /></Suspense>} />
-                <Route path="/platform/ai" element={<Suspense fallback={<LazyFallback />}><PlatformAi /></Suspense>} />
-                <Route path="/platform/unified-inbox" element={<Suspense fallback={<LazyFallback />}><PlatformInbox /></Suspense>} />
-                <Route path="/platform/crm" element={<Suspense fallback={<LazyFallback />}><PlatformCrm /></Suspense>} />
-                <Route path="/platform/marketing" element={<Suspense fallback={<LazyFallback />}><PlatformMarketing /></Suspense>} />
-                <Route path="/platform/automation" element={<Suspense fallback={<LazyFallback />}><PlatformAutomation /></Suspense>} />
-                <Route path="/platform/analytics" element={<Suspense fallback={<LazyFallback />}><PlatformAnalytics /></Suspense>} />
-                <Route path="/platform/developers" element={<Suspense fallback={<LazyFallback />}><PlatformDevelopers /></Suspense>} />
-                <Route path="/platform/partners" element={<Suspense fallback={<LazyFallback />}><PlatformPartners /></Suspense>} />
-                <Route path="/platform/lidhjet" element={<Suspense fallback={<LazyFallback />}><PlatformLidhjet /></Suspense>} />
+                <Route path="/platform" element={<PublicLocaleRedirect target="/platform" />} />
+                <Route path="/platform/ai" element={<PublicLocaleRedirect target="/platform/ai" />} />
+                <Route path="/platform/unified-inbox" element={<PublicLocaleRedirect target="/platform/unified-inbox" />} />
+                <Route path="/platform/crm" element={<PublicLocaleRedirect target="/platform/crm" />} />
+                <Route path="/platform/marketing" element={<PublicLocaleRedirect target="/platform/marketing" />} />
+                <Route path="/platform/automation" element={<PublicLocaleRedirect target="/platform/automation" />} />
+                <Route path="/platform/analytics" element={<PublicLocaleRedirect target="/platform/analytics" />} />
+                <Route path="/platform/developers" element={<PublicLocaleRedirect target="/platform/developers" />} />
+                <Route path="/platform/partners" element={<PublicLocaleRedirect target="/platform/partners" />} />
+                <Route path="/platform/lidhjet" element={<PublicLocaleRedirect target="/platform/lidhjet" />} />
                 {/* Legacy /developer → canonical /public-api */}
                 <Route path="/developer" element={<Navigate to="/public-api" replace />} />
 
                 {/* Public legal pages */}
-                <Route path="/privacy" element={<Suspense fallback={<LazyFallback />}><PrivacyPolicy /></Suspense>} />
-                <Route path="/terms" element={<Suspense fallback={<LazyFallback />}><TermsOfService /></Suspense>} />
-                <Route path="/security" element={<Suspense fallback={<LazyFallback />}><SecurityOverview /></Suspense>} />
-                <Route path="/cookies" element={<Suspense fallback={<LazyFallback />}><CookiePolicy /></Suspense>} />
-                <Route path="/refund" element={<Suspense fallback={<LazyFallback />}><RefundPolicy /></Suspense>} />
-                <Route path="/affiliate-terms" element={<Suspense fallback={<LazyFallback />}><AffiliateTerms /></Suspense>} />
-                <Route path="/dpa" element={<Suspense fallback={<LazyFallback />}><DPA /></Suspense>} />
-                <Route path="/terms-and-payments" element={<Suspense fallback={<LazyFallback />}><TermsAndPayments /></Suspense>} />
+                <Route path="/privacy" element={<PublicLocaleRedirect target="/privacy" />} />
+                <Route path="/terms" element={<PublicLocaleRedirect target="/terms" />} />
+                <Route path="/security" element={<PublicLocaleRedirect target="/security" />} />
+                <Route path="/cookies" element={<PublicLocaleRedirect target="/cookies" />} />
+                <Route path="/refund" element={<PublicLocaleRedirect target="/refund" />} />
+                <Route path="/affiliate-terms" element={<PublicLocaleRedirect target="/affiliate-terms" />} />
+                <Route path="/dpa" element={<PublicLocaleRedirect target="/dpa" />} />
+                <Route path="/terms-and-payments" element={<PublicLocaleRedirect target="/terms-and-payments" />} />
                 <Route path="/complete-payment" element={<ProtectedRoute><Suspense fallback={<LazyFallback />}><CompletePayment /></Suspense></ProtectedRoute>} />
+
+                <Route path="/:locale" element={<PublicLocaleLayout />}>
+                  <Route index element={<Index />} />
+                  <Route path="pricing" element={<Pricing />} />
+                  <Route path="white-label" element={<WhiteLabel />} />
+                  <Route path="about" element={<Suspense fallback={<LazyFallback />}><About /></Suspense>} />
+                  <Route path="contact" element={<Suspense fallback={<LazyFallback />}><Contact /></Suspense>} />
+                  <Route path="platform" element={<Suspense fallback={<LazyFallback />}><PlatformHub /></Suspense>} />
+                  <Route path="platform/ai" element={<Suspense fallback={<LazyFallback />}><PlatformAi /></Suspense>} />
+                  <Route path="platform/unified-inbox" element={<Suspense fallback={<LazyFallback />}><PlatformInbox /></Suspense>} />
+                  <Route path="platform/crm" element={<Suspense fallback={<LazyFallback />}><PlatformCrm /></Suspense>} />
+                  <Route path="platform/marketing" element={<Suspense fallback={<LazyFallback />}><PlatformMarketing /></Suspense>} />
+                  <Route path="platform/automation" element={<Suspense fallback={<LazyFallback />}><PlatformAutomation /></Suspense>} />
+                  <Route path="platform/analytics" element={<Suspense fallback={<LazyFallback />}><PlatformAnalytics /></Suspense>} />
+                  <Route path="platform/developers" element={<Suspense fallback={<LazyFallback />}><PlatformDevelopers /></Suspense>} />
+                  <Route path="platform/partners" element={<Suspense fallback={<LazyFallback />}><PlatformPartners /></Suspense>} />
+                  <Route path="platform/lidhjet" element={<Suspense fallback={<LazyFallback />}><PlatformLidhjet /></Suspense>} />
+                  <Route path="privacy" element={<Suspense fallback={<LazyFallback />}><PrivacyPolicy /></Suspense>} />
+                  <Route path="terms" element={<Suspense fallback={<LazyFallback />}><TermsOfService /></Suspense>} />
+                  <Route path="security" element={<Suspense fallback={<LazyFallback />}><SecurityOverview /></Suspense>} />
+                  <Route path="cookies" element={<Suspense fallback={<LazyFallback />}><CookiePolicy /></Suspense>} />
+                  <Route path="refund" element={<Suspense fallback={<LazyFallback />}><RefundPolicy /></Suspense>} />
+                  <Route path="affiliate-terms" element={<Suspense fallback={<LazyFallback />}><AffiliateTerms /></Suspense>} />
+                  <Route path="dpa" element={<Suspense fallback={<LazyFallback />}><DPA /></Suspense>} />
+                  <Route path="terms-and-payments" element={<Suspense fallback={<LazyFallback />}><TermsAndPayments /></Suspense>} />
+                  <Route path="*" element={<NotFound />} />
+                </Route>
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
                 <Route path="/inbox" element={<PermissionPage permission="canRespondInbox"><Inbox /></PermissionPage>} />

@@ -35,7 +35,7 @@ describe("Wave 2 homepage", () => {
   it("keeps pricing on the dedicated pricing page instead of rendering homepage price cards", () => {
     expect(indexSource).not.toContain("useMonetizationCatalog");
     expect(indexSource).not.toContain("formatALL(");
-    expect(indexSource).toContain('to="/pricing"');
+    expect(indexSource).toContain('localizedPath("/pricing")');
   });
 
   it("removes fake social proof, hardcoded testimonial blocks and unsupported feature marketing", () => {

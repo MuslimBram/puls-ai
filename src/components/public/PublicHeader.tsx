@@ -12,6 +12,7 @@ import { PublicMegaNav } from "./PublicMegaNav";
 import { PublicMobileNav } from "./PublicMobileNav";
 import { PublicCTA } from "./PublicCTA";
 import { PublicLanguageSelector } from "./PublicLanguageSelector";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 interface PublicHeaderProps {
   /** Extra class on the <header> element */
@@ -20,6 +21,7 @@ interface PublicHeaderProps {
 
 export function PublicHeader({ className }: PublicHeaderProps) {
   const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
 
   return (
     <header
@@ -32,7 +34,7 @@ export function PublicHeader({ className }: PublicHeaderProps) {
       <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6 lg:px-8">
         {/* Brand */}
         <Link
-          to="/"
+          to={localizedPath("/")}
           className="mr-4 flex shrink-0 items-center gap-1 text-lg font-bold tracking-tight text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
           aria-label={t("brand.home", { defaultValue: "Pulse AI — Home" })}
         >

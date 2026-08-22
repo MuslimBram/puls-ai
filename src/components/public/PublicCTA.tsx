@@ -23,6 +23,7 @@ import { validateInternalPath } from "@/lib/safeNavigate";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Bell, Loader2 } from "lucide-react";
 import { buildLoggedOutCtaLoginHref } from "./publicCtaDestination";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 export type CTAVariant = "default" | "beta" | "coming_soon";
 export type CTAPriority = "primary" | "secondary" | "tertiary";
@@ -195,6 +196,7 @@ export function PublicCTAPair({
   className?: string;
 }) {
   const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
   const safeSecondary = validateInternalPath(secondaryHref) ?? "/";
 
   return (
@@ -206,7 +208,7 @@ export function PublicCTAPair({
         label={primaryLabel}
       />
       <Button variant="outline" size="lg" asChild>
-        <Link to={safeSecondary}>
+        <Link to={localizedPath(safeSecondary)}>
           {secondaryLabel ?? t("cta.learnMore")}
         </Link>
       </Button>

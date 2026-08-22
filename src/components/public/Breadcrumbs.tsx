@@ -9,6 +9,8 @@ import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
+import { usePublicLocale } from "@/hooks/usePublicLocale";
+import { stripPublicLocale } from "@/lib/publicLocale";
 
 export interface BreadcrumbItem {
   label: string;
@@ -34,7 +36,7 @@ function segmentToLabel(segment: string): string {
 
 /** Build breadcrumb items from a pathname like /platform/ai-intelligence */
 function pathnameToBreadcrumbs(pathname: string): BreadcrumbItem[] {
-  const segments = pathname.split("/").filter(Boolean);
+  const segments = stripPublicLocale(pathname).split("/").filter(Boolean);
   const crumbs: BreadcrumbItem[] = [{ label: "Home", href: "/" }];
   let cumulative = "";
   segments.forEach((seg, idx) => {
@@ -51,6 +53,7 @@ function pathnameToBreadcrumbs(pathname: string): BreadcrumbItem[] {
 export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   const { pathname } = useLocation();
   const { t } = useTranslation();
+  const { localizedPath } = usePublicLocale();
 
   const crumbs = items ?? pathnameToBreadcrumbs(pathname);
 
@@ -87,7 +90,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
                 </span>
               ) : (
                 <Link
-                  to={crumb.href}
+                  to={localizedPath(crumb.href)}
                   className="max-w-[200px] truncate underline-offset-4 hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-sm"
                 >
                   {isFirst ? (
