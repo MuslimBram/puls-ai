@@ -1,7 +1,7 @@
 /**
  * social-nba.ts — SOCIAL-1F
  *
- * Controlled Social Next-Best-Action.
+ * Controlled Social Next-Best-Action adapter/extension.
  *
  * PIPELINE:
  *   Engagement → Identity → Interest Memory → Intent Score → Journey
@@ -65,11 +65,13 @@ export type NbaReasonCode =
   | "POLICY_BLOCK"
   | "POLICY_REVIEW"
   | "POLICY_ALLOW"
+  | "POLICY_CONTEXT_MISMATCH"
   | "ANONYMOUS_AGGREGATE"
   | "INSUFFICIENT_EVIDENCE"
   | "AMBIGUOUS_IDENTITY"
   | "NON_PERSON_IDENTITY"
   | "MISSING_COMMERCIAL_CONFIG"
+  | "BUSINESS_RULES_NOT_ELIGIBLE"
   | "HUMAN_HANDOFF_ONLY"
   | "DUPLICATE_ACTIVE_NBA"
   | "IDEMPOTENT_RETRY"
@@ -211,6 +213,13 @@ export interface SocialNbaInput {
    */
   evidence_refs: string[];
 
+  /**
+   * Stable logical recommendation window (e.g. `2026-08-22`, `2026-W34`, or
+   * event-batch key). Retries for the same logical recommendation MUST pass the
+   * same value, even across midnight boundaries.
+   */
+  recommendation_window: string;
+
   /** Business configuration for this workspace. */
   business_config?: BusinessConfig;
 
@@ -234,10 +243,18 @@ export function deriveIdempotencyKey(
   workspace_id: string,
   resolved_identity_key: string,
   evidence_refs: string[],
+  recommendation_window: string,
 ): string {
-  const dateStamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const evSorted = [...evidence_refs].sort().join(",");
-  return `social_nba:${workspace_id}:${resolved_identity_key}:${evSorted}:${dateStamp}`;
+  const window = recommendation_window.trim();
+  return `social_nba:${workspace_id}:${resolved_identity_key}:${evSorted}:${window}`;
+}
+
+function policyContextMatches(input: SocialNbaInput): boolean {
+  return input.policy_result.workspace_id === input.workspace_id &&
+    input.policy_result.provider === input.provider &&
+    input.policy_result.channel_type === input.channel &&
+    input.policy_result.identity_state === input.identity_state;
 }
 
 // ── Deterministic Action Selection ────────────────────────────────────────────
@@ -390,12 +407,44 @@ export function generateSocialNba(
     journey_phase,
     policy_result,
     evidence_refs,
+    recommendation_window,
     business_config,
     existing_active_idempotency_key,
   } = input;
 
   const recommended_at = new Date().toISOString();
-  const idempotency_key = deriveIdempotencyKey(workspace_id, resolved_identity_key, evidence_refs);
+  const idempotency_key = deriveIdempotencyKey(
+    workspace_id,
+    resolved_identity_key,
+    evidence_refs,
+    recommendation_window,
+  );
+
+  // ── Gate -1: Policy context must match this NBA input ──────────────────────
+  if (!policyContextMatches(input)) {
+    return {
+      workspace_id,
+      resolved_identity_key,
+      canonical_person_id,
+      provider,
+      channel,
+      intent_score,
+      intent_score_band,
+      identity_state,
+      journey_phase,
+      policy_decision: policy_result.decision,
+      action_type: "do_nothing",
+      recommendation_status: "blocked",
+      human_approval_required: true,
+      reason_codes: ["POLICY_CONTEXT_MISMATCH", "SAFE_FALLBACK"],
+      policy_reasons: [...new Set([...policy_result.reasons, "POLICY_CONTEXT_MISMATCH"])],
+      policy_evaluated_at: policy_result.evaluated_at,
+      evidence_refs,
+      confidence: "low",
+      idempotency_key,
+      recommended_at,
+    };
+  }
 
   // ── Gate 0: Idempotent retry ───────────────────────────────────────────────
   if (
@@ -423,6 +472,115 @@ export function generateSocialNba(
       confidence: "low",
       idempotency_key,
       recommended_at,
+    };
+  }
+
+  export interface CanonicalNbaDbClient {
+    rpc: (name: string, args?: Record<string, unknown>) => Promise<{ data: any; error: any }>;
+  }
+
+  export interface PersistSocialNbaParams {
+    recommendation: SocialNbaResult;
+    lead_id?: string | null;
+  }
+
+  export interface PersistSocialNbaResult {
+    status: "inserted" | "duplicate_active" | "error";
+    nba_id: string | null;
+    recommendation: SocialNbaResult;
+    rule_allows: boolean;
+    rule_id: string | null;
+  }
+
+  function applyBusinessRuleGuard(
+    recommendation: SocialNbaResult,
+    ruleAllows: boolean,
+  ): SocialNbaResult {
+    if (ruleAllows) return recommendation;
+    if (recommendation.recommendation_status !== "recommended") return recommendation;
+
+    return {
+      ...recommendation,
+      action_type: "do_nothing",
+      recommendation_status: "do_nothing",
+      human_approval_required: true,
+      confidence: "low",
+      reason_codes: [...new Set([...recommendation.reason_codes, "BUSINESS_RULES_NOT_ELIGIBLE", "SAFE_FALLBACK"])],
+    };
+  }
+
+  /**
+   * Persist Social NBA via canonical NBA storage path (`next_best_actions`) only.
+   * This adapter reuses canonical business-rule authority and canonical persistence.
+   */
+  export async function persistSocialNbaRecommendation(
+    db: CanonicalNbaDbClient,
+    params: PersistSocialNbaParams,
+  ): Promise<PersistSocialNbaResult> {
+    const { recommendation, lead_id = null } = params;
+
+    const { data: ruleCheck, error: ruleError } = await db.rpc("validate_nba_against_rules", {
+      p_workspace_id: recommendation.workspace_id,
+      p_action_type: recommendation.action_type,
+      p_offer_value: 0,
+      p_offer_unit: "pct",
+      p_lead_id: lead_id,
+    });
+
+    const ruleAllows = !ruleError && (ruleCheck as any)?.allowed !== false;
+    const guardedRecommendation = applyBusinessRuleGuard(recommendation, ruleAllows);
+
+    const { data, error } = await db.rpc("upsert_social_nba_next_best_action", {
+      p_workspace_id: guardedRecommendation.workspace_id,
+      p_lead_id: lead_id,
+      p_action_type: guardedRecommendation.action_type,
+      p_reason: guardedRecommendation.reason_codes.join(","),
+      p_confidence: guardedRecommendation.confidence,
+      p_priority: guardedRecommendation.recommendation_status === "recommended" ? 6 : 1,
+      p_suggested_channel: guardedRecommendation.channel,
+      p_offer_value: null,
+      p_offer_unit: null,
+      p_expires_at: null,
+      p_rule_id: (ruleCheck as any)?.rule_id ?? null,
+      p_rule_allows: ruleAllows,
+      p_status: guardedRecommendation.recommendation_status,
+      p_policy_decision: guardedRecommendation.policy_decision,
+      p_policy_reasons: guardedRecommendation.policy_reasons,
+      p_policy_evaluated_at: guardedRecommendation.policy_evaluated_at,
+      p_human_approval_required: guardedRecommendation.human_approval_required,
+      p_provider: guardedRecommendation.provider,
+      p_channel: guardedRecommendation.channel,
+      p_identity_state: guardedRecommendation.identity_state,
+      p_resolved_identity_key: guardedRecommendation.resolved_identity_key,
+      p_canonical_person_id: guardedRecommendation.canonical_person_id ?? null,
+      p_intent_score: guardedRecommendation.intent_score,
+      p_intent_score_band: guardedRecommendation.intent_score_band,
+      p_journey_phase: guardedRecommendation.journey_phase,
+      p_evidence_refs: guardedRecommendation.evidence_refs,
+      p_recommendation_status: guardedRecommendation.recommendation_status,
+      p_reason_codes: guardedRecommendation.reason_codes,
+      p_idempotency_key: guardedRecommendation.idempotency_key,
+      p_recommended_at: guardedRecommendation.recommended_at,
+    });
+
+    if (error) {
+      return {
+        status: "error",
+        nba_id: null,
+        recommendation: guardedRecommendation,
+        rule_allows: ruleAllows,
+        rule_id: (ruleCheck as any)?.rule_id ?? null,
+      };
+    }
+
+    const row = Array.isArray(data) ? data[0] : data;
+    const wasInserted = Boolean(row?.inserted);
+    return {
+      status: wasInserted ? "inserted" : "duplicate_active",
+      nba_id: row?.id ?? null,
+      recommendation: guardedRecommendation,
+      rule_allows: ruleAllows,
+      rule_id: (ruleCheck as any)?.rule_id ?? null,
     };
   }
 

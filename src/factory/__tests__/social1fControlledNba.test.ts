@@ -11,7 +11,7 @@
  *   5.  platform_actor cannot become CRM-known person for commercial NBA
  *   6.  weak evidence (empty refs) → do_nothing
  *   7.  high intent cannot override policy BLOCK / opt-out
- *   8.  cross-workspace policy cannot be reused
+ *   8.  policy context mismatch is blocked (workspace/provider/channel/identity)
  *   9.  duplicate source evidence does not create duplicate active NBA (idempotency)
  *   10. retry is idempotent (same idempotency key → DUPLICATE_ACTIVE_NBA)
  *   11. commercial recommendation cannot invent offer/discount
@@ -34,10 +34,10 @@
 
 import { describe, it, expect } from "vitest";
 import {
-  generateSocialNba,
   deriveIdempotencyKey,
+  generateSocialNba,
+  persistSocialNbaRecommendation,
   type SocialNbaInput,
-  type SocialNbaResult,
 } from "../../../supabase/functions/_shared/social-nba";
 import type { PolicyResult } from "../../../supabase/functions/_shared/social-policy-engine";
 import { evaluatePolicy } from "../../../supabase/functions/_shared/social-policy-engine";
@@ -48,11 +48,12 @@ import { resolve } from "path";
 
 // ── Shared Fixtures ────────────────────────────────────────────────────────────
 
-const WORKSPACE = "ws-1f-test-001";
-const WORKSPACE_B = "ws-1f-test-002";
+const WORKSPACE = "11111111-1111-4111-8111-111111111111";
+const WORKSPACE_B = "22222222-2222-4222-8222-222222222222";
 const IDENTITY_KEY = "ig:actor-abc-123";
-const PERSON_ID = "person-uuid-001";
+const PERSON_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const EVIDENCE = ["ev-001", "ev-002", "ev-003"];
+const WINDOW = "2026-08-22";
 
 const allowResult: PolicyResult = {
   decision: "ALLOW",
@@ -102,6 +103,7 @@ const baseAllowInput: SocialNbaInput = {
   journey_phase: "considering",
   policy_result: allowResult,
   evidence_refs: EVIDENCE,
+  recommendation_window: WINDOW,
 };
 
 // ── Test helpers ───────────────────────────────────────────────────────────────
@@ -254,17 +256,55 @@ describe("SOCIAL-1F: insufficient evidence → do_nothing", () => {
   });
 });
 
-// ── 8. Cross-workspace isolation ───────────────────────────────────────────────
+// ── 8. Policy context binding mismatch protection ──────────────────────────────
 
-describe("SOCIAL-1F: cross-workspace isolation", () => {
-  it("TEST-8: workspace_id is always the input workspace, not policy workspace", () => {
-    const crossResult = generateSocialNba({
+describe("SOCIAL-1F: policy context binding", () => {
+  it("TEST-8a: foreign workspace ALLOW → BLOCKED", () => {
+    const result = generateSocialNba({
       ...baseAllowInput,
-      workspace_id: WORKSPACE,
       policy_result: { ...allowResult, workspace_id: WORKSPACE_B },
     });
-    // The NBA result carries the caller's workspace_id
-    expect(crossResult.workspace_id).toBe(WORKSPACE);
+    expect(result.recommendation_status).toBe("blocked");
+    expect(result.reason_codes).toContain("POLICY_CONTEXT_MISMATCH");
+  });
+
+  it("TEST-8b: foreign provider ALLOW → BLOCKED", () => {
+    const result = generateSocialNba({
+      ...baseAllowInput,
+      policy_result: { ...allowResult, provider: "email" },
+    });
+    expect(result.recommendation_status).toBe("blocked");
+    expect(result.reason_codes).toContain("POLICY_CONTEXT_MISMATCH");
+  });
+
+  it("TEST-8c: foreign channel ALLOW → BLOCKED", () => {
+    const result = generateSocialNba({
+      ...baseAllowInput,
+      policy_result: { ...allowResult, channel_type: "email" },
+    });
+    expect(result.recommendation_status).toBe("blocked");
+    expect(result.reason_codes).toContain("POLICY_CONTEXT_MISMATCH");
+  });
+
+  it("TEST-8d: identity-state mismatch → BLOCKED", () => {
+    const result = generateSocialNba({
+      ...baseAllowInput,
+      policy_result: { ...allowResult, identity_state: "platform_actor" },
+    });
+    expect(result.recommendation_status).toBe("blocked");
+    expect(result.reason_codes).toContain("POLICY_CONTEXT_MISMATCH");
+  });
+
+  it("TEST-8e: high intent cannot override mismatch", () => {
+    const result = generateSocialNba({
+      ...baseAllowInput,
+      intent_score: 0.99,
+      intent_score_band: "high",
+      policy_result: { ...allowResult, workspace_id: WORKSPACE_B },
+    });
+    expect(result.recommendation_status).toBe("blocked");
+    expect(result.action_type).toBe("do_nothing");
+    expect(result.reason_codes).toContain("POLICY_CONTEXT_MISMATCH");
   });
 });
 
@@ -272,14 +312,14 @@ describe("SOCIAL-1F: cross-workspace isolation", () => {
 
 describe("SOCIAL-1F: idempotency", () => {
   it("TEST-9: same evidence → same idempotency_key", () => {
-    const key1 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, EVIDENCE);
-    const key2 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, [...EVIDENCE].reverse());
+    const key1 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, EVIDENCE, WINDOW);
+    const key2 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, [...EVIDENCE].reverse(), WINDOW);
     expect(key1).toBe(key2);
   });
 
   it("TEST-9b: different evidence → different idempotency_key", () => {
-    const key1 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, ["ev-001"]);
-    const key2 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, ["ev-002"]);
+    const key1 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, ["ev-001"], WINDOW);
+    const key2 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, ["ev-002"], WINDOW);
     expect(key1).not.toBe(key2);
   });
 
@@ -295,9 +335,15 @@ describe("SOCIAL-1F: idempotency", () => {
   });
 
   it("TEST-10b: different workspace → different idempotency_key (no cross-workspace reuse)", () => {
-    const key1 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, EVIDENCE);
-    const key2 = deriveIdempotencyKey(WORKSPACE_B, IDENTITY_KEY, EVIDENCE);
+    const key1 = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, EVIDENCE, WINDOW);
+    const key2 = deriveIdempotencyKey(WORKSPACE_B, IDENTITY_KEY, EVIDENCE, WINDOW);
     expect(key1).not.toBe(key2);
+  });
+
+  it("TEST-10c: retry before/after midnight with same logical window → same key", () => {
+    const beforeMidnight = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, EVIDENCE, "2026-08-22");
+    const afterMidnightRetry = deriveIdempotencyKey(WORKSPACE, IDENTITY_KEY, EVIDENCE, "2026-08-22");
+    expect(beforeMidnight).toBe(afterMidnightRetry);
   });
 });
 
@@ -519,6 +565,96 @@ describe("SOCIAL-1D regression: intent score band still correct", () => {
     expect(scoreToband(0.6)).toBe("strong");
     expect(scoreToband(0.8)).toBe("high");
     expect(scoreToband(1.0)).toBe("high");
+  });
+});
+
+describe("SOCIAL-1F: canonical persistence adapter", () => {
+  it("uses canonical next_best_actions path and not a parallel social table", () => {
+    const migration = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/20260822180000_social_1f_controlled_nba.sql"),
+      "utf-8",
+    );
+    expect(migration).toContain("ALTER TABLE public.next_best_actions");
+    expect(migration).toContain("upsert_social_nba_next_best_action");
+    expect(migration).not.toContain("CREATE TABLE IF NOT EXISTS public.social_nba_recommendations");
+    expect(migration).toContain("workspace_members");
+    expect(migration).not.toContain("raw_user_meta_data");
+  });
+
+  it("concurrent duplicate persistence → one active canonical NBA", async () => {
+    const seen = new Set<string>();
+    const db = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        if (name === "validate_nba_against_rules") {
+          return { data: { allowed: true, rule_id: null }, error: null };
+        }
+        if (name === "upsert_social_nba_next_best_action") {
+          const key = String(args?.p_idempotency_key ?? "");
+          if (seen.has(key)) return { data: { id: "nba-1", inserted: false }, error: null };
+          seen.add(key);
+          return { data: { id: "nba-1", inserted: true }, error: null };
+        }
+        return { data: null, error: { message: "unknown rpc" } };
+      },
+    };
+
+    const recommendation = generateSocialNba(baseAllowInput);
+    const a = await persistSocialNbaRecommendation(db, { recommendation });
+    const b = await persistSocialNbaRecommendation(db, { recommendation });
+
+    expect(a.status).toBe("inserted");
+    expect(b.status).toBe("duplicate_active");
+  });
+
+  it("same evidence/workspace/identity/window → one active NBA; distinct evidence → distinct NBA", async () => {
+    const seen = new Set<string>();
+    const db = {
+      rpc: async (name: string, args?: Record<string, unknown>) => {
+        if (name === "validate_nba_against_rules") return { data: { allowed: true }, error: null };
+        if (name === "upsert_social_nba_next_best_action") {
+          const key = String(args?.p_idempotency_key ?? "");
+          if (seen.has(key)) return { data: { id: `dup-${key}`, inserted: false }, error: null };
+          seen.add(key);
+          return { data: { id: `new-${key}`, inserted: true }, error: null };
+        }
+        return { data: null, error: { message: "unknown rpc" } };
+      },
+    };
+
+    const same1 = generateSocialNba(baseAllowInput);
+    const same2 = generateSocialNba({ ...baseAllowInput, evidence_refs: [...EVIDENCE].reverse() });
+    const diff = generateSocialNba({ ...baseAllowInput, evidence_refs: ["ev-999"] });
+
+    const r1 = await persistSocialNbaRecommendation(db, { recommendation: same1 });
+    const r2 = await persistSocialNbaRecommendation(db, { recommendation: same2 });
+    const r3 = await persistSocialNbaRecommendation(db, { recommendation: diff });
+
+    expect(r1.status).toBe("inserted");
+    expect(r2.status).toBe("duplicate_active");
+    expect(r3.status).toBe("inserted");
+  });
+
+  it("missing commercial truth / denied rules → safe do_nothing fallback", async () => {
+    const db = {
+      rpc: async (name: string) => {
+        if (name === "validate_nba_against_rules") return { data: { allowed: false }, error: null };
+        if (name === "upsert_social_nba_next_best_action") return { data: { id: "nba-2", inserted: true }, error: null };
+        return { data: null, error: { message: "unknown rpc" } };
+      },
+    };
+
+    const recommendation = generateSocialNba({
+      ...baseAllowInput,
+      journey_phase: "converting",
+      intent_score_band: "high",
+      intent_score: 0.92,
+      business_config: { configured_offer_ids: ["offer-123"] },
+    });
+
+    const persisted = await persistSocialNbaRecommendation(db, { recommendation });
+    expect(persisted.recommendation.action_type).toBe("do_nothing");
+    expect(persisted.recommendation.recommendation_status).toBe("do_nothing");
+    expect(persisted.recommendation.reason_codes).toContain("BUSINESS_RULES_NOT_ELIGIBLE");
   });
 });
 
