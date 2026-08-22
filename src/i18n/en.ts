@@ -891,7 +891,7 @@ export default {
       desc:  "Community-driven connections and collaborative growth for Albanian-speaking businesses.",
     },
     hero: {
-      title: "Lidhjet — Lidhu. Bashkëpuno. Rrit.",
+      title: "Lidhjet — Connect. Collaborate. Grow.",
       desc:  "Community-driven connections for Albanian-speaking businesses on Pulse AI.",
     },
     features: {
