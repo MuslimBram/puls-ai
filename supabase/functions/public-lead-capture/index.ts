@@ -47,12 +47,6 @@ function normalizeSource(value: string | undefined): string {
   return ALLOWED_SOURCES.has(source) ? source : "website";
 }
 
-function normalizeIdempotencyKey(value: string | undefined): string | null {
-  const key = value?.trim();
-  if (!key || key.length > 100) return null;
-  return /^[a-zA-Z0-9._:-]+$/.test(key) ? key : null;
-}
-
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -77,7 +71,6 @@ serve(async (req: Request): Promise<Response> => {
   const name = body.name?.trim().slice(0, 160);
   const email = body.email?.trim().toLowerCase().slice(0, 320);
   const source = normalizeSource(body.source);
-  const idempotencyKey = normalizeIdempotencyKey(body.idempotency_key);
 
   if (!name || !email) {
     return json({ error: "Emri dhe emaili janë të detyrueshëm" }, 422);
@@ -99,21 +92,23 @@ serve(async (req: Request): Promise<Response> => {
   );
 
   try {
-    if (idempotencyKey) {
-      const { data: existingLead, error: existingErr } = await supabase
-        .from("enterprise_leads")
-        .select("id")
-        .eq("email", email)
-        .eq("source", source)
-        .contains("metadata", { idempotency_key: idempotencyKey })
-        .limit(1)
-        .maybeSingle();
+    // Short-window duplicate protection prevents accidental double submits while
+    // still allowing the same contact to make a genuinely new request later.
+    const duplicateSince = new Date(Date.now() - 5 * 60_000).toISOString();
+    const { data: existingLead, error: existingErr } = await supabase
+      .from("public_leads")
+      .select("id")
+      .eq("email", email)
+      .eq("source", source)
+      .gte("created_at", duplicateSince)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-      if (existingErr) {
-        console.error("Lead idempotency lookup error:", existingErr.message);
-      } else if (existingLead?.id) {
-        return json({ success: true, duplicate: true, lead_id: existingLead.id });
-      }
+    if (existingErr) {
+      console.error("Lead duplicate lookup error:", existingErr.message);
+    } else if (existingLead?.id) {
+      return json({ success: true, duplicate: true, lead_id: existingLead.id });
     }
 
     // Public capture is intentionally workspace-neutral. A caller-provided
@@ -124,31 +119,25 @@ serve(async (req: Request): Promise<Response> => {
     });
 
     const { data: lead, error: leadErr } = await supabase
-      .from("enterprise_leads")
+      .from("public_leads")
       .insert({
         name,
         email,
         phone: cleanOptional(body.phone, 80),
-        company_name: cleanOptional(body.business_name, 200),
+        business_name: cleanOptional(body.business_name, 200),
         message: cleanOptional(body.message, 4_000),
+        interested_plan: cleanOptional(body.interested_plan, 120),
         team_size: cleanOptional(body.team_size, 80),
+        ai_score: analysis.score,
+        ai_intent: analysis.intent,
+        ai_notes: analysis.notes,
         status: "new",
         source,
-        metadata: {
-          interested_plan: cleanOptional(body.interested_plan, 120),
-          utm_source: cleanOptional(body.utm_source, 200),
-          utm_medium: cleanOptional(body.utm_medium, 200),
-          utm_campaign: cleanOptional(body.utm_campaign, 200),
-          page_url: cleanOptional(body.page_url, 1_000),
-          capture_surface: source === "live_demo" ? "public_ai_live_demo" : "public_form",
-          privacy_consent: source === "live_demo" ? true : null,
-          idempotency_key: idempotencyKey,
-          ai_score: analysis.score,
-          ai_intent: analysis.intent,
-          ai_notes: analysis.notes,
-          ai_used: analysis.usedAI,
-          routed_workspace_id: analysis.routedWorkspaceId,
-        },
+        utm_source: cleanOptional(body.utm_source, 200),
+        utm_medium: cleanOptional(body.utm_medium, 200),
+        utm_campaign: cleanOptional(body.utm_campaign, 200),
+        page_url: cleanOptional(body.page_url, 1_000),
+        target_workspace_id: null,
       })
       .select("id")
       .single();
