@@ -5,12 +5,14 @@
  * Supports explicit override via `items` prop.
  */
 
+import { useEffect, useMemo } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { ChevronRight, Home } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
 import { stripPublicLocale } from "@/lib/publicLocale";
+import { getPublicSiteUrl } from "@/lib/publicSeo";
 
 export interface BreadcrumbItem {
   label: string;
@@ -28,7 +30,7 @@ function segmentToLabel(segment: string): string {
   return segment
     .split("-")
     .map((word) => {
-      if (word.toUpperCase() === word) return word; // keep all-caps
+      if (word.toUpperCase() === word) return word;
       return word.charAt(0).toUpperCase() + word.slice(1);
     })
     .join(" ");
@@ -55,7 +57,32 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
   const { t } = useTranslation();
   const { localizedPath } = usePublicLocale();
 
-  const crumbs = items ?? pathnameToBreadcrumbs(pathname);
+  const crumbs = useMemo(() => items ?? pathnameToBreadcrumbs(pathname), [items, pathname]);
+
+  useEffect(() => {
+    document.head.querySelectorAll('script[data-breadcrumb-jsonld="true"]').forEach((node) => node.remove());
+    if (crumbs.length <= 1) return;
+
+    const origin = getPublicSiteUrl();
+    const payload = {
+      "@context": "https://schema.org",
+      "@type": "BreadcrumbList",
+      itemListElement: crumbs.map((crumb, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: crumb.label,
+        item: `${origin}${crumb.href ? localizedPath(crumb.href) : pathname}`,
+      })),
+    };
+
+    const script = document.createElement("script");
+    script.type = "application/ld+json";
+    script.setAttribute("data-breadcrumb-jsonld", "true");
+    script.text = JSON.stringify(payload);
+    document.head.appendChild(script);
+
+    return () => script.remove();
+  }, [crumbs, localizedPath, pathname]);
 
   if (crumbs.length <= 1) return null;
 
