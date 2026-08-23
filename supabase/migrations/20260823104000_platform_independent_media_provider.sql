@@ -89,6 +89,43 @@ WHERE job_type = 'media_generation'
   AND COALESCE(job_payload->>'media_type', '') = 'image'
   AND status IN ('pending', 'retry', 'processing');
 
+-- Permanent queue invariant. The core worker contains the preserved historical
+-- handler implementation but may only claim pending/retry. Any current or future
+-- image job that is inserted/recovered as pending/retry is normalized before the
+-- row is visible to worker selection, including stale-lock recovery writes.
+CREATE OR REPLACE FUNCTION public.normalize_image_media_job_status()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = pg_catalog, public
+AS $function$
+BEGIN
+  IF NEW.job_type = 'media_generation'
+     AND COALESCE(NEW.job_payload->>'media_type', '') = 'image' THEN
+    NEW.job_payload := jsonb_set(
+      COALESCE(NEW.job_payload, '{}'::jsonb),
+      '{provider_key}',
+      to_jsonb('replicate-image'::text),
+      true
+    );
+
+    IF NEW.status = 'pending' THEN
+      NEW.status := 'media_pending';
+    ELSIF NEW.status = 'retry' THEN
+      NEW.status := 'media_retry';
+    END IF;
+  END IF;
+
+  RETURN NEW;
+END;
+$function$;
+
+DROP TRIGGER IF EXISTS trg_normalize_image_media_job_status ON public.job_queue;
+CREATE TRIGGER trg_normalize_image_media_job_status
+BEFORE INSERT OR UPDATE OF status, job_type, job_payload
+ON public.job_queue
+FOR EACH ROW
+EXECUTE FUNCTION public.normalize_image_media_job_status();
+
 -- Efficient lookup for the dedicated image queue without changing existing
 -- pending/retry indexes used by the core worker.
 CREATE INDEX IF NOT EXISTS idx_job_queue_media_image
