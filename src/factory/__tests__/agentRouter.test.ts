@@ -51,8 +51,9 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
       expect(getWorkerClass("antigravity_candidate")).toBe("engineering_agent");
     });
 
-    it("should accurately map Phase 2B adapter keys and preserve Antigravity as candidate", () => {
-      expect(getPhase2BAdapterKey("frontend_builder_candidate")).toBe("frontend_builder_candidate");
+    it("should accurately map Phase 2B adapter keys and preserve local candidates", () => {
+      // Frontend builder is retained as a planning candidate, not as a live external adapter.
+      expect(getPhase2BAdapterKey("frontend_builder_candidate")).toBeNull();
       expect(getPhase2BAdapterKey("emergent_mcp")).toBe("emergent_mcp");
       expect(getPhase2BAdapterKey("base44_mcp")).toBe("base44_mcp");
       expect(getPhase2BAdapterKey("replit_mcp")).toBe("replit_mcp");
@@ -62,8 +63,8 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
       expect(getPhase2BAdapterKey("antigravity_candidate")).toBeNull();
     });
 
-    it("should mark Antigravity as local environment without external HTTP call requirements", () => {
-      expect(isExternalCallRequired("frontend_builder_candidate")).toBe(true);
+    it("should mark local candidates as not requiring external HTTP calls", () => {
+      expect(isExternalCallRequired("frontend_builder_candidate")).toBe(false);
       expect(isExternalCallRequired("claude_code")).toBe(true);
       expect(isExternalCallRequired("antigravity_candidate")).toBe(false);
     });
