@@ -8,18 +8,18 @@ import {
   getIndexablePublicUrls,
 } from "@/lib/publicDiscovery";
 
-const ORIGIN = "https://kohablerjeve.top";
+const ORIGIN = "https://pulse-bos.com";
 
 describe("Wave 6 public discovery", () => {
   it("publishes exactly the eligible bilingual/EN-only discovery URLs", () => {
     const urls = getIndexablePublicUrls(ORIGIN);
-    expect(urls).toHaveLength(38);
+    expect(urls).toHaveLength(45);
     expect(urls).toContain(`${ORIGIN}/en`);
     expect(urls).toContain(`${ORIGIN}/sq`);
     expect(urls).toContain(`${ORIGIN}/en/platform/lidhjet`);
     expect(urls).toContain(`${ORIGIN}/sq/platform/lidhjet`);
     expect(urls).toContain(`${ORIGIN}/en/privacy`);
-    expect(urls).not.toContain(`${ORIGIN}/sq/privacy`);
+    expect(urls).toContain(`${ORIGIN}/sq/privacy`);
     expect(urls).not.toContain(`${ORIGIN}/sq/white-label`);
   });
 
@@ -32,7 +32,7 @@ describe("Wave 6 public discovery", () => {
     expect(sitemap).not.toContain("/login");
     expect(sitemap).not.toContain("/register");
     expect(sitemap).not.toContain("/public-api");
-    expect(sitemap).not.toContain(`${ORIGIN}/sq/terms`);
+    expect(sitemap).toContain(`${ORIGIN}/sq/terms`);
   });
 
   it("allows public crawling while disallowing private route prefixes", () => {
@@ -49,7 +49,7 @@ describe("Wave 6 public discovery", () => {
   it("documents machine-readable discovery without fabricated pricing or full-SQ claims", () => {
     const llms = buildLlmsTxt(ORIGIN);
     expect(llms).toContain("The AI Business Operating System");
-    expect(llms).toContain("intentionally excluded from indexing");
+    expect(llms).toContain("white-label page remains intentionally excluded from indexing");
     expect(llms).not.toMatch(/€\s*\d+/);
     expect(llms).not.toMatch(/\$\s*\d+/);
     expect(llms).not.toContain("SOC 2 certified");
