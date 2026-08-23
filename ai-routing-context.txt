@@ -1,0 +1,405 @@
+===== supabase/functions/ai-conversation-memory/index.ts =====
+22:    const { workspace_id, business_id, contact_identifier, new_message, channel_type } = await req.json();
+23:    if (!workspace_id || !business_id || !contact_identifier) throw new Error("workspace_id, business_id and contact_identifier required");
+28:      .eq("workspace_id", workspace_id)
+37:      .eq("workspace_id", workspace_id)
+47:      .eq("workspace_id", workspace_id)
+69:        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+119:      workspace_id,
+
+===== supabase/functions/ai-fraud-check/index.ts =====
+18:    const { payout_request_id } = await req.json();
+89:          Authorization: `Bearer ${lovableKey}`,
+
+===== supabase/functions/ai-registration-check/index.ts =====
+14:    const { full_name, email, account_type, company_name, referral_code } = await req.json();
+81:            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+172:        .select("user_id")
+178:            user_id: u.user_id,
+
+===== supabase/functions/ai-sales-assistant/index.ts =====
+12:    const { deal, notes, action, prompt } = await req.json();
+37:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+
+===== supabase/functions/analyze-competitor/index.ts =====
+24:    let userId: string | null = null;
+25:    const authHeader = req.headers.get("Authorization");
+28:      const { data: userData } = await supabase.auth.getUser(token);
+29:      userId = userData.user?.id || null;
+32:    const body = await req.json().catch(() => ({}));
+33:    const { action, competitor_id, competitor_data } = body;
+95:      if (!userId) throw new Error("Not authenticated");
+101:        .eq("user_id", userId)
+122:      if (!userId) throw new Error("Not authenticated");
+128:        .eq("user_id", userId)
+136:        .eq("user_id", userId)
+142:          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+256:            Authorization: `Bearer ${firecrawlKey}`,
+283:    user_id: competitor.user_id,
+284:    workspace_id: competitor.workspace_id,
+299:      Authorization: `Bearer ${lovableKey}`,
+409:        user_id: competitor.user_id,
+410:        workspace_id: competitor.workspace_id,
+426:        user_id: competitor.user_id,
+427:        workspace_id: competitor.workspace_id,
+445:        .eq("user_id", competitor.user_id)
+456:          user_id: competitor.user_id,
+457:          workspace_id: competitor.workspace_id,
+471:        .eq("user_id", competitor.user_id)
+477:          user_id: competitor.user_id,
+478:          workspace_id: competitor.workspace_id,
+
+===== supabase/functions/analyze-lead/index.ts =====
+12:    const { message, keywords, businessProfile } = await req.json();
+36:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+
+===== supabase/functions/auth-email-hook/index.ts =====
+19:    'authorization, x-client-info, apikey, content-type, x-lovable-signature, x-lovable-timestamp, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+89:    'Access-Control-Allow-Headers': 'authorization, content-type',
+97:  const authHeader = req.headers.get('Authorization')
+108:    const body = await req.json()
+
+===== supabase/functions/business-insight-ai/index.ts =====
+14:    const authHeader = req.headers.get("Authorization") || "";
+27:      global: { headers: { Authorization: `Bearer ${token}` } },
+29:    const { data: userData, error: userErr } = await authClient.auth.getUser(token);
+35:    const user_id = userData.user.id;
+37:    const { workspace_id } = await req.json().catch(() => ({}));
+50:      .eq("user_id", user_id)
+56:      .eq("user_id", user_id)
+64:      .eq("user_id", user_id);
+73:      .eq("user_id", user_id)
+89:      .eq("user_id", user_id)
+106:      .eq("user_id", user_id)
+113:      .eq("user_id", user_id)
+120:      .eq("user_id", user_id)
+127:      .eq("user_id", user_id)
+133:      .eq("user_id", user_id)
+145:      .eq("user_id", user_id)
+229:          headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+254:      user_id,
+255:      workspace_id: workspace_id || null,
+280:        .eq("user_id", user_id)
+286:          user_id,
+287:          workspace_id: workspace_id || null,
+
+===== supabase/functions/business-scan-extract/index.ts =====
+72:        Authorization: `Bearer ${serviceRoleKey}`,
+88:    const authHeader = req.headers.get("Authorization");
+89:    if (!authHeader) throw new Error("No authorization header");
+91:    const { data: userData, error: userError } = await sb.auth.getUser(jwt);
+94:    const { business_id, scan_history_id, source_id, source_scan_id, workspace_id, url } = await req.json();
+95:    if (!business_id || !scan_history_id || !workspace_id || !url) {
+96:      throw new Error("business_id, scan_history_id, workspace_id, url required");
+147:        headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
+186:          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+282:        workspace_id,
+284:        user_id: userData.user.id,
+350:        user_id: userData.user.id,
+351:        workspace_id,
+358:          workspace_id,
+359:          user_id: userData.user.id,
+402:      const body = await req.clone().json().catch(() => ({}));
+
+===== supabase/functions/dedicated-ai-reply/index.ts =====
+41:    const { user_id, business_id, workspace_id, visitor_name, visitor_email, message, page_url, channel_type } = await req.json();
+42:    if (!user_id || !message) {
+43:      return new Response(JSON.stringify({ error: "user_id and message are required" }), {
+64:      .eq("user_id", user_id)
+77:        .eq("user_id", user_id)
+79:      supabase.from("user_roles").select("role").eq("user_id", user_id),
+111:      .select("id, user_id, workspace_id, business_name, industry, main_services, short_description, target_audience, mission_values, ai_tone, language")
+112:      .eq("user_id", user_id)
+116:    if (workspace_id) businessQuery = businessQuery.eq("workspace_id", workspace_id);
+135:      .eq("user_id", user_id)
+145:        .eq("user_id", user_id)
+185:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+218:      }).eq("user_id", user_id);
+222:      }).eq("user_id", user_id);
+226:      user_id,
+227:      workspace_id: bizProfile.workspace_id,
+246:      user_id,
+247:      workspace_id: bizProfile.workspace_id,
+
+===== supabase/functions/email-ingest/index.ts =====
+24:    const body = await req.json();
+26:      user_id,
+35:    if (!user_id || !body_text) {
+36:      return new Response(JSON.stringify({ error: "user_id and body_text are required" }), {
+49:      .eq("user_id", user_id)
+70:            .eq("user_id", user_id)
+76:              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+125:      user_id,
+148:          user_id,
+
+===== supabase/functions/email-poll/index.ts =====
+189:                  .eq("user_id", channel.user_id)
+206:                .eq("user_id", channel.user_id)
+228:                .eq("user_id", channel.user_id)
+246:                      .eq("user_id", channel.user_id)
+251:                      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+302:                  .eq("user_id", channel.user_id)
+315:                  .eq("user_id", channel.user_id)
+339:                user_id: channel.user_id,
+340:                workspace_id: channel.workspace_id,
+359:                  user_id: channel.user_id,
+360:                  workspace_id: channel.workspace_id,
+378:                  .eq("user_id", channel.user_id)
+384:                    .eq("user_id", channel.user_id);
+
+===== supabase/functions/generate-ai-suggestions/index.ts =====
+84:    const { user_id, workspace_id, focus } = await req.json();
+85:    if (!user_id) throw new Error("user_id required");
+109:      .eq("user_id", user_id)
+117:        .eq("user_id", user_id)
+128:        .eq("user_id", user_id)
+138:        .eq("user_id", user_id)
+149:      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+175:      workspace_id: workspace_id || null,
+176:      user_id,
+
+===== supabase/functions/generate-business-content/index.ts =====
+23:    const authHeader = req.headers.get("Authorization");
+24:    if (!authHeader) throw new Error("No authorization header");
+26:    const { data: userData, error: userError } = await sb.auth.getUser(jwt);
+30:    const { business_id, workspace_id, scan_history_id } = await req.json();
+31:    if (!business_id || !workspace_id) throw new Error("business_id and workspace_id required");
+36:      .eq("user_id", actorId)
+44:      .select("id, user_id, workspace_id, business_name, industry, ai_tone, short_description, target_audience, main_services")
+49:    if (business.workspace_id !== workspace_id) throw new Error("Workspace mismatch for business");
+58:        .eq("workspace_id", workspace_id)
+67:        .eq("workspace_id", workspace_id)
+83:        workspace_id,
+111:      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+
+===== supabase/functions/generate-campaign/index.ts =====
+22:    const authHeader = req.headers.get("Authorization");
+23:    if (!authHeader) throw new Error("No authorization header");
+25:    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+27:    const userId = userData.user.id;
+29:    const { action, campaign_id, campaign_data } = await req.json();
+34:        supabase.from("business_profiles").select("*").eq("user_id", userId).maybeSingle(),
+35:        supabase.from("knowledge_chunks").select("content, topic_tags, summary").eq("user_id", userId).limit(20),
+72:          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+188:          .eq("user_id", userId);
+195:            user_id: userId,
+196:            workspace_id: campaign_data.workspace_id || null,
+
+===== supabase/functions/generate-content/index.ts =====
+23:    const authHeader = req.headers.get("Authorization");
+24:    if (!authHeader) throw new Error("No authorization header");
+26:    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+28:    const userId = userData.user.id;
+30:    const { content_type, count, custom_prompt } = await req.json();
+38:      .eq("user_id", userId)
+45:      .eq("user_id", userId)
+53:      .eq("user_id", userId)
+90:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+166:          user_id: userId,
+183:        user_id: userId,
+
+===== supabase/functions/generate-reply/index.ts =====
+44:      user_id,
+45:      workspace_id,
+47:    } = await req.json();
+52:    if (!user_id) throw new Error("user_id is required");
+74:        .eq("user_id", user_id)
+76:      supabase.from("user_roles").select("role").eq("user_id", user_id),
+100:      .select("id, business_name, industry, main_services, language, ai_tone, short_description, target_audience, workspace_id, user_id")
+102:      .eq("user_id", user_id);
+104:    const { data: businessProfile, error: businessError } = workspace_id
+105:      ? await businessQuery.eq("workspace_id", workspace_id).maybeSingle()
+114:      .eq("user_id", user_id)
+162:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+213:      }).eq("user_id", user_id);
+217:      }).eq("user_id", user_id);
+
+===== supabase/functions/handle-email-suppression/index.ts =====
+
+===== supabase/functions/ingest-document/index.ts =====
+41:    const authHeader = req.headers.get("Authorization");
+42:    if (!authHeader) throw new Error("No authorization header");
+44:    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+46:    const userId = userData.user.id;
+48:    const { file_path, file_name, content_text, business_id } = await req.json();
+55:      .select("id, user_id, workspace_id")
+60:    if (business.user_id !== userId) throw new Error("Forbidden");
+91:                  Authorization: `Bearer ${LOVABLE_API_KEY}`,
+139:      user_id: userId,
+140:      workspace_id: business.workspace_id,
+166:              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+205:        user_id: userId,
+206:        workspace_id: business.workspace_id,
+223:      workspace_id: business.workspace_id,
+
+===== supabase/functions/ingest-website/index.ts =====
+42:    const authHeader = req.headers.get("Authorization");
+43:    if (!authHeader) throw new Error("No authorization header");
+45:    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+47:    const userId = userData.user.id;
+49:    const { url, source_id, crawl_depth = 5, force_rescan = false, business_id } = await req.json();
+59:      .select("id, user_id, workspace_id")
+64:    if (business.user_id !== userId) throw new Error("Forbidden");
+112:        .eq("user_id", userId)
+152:          user_id: userId,
+153:          workspace_id: business.workspace_id,
+166:      .update({ status: "scanning", last_scanned_at: new Date().toISOString(), business_id, workspace_id: business.workspace_id })
+174:        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+207:        headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}` },
+230:          Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+268:                Authorization: `Bearer ${LOVABLE_API_KEY}`,
+309:          user_id: userId,
+310:          workspace_id: business.workspace_id,
+331:      workspace_id: business.workspace_id,
+
+===== supabase/functions/job-worker/index.ts =====
+184:        _workspace_id: payload.workspace_id,
+194:        .eq("user_id", payload.user_id);
+198:          workspace_id: payload.workspace_id,
+203:        { onConflict: "workspace_id" },
+211:          workspace_id: payload.workspace_id,
+212:          user_id: payload.user_id,
+221:        { onConflict: "workspace_id" },
+248:        workspace_id: payload.workspace_id,
+264:          .eq("workspace_id", subscription.workspace_id);
+269:          .eq("workspace_id", subscription.workspace_id);
+272:          user_id: subscription.user_id,
+297://   - workspace_id in job payload must match the row's workspace_id
+310:  const workspaceId = String(payload.workspace_id ?? "");
+313:  if (!actionId || !workspaceId) {
+314:    throw new Error("[AI-3] ai_controlled_action job missing action_id or workspace_id");
+323:      "id, workspace_id, user_id, lifecycle_status, action_type, action_payload, modified_payload, execution_attempts, suggested_by, correlation_id",
+333:  if (action.workspace_id !== workspaceId) {
+335:      `[AI-3] Workspace mismatch: job payload workspace ${workspaceId} ≠ action workspace ${action.workspace_id}`,
+397:      workspaceId,
+398:      userId: action.user_id,
+417:      p_workspace_id: workspaceId,
+447:    p_workspace_id: workspaceId,
+482:  workspaceId: string;
+483:  userId?: string | null;
+500:      workspaceId: ctx.workspaceId,
+501:      userId: ctx.userId,
+517:        Authorization: ["Bearer", serviceKey].join(" "),
+585:    .select("id, user_id, workspace_id, business_name, industry, ai_tone, short_description, target_audience, main_services")
+639:      user_id: business.user_id,
+640:      workspace_id: business.workspace_id,
+670:        user_id: business.user_id,
+671:        workspace_id: business.workspace_id,
+876:    .eq("user_id", business.user_id)
+890:        workspace_id: business.workspace_id,
+910:        user_id: business.user_id,
+911:        workspace_id: business.workspace_id,
+929:    user_id: business.user_id,
+930:    workspace_id: business.workspace_id,
+983:    user_id: generation.user_id,
+984:    workspace_id: generation.workspace_id,
+1072:  const filePath = `${generation.user_id}/${generation.id}-mock-video.svg`;
+1129:        Authorization: `Bearer ${token}`,
+1174:      Authorization: `Bearer ${token}`,
+1255:      Authorization: `Bearer ${lovableApiKey}`,
+1265:    const body = await response.text();
+1274:  const filePath = `${generation.user_id}/${generation.id}.${extension}`;
+1318:    user_id: generation.user_id,
+1319:    workspace_id: generation.workspace_id,
+1333:    .eq("user_id", generation.user_id)
+1337:  await supabase.from("subscriptions").update({ [field]: nextValue }).eq("user_id", generation.user_id);
+1371:    user_id: generation.user_id,
+1372:    workspace_id: generation.workspace_id,
+1382:    user_id: generation.user_id,
+1383:    workspace_id: generation.workspace_id,
+1394:      .update({ image_count: Math.max(0, Number((await getDailyUsage(supabase, generation.user_id))?.image_count ?? 1) - 1) })
+1395:      .eq("user_id", generation.user_id);
+1399:      .update({ video_count: Math.max(0, Number((await getDailyUsage(supabase, generation.user_id))?.video_count ?? 1) - 1) })
+1400:      .eq("user_id", generation.user_id);
+1405:    user_id: generation.user_id,
+1406:    workspace_id: generation.workspace_id,
+1415:async function getDailyUsage(supabase: any, userId: string) {
+1419:    .eq("user_id", userId)
+
+===== supabase/functions/preview-transactional-email/index.ts =====
+7:  'Access-Control-Allow-Headers': 'authorization, content-type',
+30:  const authHeader = req.headers.get('Authorization')
+
+===== supabase/functions/process-email-queue/index.ts =====
+95:  const authHeader = req.headers.get('Authorization')
+
+===== supabase/functions/scan-business-content/index.ts =====
+25:  userId: string,
+31:    user_id: userId,
+40:    .upsert(payload, { onConflict: "user_id,source_url" })
+72:    const authHeader = req.headers.get("Authorization");
+73:    if (!authHeader) throw new Error("No authorization header");
+76:    const { data: userData, error: userError } = await supabase.auth.getUser(token);
+79:    const userId = userData.user.id;
+80:    const { url } = await req.json();
+90:        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+112:        const knowledge = await persistKnowledge(supabase, userId, formattedUrl, pageTitle, placeholderData);
+127:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+195:    const knowledge = await persistKnowledge(supabase, userId, formattedUrl, pageTitle, extractedData);
+
+===== supabase/functions/scan-source-extract/index.ts =====
+19:  user_id: string;
+20:  workspace_id: string | null;
+35:  workspace_id: string;
+269:    .eq("user_id", business.user_id)
+280:    user_id: business.user_id,
+281:    workspace_id: business.workspace_id,
+315:    user_id: business.user_id,
+316:    workspace_id: business.workspace_id,
+340:    const body = await req.json();
+344:      const { url } = body;
+356:          Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+384:    const authHeader = req.headers.get("Authorization");
+385:    if (!authHeader) throw new Error("No authorization header");
+387:    const { data: userData, error: userError } = await sb.auth.getUser(token);
+389:    const userId = userData.user.id;
+391:    const { source_id, scan_id, workspace_id, business_id } = body;
+392:    if (!source_id || !scan_id || !workspace_id) throw new Error("source_id, scan_id, workspace_id required");
+405:      .select("id, user_id, workspace_id, business_name, industry, target_audience, short_description, main_services")
+407:      .eq("workspace_id", workspace_id)
+410:    if (business.user_id !== userId) throw new Error("Forbidden");
+423:        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+481:            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+608:        workspace_id,
+610:        user_id: userId,
+
+===== supabase/functions/send-telegram/index.ts =====
+22:    const authHeader = req.headers.get("Authorization");
+23:    if (!authHeader) throw new Error("Missing authorization");
+25:    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
+33:    const { chat_id, message, parse_mode, reply_to_message_id } = await req.json();
+39:      .select("id, workspace_id")
+40:      .eq("user_id", user.id)
+54:        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+71:      _user_id: user.id,
+80:      user_id: user.id,
+81:      workspace_id: channel?.workspace_id,
+
+===== supabase/functions/seo-audit/index.ts =====
+24:    const authHeader = req.headers.get("Authorization");
+27:    const { data: userData } = await supabase.auth.getUser(token);
+28:    const userId = userData.user?.id;
+29:    if (!userId) throw new Error("Not authenticated");
+31:    const { url, business_id } = await req.json();
+43:        Authorization: `Bearer ${FIRECRAWL_API_KEY}`,
+108:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+
+===== supabase/functions/telegram-poll/index.ts =====
+50:        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+97:          .select("user_id, id, workspace_id")
+104:            _user_id: ch[0].user_id,
+113:            user_id: ch[0].user_id,
+114:            workspace_id: ch[0].workspace_id,
+
+===== supabase/functions/withdrawal-fraud-check/index.ts =====
+15:    const authHeader = req.headers.get("authorization") ?? "";
+20:    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+27:    const { withdrawal_request_id } = await req.json();
+44:    const { data: isAdmin } = await supabaseClient.rpc("has_role", { _user_id: user.id, _role: "admin" });
+45:    const { data: isSuper } = await supabaseClient.rpc("has_role", { _user_id: user.id, _role: "super_admin" });
+46:    if (wr.user_id !== user.id && !isAdmin && !isSuper) {
+55:      supabaseClient.from("profiles").select("*").eq("user_id", wr.user_id).single(),
+58:      supabaseClient.from("withdrawal_requests").select("*").eq("user_id", wr.user_id).eq("status", "approved").order("created_at", { ascending: false }).limit(10),
+71:- User: ${profile?.full_name ?? "Unknown"} (ID: ${wr.user_id})
+93:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+
