@@ -47,7 +47,6 @@ const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
 const Leads = lazy(() => import("./pages/Leads"));
 const Keywords = lazy(() => import("./pages/Keywords"));
 const Channels = lazy(() => import("./pages/Channels"));
-const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));
 const ConnectionsHub = lazy(() => import("./pages/ConnectionsHub"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Subscription = lazy(() => import("./pages/Subscription"));
