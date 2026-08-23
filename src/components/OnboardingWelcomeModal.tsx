@@ -30,8 +30,8 @@ const STEPS = [
   },
   {
     icon: Gift,
-    title: "4. Earn from referrals",
-    body: "Share your referral link (kohablerjeve.top/register?ref=...) and earn 15% on every package purchase by your referrals.",
+    title: "4. Share your referral link",
+    body: "Share your referral link from the Referral Program and track eligible rewards according to the current program terms.",
   },
 ];
 
