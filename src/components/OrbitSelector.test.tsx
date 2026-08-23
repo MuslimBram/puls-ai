@@ -45,7 +45,7 @@ describe("OrbitSelector", () => {
     vi.advanceTimersByTime(1100);
 
     expect(onSelect).not.toHaveBeenCalled();
-    expect(screen.getByRole("listbox")).toHaveAttribute("aria-activedescendant", "Setup-steps-connections");
+    expect(screen.getByRole("listbox")).toHaveAttribute("aria-activedescendant", "Setup steps-connections");
     expect(screen.getByRole("option", { name: "Business Profile" })).toHaveAttribute("aria-selected", "true");
   });
 
