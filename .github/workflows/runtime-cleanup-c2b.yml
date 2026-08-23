@@ -1,0 +1,181 @@
+name: Runtime Cleanup C2B
+
+on:
+  push:
+    branches:
+      - refactor/platform-independent-runtime
+    paths:
+      - .github/workflows/runtime-cleanup-c2b.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/platform-independent-runtime
+          fetch-depth: 0
+      - name: Route remaining text AI callers
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          # Make compatibility adapter preserve fetch-like failure semantics.
+          p = Path('supabase/functions/_shared/router-chat-compat.ts')
+          t = p.read_text()
+          old = '''  const result = await callAI(messages, {
+    maxTokens: request.max_tokens,
+    taskType: context.taskType ?? "balanced",
+    workspaceId: context.workspaceId,
+    userId: context.userId,
+    authHeader: context.authHeader ?? null,
+    allowInternalNoWorkspace: context.allowInternalNoWorkspace,
+  });
+
+  const content = result.text ?? "";'''
+          new = '''  let result;
+  try {
+    result = await callAI(messages, {
+      maxTokens: request.max_tokens,
+      taskType: context.taskType ?? "balanced",
+      workspaceId: context.workspaceId,
+      userId: context.userId,
+      authHeader: context.authHeader ?? null,
+      allowInternalNoWorkspace: context.allowInternalNoWorkspace,
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : "AI router request failed",
+    }), {
+      status: 502,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const content = result.text ?? "";'''
+          if old not in t: raise RuntimeError('router compat call block not found')
+          p.write_text(t.replace(old, new))
+
+          ROUTER_IMPORT = 'import { routerChatCompletion } from "../_shared/router-chat-compat.ts";\n'
+          URLS = ('https://ai.gateway.lovable.dev/v1/chat/completions','https://api.lovable.dev/v1/chat/completions')
+
+          def scan_matching_paren(s, open_idx):
+              depth=0; i=open_idx; n=len(s)
+              while i<n:
+                  ch=s[i]
+                  if ch in ('"',"'",'`'):
+                      q=ch; i+=1
+                      while i<n:
+                          if s[i]=='\\': i+=2; continue
+                          if s[i]==q: i+=1; break
+                          i+=1
+                      continue
+                  if ch=='/' and i+1<n and s[i+1]=='/':
+                      i+=2
+                      while i<n and s[i]!='\n': i+=1
+                      continue
+                  if ch=='/' and i+1<n and s[i+1]=='*':
+                      e=s.find('*/',i+2); i=n if e<0 else e+2; continue
+                  if ch=='(': depth+=1
+                  elif ch==')':
+                      depth-=1
+                      if depth==0: return i
+                  i+=1
+              raise RuntimeError('unbalanced parentheses')
+
+          def replace_fetches(text, contexts):
+              replaced=0; pos=0
+              while replaced < len(contexts):
+                  matches=[]
+                  for url in URLS:
+                      needle=f'await fetch("{url}", '
+                      x=text.find(needle,pos)
+                      if x>=0: matches.append((x,needle))
+                  if not matches: break
+                  start,_=min(matches,key=lambda v:v[0])
+                  f_open=text.find('(',start+len('await fetch'))
+                  f_close=scan_matching_paren(text,f_open)
+                  call=text[start:f_close+1]
+                  marker='body: JSON.stringify('
+                  bp=call.find(marker)
+                  if bp<0: raise RuntimeError('JSON.stringify body not found')
+                  s_open=bp+len('body: JSON.stringify')
+                  s_close=scan_matching_paren(call,s_open)
+                  inner=call[s_open+1:s_close]
+                  repl=f'await routerChatCompletion({inner}, {contexts[replaced]})'
+                  text=text[:start]+repl+text[f_close+1:]
+                  pos=start+len(repl); replaced+=1
+              if replaced != len(contexts):
+                  raise RuntimeError(f'expected {len(contexts)} fetch replacements, got {replaced}')
+              return text
+
+          def ensure_import(text):
+              if 'router-chat-compat.ts' in text: return text
+              lines=text.splitlines(True); idx=0
+              for i,line in enumerate(lines):
+                  if line.startswith('import '): idx=i+1
+              lines.insert(idx,ROUTER_IMPORT)
+              return ''.join(lines)
+
+          def strip_key(text):
+              text=re.sub(r'^\s*const LOVABLE_API_KEY = Deno\.env\.get\("LOVABLE_API_KEY"\);\s*\n','',text,flags=re.M)
+              text=re.sub(r'^\s*const lovableKey = Deno\.env\.get\("LOVABLE_API_KEY"\);\s*\n','',text,flags=re.M)
+              text=re.sub(r'^\s*const LOVABLE_API_KEY = Deno\.env\.get\("LOVABLE_API_KEY"\) \?\? "";\s*\n','',text,flags=re.M)
+              text=re.sub(r'^\s*if \(!LOVABLE_API_KEY\) throw new Error\([^\n]*\);\s*\n','',text,flags=re.M)
+              return text
+
+          configs={
+            'supabase/functions/email-ingest/index.ts': ['{ workspaceId: profile?.workspace_id || undefined, userId: user_id, taskType: "sales_reply", allowInternalNoWorkspace: !profile?.workspace_id }'],
+            'supabase/functions/ai-registration-check/index.ts': ['{ taskType: "balanced", allowInternalNoWorkspace: true }'],
+            'supabase/functions/analyze-lead/index.ts': ['{ authHeader: req.headers.get("Authorization"), taskType: "sales_reply", allowInternalNoWorkspace: !req.headers.get("Authorization") }'],
+            'supabase/functions/withdrawal-fraud-check/index.ts': ['{ authHeader, userId: wr.user_id, taskType: "balanced" }'],
+            'supabase/functions/ai-fraud-check/index.ts': ['{ workspaceId: payout.workspace_id || partner?.workspace_id || undefined, userId: payout.user_id || partner?.user_id || undefined, taskType: "balanced", allowInternalNoWorkspace: !(payout.workspace_id || partner?.workspace_id) }'],
+          }
+          for path,contexts in configs.items():
+              p=Path(path); t=p.read_text(); t=ensure_import(t); t=strip_key(t)
+              if path.endswith('email-ingest/index.ts'):
+                  t=t.replace('      if (LOVABLE_API_KEY) {','      {')
+              if path.endswith('ai-registration-check/index.ts'):
+                  t=t.replace('    // AI analysis via Lovable AI','    // AI analysis via canonical Pulse AI router')
+                  t=t.replace('    if (LOVABLE_API_KEY) {','    {')
+              if path.endswith('ai-fraud-check/index.ts'):
+                  t=t.replace('    let fraudScore = 0;','    let fraudScore = -1;')
+                  t=t.replace('    if (lovableKey) {','    {')
+                  t=t.replace('    if (fraudScore < 0 || !lovableKey) {','    if (fraudScore < 0) {')
+              t=replace_fetches(t,contexts)
+              p.write_text(t)
+
+          # Competitor analysis has one authenticated/manual call and one helper/background call.
+          p=Path('supabase/functions/analyze-competitor/index.ts'); t=p.read_text(); t=ensure_import(t); t=strip_key(t)
+          t=t.replace('            supabase, comp, FIRECRAWL_API_KEY!, LOVABLE_API_KEY\n', '            supabase, comp, FIRECRAWL_API_KEY!\n')
+          t=t.replace('        supabase, competitor, FIRECRAWL_API_KEY, LOVABLE_API_KEY\n', '        supabase, competitor, FIRECRAWL_API_KEY\n')
+          t=t.replace('  firecrawlKey: string,\n  lovableKey: string\n)', '  firecrawlKey: string\n)')
+          t=replace_fetches(t,[
+            '{ workspaceId: competitor.workspace_id || profile?.workspace_id || undefined, userId: userId || undefined, authHeader, taskType: "web_research", allowInternalNoWorkspace: !authHeader && !(competitor.workspace_id || profile?.workspace_id) }',
+            '{ workspaceId: competitor.workspace_id || undefined, userId: competitor.user_id, taskType: "web_research", allowInternalNoWorkspace: !competitor.workspace_id }',
+          ])
+          p.write_text(t)
+
+          Path('runtime-reference-audit-c2b.txt').unlink(missing_ok=True)
+          Path('.github/workflows/runtime-cleanup-c2b.yml').unlink(missing_ok=True)
+          PY
+      - name: Focused assertions
+        run: |
+          set -e
+          for f in email-ingest ai-registration-check analyze-lead withdrawal-fraud-check ai-fraud-check analyze-competitor; do
+            file="supabase/functions/$f/index.ts"
+            ! grep -E 'LOVABLE_API_KEY|ai\.gateway\.lovable\.dev|api\.lovable\.dev' "$file"
+            grep -q 'routerChatCompletion' "$file"
+          done
+      - name: Commit C2B
+        run: |
+          git config user.name "MuslimBram"
+          git config user.email "223172034+MuslimBram@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: complete canonical routing for legacy text AI"
+          git push origin HEAD:refactor/platform-independent-runtime
