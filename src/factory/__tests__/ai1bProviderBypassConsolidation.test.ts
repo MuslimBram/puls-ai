@@ -11,6 +11,7 @@ type CallAIOptions = {
   workspaceId?: string;
   userId?: string;
   authHeader?: string | null;
+  allowInternalNoWorkspace?: boolean;
 };
 
 function loadAiClientWithMock(callAIRouter: (...args: unknown[]) => Promise<string>) {
@@ -66,23 +67,24 @@ describe("AI-1B shared ai-client canonicalization", () => {
       userId: "user_1",
       authHeader: "******",
       maxTokens: 123,
+      allowInternalNoWorkspace: undefined,
     });
   });
 
-  it("fails closed when neither workspace nor verified auth is provided", async () => {
+  it("fails closed when no workspace, verified auth, or guarded internal mode is provided", async () => {
     const mod = loadAiClientWithMock(async () => "ok");
 
     await expect(
       mod.askAI("sys", "hello", 50, { taskType: "balanced" }),
-    ).rejects.toThrow("workspace context or verified auth");
+    ).rejects.toThrow("workspace context, verified auth, or guarded internal system mode");
   });
 
-  it("requires workspace/auth context for customer_support as well", async () => {
+  it("requires workspace/auth context for customer_support unless guarded internal mode is explicit", async () => {
     const mod = loadAiClientWithMock(async () => "ok");
 
     await expect(
       mod.askAI("sys", "hello", 100, { taskType: "customer_support" }),
-    ).rejects.toThrow("workspace context or verified auth");
+    ).rejects.toThrow("workspace context, verified auth, or guarded internal system mode");
   });
 
   it("removes direct provider endpoints from shared ai-client", () => {
