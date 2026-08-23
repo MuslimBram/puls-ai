@@ -45,10 +45,10 @@ export const useReferralEligibility = () => {
         return { eligible: false, reason: "Please log in.", packageType: null, eligibleAt: null };
       }
 
-      // Referrals are now universal — every authenticated user is eligible
+      // Business referral rewards are governed by the active referral terms/configuration.
       return {
         eligible: true,
-        reason: "You are eligible to refer others! Earn 15% when they purchase a package.",
+        reason: "You are eligible to refer others. Share your referral link to earn rewards under the active referral terms.",
         packageType: null,
         eligibleAt: null,
       };

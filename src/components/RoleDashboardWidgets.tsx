@@ -5,7 +5,6 @@ import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { usePartnerAccount, usePartnerReferrals } from "@/hooks/usePartner";
 import { usePartnerWallet, usePartnerCommissions, useWalletTransactions } from "@/hooks/usePartnerWallet";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
-import { FREELANCER_COMMISSION_RATE, BUSINESS_REFERRAL_COMMISSION_RATE } from "@/config/plans";
 import {
   Wallet, Users, TrendingUp, ArrowUpCircle, ArrowDownCircle,
   Briefcase, Building2, Percent, Gift, Shield, Copy
@@ -46,12 +45,12 @@ const BusinessDashboardWidget = () => {
           <div className="flex items-center gap-2 rounded-lg bg-primary/5 p-3">
             <Gift className="h-4 w-4 text-primary" />
             <div>
-              <p className="text-sm font-medium text-foreground">Active referral discount</p>
+              <p className="text-sm font-medium text-foreground">Referral attribution active</p>
               <p className="text-xs text-muted-foreground">
-                You received a {BUSINESS_REFERRAL_COMMISSION_RATE}% discount from your referrer
+                Any applicable referral benefit follows the active billing and referral terms for this workspace.
               </p>
             </div>
-            <Badge variant="default" className="ml-auto">{BUSINESS_REFERRAL_COMMISSION_RATE}%</Badge>
+            <Badge variant="default" className="ml-auto">Active</Badge>
           </div>
         )}
 
@@ -83,6 +82,10 @@ const FreelancerDashboardWidget = () => {
       </Card>
     );
   }
+
+  const commissionRateLabel = Number(partner.commission_rate) > 0
+    ? `${Number(partner.commission_rate)}%`
+    : "Per account terms";
 
   const copyReferralCode = () => {
     if (partner.referral_code) {
@@ -120,8 +123,8 @@ const FreelancerDashboardWidget = () => {
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <Percent className="h-4 w-4 mx-auto mb-1 text-primary" />
-              <p className="text-lg font-bold text-foreground">{FREELANCER_COMMISSION_RATE}%</p>
-              <p className="text-xs text-muted-foreground">Referral commission</p>
+              <p className="text-lg font-bold text-foreground">{commissionRateLabel}</p>
+              <p className="text-xs text-muted-foreground">Configured commission</p>
             </div>
           </div>
 
@@ -140,14 +143,14 @@ const FreelancerDashboardWidget = () => {
 
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="rounded-lg border border-border p-3">
-              <p className="text-muted-foreground text-xs">Referral commission</p>
-              <p className="font-bold text-foreground">{FREELANCER_COMMISSION_RATE}% lifetime</p>
-              <p className="text-xs text-muted-foreground mt-1">For every referred business that pays</p>
+              <p className="text-muted-foreground text-xs">Partner commission</p>
+              <p className="font-bold text-foreground">{commissionRateLabel}</p>
+              <p className="text-xs text-muted-foreground mt-1">Applied to eligible first-payment commissions under active partner terms</p>
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-muted-foreground text-xs">Management earnings</p>
-              <p className="font-bold text-foreground">40% of management</p>
-              <p className="text-xs text-muted-foreground mt-1">When you manage businesses (with approval)</p>
+              <p className="font-bold text-foreground">Per approved relation</p>
+              <p className="text-xs text-muted-foreground mt-1">Shown according to the active management relation and recorded transactions</p>
             </div>
           </div>
         </CardContent>
@@ -228,12 +231,12 @@ const AdminDashboardWidget = () => {
       <CardContent>
         <div className="grid grid-cols-2 gap-3">
           <div className="rounded-lg border border-border p-3">
-            <p className="text-xs text-muted-foreground">Freelancer referral commission</p>
-            <p className="font-bold text-foreground">{FREELANCER_COMMISSION_RATE}%</p>
+            <p className="text-xs text-muted-foreground">Partner commission</p>
+            <p className="font-bold text-foreground">Account-configured</p>
           </div>
           <div className="rounded-lg border border-border p-3">
-            <p className="text-xs text-muted-foreground">Business referral discount</p>
-            <p className="font-bold text-foreground">{BUSINESS_REFERRAL_COMMISSION_RATE}%</p>
+            <p className="text-xs text-muted-foreground">Business referral reward</p>
+            <p className="font-bold text-foreground">Referral-configured</p>
           </div>
         </div>
         <p className="text-xs text-muted-foreground mt-3">

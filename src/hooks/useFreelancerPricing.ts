@@ -6,16 +6,17 @@ import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import {
   FREELANCER_PACKAGE_VARIANTS,
-  FREELANCER_COMMISSION_RATE,
   FREELANCER_MIN_ACTIVE_REFERRALS,
 } from "@/config/plans";
 
 /**
  * Freelancer pricing logic:
- * - Requires 3 active paid referral businesses for 40% discount
- * - Monthly packages: referral must be active during package period
- * - If <3 active paid referrals: full price, no discount
- * - Referral commission: 35% lifetime on every referred business payment
+ * - Requires the configured minimum of active paid referral businesses for the pricing discount.
+ * - Monthly packages: referral must be active during the package period.
+ * - If the eligibility threshold is not met: full price, no discount.
+ *
+ * Partner/referral commission rates are intentionally not defined here. They are
+ * governed by the active partner/referral configuration and commission records.
  */
 export const useFreelancerPricing = () => {
   const { user } = useAuth();
@@ -59,7 +60,6 @@ export const useFreelancerPricing = () => {
         requiredReferrals: FREELANCER_MIN_ACTIVE_REFERRALS,
         discountedBusinessCount: 0,
         discountPercent: 0,
-        commissionRate: FREELANCER_COMMISSION_RATE,
         minActiveReferrals: FREELANCER_MIN_ACTIVE_REFERRALS,
         packageVariants: FREELANCER_PACKAGE_VARIANTS,
         eligibilityMessage: eligibility?.message ?? "",
@@ -80,7 +80,6 @@ export const useFreelancerPricing = () => {
       requiredReferrals: FREELANCER_MIN_ACTIVE_REFERRALS,
       discountedBusinessCount: discountedCount,
       discountPercent: FREELANCER_DISCOUNT_PERCENT,
-      commissionRate: FREELANCER_COMMISSION_RATE,
       minActiveReferrals: FREELANCER_MIN_ACTIVE_REFERRALS,
       packageVariants: FREELANCER_PACKAGE_VARIANTS,
       eligibilityMessage: eligibility?.message ?? "",

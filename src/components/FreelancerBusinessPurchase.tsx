@@ -511,7 +511,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 mt-2">
           <p className="text-xs font-medium text-primary">💰 Your earnings</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Referral: 35% lifetime commission · Management: 40% fee per business
+            Referral commissions follow active partner terms and eligible first-payment records. Management earnings follow approved relation terms.
           </p>
         </div>
       </CardContent>
