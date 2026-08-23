@@ -1,0 +1,41 @@
+name: Runtime Reference Audit
+
+on:
+  push:
+    branches:
+      - refactor/platform-independent-runtime
+    paths:
+      - .github/workflows/runtime-reference-audit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/platform-independent-runtime
+          fetch-depth: 0
+      - name: Capture remaining references
+        run: |
+          {
+            echo "# Runtime reference audit"
+            echo "## named platform references"
+            git grep -n -i "lovable" -- ':!package-lock.json' ':!bun.lock' ':!.github/workflows/runtime-reference-audit.yml' || true
+            echo "## vendor package references"
+            git grep -n "@lovable.dev" -- ':!package-lock.json' ':!bun.lock' ':!.github/workflows/runtime-reference-audit.yml' || true
+            echo "## gateway references"
+            git grep -n "ai.gateway.lovable.dev\|api.lovable.dev\|mcp.lovable.dev" -- ':!.github/workflows/runtime-reference-audit.yml' || true
+            echo "## legacy secret references"
+            git grep -n "LOVABLE_API_KEY" -- ':!.github/workflows/runtime-reference-audit.yml' || true
+          } > runtime-reference-audit.txt
+          rm .github/workflows/runtime-reference-audit.yml
+      - name: Commit audit snapshot
+        run: |
+          git config user.name "MuslimBram"
+          git config user.email "223172034+MuslimBram@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: capture runtime reference audit"
+          git push origin HEAD:refactor/platform-independent-runtime
