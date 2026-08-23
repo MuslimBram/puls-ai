@@ -10,16 +10,10 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
 import { TeamSizeOrbitSelector, type TeamSizeValue } from "@/components/leads/TeamSizeOrbitSelector";
+import { PlanOrbitSelector, type LeadPlanValue } from "@/components/leads/PlanOrbitSelector";
 
 interface PublicLeadFormProps {
   targetWorkspaceId?: string;
@@ -54,13 +48,13 @@ export function PublicLeadForm({
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  const plans = useMemo(
-    () => [
-      { value: "standard", label: t("leadForm.plans.standard") },
-      { value: "professional", label: t("leadForm.plans.professional") },
-      { value: "advanced", label: t("leadForm.plans.advanced") },
-      { value: "enterprise", label: t("leadForm.plans.enterprise") },
-    ],
+  const planLabels = useMemo<Record<LeadPlanValue, string>>(
+    () => ({
+      standard: t("leadForm.plans.standard"),
+      professional: t("leadForm.plans.professional"),
+      advanced: t("leadForm.plans.advanced"),
+      enterprise: t("leadForm.plans.enterprise"),
+    }),
     [t],
   );
 
@@ -193,27 +187,15 @@ export function PublicLeadForm({
 
       {showPlanSelect && (
         <div className="space-y-4">
-          <div className="space-y-1">
+          <div className="space-y-2">
             <label className="text-xs text-muted-foreground">
               {t("leadForm.fields.interestedPlan")}
             </label>
-            <Select
-              value={form.interested_plan}
-              onValueChange={(v) =>
-                setForm((f) => ({ ...f, interested_plan: v }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("leadForm.placeholders.interestedPlan")} />
-              </SelectTrigger>
-              <SelectContent>
-                {plans.map((p) => (
-                  <SelectItem key={p.value} value={p.value}>
-                    {p.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PlanOrbitSelector
+              value={form.interested_plan as LeadPlanValue | ""}
+              labels={planLabels}
+              onChange={(plan) => setForm((f) => ({ ...f, interested_plan: plan }))}
+            />
           </div>
 
           <div className="space-y-2">
