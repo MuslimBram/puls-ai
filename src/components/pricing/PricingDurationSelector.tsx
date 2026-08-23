@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { CalendarCheck2, CalendarClock, CalendarDays, CalendarRange } from "lucide-react";
 import { OrbitSelector, LiveDigitalClock, type OrbitSelectorItem } from "@/components/OrbitSelector";
 import { PACKAGE_VARIANTS } from "@/config/plans";
@@ -8,7 +9,7 @@ interface PricingDurationSelectorProps {
   onChange: (value: PackageVariant["type"]) => void;
 }
 
-const ICONS: Record<PackageVariant["type"], React.ReactNode> = {
+const ICONS: Record<PackageVariant["type"], ReactNode> = {
   monthly: <CalendarDays className="h-5 w-5" aria-hidden="true" />,
   "3-month": <CalendarClock className="h-5 w-5" aria-hidden="true" />,
   "6-month": <CalendarRange className="h-5 w-5" aria-hidden="true" />,
