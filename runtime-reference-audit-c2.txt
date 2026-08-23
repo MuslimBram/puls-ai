@@ -1,0 +1,76 @@
+# Runtime reference audit C2
+## named platform references
+./supabase/functions/scan-source-extract/index.ts:475:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/scan-source-extract/index.ts:476:    if (markdown.length > 100 && LOVABLE_API_KEY) {
+./supabase/functions/scan-source-extract/index.ts:478:        const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/scan-source-extract/index.ts:481:            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/email-ingest/index.ts:64:      const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/email-ingest/index.ts:65:      if (LOVABLE_API_KEY) {
+./supabase/functions/email-ingest/index.ts:73:          const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/email-ingest/index.ts:76:              Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/seo-audit/index.ts:14:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/seo-audit/index.ts:16:    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+./supabase/functions/seo-audit/index.ts:105:    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/seo-audit/index.ts:108:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/generate-ai-suggestions/index.ts:92:    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/generate-ai-suggestions/index.ts:147:    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/job-worker/index.ts:17:const AI_GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+./supabase/functions/job-worker/index.ts:1246:  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/job-worker/index.ts:1247:  if (!lovableApiKey) throw new Error("LOVABLE_API_KEY is not configured");
+./supabase/functions/ai-registration-check/index.ts:74:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/ai-registration-check/index.ts:76:    if (LOVABLE_API_KEY) {
+./supabase/functions/ai-registration-check/index.ts:78:        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/ai-registration-check/index.ts:81:            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/analyze-lead/index.ts:13:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/analyze-lead/index.ts:14:    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+./supabase/functions/analyze-lead/index.ts:33:    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/analyze-lead/index.ts:36:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/create-paypal-order/index.ts:73:    const origin = req.headers.get("origin") || "https://pulsi.lovable.app";
+./supabase/functions/telegram-poll/index.ts:12:  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/telegram-poll/index.ts:13:  if (!LOVABLE_API_KEY) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), { status: 500 });
+./supabase/functions/telegram-poll/index.ts:50:        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/create-checkout/index.ts:70:    const origin = req.headers.get("origin") || "https://talk-finder-bot.lovable.app";
+./supabase/functions/generate-campaign/index.ts:14:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/generate-campaign/index.ts:15:    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+./supabase/functions/generate-campaign/index.ts:69:      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/generate-campaign/index.ts:72:          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/analyze-competitor/index.ts:14:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/analyze-competitor/index.ts:16:    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+./supabase/functions/analyze-competitor/index.ts:72:            supabase, comp, FIRECRAWL_API_KEY!, LOVABLE_API_KEY
+./supabase/functions/analyze-competitor/index.ts:106:        supabase, competitor, FIRECRAWL_API_KEY, LOVABLE_API_KEY
+./supabase/functions/analyze-competitor/index.ts:139:      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/analyze-competitor/index.ts:142:          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/analyze-competitor/index.ts:296:  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/send-telegram/index.ts:28:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/send-telegram/index.ts:29:    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+./supabase/functions/send-telegram/index.ts:54:        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/ai-sales-assistant/index.ts:13:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/ai-sales-assistant/index.ts:14:    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+./supabase/functions/ai-sales-assistant/index.ts:34:    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/ai-sales-assistant/index.ts:37:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/withdrawal-fraud-check/index.ts:5:const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
+./supabase/functions/withdrawal-fraud-check/index.ts:89:    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/withdrawal-fraud-check/index.ts:93:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/preview-transactional-email/index.ts:11:// Gated by LOVABLE_API_KEY — only the Go API calls this.
+./supabase/functions/preview-transactional-email/index.ts:18:  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+./supabase/functions/preview-transactional-email/index.ts:29:  // Verify the caller is authorized with LOVABLE_API_KEY
+./supabase/functions/ai-fraud-check/index.ts:15:    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/ai-fraud-check/index.ts:85:      const aiResponse = await fetch("https://api.lovable.dev/v1/chat/completions", {
+./supabase/functions/process-email-queue/index.ts:1:import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
+./supabase/functions/process-email-queue/index.ts:83:  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+./supabase/functions/process-email-queue/index.ts:266:          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
+./supabase/functions/customer-portal/index.ts:51:    const origin = req.headers.get("origin") || "https://talk-finder-bot.lovable.app";
+./supabase/functions/scan-business-content/index.ts:63:    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+./supabase/functions/scan-business-content/index.ts:64:    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
+./supabase/functions/scan-business-content/index.ts:124:    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+./supabase/functions/scan-business-content/index.ts:127:        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+./supabase/functions/handle-email-suppression/index.ts:2:import { WebhookError, verifyWebhookRequest } from 'npm:@lovable.dev/webhooks-js'
+./supabase/functions/handle-email-suppression/index.ts:40:  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+./supabase/functions/auth-email-hook/index.ts:3:import { parseEmailWebhookPayload } from 'npm:@lovable.dev/email-js'
+./supabase/functions/auth-email-hook/index.ts:4:import { WebhookError, verifyWebhookRequest } from 'npm:@lovable.dev/webhooks-js'
+./supabase/functions/auth-email-hook/index.ts:19:    'authorization, x-client-info, apikey, content-type, x-lovable-signature, x-lovable-timestamp, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+./supabase/functions/auth-email-hook/index.ts:52:const SAMPLE_PROJECT_URL = "https://ebc401bf-98f4-4f1b-accd-010924464e9d.lovableproject.com"
+./supabase/functions/auth-email-hook/index.ts:96:  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+./supabase/functions/auth-email-hook/index.ts:137:  const apiKey = Deno.env.get('LOVABLE_API_KEY')
+./supabase/functions/auth-email-hook/index.ts:140:    console.error('LOVABLE_API_KEY not configured')
+./supabase/migrations/20260318052225_37555965-ebd5-4775-9bfb-ebb4f61bfeb6.sql:287:  ('lovable-image', 'Lovable Image Provider', ARRAY['image'], true, false, 'LOVABLE_API_KEY', jsonb_build_object('model', 'google/gemini-3.1-flash-image-preview'), 1)
