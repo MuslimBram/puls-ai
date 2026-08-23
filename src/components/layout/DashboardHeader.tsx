@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/NotificationBell";
 import { TrialCountdown } from "@/components/TrialCountdown";
@@ -62,6 +63,7 @@ export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
           <Home className="h-4 w-4" />
         </Button>
         <LanguageSwitcher />
+        <ThemeToggle />
       </div>
 
       <h2 className="text-base font-semibold text-foreground">{currentPageTitle}</h2>
