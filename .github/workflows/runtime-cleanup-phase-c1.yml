@@ -1,0 +1,163 @@
+name: Canonical AI Routing Migration C1
+
+on:
+  push:
+    branches:
+      - refactor/platform-independent-runtime
+    paths:
+      - .github/workflows/runtime-cleanup-phase-c1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/platform-independent-runtime
+          fetch-depth: 0
+      - name: Route scoped callers through canonical AI router
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          URLS = (
+              'https://ai.gateway.lovable.dev/v1/chat/completions',
+              'https://api.lovable.dev/v1/chat/completions',
+          )
+
+          CONTEXT = {
+              'supabase/functions/business-insight-ai/index.ts': '{ workspaceId: workspace_id || undefined, userId: user_id, authHeader, taskType: "balanced" }',
+              'supabase/functions/business-scan-extract/index.ts': '{ workspaceId: workspace_id, userId: userData.user.id, authHeader, taskType: "balanced" }',
+              'supabase/functions/dedicated-ai-reply/index.ts': '{ workspaceId: bizProfile.workspace_id, userId: user_id, taskType: "sales_reply" }',
+              'supabase/functions/email-poll/index.ts': '{ workspaceId: channel.workspace_id, userId: channel.user_id, taskType: "customer_support" }',
+              'supabase/functions/generate-business-content/index.ts': '{ workspaceId: workspace_id, userId: actorId, authHeader, taskType: "marketing_copy" }',
+              'supabase/functions/generate-content/index.ts': '{ userId, authHeader, taskType: "marketing_copy" }',
+              'supabase/functions/generate-reply/index.ts': '{ workspaceId: businessProfile.workspace_id, userId: user_id, taskType: "sales_reply" }',
+              'supabase/functions/ingest-document/index.ts': '{ workspaceId: business.workspace_id, userId, authHeader, taskType: "rag" }',
+              'supabase/functions/ingest-website/index.ts': '{ workspaceId: business.workspace_id, userId, authHeader, taskType: "rag" }',
+          }
+
+          def matching_paren(text: str, open_index: int) -> int:
+              depth = 0
+              i = open_index
+              quote = None
+              escape = False
+              line_comment = False
+              block_comment = False
+              while i < len(text):
+                  ch = text[i]
+                  nxt = text[i + 1] if i + 1 < len(text) else ''
+                  if line_comment:
+                      if ch == '\n': line_comment = False
+                      i += 1; continue
+                  if block_comment:
+                      if ch == '*' and nxt == '/': block_comment = False; i += 2; continue
+                      i += 1; continue
+                  if quote:
+                      if escape: escape = False
+                      elif ch == '\\': escape = True
+                      elif ch == quote: quote = None
+                      i += 1; continue
+                  if ch == '/' and nxt == '/': line_comment = True; i += 2; continue
+                  if ch == '/' and nxt == '*': block_comment = True; i += 2; continue
+                  if ch in ('"', "'", '`'): quote = ch; i += 1; continue
+                  if ch == '(': depth += 1
+                  elif ch == ')':
+                      depth -= 1
+                      if depth == 0: return i
+                  i += 1
+              raise RuntimeError('unmatched parenthesis')
+
+          def migrate_fetches(text: str, context: str) -> tuple[str, int]:
+              count = 0
+              search_from = 0
+              while True:
+                  candidates = []
+                  for url in URLS:
+                      marker = f'fetch("{url}",'
+                      idx = text.find(marker, search_from)
+                      if idx >= 0: candidates.append((idx, marker))
+                  if not candidates: break
+                  idx, marker = min(candidates, key=lambda item: item[0])
+                  open_fetch = text.find('(', idx)
+                  close_fetch = matching_paren(text, open_fetch)
+                  call = text[idx:close_fetch + 1]
+                  body_marker = 'body: JSON.stringify('
+                  body_pos = call.find(body_marker)
+                  if body_pos < 0:
+                      raise RuntimeError(f'gateway call without JSON.stringify body near {idx}')
+                  body_open = call.find('(', body_pos + len('body: JSON.stringify'))
+                  body_close = matching_paren(call, body_open)
+                  body_expr = call[body_open + 1:body_close].strip()
+                  replacement = f'routerChatCompletion({body_expr}, {context})'
+                  text = text[:idx] + replacement + text[close_fetch + 1:]
+                  search_from = idx + len(replacement)
+                  count += 1
+              return text, count
+
+          for path_str, context in CONTEXT.items():
+              path = Path(path_str)
+              text = path.read_text(encoding='utf-8')
+              original = text
+
+              # Import the thin compatibility adapter over the canonical router.
+              if 'router-chat-compat.ts' not in text:
+                  import_line = 'import { routerChatCompletion } from "../_shared/router-chat-compat.ts";\n'
+                  anchor = re.search(r'(import .*?;\n)(?!import )', text)
+                  if anchor:
+                      insert_at = anchor.end(1)
+                      text = text[:insert_at] + import_line + text[insert_at:]
+                  else:
+                      text = import_line + text
+
+              # Remove legacy provider secrets and key-gated branches.
+              text = re.sub(r'^\s*const LOVABLE_API_KEY = Deno\.env\.get\("LOVABLE_API_KEY"\);\s*\n', '', text, flags=re.M)
+              text = re.sub(r'^\s*const lovableKey = Deno\.env\.get\("LOVABLE_API_KEY"\);\s*\n', '', text, flags=re.M)
+              text = re.sub(r'^\s*if \(!LOVABLE_API_KEY\) throw new Error\([^\n]+\);\s*\n', '', text, flags=re.M)
+              text = re.sub(r'^\s*if \(!lovableKey\) throw new Error\([^\n]+\);\s*\n', '', text, flags=re.M)
+              text = text.replace('if (lovableKey) {', '{')
+              text = text.replace('if (LOVABLE_API_KEY) {', '{')
+              text = text.replace('if (markdown.length > 100 && LOVABLE_API_KEY) {', 'if (markdown.length > 100) {')
+
+              text, migrated = migrate_fetches(text, context)
+              if migrated == 0:
+                  raise RuntimeError(f'No direct gateway call migrated in {path_str}')
+
+              remaining = [needle for needle in ('LOVABLE_API_KEY', 'ai.gateway.lovable.dev', 'api.lovable.dev') if needle in text]
+              if remaining:
+                  raise RuntimeError(f'Remaining legacy refs in {path_str}: {remaining}')
+
+              if text == original:
+                  raise RuntimeError(f'No changes in {path_str}')
+              path.write_text(text, encoding='utf-8')
+
+          Path('ai-routing-context.txt').unlink(missing_ok=True)
+          Path('.github/workflows/runtime-cleanup-phase-c1.yml').unlink(missing_ok=True)
+          PY
+      - name: Scoped reference gate
+        run: |
+          for f in \
+            supabase/functions/business-insight-ai/index.ts \
+            supabase/functions/business-scan-extract/index.ts \
+            supabase/functions/dedicated-ai-reply/index.ts \
+            supabase/functions/email-poll/index.ts \
+            supabase/functions/generate-business-content/index.ts \
+            supabase/functions/generate-content/index.ts \
+            supabase/functions/generate-reply/index.ts \
+            supabase/functions/ingest-document/index.ts \
+            supabase/functions/ingest-website/index.ts; do
+            ! grep -E 'LOVABLE_API_KEY|ai\.gateway\.lovable\.dev|api\.lovable\.dev' "$f"
+            grep -q 'routerChatCompletion' "$f"
+          done
+      - name: Commit C1 migration
+        run: |
+          git config user.name "MuslimBram"
+          git config user.email "223172034+MuslimBram@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: route scoped AI callers through canonical router"
+          git push origin HEAD:refactor/platform-independent-runtime
