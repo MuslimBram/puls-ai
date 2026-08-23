@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/select";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
+import { TeamSizeOrbitSelector, type TeamSizeValue } from "@/components/leads/TeamSizeOrbitSelector";
 
 interface PublicLeadFormProps {
   targetWorkspaceId?: string;
@@ -63,14 +64,14 @@ export function PublicLeadForm({
     [t],
   );
 
-  const teamSizes = useMemo(
-    () => [
-      { value: "1", label: t("leadForm.teamSizes.one") },
-      { value: "2-5", label: t("leadForm.teamSizes.twoToFive") },
-      { value: "6-15", label: t("leadForm.teamSizes.sixToFifteen") },
-      { value: "16-50", label: t("leadForm.teamSizes.sixteenToFifty") },
-      { value: "50+", label: t("leadForm.teamSizes.fiftyPlus") },
-    ],
+  const teamSizeLabels = useMemo<Record<TeamSizeValue, string>>(
+    () => ({
+      "1": t("leadForm.teamSizes.one"),
+      "2-5": t("leadForm.teamSizes.twoToFive"),
+      "6-15": t("leadForm.teamSizes.sixToFifteen"),
+      "16-50": t("leadForm.teamSizes.sixteenToFifty"),
+      "50+": t("leadForm.teamSizes.fiftyPlus"),
+    }),
     [t],
   );
 
@@ -191,7 +192,7 @@ export function PublicLeadForm({
       </div>
 
       {showPlanSelect && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-4">
           <div className="space-y-1">
             <label className="text-xs text-muted-foreground">
               {t("leadForm.fields.interestedPlan")}
@@ -214,27 +215,16 @@ export function PublicLeadForm({
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1">
+
+          <div className="space-y-2">
             <label className="text-xs text-muted-foreground">
               {t("leadForm.fields.teamSize")}
             </label>
-            <Select
-              value={form.team_size}
-              onValueChange={(v) =>
-                setForm((f) => ({ ...f, team_size: v }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={t("leadForm.placeholders.teamSize")} />
-              </SelectTrigger>
-              <SelectContent>
-                {teamSizes.map((size) => (
-                  <SelectItem key={size.value} value={size.value}>
-                    {size.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <TeamSizeOrbitSelector
+              value={form.team_size as TeamSizeValue | ""}
+              labels={teamSizeLabels}
+              onChange={(teamSize) => setForm((f) => ({ ...f, team_size: teamSize }))}
+            />
           </div>
         </div>
       )}
