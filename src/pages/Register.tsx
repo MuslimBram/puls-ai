@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
 import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Users, Palette } from "lucide-react";
 import { formatALL } from "@/lib/currency";
-import { lovable } from "@/integrations/lovable/index";
+import { oauth } from "@/integrations/auth/oauth";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 
@@ -533,7 +533,7 @@ const Register = () => {
                 className="w-full"
                 disabled={loading}
                 onClick={async () => {
-                  const { error } = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
+                  const { error } = await oauth.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
                   if (error) toast.error(String(error));
                 }}
               >
@@ -546,7 +546,7 @@ const Register = () => {
                 className="w-full"
                 disabled={loading}
                 onClick={async () => {
-                  const { error } = await lovable.auth.signInWithOAuth("apple", { redirect_uri: window.location.origin });
+                  const { error } = await oauth.auth.signInWithOAuth("apple", { redirect_uri: window.location.origin });
                   if (error) toast.error(String(error));
                 }}
               >

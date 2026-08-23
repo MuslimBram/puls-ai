@@ -14,17 +14,14 @@ function normalizeRedirectUri(raw?: string) {
     if (parsed.origin !== window.location.origin) return raw;
 
     const isRoot = parsed.pathname === "/" || parsed.pathname === "";
-    if (isRoot) {
-      parsed.pathname = "/auth/callback";
-    }
-
+    if (isRoot) parsed.pathname = "/auth/callback";
     return parsed.toString();
   } catch {
     return fallback;
   }
 }
 
-export const lovable = {
+export const oauth = {
   auth: {
     signInWithOAuth: async (provider: "google" | "apple", opts?: SignInOptions) => {
       const redirectTo = normalizeRedirectUri(opts?.redirect_uri);
