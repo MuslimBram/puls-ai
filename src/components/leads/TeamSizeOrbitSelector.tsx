@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Building2, Building, Users, UserRound, UsersRound } from "lucide-react";
 import { OrbitSelector, type OrbitSelectorItem } from "@/components/OrbitSelector";
 
@@ -15,7 +16,7 @@ const ICONS = {
   "6-15": <UsersRound className="h-5 w-5" aria-hidden="true" />,
   "16-50": <Building className="h-5 w-5" aria-hidden="true" />,
   "50+": <Building2 className="h-5 w-5" aria-hidden="true" />,
-} satisfies Record<TeamSizeValue, React.ReactNode>;
+} satisfies Record<TeamSizeValue, ReactNode>;
 
 const DESCRIPTIONS: Record<TeamSizeValue, string> = {
   "1": "Solo business or independent operator.",
