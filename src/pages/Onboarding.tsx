@@ -12,7 +12,8 @@ import { useNavigate } from "react-router-dom";
 const stepRoutes: Record<string, string> = {
   business_profile: "/business-profile",
   connect_channel: "/connections",
-  import_contacts: "/crm?tab=contacts",
+  // Legacy key retained for stored progress compatibility; the implemented action is creating a CRM deal.
+  import_contacts: "/crm?tab=pipeline",
   upload_knowledge: "/knowledge-base",
   create_automation: "/automations",
 };
