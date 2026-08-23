@@ -1,0 +1,38 @@
+name: AI Routing Context Audit
+
+on:
+  push:
+    branches:
+      - refactor/platform-independent-runtime
+    paths:
+      - .github/workflows/ai-routing-context-audit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/platform-independent-runtime
+          fetch-depth: 0
+      - name: Capture routing context
+        shell: bash
+        run: |
+          files=$(git grep -l -E 'LOVABLE_API_KEY|ai\.gateway\.lovable\.dev|api\.lovable\.dev' -- 'supabase/functions/**/*.ts' || true)
+          : > ai-routing-context.txt
+          for f in $files; do
+            echo "===== $f =====" >> ai-routing-context.txt
+            grep -n -E 'workspace_id|workspaceId|user_id|userId|getUser|Authorization|authorization|req\.json|request\.json|task_type|body\s*=|const \{.*\}.*body' "$f" >> ai-routing-context.txt || true
+            echo >> ai-routing-context.txt
+          done
+          rm .github/workflows/ai-routing-context-audit.yml
+      - name: Commit context snapshot
+        run: |
+          git config user.name "MuslimBram"
+          git config user.email "223172034+MuslimBram@users.noreply.github.com"
+          git add -A
+          git commit -m "chore: capture AI routing migration context"
+          git push origin HEAD:refactor/platform-independent-runtime
