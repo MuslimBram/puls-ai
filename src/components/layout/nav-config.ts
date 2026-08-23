@@ -71,62 +71,14 @@ export interface NavGroup {
 }
 
 // ============================================================
-// OWNER / SUPER_ADMIN — Shikon GJITHÇKA + panel pronarit
+// ADMINISTRATION — isolated from ordinary business navigation
 // ============================================================
 export const ownerNavGroups: NavGroup[] = [
   {
-    label: "Owner Panel",
+    label: "Administration",
     icon: ShieldCheck,
     defaultOpen: true,
     allowedRoles: ["super_admin"],
-    items: [
-      { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
-      { href: "/admin/lidhjet", label: "Lidhjet Moderation", icon: Shield },
-      { href: "/admin/activation", label: "Activation", icon: Activity },
-      { href: "/deep-analytics", label: "Full Analytics", icon: PieChart },
-      { href: "/saas-health", label: "SaaS Health", icon: Brain },
-      { href: "/admin/integration-hub", label: "Integration Hub", icon: Plug },
-    ],
-  },
-  {
-    label: "All Businesses",
-    icon: Building2,
-    allowedRoles: ["super_admin"],
-    items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
-      { href: "/managed-businesses", label: "Businesses", icon: Users },
-      { href: "/leads", label: "Leads", icon: Target },
-      { href: "/crm", label: "CRM", icon: Briefcase },
-      { href: "/inbox", label: "Inbox", icon: Inbox },
-      { href: "/analytics", label: "Analytics", icon: BarChart3 },
-      { href: "/revenue-engine", label: "Revenue Engine", icon: Banknote },
-    ],
-  },
-  {
-    label: "Platform",
-    icon: Rocket,
-    allowedRoles: ["super_admin"],
-    items: [
-      { href: "/subscription", label: "Plans & Billing", icon: CreditCard },
-      { href: "/partner", label: "Partners", icon: Handshake },
-      { href: "/reseller", label: "Resellers", icon: Store },
-      { href: "/wallet", label: "Wallet", icon: Wallet },
-      { href: "/system-status", label: "System Status", icon: Activity },
-      { href: "/session-security", label: "Security", icon: Shield },
-    ],
-  },
-];
-
-// ============================================================
-// ADMIN — Panel i plotë pa Owner controls
-// ============================================================
-export const adminNavGroups: NavGroup[] = [
-  {
-    label: "Admin",
-    icon: ShieldCheck,
-    defaultOpen: true,
-    adminOnly: true,
     items: [
       { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
       { href: "/admin/lidhjet", label: "Lidhjet Moderation", icon: Shield },
@@ -134,123 +86,84 @@ export const adminNavGroups: NavGroup[] = [
       { href: "/admin/integration-hub", label: "Integration Hub", icon: Plug },
       { href: "/deep-analytics", label: "Deep Analytics", icon: PieChart },
       { href: "/saas-health", label: "SaaS Health", icon: Brain },
+      { href: "/system-status", label: "System Status", icon: Activity },
     ],
   },
+];
+
+export const adminNavGroups: NavGroup[] = [
   {
-    label: "Main",
-    icon: LayoutDashboard,
+    label: "Administration",
+    icon: ShieldCheck,
     defaultOpen: true,
+    adminOnly: true,
+    allowedRoles: ["admin", "super_admin"],
     items: [
-      { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
-      { href: "/inbox", label: "Inbox", icon: Inbox, requiredPermission: "canRespondInbox" },
-      { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
-      { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
-      { href: "/campaigns", label: "Campaigns", icon: Megaphone, requiredPermission: "canManageCampaigns" },
-      { href: "/analytics", label: "Analytics", icon: BarChart3, requiredPermission: "canViewAnalytics" },
-    ],
-  },
-  {
-    label: "Businesses & Billing",
-    icon: Building2,
-    items: [
-      { href: "/managed-businesses", label: "Businesses", icon: Users },
-      { href: "/subscription", label: "Billing", icon: CreditCard },
-      { href: "/partner", label: "Partners", icon: Handshake },
-      { href: "/wallet", label: "Wallet", icon: Wallet },
-      { href: "/session-security", label: "Security", icon: Shield },
+      { href: "/admin", label: "Admin Panel", icon: ShieldCheck },
+      { href: "/admin/lidhjet", label: "Lidhjet Moderation", icon: Shield },
+      { href: "/admin/activation", label: "Activation", icon: Activity },
+      { href: "/admin/integration-hub", label: "Integration Hub", icon: Plug },
+      { href: "/deep-analytics", label: "Deep Analytics", icon: PieChart },
+      { href: "/saas-health", label: "SaaS Health", icon: Brain },
+      { href: "/system-status", label: "System Status", icon: Activity },
     ],
   },
 ];
 
 // ============================================================
-// BUSINESS OWNER — Fokus biznesi + AI tools
+// BUSINESS — compact hubs; deeper tools remain available inside each hub
 // ============================================================
 export const businessNavGroups: NavGroup[] = [
   {
-    label: "Main",
+    label: "Core",
     icon: LayoutDashboard,
     defaultOpen: true,
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
       { href: "/inbox", label: "Inbox", icon: Inbox, requiredPermission: "canRespondInbox" },
       { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
       { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
-      { href: "/sales-engine", label: "Sales Engine", icon: Rocket, requiredPermission: "canViewCRM" },
+      { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
+    ],
+  },
+  {
+    label: "Growth",
+    icon: TrendingUp,
+    items: [
       { href: "/campaigns", label: "Campaigns", icon: Megaphone, requiredPermission: "canManageCampaigns" },
+      { href: "/media-studio", label: "Content Studio", icon: Sparkles, requiredPermission: "canManageCampaigns" },
+      { href: "/sources", label: "Business Scanner", icon: Radar, requiredPermission: "canViewAnalytics" },
       { href: "/analytics", label: "Analytics", icon: BarChart3, requiredPermission: "canViewAnalytics" },
     ],
   },
   {
-    label: "Content Studio",
-    icon: Sparkles,
-    requiredPermission: "canManageCampaigns",
-    items: [
-      { href: "/media-studio?tab=generate", label: "Create Content", icon: Wand2 },
-      { href: "/media-studio?tab=generate&type=image", label: "AI Images", icon: ImageIcon },
-      { href: "/media-studio?tab=generate&type=video", label: "AI Video", icon: Video },
-      { href: "/content-calendar?tab=posts", label: "AI Posts", icon: FileText },
-      { href: "/media-studio?tab=gallery", label: "Gallery", icon: Library },
-      { href: "/content-calendar", label: "Calendar", icon: CalendarDays },
-    ],
-  },
-  {
-    label: "Business Scanner",
-    icon: Radar,
-    requiredPermission: "canViewAnalytics",
-    items: [
-      { href: "/sources?type=website", label: "Website", icon: Globe },
-      { href: "/sources?type=product", label: "Products", icon: Package },
-      { href: "/sources?type=social", label: "Social Networks", icon: Radio },
-      { href: "/seo-audit", label: "SEO Analysis", icon: Search },
-      { href: "/competitor-intelligence", label: "Competitors", icon: Radar },
-    ],
-  },
-  {
-    label: "AI Advisor",
-    icon: Brain,
-    requiredPermission: "canConfigureAutomations",
-    items: [
-      { href: "/ai-decisions?focus=posts", label: "Suggested Posts", icon: FileText },
-      { href: "/ai-decisions?focus=offers", label: "Suggested Offers", icon: Lightbulb },
-      { href: "/ai-decisions?focus=replies", label: "Suggested Replies", icon: MessageSquare },
-      { href: "/ai-decisions?focus=campaigns", label: "Suggested Campaigns", icon: Megaphone },
-      { href: "/ai-marketplace", label: "AI Marketplace", icon: Zap },
-      { href: "/ai-training", label: "AI Training Center", icon: Brain },
-      { href: "/integration-wizard", label: "Integration Wizard", icon: Plug },
-    ],
-  },
-  {
-    label: "Automations",
+    label: "Automation",
     icon: Workflow,
-    requiredPermission: "canConfigureAutomations",
     items: [
-      { href: "/automations", label: "Automations", icon: Workflow },
-      { href: "/broadcast", label: "Broadcast", icon: Send },
-      { href: "/telephony", label: "Telephony", icon: Phone },
-      { href: "/helpdesk", label: "Helpdesk", icon: Headphones },
+      { href: "/automations", label: "Automations", icon: Workflow, requiredPermission: "canConfigureAutomations" },
+      { href: "/ai-decisions", label: "AI Advisor", icon: Brain, requiredPermission: "canConfigureAutomations" },
+      { href: "/sales-engine", label: "Sales Engine", icon: Rocket, requiredPermission: "canViewCRM" },
+      { href: "/revenue-engine", label: "Revenue Engine", icon: Banknote, requiredPermission: "canViewAnalytics" },
+      { href: "/telephony", label: "Telephony", icon: Phone, requiredPermission: "canConnectChannels" },
     ],
   },
   {
-    label: "Integrations",
-    icon: Plug,
-    requiredPermission: "canConnectChannels",
-    items: [
-      { href: "/connections", label: "Connections", icon: Plug },
-      { href: "/channels", label: "Channels", icon: Radio },
-      { href: "/connected-accounts", label: "Accounts", icon: Link2 },
-    ],
-  },
-  {
-    label: "Business & Billing",
+    label: "Business",
     icon: Building2,
+    items: [
+      { href: "/managed-businesses", label: "Businesses", icon: Users },
+      { href: "/connections", label: "Connections", icon: Plug, requiredPermission: "canConnectChannels" },
+      { href: "/subscription", label: "Billing", icon: CreditCard, requiredPermission: "canAccessBilling" },
+      { href: "/wallet", label: "Wallet", icon: Wallet },
+      { href: "/partner", label: "Partners", icon: Handshake },
+    ],
+  },
+  {
+    label: "Settings",
+    icon: Shield,
     items: [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
       { href: "/branding", label: "Branding", icon: Paintbrush, requiredPermission: "canAccessBilling" },
-      { href: "/wallet", label: "Wallet", icon: Wallet },
-      { href: "/subscription", label: "Subscription", icon: CreditCard, requiredPermission: "canAccessBilling" },
-      { href: "/partner", label: "Partners", icon: Handshake },
       { href: "/session-security", label: "Security", icon: Shield },
       { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
