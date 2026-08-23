@@ -1,0 +1,30 @@
+name: Onboarding Knowledge Truth Certification
+
+on:
+  pull_request:
+    paths:
+      - "src/hooks/useOnboardingProgress.ts"
+      - "src/hooks/useKnowledgeBase.ts"
+      - "src/pages/KnowledgeBase.tsx"
+      - "src/factory/__tests__/onboardingKnowledgeTruth.test.ts"
+      - ".github/workflows/onboarding-knowledge-truth-certification.yml"
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Targeted knowledge truth test
+        run: npx vitest run src/factory/__tests__/onboardingKnowledgeTruth.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-only-placeholder
+        run: npm run build
