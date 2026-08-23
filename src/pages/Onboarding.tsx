@@ -1,10 +1,12 @@
+import { useMemo, useState, type ReactNode } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { OrbitSelector, type OrbitSelectorItem } from "@/components/OrbitSelector";
 import { useOnboardingProgress } from "@/hooks/useOnboardingProgress";
-import { CheckCircle2, Circle, ArrowRight, Rocket, Gift } from "lucide-react";
+import { ArrowRight, Bot, CheckCircle2, Gift, Rocket, Settings2, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const stepRoutes: Record<string, string> = {
@@ -15,15 +17,38 @@ const stepRoutes: Record<string, string> = {
   create_automation: "/automations",
 };
 
+const stepIcons: Record<string, ReactNode> = {
+  business_profile: <Settings2 className="h-5 w-5" />,
+  connect_channel: <Sparkles className="h-5 w-5" />,
+  import_contacts: <Bot className="h-5 w-5" />,
+  upload_knowledge: <Sparkles className="h-5 w-5" />,
+  create_automation: <Bot className="h-5 w-5" />,
+};
+
 const Onboarding = () => {
   const { steps, completionPct, isComplete } = useOnboardingProgress();
   const navigate = useNavigate();
+  const [selectedStep, setSelectedStep] = useState<string>();
+
+  const openSteps = useMemo<OrbitSelectorItem[]>(
+    () => steps
+      .filter((step) => !step.completed)
+      .map((step) => ({
+        value: step.key,
+        label: step.label,
+        description: step.description,
+        icon: stepIcons[step.key] ?? <Rocket className="h-5 w-5" />,
+      })),
+    [steps],
+  );
+
+  const selectedOpenStep = openSteps.find((step) => step.value === selectedStep);
 
   return (
     <DashboardLayout>
-      <div className="max-w-2xl mx-auto space-y-6">
-        <div className="text-center space-y-2">
-          <Rocket className="h-10 w-10 text-primary mx-auto" />
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="space-y-2 text-center">
+          <Rocket className="mx-auto h-10 w-10 text-primary" />
           <h1 className="text-2xl font-bold">Get Started</h1>
           <p className="text-sm text-muted-foreground">Complete these steps to set up your business and unlock full platform capabilities</p>
         </div>
@@ -51,6 +76,40 @@ const Onboarding = () => {
               <Button size="sm" className="ml-auto" onClick={() => navigate("/dashboard")}>Go to Dashboard</Button>
             </CardContent>
           </Card>
+        )}
+
+        {!isComplete && openSteps.length > 0 && (
+          <section className="space-y-3" aria-labelledby="choose-next-step">
+            <div className="text-center">
+              <h2 id="choose-next-step" className="text-lg font-semibold">Choose what to set up next</h2>
+              <p className="text-xs text-muted-foreground">Options rotate automatically. Nothing is selected until you click it.</p>
+            </div>
+
+            <OrbitSelector
+              ariaLabel="Onboarding setup choices"
+              items={openSteps}
+              selectedValue={selectedStep}
+              onSelect={setSelectedStep}
+              rotationInterval={2500}
+              centralContent={(item) => (
+                <div className="flex flex-col items-center gap-2 px-3 text-center">
+                  <div className="text-primary">{item?.icon}</div>
+                  <span className="text-xs font-semibold sm:text-sm">{item?.label}</span>
+                </div>
+              )}
+            />
+
+            <div className="flex justify-center">
+              <Button
+                disabled={!selectedOpenStep}
+                className="gap-2"
+                onClick={() => selectedOpenStep && navigate(stepRoutes[selectedOpenStep.value] || "/dashboard")}
+              >
+                {selectedOpenStep ? `Start: ${selectedOpenStep.label}` : "Select an option"}
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </section>
         )}
 
         <div className="space-y-3">

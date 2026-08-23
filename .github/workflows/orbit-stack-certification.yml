@@ -1,0 +1,85 @@
+name: Orbit Stack Certification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/components/OrbitSelector.tsx'
+      - 'src/components/OrbitSelector.test.tsx'
+      - 'src/components/register/**'
+      - 'src/components/pricing/PricingDurationSelector.tsx'
+      - 'src/components/pricing/PricingDurationSelector.test.tsx'
+      - 'src/components/leads/**'
+      - 'src/components/marketplace/IndustryPackOrbitSelector.tsx'
+      - 'src/components/marketplace/IndustryPackOrbitSelector.test.tsx'
+      - 'src/components/channels/ChannelOrbitSelector.tsx'
+      - 'src/components/channels/ChannelOrbitSelector.test.tsx'
+      - 'src/pages/Register.tsx'
+      - 'src/pages/Onboarding.tsx'
+      - 'src/pages/Marketplace.tsx'
+      - 'src/pages/Channels.tsx'
+      - 'tests/orbit-e2e/**'
+      - 'playwright.orbit.config.ts'
+      - '.github/workflows/orbit-stack-certification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    env:
+      # Browser smoke tests exercise public UI only. These deterministic CI-only
+      # values prevent the app from crashing at module initialization without
+      # exposing or depending on production Supabase credentials.
+      VITE_SUPABASE_URL: https://orbit-ci.invalid
+      VITE_SUPABASE_PUBLISHABLE_KEY: orbit-ci-public-key
+      VITE_PUBLIC_SITE_URL: http://127.0.0.1:4173
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Orbit stack targeted tests
+        run: >-
+          npx vitest run
+          src/components/OrbitSelector.test.tsx
+          src/components/register/AccountTypeOrbitSelector.test.tsx
+          src/components/pricing/PricingDurationSelector.test.tsx
+          src/components/leads/TeamSizeOrbitSelector.test.tsx
+          src/components/leads/PlanOrbitSelector.test.tsx
+          src/components/marketplace/IndustryPackOrbitSelector.test.tsx
+          src/components/channels/ChannelOrbitSelector.test.tsx
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Desktop and mobile Create Account runtime check
+        run: npx playwright test --config=playwright.orbit.config.ts
+
+      - name: Upload Orbit runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-runtime-evidence
+          path: |
+            test-results/**/register-account-type.png
+            test-results/**/test-failed-*.png
+            test-results/**/trace.zip
+          if-no-files-found: ignore
+          retention-days: 7
