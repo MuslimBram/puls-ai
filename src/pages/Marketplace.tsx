@@ -9,6 +9,7 @@ import { useMarketplacePlugins, useMarketplaceTemplates, useMarketplaceAIPacks }
 import { useIndustryPacks, type IndustryPack } from "@/hooks/useIndustryPacks";
 import { IndustryPackCard } from "@/components/marketplace/IndustryPackCard";
 import { IndustryPackInstallDialog } from "@/components/marketplace/IndustryPackInstallDialog";
+import { IndustryPackOrbitSelector } from "@/components/marketplace/IndustryPackOrbitSelector";
 import { Package, FileText, Brain, Star, Download, Plug, Sparkles, Briefcase } from "lucide-react";
 
 const PluginCard = ({ plugin, installed, onInstall, onToggle, onUninstall }: any) => {
@@ -121,20 +122,34 @@ const Marketplace = () => {
             <TabsTrigger value="installed" className="gap-1"><Sparkles className="h-3 w-3" />Installed</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="industry-packs" className="mt-4">
+          <TabsContent value="industry-packs" className="mt-4 space-y-6">
             {industryPacks.length === 0 ? (
               <Card><CardContent className="py-12 text-center text-muted-foreground">Loading industry packs…</CardContent></Card>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {industryPacks.map((p) => (
-                  <IndustryPackCard
-                    key={p.id}
-                    pack={p}
-                    installed={isIndustryPackInstalled(p.id)}
-                    onPreview={setPreviewPack}
+              <>
+                <div className="space-y-2">
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">Explore starter packs</h2>
+                    <p className="text-xs text-muted-foreground">The orbit is populated from the published Industry Packs catalog. Selecting a pack opens the existing preview; installation still requires explicit confirmation.</p>
+                  </div>
+                  <IndustryPackOrbitSelector
+                    packs={industryPacks}
+                    selectedPackId={previewPack?.id}
+                    onSelect={setPreviewPack}
                   />
-                ))}
-              </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {industryPacks.map((p) => (
+                    <IndustryPackCard
+                      key={p.id}
+                      pack={p}
+                      installed={isIndustryPackInstalled(p.id)}
+                      onPreview={setPreviewPack}
+                    />
+                  ))}
+                </div>
+              </>
             )}
           </TabsContent>
 
