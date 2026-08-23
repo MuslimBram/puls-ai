@@ -62,6 +62,24 @@ describe("Website Wave 8 final preview/release gate", () => {
     }
   });
 
+  it("indexes approved Albanian legal pages while keeping white-label blocked", () => {
+    for (const pathname of [
+      "/privacy",
+      "/terms",
+      "/cookies",
+      "/dpa",
+      "/affiliate-terms",
+      "/refund",
+      "/terms-and-payments",
+    ]) {
+      expect(BLOCKED_SQ_PATHS.has(pathname), pathname).toBe(false);
+      expect(getPublicSeoPolicy(`/sq${pathname}`).indexable, pathname).toBe(true);
+    }
+
+    expect(BLOCKED_SQ_PATHS.has("/white-label")).toBe(true);
+    expect(getPublicSeoPolicy("/sq/white-label").indexable).toBe(false);
+  });
+
   it("sitemaps only eligible public discovery URLs and excludes blocked SQ variants", () => {
     const urls = getIndexablePublicUrls(ORIGIN);
     const sitemap = buildSitemapXml(ORIGIN);
@@ -128,12 +146,17 @@ describe("Website Wave 8 final preview/release gate", () => {
     expect(bot).toContain('localizedPath("/privacy")');
   });
 
-  it("keeps the website release on the current configured domain until the explicit domain migration wave", () => {
+  it("uses pulse-bos.com as the canonical public domain while retaining environment overrides", () => {
     const seo = readFileSync(join(process.cwd(), "src", "lib", "publicSeo.ts"), "utf-8");
     const vite = readFileSync(join(process.cwd(), "vite.config.ts"), "utf-8");
+    const index = readFileSync(join(process.cwd(), "index.html"), "utf-8");
 
-    expect(DEFAULT_PUBLIC_SITE_URL).toBe("https://kohablerjeve.top");
-    expect(seo).not.toContain("pulse-bos.com");
-    expect(vite).not.toContain("pulse-bos.com");
+    expect(DEFAULT_PUBLIC_SITE_URL).toBe("https://pulse-bos.com");
+    expect(seo).toContain("https://pulse-bos.com");
+    expect(vite).toContain("https://pulse-bos.com");
+    expect(index).toContain("%VITE_PUBLIC_SITE_URL%/en");
+    expect(seo).not.toContain("https://kohablerjeve.top");
+    expect(vite).not.toContain("https://kohablerjeve.top");
+    expect(index).not.toContain("https://kohablerjeve.top");
   });
 });
