@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
@@ -237,8 +238,7 @@ serve(async (req) => {
               let suggestedReply = "";
 
               if (matched.length > 0) {
-                const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-                if (LOVABLE_API_KEY) {
+                {
                   try {
                     const { data: profile } = await supabase
                       .from("business_profiles")
@@ -246,10 +246,7 @@ serve(async (req) => {
                       .eq("user_id", channel.user_id)
                       .maybeSingle();
 
-                    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-                      method: "POST",
-                      headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-                      body: JSON.stringify({
+                    const aiRes = await routerChatCompletion({
                         model: "google/gemini-2.5-flash-lite",
                         messages: [
                           {
@@ -276,8 +273,7 @@ serve(async (req) => {
                           },
                         }],
                         tool_choice: { type: "function", function: { name: "analyze_lead" } },
-                      }),
-                    });
+                      }, { workspaceId: channel.workspace_id, userId: channel.user_id, taskType: "customer_support" });
                     if (aiRes.ok) {
                       const aiData = await aiRes.json();
                       const tc = aiData.choices?.[0]?.message?.tool_calls?.[0];
