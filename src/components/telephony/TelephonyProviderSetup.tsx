@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useChannels, ChannelData } from "@/hooks/useChannels";
+import { useChannels } from "@/hooks/useChannels";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
@@ -28,9 +29,9 @@ const STEPS = ["Provider", "Credentials", "Webhook", "Verify"] as const;
 type Step = (typeof STEPS)[number];
 
 export const TelephonyProviderSetup = () => {
-  const { channels, addChannel } = useChannels();
+  const { channels } = useChannels();
+  const { workspace } = useWorkspace();
   const voipChannel = channels.find((c) => c.channel_type === "voip");
-
 
   // Correct Twilio webhook URLs — DO NOT mix up voice and SMS
   const baseUrl = import.meta.env.VITE_SUPABASE_URL + "/functions/v1";
@@ -44,7 +45,6 @@ export const TelephonyProviderSetup = () => {
   const [provider, setProvider] = useState("");
   const [creds, setCreds] = useState<Record<string, string>>({});
   const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
-  const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<{ ok: boolean; detail?: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
@@ -93,23 +93,13 @@ export const TelephonyProviderSetup = () => {
     if (idx > 0) setStep(STEPS[idx - 1]);
   };
 
-  const handleVerify = async () => {
-    // Verification happens server-side during save.
-    // Credentials are verified with Twilio API before being encrypted and stored.
-    // The result is shown via verifyResult state set during handleSave.
-    if (verifyResult?.ok) {
-      toast.success("Credentials verified: " + (verifyResult.detail ?? "OK"));
-    } else {
-      toast.error("Please save credentials first to trigger server-side verification.");
-    }
-  };
-
   const handleSave = async () => {
     setSaving(true);
     try {
       // SECURITY: Credentials saved and verified server-side via Edge Function.
       // Encrypted with TOKEN_ENCRYPTION_KEY before storage.
       // Frontend NEVER calls Twilio API directly or stores raw secrets.
+      if (!workspace?.id) throw new Error("Select a workspace before connecting telephony.");
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.access_token) throw new Error("Not authenticated");
       const res = await fetch(
@@ -123,6 +113,7 @@ export const TelephonyProviderSetup = () => {
           },
           body: JSON.stringify({
             action: "save",
+            workspace_id: workspace.id,
             provider,
             channel_type: "voip",
             account_sid:    creds.account_sid,
@@ -254,7 +245,13 @@ export const TelephonyProviderSetup = () => {
 
         {/* Step: Credentials */}
         {step === "Credentials" && (
-          <div className="space-y-3">
+          <div className="space-y-3 pt-2">
+            <div className="rounded-lg border p-3 bg-primary/5 flex items-center gap-2">
+              <Zap className="h-4 w-4 text-primary" />
+              <span className="text-sm">
+                <strong>Professional</strong> mode — full provider integration
+              </span>
+            </div>
             <p className="text-sm text-muted-foreground">
               Enter your {selectedProvider?.label} credentials. These are stored securely in your workspace only.
             </p>
@@ -318,7 +315,7 @@ export const TelephonyProviderSetup = () => {
         {step === "Verify" && (
           <div className="text-center py-4 space-y-3">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-              {verifying ? (
+              {saving ? (
                 <Loader2 className="h-7 w-7 animate-spin text-primary" />
               ) : verifyResult?.ok ? (
                 <CheckCircle2 className="h-7 w-7 text-[hsl(var(--chart-2))]" />
@@ -329,22 +326,17 @@ export const TelephonyProviderSetup = () => {
               )}
             </div>
             <h3 className="text-sm font-semibold text-foreground">
-              {verifying ? "Verifying..." : verifyResult?.ok ? "Connection verified!" : verifyResult ? "Failed" : "Ready to verify"}
+              {saving ? "Verifying..." : verifyResult?.ok ? "Connection verified!" : verifyResult ? "Failed" : "Ready to verify"}
             </h3>
             {verifyResult?.detail && (
               <p className={cn("text-xs", verifyResult.ok ? "text-[hsl(var(--chart-2))]" : "text-destructive")}>
                 {verifyResult.detail}
               </p>
             )}
-            {!verifying && !verifyResult?.ok && (
-              <Button onClick={handleVerify} size="sm">
-                <Zap className="h-3.5 w-3.5 mr-1" /> Verify Connection
-              </Button>
-            )}
-            {verifyResult?.ok && (
+            {!saving && !verifyResult?.ok && (
               <Button onClick={handleSave} disabled={saving} size="sm">
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <CheckCircle2 className="h-3.5 w-3.5 mr-1" />}
-                Save & Activate
+                <Zap className="h-3.5 w-3.5 mr-1" />
+                Verify & Save
               </Button>
             )}
           </div>

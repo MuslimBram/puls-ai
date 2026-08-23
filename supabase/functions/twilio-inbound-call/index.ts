@@ -35,25 +35,42 @@ serve(async (req) => {
   try {
     const contentType = req.headers.get("content-type") || "";
     const rawBody = await req.text();
+    const url = new URL(req.url);
+    const ivrNodeId = url.searchParams.get("ivr_node");
 
-    // SECURITY: Resolve per-workspace credentials from signed To/Called number.
-    // workspace_id query param alone is NEVER authorization.
-    const calledNumber = extractCalledNumber(rawBody, contentType);
-    const wsCreds = await resolveWorkspaceFromCalledNumber(calledNumber, ["voip","voice"], supabase);
-
-    const sigCheck = await verifyTwilioSignature(
-      req, rawBody, contentType,
-      wsCreds?.decrypted_auth_token
+    // SECURITY: Resolve the workspace from the called number before signature
+    // validation. Query-string workspace_id is routing metadata only and is
+    // never an authorization fallback.
+    const calledNumberForResolution = extractCalledNumber(rawBody, contentType);
+    const wsCreds = await resolveWorkspaceFromCalledNumber(
+      calledNumberForResolution,
+      ["voip", "voice"],
+      supabase,
     );
-    if (!sigCheck.ok) {
-      console.warn(`[twilio-inbound-call] Signature rejected: ${sigCheck.reason} (called=${calledNumber})`);
+
+    if (!wsCreds) {
+      console.warn(`[twilio-inbound-call] Workspace resolution failed (called=${calledNumberForResolution})`);
       return new Response(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`,
         { status: 403, headers: { ...getCors(req), "Content-Type": "application/xml" } },
       );
     }
-    // Use workspace resolved from signed To number, NOT from query param
-    const resolvedWorkspaceId = wsCreds?.workspace_id ?? workspaceId;
+
+    const sigCheck = await verifyTwilioSignature(
+      req,
+      rawBody,
+      contentType,
+      wsCreds.decrypted_auth_token,
+    );
+    if (!sigCheck.ok) {
+      console.warn(`[twilio-inbound-call] Signature rejected: ${sigCheck.reason} (called=${calledNumberForResolution})`);
+      return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>`,
+        { status: 403, headers: { ...getCors(req), "Content-Type": "application/xml" } },
+      );
+    }
+
+    const resolvedWorkspaceId = wsCreds.workspace_id;
     const params: Record<string, string> = {};
     if (contentType.includes("application/x-www-form-urlencoded")) {
       new URLSearchParams(rawBody).forEach((value, key) => { params[key] = value; });
@@ -63,18 +80,7 @@ serve(async (req) => {
     const callerNumber = params.From || params.Caller || "unknown";
     const calledNumber = params.To || params.Called || "unknown";
     const callerName = params.CallerName || null;
-    const digits = params.Digits || null; // DTMF input from <Gather>
-
-    const url = new URL(req.url);
-    const workspaceId = url.searchParams.get("workspace_id");
-    const ivrNodeId = url.searchParams.get("ivr_node"); // Current IVR node
-
-    if (!resolvedWorkspaceId) {
-      return new Response(
-        `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, this number is not configured.</Say><Hangup/></Response>`,
-        { headers: { ...getCors(req), "Content-Type": "application/xml" } }
-      );
-    }
+    const digits = params.Digits || null;
 
     const { data: workspace } = await supabase
       .from("workspaces")
@@ -85,26 +91,31 @@ serve(async (req) => {
     if (!workspace) {
       return new Response(
         `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Sorry, this service is unavailable.</Say><Hangup/></Response>`,
-        { headers: { ...getCors(req), "Content-Type": "application/xml" } }
+        { headers: { ...getCors(req), "Content-Type": "application/xml" } },
       );
     }
 
-    const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status-callback?workspace_id=${workspaceId}`;
-    const inboundUrl = `${supabaseUrl}/functions/v1/twilio-inbound-call?workspace_id=${workspaceId}`;
+    const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status-callback?workspace_id=${resolvedWorkspaceId}`;
+    const inboundUrl = `${supabaseUrl}/functions/v1/twilio-inbound-call?workspace_id=${resolvedWorkspaceId}`;
 
-    // If this is an IVR node callback (with digits or node navigation)
     if (ivrNodeId) {
-      const twiml = await handleIvrNode(supabase, workspaceId, ivrNodeId, digits, inboundUrl, statusCallbackUrl);
+      const twiml = await handleIvrNode(
+        supabase,
+        resolvedWorkspaceId,
+        ivrNodeId,
+        digits,
+        inboundUrl,
+        statusCallbackUrl,
+      );
       return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
     }
 
-    // Initial call — create records first
     if (!digits) {
       const { data: callRecord } = await supabase
         .from("call_records")
         .insert({
           user_id: workspace.owner_id,
-          workspace_id: workspaceId,
+          workspace_id: resolvedWorkspaceId,
           contact_phone: callerNumber,
           contact_name: callerName,
           call_direction: "inbound",
@@ -116,7 +127,7 @@ serve(async (req) => {
         .single();
 
       await supabase.from("active_calls").insert({
-        workspace_id: workspaceId,
+        workspace_id: resolvedWorkspaceId,
         caller_number: callerNumber,
         callee_number: calledNumber,
         caller_name: callerName,
@@ -127,7 +138,6 @@ serve(async (req) => {
       });
     }
 
-    // Check for active IVR flow
     const { data: ivrFlow } = await supabase
       .from("ivr_flows")
       .select("*")
@@ -136,11 +146,8 @@ serve(async (req) => {
       .single();
 
     if (ivrFlow?.nodes && (ivrFlow.nodes as IvrNode[]).length > 0) {
-      // Start IVR flow from first node
       const nodes = ivrFlow.nodes as IvrNode[];
       const edges = ivrFlow.edges as IvrEdge[];
-
-      // Find the greeting/root node (first node or one with no incoming edges)
       const targetIds = new Set(edges.map(e => e.target));
       const rootNode = nodes.find(n => !targetIds.has(n.id)) || nodes[0];
 
@@ -148,7 +155,6 @@ serve(async (req) => {
       return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
     }
 
-    // No IVR — check business hours
     const businessHoursResult = checkBusinessHours(ivrFlow?.settings as Record<string, unknown> | null);
 
     if (!businessHoursResult.isOpen) {
@@ -162,21 +168,23 @@ serve(async (req) => {
       return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
     }
 
-    // Find available agent with queue-based routing
-    const twiml = await routeToAgent(supabase, workspaceId, callSid, callerNumber, statusCallbackUrl);
+    const twiml = await routeToAgent(
+      supabase,
+      resolvedWorkspaceId,
+      callSid,
+      callerNumber,
+      statusCallbackUrl,
+    );
     return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
-
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("twilio-inbound-call error:", msg);
     return new Response(
       `<?xml version="1.0" encoding="UTF-8"?><Response><Say>An error occurred. Please try again.</Say><Hangup/></Response>`,
-      { headers: { ...getCors(req), "Content-Type": "application/xml" }, status: 200 }
+      { headers: { ...getCors(req), "Content-Type": "application/xml" }, status: 200 },
     );
   }
 });
-
-// ─── IVR Runtime Engine ──────────────────────────────────────────
 
 async function handleIvrNode(
   supabase: ReturnType<typeof createClient>,
@@ -189,7 +197,7 @@ async function handleIvrNode(
   const { data: ivrFlow } = await supabase
     .from("ivr_flows")
     .select("*")
-    .eq("workspace_id", resolvedWorkspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("is_active", true)
     .single();
 
@@ -205,7 +213,6 @@ async function handleIvrNode(
     return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Menu option not found.</Say><Hangup/></Response>`;
   }
 
-  // If we have digits input, find the next node based on the edge condition
   if (digits && currentNode.type === "menu") {
     const matchingEdge = edges.find(e =>
       e.source === nodeId && (e.condition === digits || e.label === digits)
@@ -218,11 +225,9 @@ async function handleIvrNode(
       }
     }
 
-    // Invalid digit — replay current menu
     return buildIvrNodeTwiml(currentNode, nodes, edges, inboundUrl, statusCallbackUrl, true);
   }
 
-  // Default: follow the first outgoing edge
   const nextEdge = edges.find(e => e.source === nodeId);
   if (nextEdge) {
     const nextNode = nodes.find(n => n.id === nextEdge.target);
@@ -252,7 +257,6 @@ function buildIvrNodeTwiml(
       if (nextEdge) {
         const nextNode = allNodes.find(n => n.id === nextEdge.target);
         if (nextNode) {
-          // Chain to next node
           return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">${esc(message)}</Say>
@@ -305,7 +309,6 @@ function buildIvrNodeTwiml(
 </Response>`;
       }
 
-      // Transfer to available agent via Twilio Client
       return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">Please hold while we connect you to an agent.</Say>
@@ -349,7 +352,6 @@ function buildIvrNodeTwiml(
 </Response>`;
       }
 
-      // Default: continue to next edge
       const nextEdge = edges.find(e => e.source === node.id);
       if (nextEdge) {
         return `<?xml version="1.0" encoding="UTF-8"?>
@@ -372,18 +374,13 @@ function buildIvrNodeTwiml(
   }
 }
 
-// ─── Business Hours ──────────────────────────────────────────────
-
 function checkBusinessHours(settings: Record<string, unknown> | null): { isOpen: boolean; message: string } {
   if (!settings?.business_hours) {
-    return { isOpen: true, message: "" }; // No hours configured = always open
+    return { isOpen: true, message: "" };
   }
 
   const hours = settings.business_hours as Record<string, { open: string; close: string }>;
-  const timezone = (settings.timezone as string) || "UTC";
-
   const now = new Date();
-  // Simple timezone offset (production should use Intl.DateTimeFormat)
   const dayNames = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
   const dayName = dayNames[now.getUTCDay()];
   const todayHours = hours[dayName];
@@ -411,8 +408,6 @@ function checkBusinessHours(settings: Record<string, unknown> | null): { isOpen:
   };
 }
 
-// ─── Agent Routing ──────────────────────────────────────────────
-
 async function routeToAgent(
   supabase: ReturnType<typeof createClient>,
   workspaceId: string,
@@ -420,27 +415,25 @@ async function routeToAgent(
   callerNumber: string,
   statusCallbackUrl: string,
 ): Promise<string> {
-  // Get call queues ordered by priority
   const { data: queues } = await supabase
     .from("call_queues")
     .select("*")
-    .eq("workspace_id", resolvedWorkspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("is_active", true)
     .order("priority", { ascending: false });
 
-  // Find available agents
   const { data: agents } = await supabase
     .from("agent_telephony_state")
     .select("user_id, sip_extension, telephony_status, calls_handled_today")
-    .eq("workspace_id", resolvedWorkspaceId)
+    .eq("workspace_id", workspaceId)
     .eq("telephony_status", "online");
 
   if (!agents || agents.length === 0) {
-    // No agents — queue or voicemail
     await supabase
       .from("active_calls")
       .update({ status: "queued", updated_at: new Date().toISOString() })
-      .eq("sip_call_id", callSid);
+      .eq("sip_call_id", callSid)
+      .eq("workspace_id", workspaceId);
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -452,16 +445,14 @@ async function routeToAgent(
 </Response>`;
   }
 
-  // Route based on queue strategy
   const strategy = queues?.[0]?.strategy || "round_robin";
   let selectedAgent = agents[0];
 
   if (strategy === "least_busy") {
     selectedAgent = agents.reduce((min, a) =>
-      (a.calls_handled_today || 0) < (min.calls_handled_today || 0) ? a : min
-    , agents[0]);
+      (a.calls_handled_today || 0) < (min.calls_handled_today || 0) ? a : min,
+    agents[0]);
   } else if (strategy === "ring_all") {
-    // Ring all agents simultaneously using <Dial> with multiple <Client> tags
     const clientTags = agents.map(a => `    <Client>${a.user_id}</Client>`).join("\n");
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -474,9 +465,7 @@ ${clientTags}
   <Hangup/>
 </Response>`;
   }
-  // Default round_robin: pick first available (already sorted)
 
-  // Route to selected agent
   if (selectedAgent.sip_extension) {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
@@ -490,7 +479,6 @@ ${clientTags}
 </Response>`;
   }
 
-  // Route via Twilio Client SDK (browser-based)
   return `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Say voice="Polly.Amy">Please hold while we connect you to an agent.</Say>

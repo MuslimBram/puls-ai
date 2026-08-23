@@ -18,12 +18,10 @@ const CORS = {
   "Access-Control-Allow-Headers": "authorization, content-type",
 };
 
-// ── Zëvendëso variablat {{name}}, {{business}}, etj ──────────
 function renderTemplate(template: string, data: Record<string, string>): string {
   return template.replace(/\{\{(\w+)\}\}/g, (_, key) => data[key] ?? "");
 }
 
-// ── Personalizo me AI nëse template ka {{ai_personalize}} ────
 async function personalizeWithAI(
   template: string,
   contactData: Record<string, string>,
@@ -44,8 +42,7 @@ async function personalizeWithAI(
 
   try {
     const personalized = await askAI(
-      `Ti je ekspert shitjesh. Personalizoje këtë mesazh për kontaktin duke e bërë të natyrshëm dhe bindës. 
-Kthe VETËM mesazhin e personalizuar, asgjë tjetër.`,
+      `Ti je ekspert shitjesh. Personalizoje këtë mesazh për kontaktin duke e bërë të natyrshëm dhe bindës. \nKthe VETËM mesazhin e personalizuar, asgjë tjetër.`,
       `Mesazhi bazë: ${base}\nKontakti: ${JSON.stringify(contactData)}`,
       300,
       { workspaceId, taskType: "high_volume" },
@@ -56,7 +53,6 @@ Kthe VETËM mesazhin e personalizuar, asgjë tjetër.`,
   }
 }
 
-// ── Dërgo mesazh sipas kanalit ───────────────────────────────
 async function executeStep(
   supabase: ReturnType<typeof createClient>,
   enrollment: Record<string, unknown>,
@@ -74,15 +70,14 @@ async function executeStep(
   if (variant === "a" && step.variant_a_body) bodyTemplate = step.variant_a_body as string;
   if (variant === "b" && step.variant_b_body) bodyTemplate = step.variant_b_body as string;
 
-  const body = await personalizeWithAI(
-    bodyTemplate,
-    contactData,
-    typeof enrollment.workspace_id === "string"
-      ? enrollment.workspace_id
-      : typeof enrollment.business_id === "string"
-        ? enrollment.business_id
-        : undefined,
-  );
+  const workspaceId = typeof enrollment.workspace_id === "string"
+    ? enrollment.workspace_id
+    : undefined;
+  const userId = typeof enrollment.user_id === "string"
+    ? enrollment.user_id
+    : undefined;
+
+  const body = await personalizeWithAI(bodyTemplate, contactData, workspaceId);
   const subject = renderTemplate((step.subject as string) ?? "", contactData);
   const channel = step.channel as string;
 
@@ -106,10 +101,39 @@ async function executeStep(
     return { success: true };
   }
 
-  if (channel === "whatsapp" || channel === "sms") {
-    const fn = channel === "whatsapp" ? "send-whatsapp-message" : "send-sms";
+  if (channel === "sms") {
+    const internalSecret = Deno.env.get("INTERNAL_WEBHOOK_SECRET");
+    if (!workspaceId || !userId || !internalSecret) {
+      return {
+        success: false,
+        error: "SMS skipped: workspace_id, user_id, and internal security context are required",
+      };
+    }
+
     const res = await fetch(
-      `${Deno.env.get("SUPABASE_URL")}/functions/v1/${fn}`,
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-sms`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getServiceKey()}`,
+          "x-internal-secret": internalSecret,
+        },
+        body: JSON.stringify({
+          to: enrollment.contact_phone,
+          body,
+          workspace_id: workspaceId,
+          user_id: userId,
+        }),
+      }
+    );
+    if (!res.ok) return { success: false, error: `sms dështoi: ${res.status}` };
+    return { success: true };
+  }
+
+  if (channel === "whatsapp") {
+    const res = await fetch(
+      `${Deno.env.get("SUPABASE_URL")}/functions/v1/send-whatsapp-message`,
       {
         method: "POST",
         headers: {
@@ -119,7 +143,7 @@ async function executeStep(
         body: JSON.stringify({ to: enrollment.contact_phone, message: body }),
       }
     );
-    if (!res.ok) return { success: false, error: `${channel} dështoi: ${res.status}` };
+    if (!res.ok) return { success: false, error: `whatsapp dështoi: ${res.status}` };
     return { success: true };
   }
 
@@ -154,7 +178,6 @@ serve(async (req: Request): Promise<Response> => {
   let processed = 0, completed = 0, failed = 0;
 
   try {
-    // ── 1. Gjej enrollments gati për hapin tjetër ────────────
     const { data: enrollments } = await supabase
       .from("sequence_enrollments")
       .select(`
@@ -172,7 +195,6 @@ serve(async (req: Request): Promise<Response> => {
 
       const nextStepOrder = (enrollment.current_step as number) + 1;
 
-      // Merr hapin tjetër
       const { data: step } = await supabase
         .from("sequence_steps")
         .select("*")
@@ -181,7 +203,6 @@ serve(async (req: Request): Promise<Response> => {
         .maybeSingle();
 
       if (!step) {
-        // Nuk ka hap tjetër — sekuenca u kompletua
         await supabase
           .from("sequence_enrollments")
           .update({ status: "completed", completed_at: now })
@@ -190,25 +211,21 @@ serve(async (req: Request): Promise<Response> => {
         continue;
       }
 
-      // Cakto variant A/B nëse hapi ka testing
       let variant = "none";
       if (step.variant_a_body && step.variant_b_body) {
         variant = Math.random() < (step.ab_split_pct ?? 50) / 100 ? "a" : "b";
-        // Ruaj variant te enrollment
         await supabase
           .from("sequence_enrollments")
           .update({ ab_variant: variant })
           .eq("id", enrollment.id);
       }
 
-      // Ekzekuto hapin
       const { success, error: stepError } = await executeStep(
-        supabase, 
+        supabase,
         { ...enrollment, ab_variant: variant } as Record<string, unknown>,
         step as Record<string, unknown>
       );
 
-      // Log ekzekutimin
       await supabase.from("sequence_step_executions").insert({
         enrollment_id: enrollment.id,
         step_id: step.id,
@@ -221,7 +238,6 @@ serve(async (req: Request): Promise<Response> => {
       }).catch(() => {});
 
       if (success) {
-        // Llogarit next_step_at (kur të ekzekutohet hapi i ardhshëm)
         const { data: nextStep } = await supabase
           .from("sequence_steps")
           .select("delay_days, delay_hours")
@@ -259,7 +275,6 @@ serve(async (req: Request): Promise<Response> => {
       JSON.stringify({ success: true, processed, completed, failed }),
       { status: 200, headers: { ...CORS, "Content-Type": "application/json" } }
     );
-
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("sales-sequence-engine error:", msg);

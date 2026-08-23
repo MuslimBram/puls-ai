@@ -1,25 +1,111 @@
 /**
  * save-channel-credentials
  *
- * Server-side only: encrypts Twilio/VoIP credentials before storage.
- * Frontend NEVER sends credentials to Twilio or stores plaintext secrets.
- * Returns only masked metadata (never raw secrets).
- *
- * Actions:
- *   save    — encrypt + store credentials; verify with Twilio API server-side
- *   status  — return masked metadata only (no secrets)
- *   revoke  — clear credentials
+ * Canonical server-side writer for channel credentials.
+ * Secrets are encrypted before storage and are never returned to the client.
  */
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
-import { encryptForStorage, decryptIfNeeded } from "../_shared/token-utils.ts";
+import { encryptForStorage } from "../_shared/token-utils.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
-    status, headers: { ...getCors(req), "Content-Type": "application/json" },
+    status,
+    headers: { ...getCors(req), "Content-Type": "application/json" },
   });
+
+const SECRET_EXACT_KEYS = new Set([
+  "password",
+  "token",
+  "secret",
+  "api_key",
+  "service_account_json",
+  "private_key",
+  "credentials",
+]);
+
+function normalizeCredentialKey(key: string): string {
+  return key.trim().toLowerCase().replace(/[\s-]+/g, "_");
+}
+
+function isSensitiveCredentialKey(key: string): boolean {
+  const normalized = normalizeCredentialKey(key);
+  return SECRET_EXACT_KEYS.has(normalized)
+    || normalized.endsWith("_token")
+    || normalized.endsWith("_secret")
+    || normalized.endsWith("_password")
+    || normalized.endsWith("_private_key");
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+async function encryptCredentialValue(value: string): Promise<string> {
+  // Preserve already-encrypted values during an opportunistic legacy cleanup.
+  return value.startsWith("enc:") ? value : await encryptForStorage(value);
+}
+
+async function partitionSettings(input: unknown): Promise<{
+  safe: Record<string, unknown>;
+  encrypted: Record<string, string>;
+}> {
+  const safe: Record<string, unknown> = {};
+  const encrypted: Record<string, string> = {};
+
+  for (const [key, value] of Object.entries(asRecord(input))) {
+    if (value === undefined) continue;
+
+    if (isSensitiveCredentialKey(key)) {
+      if (value === null || value === "") continue;
+      if (typeof value !== "string") {
+        throw new Error(`Sensitive channel field '${key}' must be a string`);
+      }
+      encrypted[key] = await encryptCredentialValue(value);
+      continue;
+    }
+
+    safe[key] = value;
+  }
+
+  return { safe, encrypted };
+}
+
+function encryptedStringRecord(value: unknown): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, item] of Object.entries(asRecord(value))) {
+    if (typeof item === "string" && item) result[key] = item;
+  }
+  return result;
+}
+
+/**
+ * Transitional compatibility for older VoIP consumers that still read
+ * settings.auth_token/api_key_secret. Only the already-encrypted `enc:` value
+ * is copied; plaintext is never written here. Browser channel queries exclude
+ * settings entirely. Remove this bridge after all VoIP readers use
+ * credentials_encrypted in production.
+ */
+function addVoipCiphertextCompatibility(
+  channelType: string,
+  safeSettings: Record<string, unknown>,
+  encryptedCredentials: Record<string, string>,
+): Record<string, unknown> {
+  if (channelType !== "voip" && channelType !== "voice") return safeSettings;
+
+  const compatible = { ...safeSettings };
+  if (encryptedCredentials.auth_token) {
+    compatible.auth_token = encryptedCredentials.auth_token;
+  }
+  if (encryptedCredentials.api_key_secret) {
+    compatible.api_key_secret = encryptedCredentials.api_key_secret;
+  }
+  return compatible;
+}
 
 /** Mask a secret for safe client display */
 function maskSecret(s: string | null | undefined): string {
@@ -36,61 +122,150 @@ async function verifyTwilioCredentials(
   try {
     const res = await fetch(
       `https://api.twilio.com/2010-04-01/Accounts/${accountSid}.json`,
-      { headers: { Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}` } }
+      { headers: { Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}` } },
     );
     if (res.ok) {
-      const d = await res.json() as any;
-      return { ok: true, detail: `Verified: ${d.friendly_name ?? accountSid}` };
+      const d = await res.json() as Record<string, unknown>;
+      return { ok: true, detail: `Verified: ${String(d.friendly_name ?? accountSid)}` };
     }
     if (res.status === 401) return { ok: false, detail: "Invalid Account SID or Auth Token" };
     return { ok: false, detail: `Twilio returned ${res.status}` };
-  } catch (e: any) {
-    return { ok: false, detail: `Verification failed: ${e.message}` };
+  } catch (error) {
+    return {
+      ok: false,
+      detail: `Verification failed: ${error instanceof Error ? error.message : "Unknown error"}`,
+    };
   }
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method !== "POST") return json(req, { error: "POST required" }, 405);
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
     getServiceKey()!,
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 
   try {
     const auth = req.headers.get("Authorization") ?? "";
     if (!auth.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
-    const { data: { user }, error: ue } = await sb.auth.getUser(auth.slice(7));
-    if (ue || !user) return json(req, { error: "Unauthorized" }, 401);
+    const { data: { user }, error: userError } = await sb.auth.getUser(auth.slice(7));
+    if (userError || !user) return json(req, { error: "Unauthorized" }, 401);
 
-    const body = await req.json();
-    const action: string = body.action ?? "save";
-    const workspaceId: string = body.workspace_id ?? user.id;
+    const body = asRecord(await req.json());
+    const action = String(body.action ?? "save");
+    const workspaceId = String(body.workspace_id ?? user.id).trim();
 
-    // Workspace membership check
-    const { data: member } = await sb.rpc("is_workspace_member",
-      { _user_id: user.id, _workspace_id: workspaceId }).maybeSingle();
-    // Fallback: user owns workspace if membership check not available
-    const { data: owned } = await sb.from("workspaces")
-      .select("id").eq("id", workspaceId).eq("owner_id", user.id).maybeSingle();
-    if (!member && !owned) return json(req, { error: "Forbidden: not a workspace member" }, 403);
+    if (!workspaceId) return json(req, { error: "workspace_id required" }, 400);
 
-    // ── SAVE ──────────────────────────────────────────────────────────────
+    // Every write/status/revoke operation is workspace-authorized server-side.
+    const [{ data: member }, { data: owned }] = await Promise.all([
+      sb.rpc("is_workspace_member", { _user_id: user.id, _workspace_id: workspaceId }),
+      sb.from("workspaces").select("id").eq("id", workspaceId).eq("owner_id", user.id).maybeSingle(),
+    ]);
+    if (!member && !owned) {
+      return json(req, { error: "Forbidden: not a workspace member" }, 403);
+    }
+
+    // ── GENERIC CHANNEL SAVE ──────────────────────────────────────────────
+    // Used by the browser-facing channel setup flows. The server, not the
+    // browser, decides which fields are sensitive.
+    if (action === "save_generic") {
+      if (!body.workspace_id) return json(req, { error: "workspace_id required" }, 400);
+
+      const channelType = String(body.channel_type ?? "").trim();
+      const channelName = String(body.channel_name ?? channelType).trim();
+      if (!channelType) return json(req, { error: "channel_type required" }, 400);
+      if (!channelName) return json(req, { error: "channel_name required" }, 400);
+
+      const incoming = await partitionSettings(body.settings);
+
+      const { data: existing, error: existingError } = await sb
+        .from("channels")
+        .select("id,settings,credentials_encrypted")
+        .eq("workspace_id", workspaceId)
+        .eq("channel_type", channelType)
+        .limit(1)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      // Opportunistically clean legacy rows whenever a channel is re-saved:
+      // sensitive top-level keys formerly stored in settings are moved into the
+      // encrypted credential bag, without double-encrypting enc: values.
+      const legacy = await partitionSettings(existing?.settings);
+      const existingEncrypted = encryptedStringRecord(existing?.credentials_encrypted);
+      const safeSettings = { ...legacy.safe, ...incoming.safe };
+      const encryptedCredentials = {
+        ...existingEncrypted,
+        ...legacy.encrypted,
+        ...incoming.encrypted,
+      };
+      const storageSettings = addVoipCiphertextCompatibility(
+        channelType,
+        safeSettings,
+        encryptedCredentials,
+      );
+
+      const common = {
+        channel_name: channelName,
+        channel_type: channelType,
+        workspace_id: workspaceId,
+        is_enabled: true,
+        connection_mode: body.connection_mode ?? "professional",
+        account_type: body.account_type ?? "unknown",
+        capabilities: Array.isArray(body.capabilities) ? body.capabilities : [],
+        provider_metadata: asRecord(body.provider_metadata),
+        settings: storageSettings,
+        credentials_encrypted: encryptedCredentials,
+        updated_at: new Date().toISOString(),
+      };
+
+      let channelId: string;
+      if (existing?.id) {
+        const { data: updated, error } = await sb
+          .from("channels")
+          .update(common)
+          .eq("id", existing.id)
+          .eq("workspace_id", workspaceId)
+          .select("id")
+          .single();
+        if (error || !updated) throw error || new Error("Failed to update channel");
+        channelId = updated.id;
+      } else {
+        const { data: created, error } = await sb
+          .from("channels")
+          .insert({ ...common, user_id: user.id })
+          .select("id")
+          .single();
+        if (error || !created) throw error || new Error("Failed to create channel");
+        channelId = created.id;
+      }
+
+      return json(req, {
+        ok: true,
+        channel_id: channelId,
+        configured_credential_keys: Object.keys(encryptedCredentials).sort(),
+      });
+    }
+
+    // ── TWILIO / VOIP SAVE ────────────────────────────────────────────────
     if (action === "save") {
-      const {
-        provider = "twilio",
-        account_sid, auth_token, phone_number,
-        twiml_app_sid, api_key_sid, api_key_secret,
-        channel_type = "voip",
-      } = body;
+      const provider = String(body.provider ?? "twilio");
+      const accountSid = String(body.account_sid ?? "").trim();
+      const authToken = String(body.auth_token ?? "").trim();
+      const phoneNumber = body.phone_number ? String(body.phone_number) : null;
+      const twimlAppSid = body.twiml_app_sid ? String(body.twiml_app_sid) : null;
+      const apiKeySid = body.api_key_sid ? String(body.api_key_sid) : null;
+      const apiKeySecret = body.api_key_secret ? String(body.api_key_secret) : null;
+      const channelType = String(body.channel_type ?? "voip");
 
-      if (!account_sid || !auth_token) {
+      if (!accountSid || !authToken) {
         return json(req, { error: "account_sid and auth_token required" }, 400);
       }
 
-      // VERIFY server-side BEFORE storing
-      const verification = await verifyTwilioCredentials(account_sid, auth_token);
+      const verification = await verifyTwilioCredentials(accountSid, authToken);
       if (!verification.ok) {
         return json(req, {
           error: "Credential verification failed",
@@ -99,81 +274,108 @@ Deno.serve(async (req) => {
         }, 400);
       }
 
-      // Encrypt ALL secrets before storage
-      const [encAuthToken, encApiKeySecret] = await Promise.all([
-        encryptForStorage(auth_token),
-        api_key_secret ? encryptForStorage(api_key_secret) : Promise.resolve(null),
-      ]);
-
-      const settings: Record<string, string | null> = {
-        provider,
-        account_sid,                          // SID is not a secret (safe to store plaintext)
-        auth_token: encAuthToken,             // encrypted
-        phone_number: phone_number ?? null,
-        twiml_app_sid: twiml_app_sid ?? null, // not a secret
-        api_key_sid: api_key_sid ?? null,     // not a secret
-        api_key_secret: encApiKeySecret,      // encrypted
+      const encryptedCredentials: Record<string, string> = {
+        auth_token: await encryptCredentialValue(authToken),
       };
+      if (apiKeySecret) {
+        encryptedCredentials.api_key_secret = await encryptCredentialValue(apiKeySecret);
+      }
 
-      // Remove nulls
-      Object.keys(settings).forEach(k => settings[k] === null && delete settings[k]);
+      const safeSettings: Record<string, unknown> = { provider, account_sid: accountSid };
+      if (phoneNumber) safeSettings.phone_number = phoneNumber;
+      if (twimlAppSid) safeSettings.twiml_app_sid = twimlAppSid;
+      if (apiKeySid) safeSettings.api_key_sid = apiKeySid;
+      const settings = addVoipCiphertextCompatibility(
+        channelType,
+        safeSettings,
+        encryptedCredentials,
+      );
 
-      // Upsert channel
-      const { data: ch, error: ce } = await sb.from("channels")
-        .upsert({
-          user_id: user.id,
-          workspace_id: workspaceId,
-          channel_type,
-          is_enabled: true,
-          connection_status: "connected",
-          settings,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: "workspace_id,channel_type" })
-        .select("id").single();
+      const { data: existing } = await sb.from("channels")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .eq("channel_type", channelType)
+        .limit(1)
+        .maybeSingle();
 
-      if (ce) throw ce;
+      let channelId: string;
+      if (existing?.id) {
+        const { data: updated, error } = await sb.from("channels")
+          .update({
+            is_enabled: true,
+            connection_status: "connected",
+            settings,
+            credentials_encrypted: encryptedCredentials,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id)
+          .eq("workspace_id", workspaceId)
+          .select("id")
+          .single();
+        if (error || !updated) throw error || new Error("Failed to update channel");
+        channelId = updated.id;
+      } else {
+        const { data: created, error } = await sb.from("channels")
+          .insert({
+            user_id: user.id,
+            workspace_id: workspaceId,
+            channel_type: channelType,
+            channel_name: provider === "twilio" ? "Twilio" : provider,
+            is_enabled: true,
+            connection_status: "connected",
+            settings,
+            credentials_encrypted: encryptedCredentials,
+          })
+          .select("id")
+          .single();
+        if (error || !created) throw error || new Error("Failed to create channel");
+        channelId = created.id;
+      }
 
-      // Return ONLY masked metadata — never raw secrets
       return json(req, {
         ok: true,
         verified: true,
         verification_detail: verification.detail,
-        channel_id: ch?.id,
+        channel_id: channelId,
         masked: {
-          account_sid: account_sid,                    // SID is safe to show
-          auth_token: maskSecret(auth_token),
-          phone_number: phone_number ?? null,
-          api_key_sid: api_key_sid ?? null,
-          api_key_secret: api_key_secret ? maskSecret(api_key_secret) : null,
-          twiml_app_sid: twiml_app_sid ?? null,
+          account_sid: accountSid,
+          auth_token: maskSecret(authToken),
+          phone_number: phoneNumber,
+          api_key_sid: apiKeySid,
+          api_key_secret: apiKeySecret ? maskSecret(apiKeySecret) : null,
+          twiml_app_sid: twimlAppSid,
         },
       });
     }
 
     // ── STATUS ─────────────────────────────────────────────────────────────
     if (action === "status") {
-      const { data: ch } = await sb.from("channels")
-        .select("id,connection_status,is_enabled,settings,updated_at")
+      const channelType = String(body.channel_type ?? "voip");
+      const { data: channel } = await sb.from("channels")
+        .select("id,connection_status,is_enabled,settings,credentials_encrypted,updated_at")
         .eq("workspace_id", workspaceId)
-        .eq("channel_type", body.channel_type ?? "voip")
+        .eq("channel_type", channelType)
         .maybeSingle();
 
-      if (!ch) return json(req, { configured: false });
+      if (!channel) return json(req, { configured: false });
 
-      const s = (ch.settings as Record<string, string>) ?? {};
+      const settings = asRecord(channel.settings);
+      const credentials = encryptedStringRecord(channel.credentials_encrypted);
+      const legacyAuthToken = typeof settings.auth_token === "string" ? settings.auth_token : "";
+      const legacyApiKeySecret = typeof settings.api_key_secret === "string" ? settings.api_key_secret : "";
+
       return json(req, {
         configured: true,
-        connection_status: ch.connection_status,
-        is_enabled: ch.is_enabled,
-        updated_at: ch.updated_at,
-        // NEVER return secrets — only safe fields + masked
+        connection_status: channel.connection_status,
+        is_enabled: channel.is_enabled,
+        updated_at: channel.updated_at,
         masked: {
-          account_sid: s.account_sid ?? null,
-          auth_token: s.auth_token ? "••••••••" : null,
-          phone_number: s.phone_number ?? null,
-          api_key_sid: s.api_key_sid ?? null,
-          api_key_secret: s.api_key_secret ? "••••••••" : null,
-          twiml_app_sid: s.twiml_app_sid ?? null,
+          account_sid: settings.account_sid ?? null,
+          auth_token: credentials.auth_token || legacyAuthToken ? "••••••••" : null,
+          phone_number: settings.phone_number ?? null,
+          api_key_sid: settings.api_key_sid ?? null,
+          api_key_secret: credentials.api_key_secret || legacyApiKeySecret ? "••••••••" : null,
+          twiml_app_sid: settings.twiml_app_sid ?? null,
         },
       });
     }
@@ -185,16 +387,18 @@ Deno.serve(async (req) => {
           is_enabled: false,
           connection_status: "disconnected",
           settings: {},
+          credentials_encrypted: {},
           updated_at: new Date().toISOString(),
         })
         .eq("workspace_id", workspaceId)
-        .eq("channel_type", body.channel_type ?? "voip");
+        .eq("channel_type", String(body.channel_type ?? "voip"));
 
       return json(req, { ok: true, revoked: true });
     }
 
     return json(req, { error: `Unknown action: ${action}` }, 400);
-  } catch (e: any) {
-    return json(req, { error: e.message }, 500);
+  } catch (error) {
+    console.error("[SAVE-CHANNEL-CREDENTIALS]", error);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

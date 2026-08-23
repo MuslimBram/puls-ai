@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 
 export type SendableChannel = "whatsapp" | "instagram" | "facebook" | "sms" | "email" | "telegram";
@@ -37,6 +38,7 @@ const CHANNEL_FUNCTION_MAP: Record<SendableChannel, string> = {
 
 export const useSendMessage = () => {
   const queryClient = useQueryClient();
+  const { workspace } = useWorkspace();
 
   return useMutation({
     mutationFn: async (params: SendMessageParams) => {
@@ -68,11 +70,13 @@ export const useSendMessage = () => {
           };
           break;
         case "sms":
+          if (!workspace?.id) throw new Error("Select a workspace before sending SMS.");
           body = {
             to: params.to,
             body: params.message,
             from: params.from,
             user_id: params.user_id,
+            workspace_id: workspace.id,
           };
           break;
         case "email":

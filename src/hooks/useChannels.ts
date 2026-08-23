@@ -15,27 +15,55 @@ export interface ChannelData {
   settings?: Record<string, unknown>;
 }
 
+const SAFE_CHANNEL_COLUMNS = [
+  "id",
+  "user_id",
+  "workspace_id",
+  "business_id",
+  "channel_type",
+  "channel_name",
+  "connection_mode",
+  "account_type",
+  "capabilities",
+  "provider_metadata",
+  "is_enabled",
+  "connection_status",
+  "last_error",
+  "created_at",
+  "updated_at",
+].join(",");
+
 export const useChannels = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["channels", user?.id],
+    queryKey: ["channels", user?.id, workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("channels")
-        .select("*")
-        .eq("user_id", user!.id)
+        .select(SAFE_CHANNEL_COLUMNS)
+        .eq("workspace_id", workspace!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+
+      // Deliberately never select settings or credentials_encrypted into the
+      // browser. Empty compatibility properties keep legacy UI consumers from
+      // attempting to display secrets while they migrate to masked status APIs.
+      return (data ?? []).map((row) => ({
+        ...row,
+        settings: {} as Record<string, unknown>,
+        credentials_encrypted: {} as Record<string, unknown>,
+      }));
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const addChannel = useMutation({
     mutationFn: async (channel: ChannelData) => {
+      if (!workspace?.id) throw new Error("Select a workspace before connecting a channel.");
+
       const { data: limitCheck, error: limitError } = await supabase.functions.invoke("enforce-limits", {
         body: { action: "add", resource: "channels" },
       });
@@ -44,27 +72,31 @@ export const useChannels = () => {
         throw new Error(limitCheck.error || "Channel limit reached. Please upgrade your plan.");
       }
 
-      const row = {
-        channel_type: channel.channel_type,
-        channel_name: channel.channel_name,
-        connection_mode: channel.connection_mode || "professional",
-        account_type: channel.account_type || "unknown",
-        capabilities: (channel.capabilities || []) as any,
-        provider_metadata: (channel.provider_metadata || {}) as any,
-        settings: (channel.settings ?? {}) as any,
-        credentials_encrypted: {} as any,
-        user_id: user!.id,
-        workspace_id: workspace?.id ?? null,
-      };
-      const { error } = await supabase.from("channels").insert([row]);
-      if (error) throw error;
+      // SECURITY: all channel writes flow through the server-side credential
+      // writer. The server decides which fields are sensitive and encrypts them;
+      // the browser never writes settings/credentials_encrypted directly.
+      const { data, error } = await supabase.functions.invoke("save-channel-credentials", {
+        body: {
+          action: "save_generic",
+          workspace_id: workspace.id,
+          channel_type: channel.channel_type,
+          channel_name: channel.channel_name,
+          connection_mode: channel.connection_mode || "professional",
+          account_type: channel.account_type || "unknown",
+          capabilities: channel.capabilities || [],
+          provider_metadata: channel.provider_metadata || {},
+          settings: channel.settings || {},
+        },
+      });
+      if (error) throw new Error(error.message || "Failed to save channel securely");
+      if (!data?.ok) throw new Error(data?.error || "Failed to save channel securely");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["channels"] });
       queryClient.invalidateQueries({ queryKey: ["connected-channels"] });
       toast.success("Channel added");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (error) => toast.error(error.message),
   });
 
   const updateChannel = useMutation({
@@ -77,7 +109,8 @@ export const useChannels = () => {
           ...(updates.capabilities && { capabilities: updates.capabilities as any }),
           ...(updates.provider_metadata && { provider_metadata: updates.provider_metadata as any }),
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("workspace_id", workspace!.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -85,12 +118,17 @@ export const useChannels = () => {
       queryClient.invalidateQueries({ queryKey: ["connected-channels"] });
       toast.success("Channel updated");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (error) => toast.error(error.message),
   });
 
   const toggleChannel = useMutation({
     mutationFn: async ({ id, is_enabled }: { id: string; is_enabled: boolean }) => {
-      const { error } = await supabase.from("channels").update({ is_enabled }).eq("id", id);
+      if (!workspace?.id) throw new Error("Workspace required");
+      const { error } = await supabase
+        .from("channels")
+        .update({ is_enabled })
+        .eq("id", id)
+        .eq("workspace_id", workspace.id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["channels"] }),
@@ -98,7 +136,12 @@ export const useChannels = () => {
 
   const deleteChannel = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("channels").delete().eq("id", id);
+      if (!workspace?.id) throw new Error("Workspace required");
+      const { error } = await supabase
+        .from("channels")
+        .delete()
+        .eq("id", id)
+        .eq("workspace_id", workspace.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -106,8 +149,15 @@ export const useChannels = () => {
       queryClient.invalidateQueries({ queryKey: ["connected-channels"] });
       toast.success("Channel removed");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (error) => toast.error(error.message),
   });
 
-  return { channels: query.data ?? [], isLoading: query.isLoading, addChannel, updateChannel, toggleChannel, deleteChannel };
+  return {
+    channels: query.data ?? [],
+    isLoading: query.isLoading,
+    addChannel,
+    updateChannel,
+    toggleChannel,
+    deleteChannel,
+  };
 };
