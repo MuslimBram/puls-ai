@@ -19,6 +19,8 @@ on:
       - 'src/pages/Onboarding.tsx'
       - 'src/pages/Marketplace.tsx'
       - 'src/pages/Channels.tsx'
+      - 'tests/orbit-e2e/**'
+      - 'playwright.orbit.config.ts'
       - '.github/workflows/orbit-stack-certification.yml'
 
 permissions:
@@ -56,3 +58,20 @@ jobs:
 
       - name: Production build
         run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Desktop and mobile Create Account runtime check
+        run: npx playwright test --config=playwright.orbit.config.ts
+
+      - name: Upload Orbit runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: orbit-runtime-evidence
+          path: |
+            test-results/**/register-account-type.png
+            test-results/**/trace.zip
+          if-no-files-found: ignore
+          retention-days: 7
