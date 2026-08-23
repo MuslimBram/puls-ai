@@ -11,7 +11,7 @@ const computeManifestVersion = (): string => {
 };
 
 const APP_MANIFEST_VERSION = computeManifestVersion();
-const DEFAULT_PUBLIC_SITE_URL = "https://kohablerjeve.top";
+const DEFAULT_PUBLIC_SITE_URL = "https://pulse-bos.com";
 
 const PUBLIC_PATHS = [
   "/",
@@ -41,13 +41,6 @@ const PUBLIC_PATHS = [
 
 const BLOCKED_SQ_PATHS = new Set([
   "/white-label",
-  "/privacy",
-  "/terms",
-  "/cookies",
-  "/dpa",
-  "/affiliate-terms",
-  "/refund",
-  "/terms-and-payments",
 ]);
 
 const PRIVATE_DISCOVERY_PREFIXES = [
@@ -101,7 +94,7 @@ function buildDiscoveryPlugin(origin: string): Plugin {
     (pathname) => `Disallow: ${pathname}`,
   ).join("\n")}\n\nSitemap: ${origin}/sitemap.xml\n`;
 
-  const llms = `# Pulse AI\n\n> Pulse AI — The AI Business Operating System. One intelligent system to run, automate and grow your business.\n\n## Public discovery\n\n- English: ${origin}/en\n- Albanian: ${origin}/sq\n- Platform: ${origin}/en/platform\n- Pricing: ${origin}/en/pricing\n- Security: ${origin}/en/security\n\n## Localization note\n\nSome Albanian legal and white-label pages remain accessible but are intentionally excluded from indexing until approved Albanian body copy exists. No untranslated page is advertised as a full Albanian equivalent.\n`;
+  const llms = `# Pulse AI\n\n> Pulse AI — The AI Business Operating System. One intelligent system to run, automate and grow your business.\n\n## Public discovery\n\n- English: ${origin}/en\n- Albanian: ${origin}/sq\n- Platform: ${origin}/en/platform\n- Pricing: ${origin}/en/pricing\n- Security: ${origin}/en/security\n\n## Localization note\n\nApproved Albanian public and legal pages are discoverable in SQ. The Albanian white-label page remains intentionally excluded from indexing until approved Albanian body copy exists.\n`;
 
   return {
     name: "pulse-public-discovery",
