@@ -1,0 +1,78 @@
+name: Internal AI System Mode
+
+on:
+  push:
+    branches:
+      - refactor/platform-independent-runtime
+    paths:
+      - .github/workflows/internal-ai-system-mode.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/platform-independent-runtime
+          fetch-depth: 0
+      - name: Add guarded internal no-workspace path
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          p = Path('supabase/functions/_shared/ai-client.ts')
+          t = p.read_text()
+          t = t.replace('    authHeader?: string | null;\n  } = {},', '    authHeader?: string | null;\n    allowInternalNoWorkspace?: boolean;\n  } = {},', 1)
+          t = t.replace('  if (!options.workspaceId && !options.authHeader) {\n    throw new Error("ai-router requires workspace context or verified auth");\n  }', '  if (!options.workspaceId && !options.authHeader && !options.allowInternalNoWorkspace) {\n    throw new Error("ai-router requires workspace context, verified auth, or guarded internal system mode");\n  }')
+          t = t.replace('    maxTokens,\n  });', '    maxTokens,\n    allowInternalNoWorkspace: options.allowInternalNoWorkspace,\n  });', 1)
+          # askAI options block is the second authHeader occurrence
+          marker = '    authHeader?: string | null;\n  } = {},\n): Promise<string>'
+          t = t.replace(marker, '    authHeader?: string | null;\n    allowInternalNoWorkspace?: boolean;\n  } = {},\n): Promise<string>')
+          p.write_text(t)
+
+          p = Path('supabase/functions/_shared/ai-router-helper.ts')
+          t = p.read_text()
+          t = t.replace('  preferCheap?: boolean;\n};', '  preferCheap?: boolean;\n  allowInternalNoWorkspace?: boolean;\n};')
+          t = t.replace('  if (options.preferCheap !== undefined) payload.prefer_cheap = options.preferCheap;\n', '  if (options.preferCheap !== undefined) payload.prefer_cheap = options.preferCheap;\n  if (options.allowInternalNoWorkspace) payload.internal_system_task = true;\n')
+          p.write_text(t)
+
+          p = Path('supabase/functions/_shared/router-chat-compat.ts')
+          t = p.read_text()
+          t = t.replace('  taskType?: string;\n};', '  taskType?: string;\n  allowInternalNoWorkspace?: boolean;\n};')
+          t = t.replace('    authHeader: context.authHeader ?? null,\n  });', '    authHeader: context.authHeader ?? null,\n    allowInternalNoWorkspace: context.allowInternalNoWorkspace,\n  });')
+          p.write_text(t)
+
+          p = Path('supabase/functions/ai-router/index.ts')
+          t = p.read_text()
+          t = t.replace('    provider?: string;\n  };', '    provider?: string;\n    internal_system_task?: boolean;\n  };')
+          t = t.replace('    provider: explicitProvider,\n  } = body;', '    provider: explicitProvider, internal_system_task,\n  } = body;')
+          old = '  const allowInternalNoWorkspaceCustomerSupport =\n    isInternal && normalizedTaskType === "customer_support" && !workspace_id;\n  if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport) {'
+          new = '  const allowInternalNoWorkspaceCustomerSupport =\n    isInternal && normalizedTaskType === "customer_support" && !workspace_id;\n  const allowInternalSystemTask = isInternal && internal_system_task === true && !workspace_id;\n  if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport && !allowInternalSystemTask) {'
+          if old not in t: raise RuntimeError('ai-router workspace guard marker not found')
+          t = t.replace(old, new)
+          p.write_text(t)
+
+          p = Path('src/factory/__tests__/aiHelpBotConsolidationA2.test.ts')
+          t = p.read_text()
+          t = t.replace('expect(router).toContain("if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport)");', 'expect(router).toContain("if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport && !allowInternalSystemTask)");')
+          t = t.replace('expect(router).toContain("allowInternalNoWorkspaceCustomerSupport");', 'expect(router).toContain("allowInternalNoWorkspaceCustomerSupport");\n    expect(router).toContain("allowInternalSystemTask");\n    expect(router).toContain("isInternal && internal_system_task === true");')
+          p.write_text(t)
+
+          Path('.github/workflows/internal-ai-system-mode.yml').unlink(missing_ok=True)
+          PY
+      - name: Focused assertions
+        run: |
+          grep -q 'allowInternalNoWorkspace' supabase/functions/_shared/ai-client.ts
+          grep -q 'internal_system_task' supabase/functions/ai-router/index.ts
+          grep -q 'isInternal && internal_system_task === true' supabase/functions/ai-router/index.ts
+      - name: Commit
+        run: |
+          git config user.name "MuslimBram"
+          git config user.email "223172034+MuslimBram@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: add guarded internal AI system routing"
+          git push origin HEAD:refactor/platform-independent-runtime
