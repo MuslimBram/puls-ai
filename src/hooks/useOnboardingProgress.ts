@@ -16,7 +16,9 @@ const ONBOARDING_STEPS = [
   // Keep the legacy step key so existing stored onboarding progress remains compatible.
   // The product-facing label now reflects the CRM capability that is actually implemented.
   { key: "import_contacts", label: "Add First CRM Deal", description: "Create your first deal in the CRM pipeline" },
-  { key: "upload_knowledge", label: "Upload Knowledge Base", description: "Train AI with your business documents" },
+  // Keep the legacy step key for stored onboarding progress compatibility.
+  // The Knowledge Base supports both website ingestion and document upload, so the label must not imply documents only.
+  { key: "upload_knowledge", label: "Add Knowledge Source", description: "Add a website or document to your AI knowledge base" },
   { key: "create_automation", label: "Create First Automation", description: "Set up an automated workflow" },
 ];
 
