@@ -43,8 +43,10 @@ describe("AI-1A2 Public AI Help Bot Consolidation", () => {
     expect(router).toContain('rpc("is_workspace_member"');
 
     expect(router).toContain("allowInternalNoWorkspaceCustomerSupport");
+    expect(router).toContain("allowInternalSystemTask");
+    expect(router).toContain("isInternal && internal_system_task === true");
     expect(router).toContain('normalizedTaskType === "customer_support"');
-    expect(router).toContain("if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport)");
+    expect(router).toContain("if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport && !allowInternalSystemTask)");
   });
 
   it("fails malformed message payloads safely and preserves frontend escalation contract", () => {

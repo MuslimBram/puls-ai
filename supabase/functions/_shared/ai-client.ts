@@ -26,6 +26,7 @@ export async function callAI(
     workspaceId?: string;
     userId?: string;
     authHeader?: string | null;
+    allowInternalNoWorkspace?: boolean;
   } = {},
 ): Promise<AIResponse> {
   const maxTokens = options.maxTokens ?? 1000;
@@ -39,8 +40,8 @@ export async function callAI(
     .filter((m) => m.role !== "system")
     .map((m) => ({ role: m.role, content: m.content }));
 
-  if (!options.workspaceId && !options.authHeader) {
-    throw new Error("ai-router requires workspace context or verified auth");
+  if (!options.workspaceId && !options.authHeader && !options.allowInternalNoWorkspace) {
+    throw new Error("ai-router requires workspace context, verified auth, or guarded internal system mode");
   }
 
   const text = await callAIRouter(routerMessages, systemMsg, {
@@ -49,6 +50,7 @@ export async function callAI(
     userId: options.userId,
     authHeader: options.authHeader ?? null,
     maxTokens,
+    allowInternalNoWorkspace: options.allowInternalNoWorkspace,
   });
 
   return { text, provider: "ai-router", model: "ai-router" };
@@ -63,6 +65,7 @@ export async function askAI(
     workspaceId?: string;
     userId?: string;
     authHeader?: string | null;
+    allowInternalNoWorkspace?: boolean;
   } = {},
 ): Promise<string> {
   const result = await callAI(

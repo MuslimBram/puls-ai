@@ -542,6 +542,7 @@ serve(async (req: Request): Promise<Response> => {
     prefer_cheap?: boolean;
     plan_tier?: string;
     provider?: string;
+    internal_system_task?: boolean;
   };
   try { body = await req.json(); }
   catch { return json({ error: "Body i pavlefshëm" }, 400); }
@@ -549,7 +550,7 @@ serve(async (req: Request): Promise<Response> => {
   const {
     messages, system_prompt: bodySystemPrompt, system: bodySystem,
     task_type, max_tokens = 800, workspace_id, prefer_cheap = false,
-    provider: explicitProvider,
+    provider: explicitProvider, internal_system_task,
   } = body;
 
   const system_prompt = bodySystemPrompt ?? bodySystem ?? "";
@@ -594,7 +595,8 @@ serve(async (req: Request): Promise<Response> => {
 
   const allowInternalNoWorkspaceCustomerSupport =
     isInternal && normalizedTaskType === "customer_support" && !workspace_id;
-  if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport) {
+  const allowInternalSystemTask = isInternal && internal_system_task === true && !workspace_id;
+  if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport && !allowInternalSystemTask) {
     return json({ error: "Forbidden: not a member of workspace" }, 403);
   }
 

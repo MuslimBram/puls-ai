@@ -28,6 +28,7 @@ type RouterContext = {
   userId?: string;
   authHeader?: string | null;
   taskType?: string;
+  allowInternalNoWorkspace?: boolean;
 };
 
 function stripCodeFence(value: string): string {
@@ -100,6 +101,7 @@ export async function routerChatCompletion(
     workspaceId: context.workspaceId,
     userId: context.userId,
     authHeader: context.authHeader ?? null,
+    allowInternalNoWorkspace: context.allowInternalNoWorkspace,
   });
 
   const content = result.text ?? "";
