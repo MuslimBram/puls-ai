@@ -5,10 +5,10 @@ import { AccountTypeOrbitSelector } from "./AccountTypeOrbitSelector";
 describe("AccountTypeOrbitSelector", () => {
   it("renders the four existing account types", () => {
     render(<AccountTypeOrbitSelector value={null} onChange={vi.fn()} />);
-    expect(screen.getByText("Business")).toBeInTheDocument();
-    expect(screen.getByText("Freelancer")).toBeInTheDocument();
-    expect(screen.getByText("Ambassador")).toBeInTheDocument();
-    expect(screen.getByText("White-Label")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Business/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Freelancer/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Ambassador/i })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /White-Label/i })).toBeInTheDocument();
   });
 
   it("changes account type only after explicit selection", () => {
