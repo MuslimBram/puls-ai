@@ -29,6 +29,13 @@ permissions:
 jobs:
   certify:
     runs-on: ubuntu-latest
+    env:
+      # Browser smoke tests exercise public UI only. These deterministic CI-only
+      # values prevent the app from crashing at module initialization without
+      # exposing or depending on production Supabase credentials.
+      VITE_SUPABASE_URL: https://orbit-ci.invalid
+      VITE_SUPABASE_PUBLISHABLE_KEY: orbit-ci-public-key
+      VITE_PUBLIC_SITE_URL: http://127.0.0.1:4173
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,6 +79,7 @@ jobs:
           name: orbit-runtime-evidence
           path: |
             test-results/**/register-account-type.png
+            test-results/**/test-failed-*.png
             test-results/**/trace.zip
           if-no-files-found: ignore
           retention-days: 7
