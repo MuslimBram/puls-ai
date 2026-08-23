@@ -7,6 +7,7 @@ on:
     paths:
       - 'src/components/OrbitSelector.tsx'
       - 'src/components/OrbitSelector.test.tsx'
+      - 'src/components/register/**'
       - 'src/components/pricing/PricingDurationSelector.tsx'
       - 'src/components/pricing/PricingDurationSelector.test.tsx'
       - 'src/components/leads/**'
@@ -14,6 +15,7 @@ on:
       - 'src/components/marketplace/IndustryPackOrbitSelector.test.tsx'
       - 'src/components/channels/ChannelOrbitSelector.tsx'
       - 'src/components/channels/ChannelOrbitSelector.test.tsx'
+      - 'src/pages/Register.tsx'
       - 'src/pages/Onboarding.tsx'
       - 'src/pages/Marketplace.tsx'
       - 'src/pages/Channels.tsx'
@@ -42,6 +44,7 @@ jobs:
         run: >-
           npx vitest run
           src/components/OrbitSelector.test.tsx
+          src/components/register/AccountTypeOrbitSelector.test.tsx
           src/components/pricing/PricingDurationSelector.test.tsx
           src/components/leads/TeamSizeOrbitSelector.test.tsx
           src/components/leads/PlanOrbitSelector.test.tsx
