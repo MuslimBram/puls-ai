@@ -1,175 +1,76 @@
-import { useState } from "react";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { LegalLayout, Section, InfoCard, type LegalSection } from "@/components/legal/LegalLayout";
-import { formatALL } from "@/lib/currency";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
-
-const COMMISSION_RATE = 0.15;
 
 export default function AffiliateTerms() {
   const { locale } = usePublicLocale();
   const isSq = locale === "sq";
-  const [referrals, setReferrals] = useState(5);
-  const [price, setPrice] = useState(119);
-
-  const validReferrals = Number.isFinite(referrals) ? Math.max(0, referrals) : 0;
-  const validPrice = Number.isFinite(price) ? Math.max(0, price) : 0;
-  const earnings = validReferrals * validPrice * COMMISSION_RATE;
-  const qualifies = validReferrals >= 3;
 
   const sections: LegalSection[] = isSq
     ? [
-        { id: "roles", title: "1. Ambasador vs Freelancer" },
-        { id: "commission", title: "2. Rregullat e komisionit" },
-        { id: "calculator", title: "3. Llogaritësi i komisionit" },
-        { id: "payouts", title: "4. Pagesat" },
+        { id: "programs", title: "1. Programet e referimit dhe partneritetit" },
+        { id: "commission", title: "2. Rregullat e komisionit të partnerit" },
+        { id: "rate", title: "3. Norma e komisionit" },
+        { id: "payouts", title: "4. Konfirmimi dhe pagesat" },
         { id: "conduct", title: "5. Sjellja dhe praktikat e ndaluara" },
         { id: "termination", title: "6. Përfundimi" },
       ]
     : [
-        { id: "roles", title: "1. Ambassador vs Freelancer" },
-        { id: "commission", title: "2. Commission rules" },
-        { id: "calculator", title: "3. Commission calculator" },
-        { id: "payouts", title: "4. Payouts" },
+        { id: "programs", title: "1. Referral and partner programs" },
+        { id: "commission", title: "2. Partner commission rules" },
+        { id: "rate", title: "3. Commission rate" },
+        { id: "payouts", title: "4. Confirmation and payouts" },
         { id: "conduct", title: "5. Conduct and prohibited practices" },
         { id: "termination", title: "6. Termination" },
       ];
 
-  const roleRows = isSq
-    ? [
-        ["Përfitimi kryesor", "Komision në para për referimet", "Akses me zbritje për të menaxhuar workspace-et e klientëve"],
-        ["Komisioni", "15% për gjithë kohëzgjatjen + 15% bonus në pagesën e parë", "15% e vlerës neto të abonimit"],
-        ["Tarifa e menaxhimit", "Nuk aplikohet", "20% e tarifës së menaxhimit që i ngarkohet klientit"],
-        ["Aktiviteti minimal", "Të paktën 3 referime në muaj", "Të paktën 3 biznese aktive të referuara"],
-        ["Vetë-referimi", "Nuk lejohet", "Nuk lejohet"],
-        ["Pronësia e klientit", "Klienti zotëron workspace-in e tij", "Klienti zotëron workspace-in e tij; freelanceri e menaxhon me leje"],
-      ]
-    : [
-        ["Main benefit", "Cash commission on referrals", "Discounted access to manage client workspaces"],
-        ["Commission", "15% lifetime + 15% bonus on the first payment", "15% of the net subscription value"],
-        ["Management fee", "Not applicable", "20% of the management fee charged to the client"],
-        ["Minimum activity", "At least 3 referrals per month", "At least 3 active referred businesses"],
-        ["Self-referral", "Not allowed", "Not allowed"],
-        ["Client ownership", "Client owns their workspace", "Client owns their workspace; freelancer manages with permission"],
-      ];
-
   return (
     <LegalLayout
-      title={isSq ? "Kushtet për Ambasadorë & Freelancerë" : "Ambassador & Freelancer Terms"}
+      title={isSq ? "Kushtet për Referime & Partnerë" : "Referral & Partner Terms"}
       subtitle={isSq
-        ? "Si fitojnë partnerët me Pulse AI: rregullat e komisionit, pragjet e pranueshmërisë, pagesat dhe praktikat e ndaluara."
-        : "How partners earn with Pulse AI: commission rules, eligibility thresholds, payouts and prohibited practices."}
+        ? "Si ndahen referimet e zakonshme të biznesit nga komisionet e partnerëve dhe cilat rregulla zbatohen për pagesën e parë."
+        : "How ordinary business referrals differ from partner commissions and which rules apply to first-payment commissions."}
       description={isSq
-        ? "Kushtet e partnerëve të Pulse AI për Ambasadorë dhe Freelancerë: komision 15% mbi vlerën neto të abonimit, pragjet minimale të referimeve, pagesat dhe rregullat e sjelljes."
-        : "Pulse AI partner terms for Ambassadors and Freelancers: 15% commission on the net subscription value, minimum referral thresholds, payouts and conduct rules."}
+        ? "Kushtet e Pulse AI për referimet dhe partnerët: programet e ndara, komisioni vetëm mbi pagesën e parë dhe norma e konfiguruar për llogarinë aktive të partnerit."
+        : "Pulse AI referral and partner terms: separate programs, first-payment-only commissions, and the rate configured for the active partner account."}
       path="/affiliate-terms"
       sections={sections}
     >
-      <Section id="roles" title={sections[0].title}>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="border-b border-border text-foreground">
-                <th className="text-left py-2 pr-4 font-medium">{isSq ? "Kriteri" : "Criterion"}</th>
-                <th className="text-left py-2 pr-4 font-medium">{isSq ? "Ambasador" : "Ambassador"}</th>
-                <th className="text-left py-2 font-medium">Freelancer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {roleRows.map(([criterion, ambassador, freelancer]) => (
-                <tr key={criterion} className="border-b border-border/50 align-top">
-                  <td className="py-2 pr-4 text-foreground font-medium">{criterion}</td>
-                  <td className="py-2 pr-4">{ambassador}</td>
-                  <td className="py-2">{freelancer}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      <Section id="programs" title={sections[0].title}>
+        <p>{isSq
+          ? "Pulse AI ka mekanizma të ndryshëm për referimet e zakonshme të përdoruesve dhe për llogaritë e partnerëve. Një kod referimi biznesi mund të ketë shpërblimin e vet aktiv, ndërsa komisioni i partnerit menaxhohet nga llogaria dhe kushtet e partnerit. Këto dy programe nuk duhet të interpretohen si i njëjti shpërblim."
+          : "Pulse AI has separate mechanisms for ordinary user referrals and partner accounts. A business referral code may have its own active reward, while partner commission is governed by the partner account and partner terms. These programs should not be interpreted as the same reward."}</p>
       </Section>
 
       <Section id="commission" title={sections[1].title}>
         <ul className="list-disc pl-5 space-y-1.5">
           {(isSq
             ? [
-                "Komisioni fitohet vetëm mbi pagesën e parë të suksesshme të një klienti të referuar.",
-                "Referimi duhet të atribuohet përmes linkut tuaj unik të referimit gjatë regjistrimit.",
-                "Vetëm referimet me status aktiv (të paguara dhe të parimbursuara) llogariten.",
-                "Ambasadorët duhet të gjenerojnë të paktën 3 referime kualifikuese për muaj kalendarik për të mbetur aktivë.",
-                "Abonimet e blera nga partneri për veten nuk gjenerojnë komision.",
-                "Nëse një pagesë e referuar rimbursohet ose kthehet mbrapsht, komisioni përkatës anulohet.",
+                "Komisioni i partnerit gjenerohet vetëm mbi pagesën e parë të suksesshme të workspace-it të referuar.",
+                "Rinovimet, upgrade-et dhe pagesat e përsëritura nuk gjenerojnë komision të ri në rrjedhën standarde të partnerit.",
+                "Partneri duhet të ketë llogari aktive dhe referimi duhet të jetë i atribuar te partneri përkatës.",
+                "Çdo komision regjistrohet vetëm një herë për kombinimin partner + workspace për pagesën e parë.",
               ]
             : [
-                "Commission is earned on the first successful payment of a referred client only.",
-                "The referral must be attributed through your unique referral link at registration.",
-                "Only referrals with status active (paid and not refunded) count.",
-                "Ambassadors must generate at least 3 qualifying referrals per calendar month to remain active.",
-                "Subscriptions purchased by the partner for themselves do not earn commission.",
-                "If a referred payment is refunded or charged back, the related commission is reversed.",
+                "Partner commission is generated only on the first successful payment of the referred workspace.",
+                "Renewals, upgrades, and recurring payments do not generate a new commission in the standard partner flow.",
+                "The partner must have an active account and the referral must be attributed to that partner.",
+                "A first-payment commission is recorded only once for each partner + workspace combination.",
               ]).map((item) => <li key={item}>{item}</li>)}
         </ul>
       </Section>
 
-      <Section id="calculator" title={sections[2].title}>
-        <div className="rounded-xl border border-border p-5 space-y-4">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="referrals">{isSq ? "Klientë të referuar në muaj" : "Referred clients per month"}</Label>
-              <Input
-                id="referrals"
-                type="number"
-                min={0}
-                value={referrals}
-                onChange={(e) => setReferrals(Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="price">{isSq ? "Çmimi i planit (EUR / muaj)" : "Plan price (EUR / month)"}</Label>
-              <Input
-                id="price"
-                type="number"
-                min={0}
-                value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
-              />
-            </div>
-          </div>
-          <div className="rounded-lg bg-muted/50 p-4">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">
-              {isSq ? "Komision i vlerësuar (15% e vlerës neto të abonimit)" : "Estimated commission (15% of net subscription value)"}
-            </div>
-            <div className="text-2xl font-semibold text-foreground">{formatALL(earnings)}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {qualifies
-                ? (isSq ? "Plotëson minimumin prej 3 referimesh në muaj." : "Meets the minimum of 3 referrals per month.")
-                : (isSq ? "Nën minimumin prej 3 referimesh në muaj; komisioni nuk paguhet për atë muaj." : "Below the minimum of 3 referrals per month; commission is not paid out for that month.")}
-            </p>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {isSq
-              ? "Vetëm vlerësim ilustrues. Shumat reale varen nga pagesat e konfirmuara të regjistruara në dashboard-in tuaj të partnerit."
-              : "Illustrative estimate only. Actual amounts depend on confirmed payments recorded in your partner dashboard."}
-          </p>
-        </div>
+      <Section id="rate" title={sections[2].title}>
+        <InfoCard title={isSq ? "Normë e konfiguruar, jo përqindje publike fikse" : "Configured rate, not a fixed public percentage"}>
+          <p>{isSq
+            ? "Norma e komisionit merret nga llogaria aktive e partnerit dhe mund të ndryshojë sipas marrëveshjes ose konfigurimit të partnerit. Ky dokument nuk premton një përqindje fikse ose komision për gjithë kohëzgjatjen e abonimit."
+            : "The commission rate is taken from the active partner account and may vary by partner agreement or configuration. This document does not promise a fixed percentage or lifetime recurring commission."}</p>
+        </InfoCard>
       </Section>
 
       <Section id="payouts" title={sections[3].title}>
-        <InfoCard title={isSq ? "Kushtet e pagesës" : "Payout terms"}>
-          <ul className="list-disc pl-5 space-y-1">
-            {(isSq
-              ? [
-                  "Komisionet konfirmohen pasi mbyllet afati i rimbursimit për pagesën e referuar.",
-                  "Pagesat kërkohen nga portofoli i partnerit drejt PayPal ose Payoneer.",
-                  "Partnerët janë përgjegjës për deklarimin dhe pagesën e tatimeve të tyre.",
-                ]
-              : [
-                  "Commissions are confirmed after the refund window of the referred payment closes.",
-                  "Payouts are requested from the partner wallet to PayPal or Payoneer.",
-                  "Partners are responsible for declaring and paying their own taxes.",
-                ]).map((item) => <li key={item}>{item}</li>)}
-          </ul>
-        </InfoCard>
+        <p>{isSq
+          ? "Komisionet e krijuara regjistrohen në sistemin e partnerit dhe i nënshtrohen statusit të komisionit, verifikimit të pagesës burimore dhe rregullave aktive të pagesës së partnerit. Shuma e shfaqur në llogarinë e partnerit është burimi operacional për komisionin përkatës."
+          : "Generated commissions are recorded in the partner system and remain subject to commission status, verification of the source payment, and the active partner payout rules. The amount shown in the partner account is the operational source for that commission."}</p>
       </Section>
 
       <Section id="conduct" title={sections[4].title}>
@@ -177,23 +78,23 @@ export default function AffiliateTerms() {
           {(isSq
             ? [
                 "Nuk lejohet spam-i, mesazhet masive të pakërkuara ose reklamat mashtruese.",
-                "Nuk lejohet ofertimi mbi termat e markës Pulse AI në kërkimet me pagesë pa miratim me shkrim.",
                 "Nuk lejohen llogari të rreme, vetë-referime ose regjistrime të stimuluara që nuk synojnë ta përdorin produktin.",
                 "Nuk lejohen premtime për rezultate të garantuara të të ardhurave në emër të Pulse AI.",
+                "Partneri nuk duhet të reklamojë një normë komisioni ose shpërblimi që nuk përputhet me konfigurimin e tij aktiv."
               ]
             : [
-                "No spam, unsolicited bulk messaging or misleading advertising.",
-                "No bidding on Pulse AI brand terms in paid search without written approval.",
-                "No fake accounts, self-referrals or incentivised sign-ups that do not intend to use the product.",
+                "No spam, unsolicited bulk messaging, or misleading advertising.",
+                "No fake accounts, self-referrals, or incentivised sign-ups that do not intend to use the product.",
                 "No promises of guaranteed revenue results on behalf of Pulse AI.",
+                "A partner must not advertise a commission or reward rate that does not match their active configuration."
               ]).map((item) => <li key={item}>{item}</li>)}
         </ul>
       </Section>
 
       <Section id="termination" title={sections[5].title}>
         <p>{isSq
-          ? "Secila palë mund ta përfundojë partneritetin në çdo kohë. Komisionet e konfirmuara mbeten të pagueshme. Komisionet e lidhura me referime mashtruese ose që shkelin politikat humbasin, dhe Pulse AI mund të mbyllë llogarinë e partnerit."
-          : "Either side may end the partnership at any time. Confirmed commissions remain payable. Commissions linked to fraudulent or policy-breaking referrals are forfeited, and Pulse AI may close the partner account."}</p>
+          ? "Secila palë mund ta përfundojë partneritetin sipas kushteve të llogarisë ose marrëveshjes së partnerit. Komisionet mbeten subjekt i statusit dhe verifikimit të tyre në sistem; referimet mashtruese ose shkeljet e politikave mund të çojnë në pezullim ose mbyllje të llogarisë së partnerit."
+          : "Either side may end the partnership under the partner account or agreement terms. Commissions remain subject to their recorded status and verification in the system; fraudulent referrals or policy violations may result in suspension or closure of the partner account."}</p>
       </Section>
     </LegalLayout>
   );
