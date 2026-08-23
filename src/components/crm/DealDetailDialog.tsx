@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Deal, useDealNotes, useDealTasks, useDealActivities } from "@/hooks/useCRM";
+import { ClickToCall } from "@/components/telephony/ClickToCall";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
@@ -65,6 +66,20 @@ export function DealDetailDialog({ deal, stages, onClose, onMove, onUpdate, onDe
           <div>
             <span className="text-muted-foreground">Email:</span>{" "}
             <span className="text-foreground">{deal.contact_email || "—"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="min-w-0 flex-1">
+              <span className="text-muted-foreground">Phone:</span>{" "}
+              <span className="text-foreground">{deal.contact_phone || "—"}</span>
+            </div>
+            {deal.contact_phone && (
+              <ClickToCall
+                phoneNumber={deal.contact_phone}
+                contactName={deal.contact_name || undefined}
+                dealId={deal.id}
+                variant="outline"
+              />
+            )}
           </div>
           <div>
             <span className="text-muted-foreground">Value:</span>{" "}
