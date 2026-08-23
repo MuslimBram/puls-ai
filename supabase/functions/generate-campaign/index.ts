@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -11,9 +12,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       getServiceKey() ?? ""
@@ -66,13 +64,7 @@ Campaign Details:
 Business Knowledge Context:
 ${knowledge || "No additional context available."}`;
 
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const aiResponse = await routerChatCompletion({
           model: "google/gemini-3-flash-preview",
           messages: [
             { role: "system", content: systemPrompt },
@@ -147,8 +139,7 @@ ${knowledge || "No additional context available."}`;
             },
           }],
           tool_choice: { type: "function", function: { name: "campaign_strategy" } },
-        }),
-      });
+        }, { workspaceId: campaign_data?.workspace_id || profile?.workspace_id || undefined, userId, authHeader, taskType: "marketing_copy" });
 
       if (!aiResponse.ok) {
         if (aiResponse.status === 429) {

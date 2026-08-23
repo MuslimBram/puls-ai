@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -10,9 +11,6 @@ serve(async (req) => {
 
   try {
     const { deal, notes, action, prompt } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     let systemPrompt = "You are an AI sales assistant. Be concise and actionable.";
     let userPrompt = "";
 
@@ -31,20 +29,13 @@ serve(async (req) => {
       throw new Error("Unknown action: " + action);
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const response = await routerChatCompletion({
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-      }),
-    });
+      }, { authHeader: req.headers.get("Authorization"), taskType: "sales_reply" });
 
     if (!response.ok) {
       const status = response.status;

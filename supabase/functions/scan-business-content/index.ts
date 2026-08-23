@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -59,10 +60,6 @@ serve(async (req) => {
   try {
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY not configured");
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       getServiceKey() ?? "",
@@ -121,13 +118,7 @@ serve(async (req) => {
 
     const markdown = scrapeData.data?.markdown || scrapeData.markdown || "";
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const aiRes = await routerChatCompletion({
         model: "google/gemini-3-flash-preview",
         messages: [
           {
@@ -165,8 +156,7 @@ serve(async (req) => {
           },
         ],
         tool_choice: { type: "function", function: { name: "extract_business_data" } },
-      }),
-    });
+      }, { userId, authHeader, taskType: "rag" });
 
     if (!aiRes.ok) {
       const errText = await aiRes.text();

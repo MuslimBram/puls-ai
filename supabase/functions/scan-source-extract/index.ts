@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -471,17 +472,9 @@ serve(async (req) => {
     let toneOfVoice = "";
     let suggestedKeywords: string[] = [];
     let competitorHints: Array<{ name?: string; url?: string }> = [];
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (markdown.length > 100 && LOVABLE_API_KEY) {
+    if (markdown.length > 100) {
       try {
-        const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
+        const aiRes = await routerChatCompletion({
             model: "google/gemini-2.5-flash",
             messages: [
               {
@@ -570,8 +563,7 @@ serve(async (req) => {
               },
             ],
             tool_choice: { type: "function", function: { name: "extract_social_business_context" } },
-          }),
-        });
+          }, { workspaceId: workspace_id, userId, authHeader, taskType: "rag" });
 
         if (aiRes.ok) {
           const aiData = await aiRes.json();

@@ -67,7 +67,7 @@ serve(async (req) => {
 
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     const customerId = customers.data[0]?.id;
-    const origin = req.headers.get("origin") || "https://talk-finder-bot.lovable.app";
+    const origin = req.headers.get("origin") || Deno.env.get("PUBLIC_SITE_URL") || "https://pulse-bos.com";
     const packageType = rawPackageType === "3-month" || rawPackageType === "6-month" || rawPackageType === "yearly" ? rawPackageType : "monthly";
     const commitmentMonths = packageType === "3-month" ? 3 : packageType === "6-month" ? 6 : packageType === "yearly" ? 12 : 1;
     const packageDiscountPercent = packageType === "3-month" ? 5 : packageType === "6-month" ? 10 : packageType === "yearly" ? 20 : 0;
