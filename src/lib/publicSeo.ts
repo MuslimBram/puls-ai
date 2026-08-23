@@ -7,17 +7,10 @@ import {
 } from "@/lib/publicLocale";
 import type { PublicLocale } from "@/lib/publicLocale";
 
-export const DEFAULT_PUBLIC_SITE_URL = "https://kohablerjeve.top";
+export const DEFAULT_PUBLIC_SITE_URL = "https://pulse-bos.com";
 
 export const BLOCKED_SQ_PATHS = new Set([
   "/white-label",
-  "/privacy",
-  "/terms",
-  "/cookies",
-  "/dpa",
-  "/affiliate-terms",
-  "/refund",
-  "/terms-and-payments",
 ]);
 
 export const PUBLIC_INDEXABLE_PATHS = [

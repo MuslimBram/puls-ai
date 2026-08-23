@@ -10,13 +10,6 @@ function source(path: string) {
 describe("Wave 6 regression boundaries", () => {
   it("keeps the approved blocked-SQ list exact and explicit", () => {
     expect(Array.from(BLOCKED_SQ_PATHS).sort()).toEqual([
-      "/affiliate-terms",
-      "/cookies",
-      "/dpa",
-      "/privacy",
-      "/refund",
-      "/terms",
-      "/terms-and-payments",
       "/white-label",
     ]);
   });

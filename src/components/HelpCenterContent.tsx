@@ -53,8 +53,8 @@ const STEPS = [
   },
   {
     icon: Gift,
-    title: "6. Earn from referrals",
-    body: "Share your referral link from the Referral Program page. You earn 15% every time someone purchases a package.",
+    title: "6. Share your referral link",
+    body: "Share your referral link from the Referral Program page and track eligible rewards according to the current program terms.",
     href: "/referral-program",
     cta: "Get my link",
   },
@@ -90,11 +90,11 @@ const FAQS = [
   },
   {
     q: "What does my referral link look like?",
-    a: "All referral links use https://kohablerjeve.top/register?ref=YOUR_CODE — branded and trackable. Generate yours from the Referral Program page.",
+    a: "Your branded referral link is generated from the Referral Program page and includes your referral code automatically.",
   },
   {
     q: "When do I receive my referral reward?",
-    a: "You earn 15% the moment your referred user purchases any paid package. The reward is credited to your wallet automatically.",
+    a: "Reward eligibility, value and timing follow the current Referral Program terms shown in your account. Check the Referral Program page for the active rules before sharing your link.",
   },
   {
     q: "Who can connect channels for my business?",
@@ -114,7 +114,7 @@ export const HelpCenterContent = () => {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Help Center</h1>
           <p className="text-sm text-muted-foreground">
-            Your guide to getting the most out of Pulse AI — connect channels, train the AI, and start earning.
+            Your guide to getting the most out of Pulse AI — connect channels, train the AI, and use the Referral Program.
           </p>
         </div>
       </div>

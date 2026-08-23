@@ -130,9 +130,9 @@ describe("Wave 5 localized public routing", () => {
       expect(enLink).not.toBeNull();
       expect(sqLink).not.toBeNull();
       expect(defaultLink).not.toBeNull();
-      expect(enLink).toHaveAttribute("href", "https://kohablerjeve.top/en");
-      expect(sqLink).toHaveAttribute("href", "https://kohablerjeve.top/sq");
-      expect(defaultLink).toHaveAttribute("href", "https://kohablerjeve.top/en");
+      expect(enLink).toHaveAttribute("href", "https://pulse-bos.com/en");
+      expect(sqLink).toHaveAttribute("href", "https://pulse-bos.com/sq");
+      expect(defaultLink).toHaveAttribute("href", "https://pulse-bos.com/en");
     });
   });
 
@@ -160,10 +160,10 @@ describe("Wave 5 localization helpers", () => {
   });
 
   it("builds EN/SQ/x-default hreflang triplets", () => {
-    expect(buildPublicHreflangLinks("/platform/ai", "https://kohablerjeve.top")).toEqual([
-      { hrefLang: "en", href: "https://kohablerjeve.top/en/platform/ai" },
-      { hrefLang: "sq", href: "https://kohablerjeve.top/sq/platform/ai" },
-      { hrefLang: "x-default", href: "https://kohablerjeve.top/en/platform/ai" },
+    expect(buildPublicHreflangLinks("/platform/ai", "https://pulse-bos.com")).toEqual([
+      { hrefLang: "en", href: "https://pulse-bos.com/en/platform/ai" },
+      { hrefLang: "sq", href: "https://pulse-bos.com/sq/platform/ai" },
+      { hrefLang: "x-default", href: "https://pulse-bos.com/en/platform/ai" },
     ]);
   });
 });

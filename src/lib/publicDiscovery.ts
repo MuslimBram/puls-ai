@@ -45,5 +45,5 @@ export function buildRobotsTxt(origin: string) {
 
 export function buildLlmsTxt(origin: string) {
   const safeOrigin = normalizePublicSiteUrl(origin);
-  return `# Pulse AI\n\n> Pulse AI — The AI Business Operating System. One intelligent system to run, automate and grow your business.\n\n## Public discovery\n\n- English: ${safeOrigin}/en\n- Albanian: ${safeOrigin}/sq\n- Platform: ${safeOrigin}/en/platform\n- Pricing: ${safeOrigin}/en/pricing\n- Security: ${safeOrigin}/en/security\n\n## Localization note\n\nSome Albanian legal and white-label pages remain accessible but are intentionally excluded from indexing until approved Albanian body copy exists. No untranslated page is advertised as a full Albanian equivalent.\n`;
+  return `# Pulse AI\n\n> Pulse AI — The AI Business Operating System. One intelligent system to run, automate and grow your business.\n\n## Public discovery\n\n- English: ${safeOrigin}/en\n- Albanian: ${safeOrigin}/sq\n- Platform: ${safeOrigin}/en/platform\n- Pricing: ${safeOrigin}/en/pricing\n- Security: ${safeOrigin}/en/security\n\n## Localization note\n\nApproved Albanian public and legal pages are discoverable in SQ. The Albanian white-label page remains intentionally excluded from indexing until approved Albanian body copy exists.\n`;
 }

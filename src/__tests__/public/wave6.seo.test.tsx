@@ -8,7 +8,7 @@ import {
   getPublicSeoPolicy,
 } from "@/lib/publicSeo";
 
-const ORIGIN = "https://kohablerjeve.top";
+const ORIGIN = "https://pulse-bos.com";
 
 function setPath(pathname: string) {
   window.history.replaceState({}, "", pathname);
@@ -152,6 +152,7 @@ describe("Wave 6 public SEO policy", () => {
     expect(buildPolicyHreflangLinks("/sq/security", ORIGIN)).toHaveLength(3);
     expect(buildPolicyHreflangLinks("/en/privacy", ORIGIN)).toEqual([
       { hrefLang: "en", href: `${ORIGIN}/en/privacy` },
+      { hrefLang: "sq", href: `${ORIGIN}/sq/privacy` },
       { hrefLang: "x-default", href: `${ORIGIN}/en/privacy` },
     ]);
   });
