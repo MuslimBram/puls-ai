@@ -2,8 +2,7 @@
  * Shared security + CORS headers for all edge functions.
  *
  * CORS policy:
- *  - Production custom domains: alfis.re, kohablerjeve.top (+ www)
- *  - Lovable preview + published: pulsi.lovable.app + *.lovable.app
+ *  - Production custom domains: alfis.re, kohablerjeve.top, pulse-bos.com (+ www)
  *  - Local dev: http://localhost:* and http://127.0.0.1:*
  *  - Public webhooks (PayPal/Meta/integration) MUST set `allowAnyOrigin: true`
  *    when calling buildCorsHeaders, since they are invoked by 3rd-party servers.
@@ -14,13 +13,9 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://www.alfis.re",
   "https://kohablerjeve.top",
   "https://www.kohablerjeve.top",
-  "https://pulsi.lovable.app",
+  "https://pulse-bos.com",
+  "https://www.pulse-bos.com",
 ]);
-
-const ALLOWED_SUFFIXES = [
-  ".lovable.app",
-  ".lovable.dev",
-];
 
 function isOriginAllowed(origin: string): boolean {
   if (!origin) return false;
@@ -28,9 +23,6 @@ function isOriginAllowed(origin: string): boolean {
   try {
     const u = new URL(origin);
     if (u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1")) {
-      return true;
-    }
-    if (u.protocol === "https:" && ALLOWED_SUFFIXES.some((s) => u.hostname.endsWith(s))) {
       return true;
     }
   } catch {
