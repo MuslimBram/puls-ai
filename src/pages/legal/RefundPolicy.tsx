@@ -8,16 +8,16 @@ export default function RefundPolicy() {
   const sections: LegalSection[] = isSq
     ? [
         { id: "timeline", title: "1. Afati i rimbursimit" },
-        { id: "eligible", title: "2. Çfarë rimbursohet" },
-        { id: "not-eligible", title: "3. Çfarë nuk rimbursohet" },
+        { id: "eligible", title: "2. Kur mund të kërkohet rimbursim" },
+        { id: "not-eligible", title: "3. Kur nuk kualifikohet kërkesa" },
         { id: "third-party", title: "4. Tarifat e palëve të treta" },
         { id: "cancellation", title: "5. Anulimi i abonimit" },
         { id: "how", title: "6. Si të kërkoni rimbursim" },
       ]
     : [
         { id: "timeline", title: "1. Refund timeline" },
-        { id: "eligible", title: "2. What is refundable" },
-        { id: "not-eligible", title: "3. What is not refundable" },
+        { id: "eligible", title: "2. When a refund may be requested" },
+        { id: "not-eligible", title: "3. When a request is not eligible" },
         { id: "third-party", title: "4. Third-party charges" },
         { id: "cancellation", title: "5. Cancelling a subscription" },
         { id: "how", title: "6. How to request a refund" },
@@ -25,25 +25,39 @@ export default function RefundPolicy() {
 
   const timeline = isSq
     ? [
-        ["Ditët 0–7", "Pagesa e parë e abonimit", "Rimbursim i plotë nëse platforma nuk funksionoi siç përshkruhet për shkak të fajit tonë."],
-        ["Ditët 8–30", "Periudha aktuale e faturimit", "Shqyrtim rast pas rasti për gabime të verifikuara faturimi ose ndërprerje më të gjata se 48 orë të vazhdueshme."],
-        ["Pas 30 ditësh", "Periudhat e kaluara", "Nuk rimbursohen. Mund ta anuloni abonimin për të ndaluar rinovimin e ardhshëm."],
+        [
+          "Ditët 0–7",
+          "Vetëm pagesa e parë e abonimit",
+          "Mund të paraqitet një kërkesë për rimbursim. Kërkesa shqyrtohet sipas përdorimit të llogarisë dhe rregullave aktive të rimbursimit; paraqitja e kërkesës nuk përbën miratim automatik.",
+        ],
+        [
+          "Pas ditës së 7-të ose në rinovime",
+          "Pagesa jashtë rrjedhës standarde të rimbursimit",
+          "Rrjedha standarde e Pulse AI nuk pranon kërkesa për rimbursim të rinovimeve ose kërkesa të paraqitura pas afatit 7-ditor.",
+        ],
       ]
     : [
-        ["Days 0–7", "First subscription payment", "Full refund if the platform did not work as described due to our fault."],
-        ["Days 8–30", "Current billing period", "Case-by-case review for verified billing errors or outages longer than 48 continuous hours."],
-        ["After 30 days", "Past periods", "Not refundable. You can cancel to stop the next renewal."],
+        [
+          "Days 0–7",
+          "First subscription payment only",
+          "A refund request may be submitted. The request is reviewed against account usage and the active refund rules; submitting a request does not mean it is automatically approved.",
+        ],
+        [
+          "After day 7 or on renewals",
+          "Outside the standard refund flow",
+          "Pulse AI's standard refund flow does not accept renewal refunds or requests submitted after the 7-day window.",
+        ],
       ];
 
   return (
     <LegalLayout
       title={isSq ? "Rimbursimi & Anulimi" : "Refund & Cancellation"}
       subtitle={isSq
-        ? "Kur mund të rimbursohet një pagesë abonimi në Pulse AI, çfarë është jashtë kontrollit tonë dhe si të anuloni."
-        : "When a Pulse AI subscription payment can be refunded, what falls outside our control, and how to cancel."}
+        ? "Rregullat e rrjedhës standarde të rimbursimit të Pulse AI, tarifat e palëve të treta dhe anulimi i abonimit."
+        : "The rules for Pulse AI's standard refund flow, third-party charges, and subscription cancellation."}
       description={isSq
-        ? "Politika e rimbursimit dhe anulimit e Pulse AI: afati 7-ditor për pagesën e parë, rimbursimet për gabime faturimi, tarifat e palëve të treta dhe si të anuloni abonimin."
-        : "Pulse AI refund and cancellation policy: 7-day first-payment refund window, billing-error refunds, third-party charges, and how to cancel a subscription."}
+        ? "Politika e rimbursimit dhe anulimit e Pulse AI: kërkesat për pagesën e parë brenda 7 ditëve, shqyrtimi sipas përdorimit, tarifat e palëve të treta dhe anulimi."
+        : "Pulse AI refund and cancellation policy: first-payment requests within 7 days, usage-based review, third-party charges, and cancellation."}
       path="/refund"
       sections={sections}
     >
@@ -61,38 +75,40 @@ export default function RefundPolicy() {
       </Section>
 
       <Section id="eligible" title={sections[1].title}>
-        <InfoCard title={isSq ? "Rastet e pranueshme" : "Eligible scenarios"} tone="positive">
+        <InfoCard title={isSq ? "Kërkesa standarde" : "Standard request"} tone="positive">
           <ul className="list-disc pl-5 space-y-1">
             {(isSq
               ? [
-                  "Pagesa e parë e abonimit brenda 7 ditëve nëse platforma nuk funksionoi për shkak të fajit tonë.",
-                  "Periudha e papërdorur kur Pulse AI ka ndërprerje më të gjatë se 48 orë të vazhdueshme.",
-                  "Gabime të verifikuara faturimi, si pagesa të dyfishta ose shumë e pasaktë.",
+                  "Kërkesa duhet të lidhet me pagesën e parë të suksesshme të abonimit.",
+                  "Kërkesa duhet të paraqitet brenda 7 ditëve nga fillimi i ciklit përkatës të faturimit.",
+                  "Kërkesa i nënshtrohet shqyrtimit dhe pragjeve aktive të përdorimit; përdorimi i konsiderueshëm i produktit mund ta bëjë kërkesën të papranueshme.",
+                  "Rimbursimi përpunohet vetëm pasi kërkesa të jetë shqyrtuar dhe miratuar.",
                 ]
               : [
-                  "The first subscription payment within 7 days if the platform did not work due to our fault.",
-                  "The unused period when Pulse AI has downtime longer than 48 continuous hours.",
-                  "Verified billing errors such as duplicate charges or an incorrect amount.",
+                  "The request must relate to the first successful subscription payment.",
+                  "The request must be submitted within 7 days of the relevant billing-cycle start.",
+                  "The request is subject to review and the active usage thresholds; significant product usage may make the request ineligible.",
+                  "A refund is processed only after the request has been reviewed and approved.",
                 ]).map((item) => <li key={item}>{item}</li>)}
           </ul>
         </InfoCard>
       </Section>
 
       <Section id="not-eligible" title={sections[2].title}>
-        <InfoCard title={isSq ? "Nuk kualifikohen" : "Not eligible"} tone="warning">
+        <InfoCard title={isSq ? "Jashtë rrjedhës standarde" : "Outside the standard flow"} tone="warning">
           <ul className="list-disc pl-5 space-y-1">
             {(isSq
               ? [
-                  "Pagesat e bëra te platformat e palëve të treta (Meta Ads, Google Ads, Twilio, Resend, tarifa pagesash).",
-                  "Tarifat mujore të abonimit pas ditës së 7-të të pagesës së parë.",
-                  "Kostot sipas përdorimit që janë konsumuar tashmë, si thirrjet AI, SMS dhe dërgimet e email-eve.",
-                  "Periudhat kur aksesi ishte aktiv por nuk u përdor.",
+                  "Rinovimet dhe pagesat pas pagesës së parë nuk kualifikohen për rrjedhën standarde të rimbursimit.",
+                  "Kërkesat e paraqitura pas afatit 7-ditor nuk pranohen nga rrjedha standarde.",
+                  "Kërkesat që tejkalojnë pragjet aktive të përdorimit mund të bllokohen.",
+                  "Pagesat ndaj platformave të palëve të treta nuk rimbursohen nga Pulse AI.",
                 ]
               : [
-                  "Payments made to third-party platforms (Meta Ads, Google Ads, Twilio, Resend, payment fees).",
-                  "Monthly subscription fees after day 7 of the first payment.",
-                  "Usage-based costs already consumed, such as AI calls, SMS and email sends.",
-                  "Periods where access was active but unused.",
+                  "Renewals and payments after the first payment are not eligible for the standard refund flow.",
+                  "Requests submitted after the 7-day window are not accepted by the standard flow.",
+                  "Requests that exceed the active usage thresholds may be blocked.",
+                  "Payments to third-party platforms are not refundable by Pulse AI.",
                 ]).map((item) => <li key={item}>{item}</li>)}
           </ul>
         </InfoCard>
@@ -100,20 +116,20 @@ export default function RefundPolicy() {
 
       <Section id="third-party" title={sections[3].title}>
         <p>{isSq
-          ? "Buxhetet e reklamave dhe tarifat e mesazheve janë marrëdhënie e drejtpërdrejtë ndërmjet biznesit tuaj dhe atyre ofruesve. Kërkesat për rimbursim të këtyre shumave duhet t'i bëhen ofruesit; Pulse AI nuk ka autoritet mbi to dhe vetëm sinkronizon statistikat përkatëse."
-          : "Ad budgets and messaging fees are a direct relationship between your business and those providers. Refund requests for those amounts must be made to the provider; Pulse AI has no authority over them and only synchronises the resulting statistics."}</p>
+          ? "Buxhetet e reklamave, tarifat e mesazheve dhe tarifa të tjera që paguhen drejtpërdrejt te ofrues të jashtëm janë marrëdhënie ndërmjet biznesit tuaj dhe atij ofruesi. Pulse AI nuk mund t'i rimbursojë ato pagesa."
+          : "Ad budgets, messaging fees, and other charges paid directly to external providers are between your business and that provider. Pulse AI cannot refund those payments."}</p>
       </Section>
 
       <Section id="cancellation" title={sections[4].title}>
         <p>{isSq
-          ? "Mund ta anuloni abonimin në çdo kohë nga faqja e faturimit. Nuk ka tarifë anulimi. Aksesi vazhdon deri në fund të periudhës së paguar, pas së cilës llogaria kalon në vetëm-lexim. Mund t'i eksportoni të dhënat për 30 ditë para fshirjes."
-          : "You can cancel at any time from the billing page. There is no cancellation fee. Access continues until the end of the paid period, after which the account moves to read-only. You can export your data for 30 days before deletion."}</p>
+          ? "Mund ta anuloni abonimin për të ndaluar rinovimin e ardhshëm. Anulimi dhe rimbursimi janë procese të ndara; anulimi i abonimit nuk krijon automatikisht të drejtë për rimbursim të një pagese ekzistuese."
+          : "You can cancel your subscription to stop the next renewal. Cancellation and refunds are separate processes; cancelling a subscription does not automatically make an existing payment refundable."}</p>
       </Section>
 
       <Section id="how" title={sections[5].title}>
         <p>{isSq
-          ? "Dërgoni email në info@mso.re me emrin e workspace-it, numrin e faturës dhe një përshkrim të shkurtër të problemit. Ne konfirmojmë marrjen brenda dy ditëve pune dhe, kur miratohet, rimbursimi kthehet në metodën fillestare të pagesës brenda 5–10 ditëve bankare."
-          : "Email info@mso.re with your workspace name, invoice number and a short description of the issue. We acknowledge within two business days and, where approved, refunds are returned to the original payment method within 5–10 banking days."}</p>
+          ? "Paraqiteni kërkesën përmes rrjedhës së rimbursimit në llogarinë tuaj kur ajo është e disponueshme. Kërkesa regjistrohet për shqyrtim. Për ndihmë me faturimin mund të kontaktoni info@mso.re."
+          : "Submit the request through the refund flow in your account when available. The request is recorded for review. For billing assistance, contact info@mso.re."}</p>
       </Section>
     </LegalLayout>
   );
