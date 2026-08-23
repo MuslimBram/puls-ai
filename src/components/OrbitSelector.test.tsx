@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { OrbitSelector, LiveDigitalClock } from "./OrbitSelector";
 
@@ -42,7 +42,9 @@ describe("OrbitSelector", () => {
       />,
     );
 
-    vi.advanceTimersByTime(1100);
+    act(() => {
+      vi.advanceTimersByTime(1100);
+    });
 
     expect(onSelect).not.toHaveBeenCalled();
     expect(screen.getByRole("listbox")).toHaveAttribute("aria-activedescendant", "Setup steps-connections");
@@ -99,8 +101,10 @@ describe("LiveDigitalClock", () => {
     const { container } = render(<LiveDigitalClock />);
     const before = container.querySelector("time")?.getAttribute("datetime");
 
-    vi.setSystemTime(new Date("2026-08-23T12:00:01Z"));
-    vi.advanceTimersByTime(1000);
+    act(() => {
+      vi.setSystemTime(new Date("2026-08-23T12:00:01Z"));
+      vi.advanceTimersByTime(1000);
+    });
 
     const after = container.querySelector("time")?.getAttribute("datetime");
     expect(after).not.toBe(before);
