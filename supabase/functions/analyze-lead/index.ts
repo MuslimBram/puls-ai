@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -10,9 +11,6 @@ serve(async (req) => {
 
   try {
     const { message, keywords, businessProfile } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
     const systemPrompt = `You are a lead analysis AI. Analyze the following message from a Telegram group/channel.
 Determine:
 1. Whether it contains buying intent related to: ${keywords.join(", ")}
@@ -30,13 +28,7 @@ Business context:
 - Tone: ${businessProfile?.ai_tone || "professional"}
 - Language: ${businessProfile?.language || "en"}`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const response = await routerChatCompletion({
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
@@ -66,8 +58,7 @@ Business context:
           },
         ],
         tool_choice: { type: "function", function: { name: "analyze_lead" } },
-      }),
-    });
+      }, { authHeader: req.headers.get("Authorization"), taskType: "sales_reply", allowInternalNoWorkspace: !req.headers.get("Authorization") });
 
     if (!response.ok) {
       if (response.status === 429) {

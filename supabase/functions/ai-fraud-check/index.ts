@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -12,7 +13,6 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = getServiceKey()!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const { payout_request_id } = await req.json();
@@ -77,18 +77,12 @@ Deno.serve(async (req) => {
       beneficiary_name: payout.beneficiary_name,
     };
 
-    let fraudScore = 0;
+    let fraudScore = -1;
     let fraudReasons: string[] = [];
 
-    if (lovableKey) {
+    {
       // Use AI to analyze
-      const aiResponse = await fetch("https://api.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${lovableKey}`,
-        },
-        body: JSON.stringify({
+      const aiResponse = await routerChatCompletion({
           model: "google/gemini-2.5-flash",
           messages: [
             {
@@ -116,8 +110,7 @@ Return ONLY valid JSON, no markdown.`,
           ],
           temperature: 0.1,
           max_tokens: 500,
-        }),
-      });
+        }, { workspaceId: payout.workspace_id || partner?.workspace_id || undefined, userId: payout.user_id || partner?.user_id || undefined, taskType: "balanced", allowInternalNoWorkspace: !(payout.workspace_id || partner?.workspace_id) });
 
       if (aiResponse.ok) {
         const aiData = await aiResponse.json();
@@ -134,7 +127,7 @@ Return ONLY valid JSON, no markdown.`,
     }
 
     // Rule-based fallback/supplement
-    if (fraudScore < 0 || !lovableKey) {
+    if (fraudScore < 0) {
       fraudScore = 0;
       fraudReasons = [];
 
