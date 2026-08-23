@@ -1,28 +1,13 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { WebhookError, verifyWebhookRequest } from 'npm:@lovable.dev/webhooks-js'
+import { Resend } from 'npm:resend@6'
 import { getServiceKey } from "../_shared/admin-client.ts";
 
-// Suppression event payload sent by the Go API when Mailgun reports
-// a bounce, complaint, or unsubscribe.
-interface SuppressionPayload {
-  email: string
-  reason: 'bounce' | 'complaint' | 'unsubscribe'
-  message_id?: string
-  metadata?: Record<string, unknown>
-  is_retry: boolean
-  retry_count: number
-}
+type SuppressionReason = 'bounce' | 'complaint' | 'unsubscribe'
 
-function parseSuppressionPayload(body: string): SuppressionPayload {
-  const parsed = JSON.parse(body)
-  if (!parsed.data) {
-    throw new Error('Missing data field in payload')
-  }
-  const data = parsed.data as SuppressionPayload
-  if (!data.email || !data.reason) {
-    throw new Error('Missing required fields: email, reason')
-  }
-  return data
+type ResendEvent = {
+  type?: string
+  created_at?: string
+  data?: Record<string, any>
 }
 
 function jsonResponse(data: Record<string, unknown>, status = 200): Response {
@@ -32,132 +17,130 @@ function jsonResponse(data: Record<string, unknown>, status = 200): Response {
   })
 }
 
-Deno.serve(async (req) => {
-  if (req.method !== 'POST') {
-    return jsonResponse({ error: 'Method not allowed' }, 405)
-  }
+function resolveSuppression(event: ResendEvent): {
+  email: string
+  reason: SuppressionReason
+  messageId?: string
+  metadata: Record<string, unknown>
+} | null {
+  const data = event.data || {}
+  const type = String(event.type || '')
+  const recipient = Array.isArray(data.to) ? data.to[0] : data.email
+  const email = typeof recipient === 'string' ? recipient.trim().toLowerCase() : ''
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  const supabaseServiceKey = getServiceKey()
-
-  if (!apiKey || !supabaseUrl || !supabaseServiceKey) {
-    console.error('Missing required environment variables')
-    return jsonResponse({ error: 'Server configuration error' }, 500)
-  }
-
-  // Verify HMAC signature using the Lovable API Key (same as auth-email-hook)
-  let payload: SuppressionPayload
-  try {
-    const verified = await verifyWebhookRequest({
-      req,
-      secret: apiKey,
-      parser: parseSuppressionPayload,
-    })
-    payload = verified.payload
-  } catch (error) {
-    if (error instanceof WebhookError) {
-      switch (error.code) {
-        case 'invalid_signature':
-          console.error('Invalid webhook signature')
-          return jsonResponse({ error: 'Invalid signature' }, 401)
-        case 'stale_timestamp':
-          console.error('Stale webhook timestamp')
-          return jsonResponse({ error: 'Stale timestamp' }, 401)
-        case 'invalid_payload':
-        case 'invalid_json':
-          console.error('Invalid payload', { code: error.code })
-          return jsonResponse({ error: 'Invalid payload' }, 400)
-        default:
-          console.error('Webhook verification failed', {
-            code: error.code,
-            message: error.message,
-          })
-          return jsonResponse({ error: 'Verification failed' }, 401)
-      }
+  if (type === 'contact.updated') {
+    if (!data.unsubscribed || !email) return null
+    return {
+      email,
+      reason: 'unsubscribe',
+      messageId: undefined,
+      metadata: { provider: 'resend', event_type: type, event_created_at: event.created_at || null },
     }
-    console.error('Unexpected error during verification', { error })
-    return jsonResponse({ error: 'Internal error' }, 500)
+  }
+
+  if (!email) return null
+  const reason: SuppressionReason | null =
+    type === 'email.bounced' || type === 'email.suppressed'
+      ? 'bounce'
+      : type === 'email.complained'
+        ? 'complaint'
+        : null
+  if (!reason) return null
+
+  return {
+    email,
+    reason,
+    messageId: typeof data.email_id === 'string'
+      ? data.email_id
+      : typeof data.message_id === 'string'
+        ? data.message_id
+        : undefined,
+    metadata: {
+      provider: 'resend',
+      event_type: type,
+      event_created_at: event.created_at || null,
+      bounce: data.bounce || null,
+      tags: data.tags || null,
+    },
+  }
+}
+
+Deno.serve(async (req) => {
+  if (req.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405)
+
+  const apiKey = Deno.env.get('RESEND_API_KEY') || ''
+  const webhookSecret = Deno.env.get('RESEND_WEBHOOK_SECRET') || ''
+  const supabaseUrl = Deno.env.get('SUPABASE_URL') || ''
+  const supabaseServiceKey = getServiceKey()
+  if (!apiKey || !webhookSecret || !supabaseUrl || !supabaseServiceKey) {
+    console.error('Missing Resend webhook or Supabase configuration')
+    return jsonResponse({ error: 'Server configuration error' }, 503)
+  }
+
+  const rawBody = await req.text()
+  let event: ResendEvent
+  try {
+    const resend = new Resend(apiKey)
+    event = resend.webhooks.verify({
+      payload: rawBody,
+      headers: {
+        id: req.headers.get('svix-id') || '',
+        timestamp: req.headers.get('svix-timestamp') || '',
+        signature: req.headers.get('svix-signature') || '',
+      },
+      webhookSecret,
+    }) as ResendEvent
+  } catch (error) {
+    console.error('Invalid Resend webhook signature', { error })
+    return jsonResponse({ error: 'Invalid signature' }, 401)
+  }
+
+  const suppression = resolveSuppression(event)
+  if (!suppression) {
+    return jsonResponse({ success: true, ignored: true, event_type: event.type || null })
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
-  const normalizedEmail = payload.email.toLowerCase()
-
-  // 1. Upsert to suppressed_emails (idempotent — safe for retries)
   const { error: suppressError } = await supabase
     .from('suppressed_emails')
     .upsert(
       {
-        email: normalizedEmail,
-        reason: payload.reason,
-        metadata: payload.metadata ?? null,
+        email: suppression.email,
+        reason: suppression.reason,
+        metadata: suppression.metadata,
       },
       { onConflict: 'email' },
     )
 
   if (suppressError) {
-    console.error('Failed to upsert suppressed email', {
-      error: suppressError,
-      email_redacted: normalizedEmail[0] + '***@' + normalizedEmail.split('@')[1],
-    })
+    console.error('Failed to upsert suppressed email', { error: suppressError })
     return jsonResponse({ error: 'Failed to write suppression' }, 500)
   }
 
-  // 2. Append a new log entry for the suppression event (never update existing rows)
-  const sendLogStatus = mapReasonToStatus(payload.reason)
-  const sendLogMessage = mapReasonToMessage(payload.reason)
+  const sendLogStatus = suppression.reason === 'bounce'
+    ? 'bounced'
+    : suppression.reason === 'complaint'
+      ? 'complained'
+      : 'suppressed'
 
-  const { error: insertError } = await supabase
-    .from('email_send_log')
-    .insert({
-      message_id: payload.message_id ?? null,
-      template_name: 'system',
-      recipient_email: normalizedEmail,
-      status: sendLogStatus,
-      error_message: sendLogMessage,
-      metadata: payload.metadata ?? null,
-    })
-
-  if (insertError) {
-    // Non-fatal — log and continue. The suppression was already recorded.
-    console.warn('Failed to insert email_send_log', {
-      error: insertError,
-    })
-  }
+  const { error: insertError } = await supabase.from('email_send_log').insert({
+    message_id: suppression.messageId ?? null,
+    template_name: 'system',
+    recipient_email: suppression.email,
+    status: sendLogStatus,
+    error_message: suppression.reason === 'bounce'
+      ? 'Email delivery bounced or was provider-suppressed'
+      : suppression.reason === 'complaint'
+        ? 'Recipient reported the email as spam'
+        : 'Recipient unsubscribed',
+    metadata: suppression.metadata,
+  })
+  if (insertError) console.warn('Failed to append email_send_log suppression event', { error: insertError })
 
   console.log('Suppression processed', {
-    email_redacted: normalizedEmail[0] + '***@' + normalizedEmail.split('@')[1],
-    reason: payload.reason,
-    is_retry: payload.is_retry,
-    retry_count: payload.retry_count,
-    has_message_id: !!payload.message_id,
+    reason: suppression.reason,
+    event_type: event.type,
+    has_message_id: !!suppression.messageId,
   })
-
   return jsonResponse({ success: true })
 })
-
-function mapReasonToStatus(
-  reason: string,
-): 'bounced' | 'complained' | 'suppressed' {
-  switch (reason) {
-    case 'bounce':
-      return 'bounced'
-    case 'complaint':
-      return 'complained'
-    default:
-      return 'suppressed'
-  }
-}
-
-function mapReasonToMessage(reason: string): string {
-  switch (reason) {
-    case 'bounce':
-      return 'Permanent bounce — email address is invalid or rejected'
-    case 'complaint':
-      return 'Spam complaint — recipient marked email as spam'
-    case 'unsubscribe':
-      return 'Recipient unsubscribed'
-    default:
-      return 'Email suppressed'
-  }
-}
