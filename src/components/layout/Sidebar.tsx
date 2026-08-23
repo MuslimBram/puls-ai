@@ -1,4 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
@@ -16,7 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { X, LogOut, ChevronDown, Crown } from "lucide-react";
+import { X, LogOut, ChevronDown, Crown, Search } from "lucide-react";
 import {
   getNavGroupsForRoles,
   type NavGroup,
@@ -56,6 +57,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const location = useLocation();
 
   const roleInfo = getRoleLabel(roles);
+  const [navQuery, setNavQuery] = useState("");
 
   // Filtro items bazuar në permissions
   const filterItems = (items: NavItem[]): NavItem[] =>
@@ -94,9 +96,24 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
       .filter(Boolean) as NavGroup[];
 
   // Zgjedh nav-groups sipas roleve
-  const allGroups: NavGroup[] = isLoading
+  const permissionFilteredGroups: NavGroup[] = isLoading
     ? []
     : filterGroups(getNavGroupsForRoles(roles));
+
+  const normalizedQuery = navQuery.trim().toLocaleLowerCase();
+  const allGroups: NavGroup[] = normalizedQuery
+    ? permissionFilteredGroups
+        .map((group) => ({
+          ...group,
+          defaultOpen: true,
+          items: group.items.filter(
+            (item) =>
+              item.label.toLocaleLowerCase().includes(normalizedQuery) ||
+              group.label.toLocaleLowerCase().includes(normalizedQuery),
+          ),
+        }))
+        .filter((group) => group.items.length > 0)
+    : permissionFilteredGroups;
 
   const itemMatches = (href: string): boolean => {
     const [path, query] = href.split("?");
@@ -174,6 +191,27 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
         </div>
       )}
 
+      {/* Search only within destinations already allowed for this role. */}
+      {!isLoading && (
+        <div className="border-b border-border p-2">
+          <label className="relative block">
+            <span className="sr-only">Kërko në menu</span>
+            <Search
+              className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={navQuery}
+              onChange={(event) => setNavQuery(event.target.value)}
+              placeholder="Kërko në menu..."
+              aria-label="Kërko në menu"
+              className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+        </div>
+      )}
+
       {/* Loading state */}
       {isLoading && (
         <div className="flex flex-1 items-center justify-center">
@@ -229,6 +267,11 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
               </Collapsible>
             );
           })}
+          {normalizedQuery && allGroups.length === 0 && (
+            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+              Nuk u gjet asnjë faqe.
+            </p>
+          )}
         </nav>
       )}
 
