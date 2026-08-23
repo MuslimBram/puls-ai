@@ -33,7 +33,7 @@ serve(async(req:Request)=>{
     const state=url.searchParams.get("state")??"";
     const[wsId,provider]=state.split(":");
     await sb.rpc("log_audit",{p_workspace_id:wsId??null,p_user_id:null,p_action:"sso_callback",p_resource_type:"auth",p_severity:"info",p_new_values:{provider,state}}).catch(()=>{});
-    return Response.redirect(`${Deno.env.get("DASHBOARD_URL")??"https://kohablerjeve.top"}/dashboard?sso_success=true`);
+    return Response.redirect(`${Deno.env.get("DASHBOARD_URL")??"https://pulse-bos.com"}/dashboard?sso_success=true`);
   }
   return json({actions:["config (GET)","configure (POST)","callback (GET)"]},400);
 });
