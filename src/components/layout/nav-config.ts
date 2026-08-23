@@ -58,6 +58,7 @@ export interface NavItem {
   requiredPermission?: keyof RolePermissions;
   allowedRoles?: string[];
   badge?: string;
+  searchOnly?: boolean;
 }
 
 export interface NavGroup {
@@ -134,6 +135,12 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/media-studio", label: "Content Studio", icon: Sparkles, requiredPermission: "canManageCampaigns" },
       { href: "/sources", label: "Business Scanner", icon: Radar, requiredPermission: "canViewAnalytics" },
       { href: "/analytics", label: "Analytics", icon: BarChart3, requiredPermission: "canViewAnalytics" },
+      { href: "/media-studio?tab=generate&type=image", label: "AI Images", icon: ImageIcon, requiredPermission: "canManageCampaigns", searchOnly: true },
+      { href: "/media-studio?tab=generate&type=video", label: "AI Video", icon: Video, requiredPermission: "canManageCampaigns", searchOnly: true },
+      { href: "/media-studio?tab=gallery", label: "Gallery", icon: Library, requiredPermission: "canManageCampaigns", searchOnly: true },
+      { href: "/content-calendar", label: "Content Calendar", icon: CalendarDays, requiredPermission: "canManageCampaigns", searchOnly: true },
+      { href: "/seo-audit", label: "SEO Analysis", icon: Search, requiredPermission: "canViewAnalytics", searchOnly: true },
+      { href: "/competitor-intelligence", label: "Competitors", icon: Radar, requiredPermission: "canViewAnalytics", searchOnly: true },
     ],
   },
   {
@@ -145,6 +152,11 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/sales-engine", label: "Sales Engine", icon: Rocket, requiredPermission: "canViewCRM" },
       { href: "/revenue-engine", label: "Revenue Engine", icon: Banknote, requiredPermission: "canViewAnalytics" },
       { href: "/telephony", label: "Telephony", icon: Phone, requiredPermission: "canConnectChannels" },
+      { href: "/broadcast", label: "Broadcast", icon: Send, requiredPermission: "canConfigureAutomations", searchOnly: true },
+      { href: "/helpdesk", label: "Helpdesk", icon: Headphones, searchOnly: true },
+      { href: "/ai-marketplace", label: "AI Marketplace", icon: Zap, requiredPermission: "canConfigureAutomations", searchOnly: true },
+      { href: "/ai-training", label: "AI Training Center", icon: Brain, requiredPermission: "canConfigureAutomations", searchOnly: true },
+      { href: "/integration-wizard", label: "Integration Wizard", icon: Plug, requiredPermission: "canConfigureAutomations", searchOnly: true },
     ],
   },
   {
@@ -153,6 +165,8 @@ export const businessNavGroups: NavGroup[] = [
     items: [
       { href: "/managed-businesses", label: "Businesses", icon: Users },
       { href: "/connections", label: "Connections", icon: Plug, requiredPermission: "canConnectChannels" },
+      { href: "/channels", label: "Channels", icon: Radio, requiredPermission: "canConnectChannels", searchOnly: true },
+      { href: "/connected-accounts", label: "Connected Accounts", icon: Link2, requiredPermission: "canConnectChannels", searchOnly: true },
       { href: "/subscription", label: "Billing", icon: CreditCard, requiredPermission: "canAccessBilling" },
       { href: "/wallet", label: "Wallet", icon: Wallet },
       { href: "/partner", label: "Partners", icon: Handshake },
