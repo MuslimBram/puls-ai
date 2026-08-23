@@ -4,7 +4,8 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - 'src/components/interactive/**'
+      - 'src/components/OrbitSelector.tsx'
+      - 'src/components/OrbitSelector.test.tsx'
       - 'src/pages/Onboarding.tsx'
       - '.github/workflows/orbit-selector-certification.yml'
   workflow_dispatch:
@@ -30,7 +31,7 @@ jobs:
         run: npm ci
 
       - name: OrbitSelector targeted tests
-        run: npx vitest run src/components/interactive/OrbitSelector.test.tsx
+        run: npx vitest run src/components/OrbitSelector.test.tsx
 
       - name: Lint
         run: npm run lint
