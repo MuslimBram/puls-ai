@@ -2,7 +2,7 @@ name: Pulse AI Production CI/CD Release Gate
 
 on:
   push:
-    branches: [ main, feature/* ]
+    branches: [ main, feature/*, refactor/* ]
   pull_request:
     branches: [ main ]
 
@@ -12,7 +12,7 @@ permissions:
 jobs:
   runtime-migration:
     name: One-shot platform-independent runtime migration
-    if: github.event_name == 'pull_request' && github.head_ref == 'refactor/platform-independent-runtime'
+    if: (github.event_name == 'pull_request' && github.head_ref == 'refactor/platform-independent-runtime') || (github.event_name == 'push' && github.ref == 'refs/heads/refactor/platform-independent-runtime')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout migration branch
