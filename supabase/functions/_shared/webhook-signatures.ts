@@ -75,32 +75,41 @@ export function verifyTelegramSecret(
 // Algorithm: base64( HMAC-SHA1( authToken, fullUrl + sortedFormParams ) )
 // For JSON / empty body: fullUrl alone.
 //
-// Per-workspace authToken (takes priority over global env secret):
-//   Pass decryptedAuthToken if you have retrieved + decrypted the workspace token.
-//   Falls back to TWILIO_AUTH_TOKEN env var.
-//   FAIL-CLOSED when neither is available.
+// If a caller supplies the fourth argument, it is explicitly asking for
+// workspace-scoped verification. In that mode we MUST NOT fall back to the
+// environment-level token when workspace resolution failed. Callers that truly
+// need legacy/global verification must omit the fourth argument entirely.
 export async function verifyTwilioSignature(
   req: Request,
   rawBody: string,
   contentType: string,
-  decryptedAuthToken?: string,      // per-workspace, already decrypted
-  secretEnv = "TWILIO_AUTH_TOKEN",  // global fallback env var name
+  decryptedAuthToken?: string,
+  secretEnv = "TWILIO_AUTH_TOKEN",
 ): Promise<{ ok: boolean; reason?: string }> {
-  // Prefer per-workspace credential, fall back to env
-  const secret = decryptedAuthToken ?? Deno.env.get(secretEnv);
+  const workspaceScopedVerification = arguments.length >= 4;
+  const secret = workspaceScopedVerification
+    ? decryptedAuthToken
+    : Deno.env.get(secretEnv);
 
-  // FAIL-CLOSED: never pass silently without a valid secret
   if (!secret) {
-    console.error("[twilio-sig] TWILIO_AUTH_TOKEN not configured — rejecting request");
-    return { ok: false, reason: "auth_token_not_configured" };
+    console.error(
+      workspaceScopedVerification
+        ? "[twilio-sig] workspace auth token unavailable — rejecting request"
+        : "[twilio-sig] TWILIO_AUTH_TOKEN not configured — rejecting request",
+    );
+    return {
+      ok: false,
+      reason: workspaceScopedVerification
+        ? "workspace_auth_token_unavailable"
+        : "auth_token_not_configured",
+    };
   }
 
   const header = req.headers.get("x-twilio-signature");
   if (!header) return { ok: false, reason: "missing_signature_header" };
 
-  // Reconstruct the exact URL Twilio used for signing
   const proto = req.headers.get("x-forwarded-proto") || "https";
-  const host  = req.headers.get("x-forwarded-host") || req.headers.get("host");
+  const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
   const reqUrl = new URL(req.url);
   const fullUrl = host ? `${proto}://${host}${reqUrl.pathname}${reqUrl.search}` : req.url;
 
