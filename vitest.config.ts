@@ -10,7 +10,7 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     env: {
-      VITE_PUBLIC_SITE_URL: "https://kohablerjeve.top",
+      VITE_PUBLIC_SITE_URL: "https://pulse-bos.com",
     },
   },
   resolve: {
