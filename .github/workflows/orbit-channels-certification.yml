@@ -1,0 +1,38 @@
+name: Orbit Channels Certification
+
+on:
+  pull_request:
+    branches:
+      - chatgpt/orbit-industry-pack-phase-5
+    paths:
+      - "src/components/OrbitSelector.tsx"
+      - "src/components/OrbitSelector.test.tsx"
+      - "src/components/channels/ChannelOrbitSelector.tsx"
+      - "src/components/channels/ChannelOrbitSelector.test.tsx"
+      - "src/pages/Channels.tsx"
+      - ".github/workflows/orbit-channels-certification.yml"
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Orbit and channels targeted tests
+        run: npx vitest run src/components/OrbitSelector.test.tsx src/components/channels/ChannelOrbitSelector.test.tsx
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
