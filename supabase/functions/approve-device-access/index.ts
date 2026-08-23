@@ -9,7 +9,7 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
-const DASHBOARD = Deno.env.get("DASHBOARD_URL") ?? "https://kohablerjeve.top";
+const DASHBOARD = Deno.env.get("DASHBOARD_URL") ?? "https://pulse-bos.com";
 
 serve(async (req: Request): Promise<Response> => {
   const url = new URL(req.url);
