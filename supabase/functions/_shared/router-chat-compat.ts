@@ -95,14 +95,24 @@ export async function routerChatCompletion(
     }
   }
 
-  const result = await callAI(messages, {
-    maxTokens: request.max_tokens,
-    taskType: context.taskType ?? "balanced",
-    workspaceId: context.workspaceId,
-    userId: context.userId,
-    authHeader: context.authHeader ?? null,
-    allowInternalNoWorkspace: context.allowInternalNoWorkspace,
-  });
+  let result;
+  try {
+    result = await callAI(messages, {
+      maxTokens: request.max_tokens,
+      taskType: context.taskType ?? "balanced",
+      workspaceId: context.workspaceId,
+      userId: context.userId,
+      authHeader: context.authHeader ?? null,
+      allowInternalNoWorkspace: context.allowInternalNoWorkspace,
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : "AI router request failed",
+    }), {
+      status: 502,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const content = result.text ?? "";
   let toolCalls: Array<{
@@ -124,7 +134,12 @@ export async function routerChatCompletion(
         },
       }];
     } catch {
-      throw new Error(`Structured AI response for ${tool.function.name} was not valid JSON`);
+      return new Response(JSON.stringify({
+        error: `Structured AI response for ${tool.function.name} was not valid JSON`,
+      }), {
+        status: 502,
+        headers: { "Content-Type": "application/json" },
+      });
     }
   }
 
