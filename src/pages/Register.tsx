@@ -7,11 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, User, Zap, Building2, Briefcase, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Users, Palette } from "lucide-react";
+import { Mail, Lock, User, Zap, Building2, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck } from "lucide-react";
 import { formatALL } from "@/lib/currency";
 import { oauth } from "@/integrations/auth/oauth";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
+import { AccountTypeOrbitSelector } from "@/components/register/AccountTypeOrbitSelector";
 
 type AccountType = "business" | "freelancer" | "ambassador" | "white_label" | null;
 type Step = "account-type" | "plan-selection" | "credentials";
@@ -52,7 +53,6 @@ const Register = () => {
   const refCode = searchParams.get("ref") || "";
   const [step, setStep] = useState<Step>("account-type");
 
-  // Fetch pricing from DB (single source of truth)
   const { data: dbPlans } = useQuery({
     queryKey: ["pricing-settings-register"],
     queryFn: async () => {
@@ -94,15 +94,12 @@ const Register = () => {
       toast.error("Select an account type");
       return;
     }
-    // All account types start with 7-day free trial on the Start plan.
-    // The user can pick/upgrade a plan later from the Subscription page.
     setSelectedTier("standard");
     setSelectedDuration("trial");
     setStep("credentials");
   };
 
   const handlePlanNext = () => {
-    // Plan selection is optional during registration — default to Start + trial.
     if (!selectedTier) setSelectedTier("standard");
     if (!selectedDuration) setSelectedDuration("trial");
     setStep("credentials");
@@ -174,7 +171,7 @@ const Register = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-      <Card className="w-full max-w-2xl">
+      <Card className="w-full max-w-3xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <Zap className="h-6 w-6 text-primary-foreground" />
@@ -186,111 +183,31 @@ const Register = () => {
             {step === "credentials" && "Fill in your details"}
           </CardDescription>
           <div className="mx-auto mt-3 flex items-center gap-2">
-            {["account-type", "plan-selection", "credentials"].map((s, i) => (
+            {["account-type", "plan-selection", "credentials"].map((s) => (
               <div
                 key={s}
                 className={cn(
                   "h-2 rounded-full transition-all",
                   s === step ? "w-8 bg-primary" : "w-2 bg-muted",
-                  (step === "credentials" && (accountType !== "business") && s === "plan-selection") && "hidden"
+                  (step === "credentials" && accountType !== "business" && s === "plan-selection") && "hidden"
                 )}
               />
             ))}
           </div>
         </CardHeader>
 
-        {/* STEP 1: Account Type */}
         {step === "account-type" && (
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <button
-                type="button"
-                onClick={() => setAccountType("business")}
-                className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
-                  accountType === "business"
-                    ? "border-primary bg-primary/5 text-primary shadow-md"
-                    : "border-border text-muted-foreground hover:border-primary/50"
-                )}
-              >
-                <Building2 className="h-9 w-9" />
-                <span className="text-base font-semibold">Business</span>
-                <span className="text-xs opacity-70 text-center">Manage your business — inbox, CRM, marketing, AI, telephony & analytics in one platform</span>
-                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
-                  <li>✓ Unified inbox</li>
-                  <li>✓ CRM & Pipeline</li>
-                  <li>✓ Personal AI assistant</li>
-                  <li>✓ Automated marketing</li>
-                </ul>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAccountType("freelancer")}
-                className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
-                  accountType === "freelancer"
-                    ? "border-primary bg-primary/5 text-primary shadow-md"
-                    : "border-border text-muted-foreground hover:border-primary/50"
-                )}
-              >
-                <Briefcase className="h-9 w-9" />
-                <span className="text-base font-semibold">Freelancer</span>
-                <span className="text-xs opacity-70 text-center">Manage client businesses — rewards follow your approved referral and management terms</span>
-                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
-                  <li>✓ Referral rewards per active partner terms</li>
-                  <li>✓ Management earnings per approved relation</li>
-                  <li>✓ Purchase plan per business</li>
-                  <li>✓ 7-day free trial</li>
-                </ul>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAccountType("ambassador")}
-                className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
-                  accountType === "ambassador"
-                    ? "border-primary bg-primary/5 text-primary shadow-md"
-                    : "border-border text-muted-foreground hover:border-primary/50"
-                )}
-              >
-                <Users className="h-9 w-9" />
-                <span className="text-base font-semibold">Ambassador</span>
-                <span className="text-xs opacity-70 text-center">Referrals only — rewards follow the active partner terms for your account</span>
-                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
-                  <li>✓ Eligible first-payment commissions when configured</li>
-                  <li>✓ Eligibility follows active partner terms</li>
-                  <li>✓ No plan purchases needed</li>
-                  <li>✓ 7-day free trial</li>
-                </ul>
-              </button>
-              <button
-                type="button"
-                onClick={() => setAccountType("white_label")}
-                className={cn(
-                  "flex flex-col items-center gap-3 rounded-xl border-2 p-5 transition-all",
-                  accountType === "white_label"
-                    ? "border-primary bg-primary/5 text-primary shadow-md"
-                    : "border-border text-muted-foreground hover:border-primary/50"
-                )}
-              >
-                <Palette className="h-9 w-9" />
-                <span className="text-base font-semibold">White-Label</span>
-                <span className="text-xs opacity-70 text-center">Resell Pulse AI under your own brand, logo and domain</span>
-                <ul className="text-[10px] text-left opacity-60 space-y-0.5 w-full mt-1">
-                  <li>✓ Your brand & domain</li>
-                  <li>✓ Unlimited client accounts</li>
-                  <li>✓ Setup + monthly licence</li>
-                  <li>✓ Reviewed by our team</li>
-                </ul>
-              </button>
-            </div>
+            <AccountTypeOrbitSelector value={accountType} onChange={setAccountType} />
+            <p className="text-center text-xs text-muted-foreground">
+              Options rotate automatically. Your account type changes only when you select one.
+            </p>
             <Button className="w-full" disabled={!accountType} onClick={handleAccountTypeNext}>
               Continue <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </CardContent>
         )}
 
-        {/* STEP 2: Plan Selection (Business only) */}
         {step === "plan-selection" && (
           <CardContent className="space-y-5">
             <div className="space-y-2">
@@ -309,9 +226,7 @@ const Register = () => {
                       tier.highlighted && selectedTier !== tier.key && "border-primary/30"
                     )}
                   >
-                    {tier.highlighted && (
-                      <Crown className="absolute -top-2 right-2 h-4 w-4 text-primary" />
-                    )}
+                    {tier.highlighted && <Crown className="absolute -top-2 right-2 h-4 w-4 text-primary" />}
                     <span className="text-sm font-bold text-foreground">{tier.name}</span>
                     <span className="text-lg font-semibold text-primary">{formatALL(tier.basePrice)}</span>
                     <span className="text-[10px] text-muted-foreground">/mo</span>
@@ -333,7 +248,7 @@ const Register = () => {
                         type="button"
                         onClick={() => setSelectedDuration(dur.key)}
                         className={cn(
-                          "flex items-center justify-between rounded-lg border-2 px-4 py-3 transition-all text-left",
+                          "flex items-center justify-between rounded-lg border-2 px-4 py-3 text-left transition-all",
                           selectedDuration === dur.key
                             ? "border-primary bg-primary/5"
                             : "border-border hover:border-primary/50"
@@ -349,7 +264,7 @@ const Register = () => {
                           <div>
                             <span className="text-sm font-medium text-foreground">{dur.label}</span>
                             {dur.discountPercent > 0 && (
-                              <Badge variant="secondary" className="ml-2 text-[10px] px-1.5 py-0">
+                              <Badge variant="secondary" className="ml-2 px-1.5 py-0 text-[10px]">
                                 Save {dur.discountPercent}%
                               </Badge>
                             )}
@@ -359,7 +274,7 @@ const Register = () => {
                           {isTrial ? (
                             <div className="flex items-center gap-2">
                               <span className="text-sm font-semibold text-foreground">{formatALL(0)}</span>
-                              <Badge className="text-[10px] px-1.5 py-0">Free</Badge>
+                              <Badge className="px-1.5 py-0 text-[10px]">Free</Badge>
                             </div>
                           ) : (
                             <span className="text-sm font-semibold text-foreground">{formatALL(price)}/mo</span>
@@ -376,28 +291,22 @@ const Register = () => {
               <Button variant="outline" onClick={() => setStep("account-type")} className="flex-1">
                 <ArrowLeft className="mr-2 h-4 w-4" /> Back
               </Button>
-              <Button
-                className="flex-1"
-                disabled={!selectedTier || !selectedDuration}
-                onClick={handlePlanNext}
-              >
+              <Button className="flex-1" disabled={!selectedTier || !selectedDuration} onClick={handlePlanNext}>
                 Continue <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
             </div>
           </CardContent>
         )}
 
-        {/* STEP 3: Credentials */}
         {step === "credentials" && (
           <form onSubmit={handleRegister}>
             <CardContent className="space-y-4">
-              {/* Summary */}
               <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Type:</span>
-                  <span className="font-medium text-foreground capitalize">{accountType}</span>
+                  <span className="font-medium capitalize text-foreground">{accountType}</span>
                 </div>
-                <div className="flex items-center justify-between mt-1">
+                <div className="mt-1 flex items-center justify-between">
                   <span className="text-muted-foreground">Plan:</span>
                   <span className="font-medium text-foreground">
                     {currentTier?.name}
@@ -405,7 +314,7 @@ const Register = () => {
                   </span>
                 </div>
                 {selectedDuration && selectedDuration !== "trial" && currentTier && (
-                  <div className="flex items-center justify-between mt-1">
+                  <div className="mt-1 flex items-center justify-between">
                     <span className="text-muted-foreground">Price:</span>
                     <span className="font-medium text-foreground">
                       {formatPrice(currentTier.basePrice, DURATION_OPTIONS.find(d => d.key === selectedDuration)?.discountPercent ?? 0)}/mo
@@ -414,12 +323,11 @@ const Register = () => {
                 )}
               </div>
 
-              {/* Trial: what's included + warning */}
               {selectedDuration === "trial" && (
                 <div className="space-y-2">
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-1">
+                  <div className="space-y-1 rounded-lg border border-primary/20 bg-primary/5 p-3">
                     <p className="text-xs font-medium text-foreground">✅ What's included in the 7-day trial:</p>
-                    <ul className="text-[11px] text-muted-foreground space-y-0.5 list-none pl-1">
+                    <ul className="list-none space-y-0.5 pl-1 text-[11px] text-muted-foreground">
                       <li>✓ Full access to all features <span className="text-muted-foreground/70">(except Admin panel)</span></li>
                       <li>✓ Dedicated personal AI assistant</li>
                       <li>✓ Unified inbox — email, WhatsApp, Telegram</li>
@@ -428,9 +336,9 @@ const Register = () => {
                       <li>✓ 1 business profile allowed during trial</li>
                     </ul>
                   </div>
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                  <div className="space-y-1 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
                     <p className="text-xs font-medium text-destructive">⚠️ After the 7-day trial:</p>
-                    <ul className="text-[11px] text-destructive/80 space-y-0.5 list-none pl-1">
+                    <ul className="list-none space-y-0.5 pl-1 text-[11px] text-destructive/80">
                       <li>⚠ Access is blocked — you must choose a plan</li>
                       <li>⚠ If no payment within <strong>30 days</strong> — account is automatically deleted</li>
                       <li>💡 You can pay with PayPal, Payoneer or wallet balance</li>
@@ -439,7 +347,6 @@ const Register = () => {
                 </div>
               )}
 
-              {/* Non-trial: direct payment notice */}
               {selectedDuration && selectedDuration !== "trial" && accountType === "business" && (
                 <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                   <p className="text-xs text-muted-foreground">
@@ -483,9 +390,7 @@ const Register = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="security-code">
-                  Security Code <span className="text-destructive">*</span>
-                </Label>
+                <Label htmlFor="security-code">Security Code <span className="text-destructive">*</span></Label>
                 <div className="relative">
                   <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
@@ -504,9 +409,7 @@ const Register = () => {
                 <p className="text-[11px] text-muted-foreground">
                   Format: 1 uppercase + 3 letters + 1 symbol (!@#$) + 1 punctuation (.,;:) + 3 digits
                 </p>
-                {securityCodeError && (
-                  <p className="text-xs text-destructive">{securityCodeError}</p>
-                )}
+                {securityCodeError && <p className="text-xs text-destructive">{securityCodeError}</p>}
               </div>
             </CardContent>
             <CardFooter className="flex flex-col gap-3">
