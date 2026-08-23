@@ -7,13 +7,13 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Building2, Handshake, Lock, AlertTriangle, Link2 } from "lucide-react";
 import { businessProfileFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
+import { BusinessProfileAiOrbitSelectors } from "@/components/business/BusinessProfileAiOrbitSelectors";
 import { supabase } from "@/integrations/supabase/client";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useQuery } from "@tanstack/react-query";
@@ -31,22 +31,6 @@ const schema = z.object({
   language: z.string().default("en"),
 });
 
-const toneOptions = [
-  { value: "professional", label: "Professional" },
-  { value: "friendly", label: "Friendly" },
-  { value: "casual", label: "Casual" },
-  { value: "formal", label: "Formal" },
-  { value: "persuasive", label: "Persuasive" },
-];
-
-const languageOptions = [
-  { value: "en", label: "English" },
-  { value: "ar", label: "Arabic" },
-  { value: "es", label: "Spanish" },
-  { value: "fr", label: "French" },
-  { value: "de", label: "German" },
-];
-
 const BusinessProfile = () => {
   const { profile, isLoading, upsert } = useBusinessProfile();
   const [aiField, setAiField] = useState<string | null>(null);
@@ -58,7 +42,6 @@ const BusinessProfile = () => {
   const isFreelancer = accountType === "freelancer" || roles.includes("freelancer" as any);
   const isAmbassador = accountType === "ambassador" || roles.includes("ambassador" as any);
 
-  // Check if freelancer has paid for this business (subscription with payment_status = 'paid')
   const { data: subscription } = useQuery({
     queryKey: ["user-subscription-status", user?.id],
     queryFn: async () => {
@@ -74,14 +57,11 @@ const BusinessProfile = () => {
   });
 
   const hasPaidSubscription = subscription?.payment_status === "paid";
-  const isInActiveTrial = subscription?.payment_status === "trial" && 
+  const isInActiveTrial = subscription?.payment_status === "trial" &&
     subscription?.trial_end && new Date(subscription.trial_end) > new Date();
-  
-  // Ambassadors are referral-only — they don't manage businesses and don't buy packages
-  // Freelancers need to have paid or be in active trial
+
   const freelancerCanAccessProfile = isAdmin || (!isFreelancer && !isAmbassador) || hasPaidSubscription || isInActiveTrial;
 
-  // Fetch partner ownership info
   const { data: ownerPartner } = useQuery({
     queryKey: ["workspace-owner-partner", currentWorkspace?.id],
     queryFn: async () => {
@@ -102,7 +82,6 @@ const BusinessProfile = () => {
     enabled: !!currentWorkspace?.id,
   });
 
-  // Count social channels linked to this workspace
   const { data: socialChannelCount = 0 } = useQuery({
     queryKey: ["social-channel-count", currentWorkspace?.id],
     queryFn: async () => {
@@ -146,20 +125,18 @@ const BusinessProfile = () => {
     }
   }, [profile, form]);
 
-  const onSubmit = (values: BusinessProfileData) => {
-    upsert.mutate(values);
-  };
+  const onSubmit = (values: BusinessProfileData) => upsert.mutate(values);
 
   const aiSuggest = async (fieldId: string, prompt: string, setter: (v: string) => void) => {
     setAiField(fieldId);
     try {
-      const { data } = await supabase.functions.invoke("ai-sales-assistant", {
-        body: { prompt },
-      });
+      const { data } = await supabase.functions.invoke("ai-sales-assistant", { body: { prompt } });
       if (data?.result) setter(data.result.trim());
     } catch {
       /* ignore AI suggest error */
-    } finally { setAiField(null); }
+    } finally {
+      setAiField(null);
+    }
   };
 
   if (isLoading) {
@@ -172,7 +149,6 @@ const BusinessProfile = () => {
     );
   }
 
-  // Ambassadors are referral-only — they cannot manage business profiles
   if (isAmbassador && !isAdmin) {
     return (
       <DashboardLayout>
@@ -182,15 +158,11 @@ const BusinessProfile = () => {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                 <Handshake className="h-7 w-7 text-muted-foreground" />
               </div>
-              <h2 className="text-xl font-bold text-foreground text-center">
-                Referrals Only
-              </h2>
-              <p className="text-sm text-muted-foreground text-center max-w-sm">
+              <h2 className="text-center text-xl font-bold text-foreground">Referrals Only</h2>
+              <p className="max-w-sm text-center text-sm text-muted-foreground">
                 Your account is Ambassador type — you earn commission from business referrals. Business profile is not available for this account type.
               </p>
-              <Button variant="outline" onClick={() => window.location.href = "/dashboard"} className="mt-2">
-                Back to Dashboard
-              </Button>
+              <Button variant="outline" onClick={() => window.location.href = "/dashboard"} className="mt-2">Back to Dashboard</Button>
             </CardContent>
           </Card>
         </div>
@@ -198,7 +170,6 @@ const BusinessProfile = () => {
     );
   }
 
-  // Gate for freelancers without paid subscription
   if (!freelancerCanAccessProfile) {
     return (
       <DashboardLayout>
@@ -208,17 +179,12 @@ const BusinessProfile = () => {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
                 <Lock className="h-7 w-7 text-destructive" />
               </div>
-              <h2 className="text-xl font-bold text-foreground text-center">
-                Business Profile Locked
-              </h2>
-              <p className="text-sm text-muted-foreground text-center max-w-sm">
+              <h2 className="text-center text-xl font-bold text-foreground">Business Profile Locked</h2>
+              <p className="max-w-sm text-center text-sm text-muted-foreground">
                 To complete the business profile, you need to purchase one of the plans (Start, Growth, PRO, or Enterprise) with your applicable discount.
-                <br /><br />
-                Each business you register requires its own plan.
+                <br /><br />Each business you register requires its own plan.
               </p>
-              <Button onClick={() => window.location.href = "/complete-payment"} className="mt-2">
-                Buy Plan
-              </Button>
+              <Button onClick={() => window.location.href = "/complete-payment"} className="mt-2">Buy Plan</Button>
             </CardContent>
           </Card>
         </div>
@@ -239,28 +205,24 @@ const BusinessProfile = () => {
           </div>
         </div>
 
-        {/* Minimum 2 social channels notice */}
         {socialChannelCount < 2 && (
           <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="flex items-start gap-3 py-4">
-              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5 shrink-0" />
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
               <div>
-                <p className="text-sm font-medium text-foreground">
-                  Connect at least 2 social channels
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-sm font-medium text-foreground">Connect at least 2 social channels</p>
+                <p className="mt-1 text-xs text-muted-foreground">
                   To enable AI suggestions for posts, competitors and audience, connect at least 2 social networks (e.g. Instagram & LinkedIn).
                   You currently have {socialChannelCount} channel{socialChannelCount !== 1 ? "s" : ""}.
                 </p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.href = "/channels"}>
-                  <Link2 className="h-3 w-3 mr-1" /> Connect Channels
+                  <Link2 className="mr-1 h-3 w-3" /> Connect Channels
                 </Button>
               </div>
             </CardContent>
           </Card>
         )}
 
-        {/* Info card: fill as much as possible */}
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="py-4">
             <p className="text-xs text-muted-foreground">
@@ -271,22 +233,15 @@ const BusinessProfile = () => {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            {/* Partner ownership badge */}
             {ownerPartner && (
               <Card className="border-primary/20 bg-primary/5">
                 <CardContent className="flex items-center gap-3 py-4">
                   <Handshake className="h-5 w-5 text-primary" />
                   <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Managed by Partner: {ownerPartner.partner_name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      {ownerPartner.referral_code && (
-                        <Badge variant="outline" className="text-xs">Code: {ownerPartner.referral_code}</Badge>
-                      )}
-                      <Badge variant="secondary" className="text-xs capitalize">
-                        {(ownerPartner as any).payment_mode?.replace("_", " ") || "Undeclared"}
-                      </Badge>
+                    <p className="text-sm font-medium text-foreground">Managed by Partner: {ownerPartner.partner_name}</p>
+                    <div className="mt-1 flex items-center gap-2">
+                      {ownerPartner.referral_code && <Badge variant="outline" className="text-xs">Code: {ownerPartner.referral_code}</Badge>}
+                      <Badge variant="secondary" className="text-xs capitalize">{(ownerPartner as any).payment_mode?.replace("_", " ") || "Undeclared"}</Badge>
                     </div>
                   </div>
                 </CardContent>
@@ -343,9 +298,7 @@ const BusinessProfile = () => {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Services & Values</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">Services & Values</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="main_services" render={({ field }) => (
                   <FormItem>
@@ -380,39 +333,14 @@ const BusinessProfile = () => {
                 <CardDescription>How should AI communicate on your behalf?</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <FormField control={form.control} name="ai_tone" render={({ field }) => (
-                    <FormItem>
-                      <FieldLabelWithGuide label="AI Tone" guide={getFieldGuide(businessProfileFieldGuides, "ai_tone")!} />
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {toneOptions.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="language" render={({ field }) => (
-                    <FormItem>
-                      <FieldLabelWithGuide label="Language" guide={getFieldGuide(businessProfileFieldGuides, "language")!} />
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <FormControl>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {languageOptions.map((o) => (
-                            <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )} />
+                <BusinessProfileAiOrbitSelectors
+                  tone={form.watch("ai_tone") || "professional"}
+                  language={form.watch("language") || "en"}
+                  onToneChange={(value) => form.setValue("ai_tone", value, { shouldDirty: true, shouldValidate: true })}
+                  onLanguageChange={(value) => form.setValue("language", value, { shouldDirty: true, shouldValidate: true })}
+                />
+                <div className="sr-only" aria-live="polite">
+                  AI tone: {form.watch("ai_tone")}. AI language: {form.watch("language")}.
                 </div>
               </CardContent>
             </Card>
