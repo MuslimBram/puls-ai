@@ -62,7 +62,7 @@ function buildInvoiceHTML(inv: Record<string, unknown>): string {
   <div class="header">
     <div>
       <div class="logo">Pulse AI</div>
-      <div style="font-size:12px;color:#6b7280;margin-top:4px">kohablerjeve.top</div>
+      <div style="font-size:12px;color:#6b7280;margin-top:4px">pulse-bos.com</div>
     </div>
     <div class="invoice-meta">
       <div class="number">FATURË #${inv.invoice_number ?? "—"}</div>
@@ -110,7 +110,7 @@ function buildInvoiceHTML(inv: Record<string, unknown>): string {
   ${inv.notes ? `<div style="margin-top:24px;padding:12px;background:#f9fafb;border-radius:6px;font-size:13px;color:#4b5563">${inv.notes}</div>` : ""}
 
   <div class="footer">
-    Pulse AI — Business Operating System AI • kohablerjeve.top<br>
+    Pulse AI — Business Operating System AI • pulse-bos.com<br>
     Faleminderit për besimin tuaj!
   </div>
 </body>
