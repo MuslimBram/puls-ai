@@ -1,0 +1,42 @@
+name: Orbit Pricing Certification
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/OrbitSelector.tsx'
+      - 'src/components/OrbitSelector.test.tsx'
+      - 'src/components/pricing/PricingDurationSelector.tsx'
+      - 'src/components/pricing/PricingDurationSelector.test.tsx'
+      - 'src/config/plans.ts'
+      - 'src/lib/packagePricing.ts'
+      - '.github/workflows/orbit-pricing-certification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Orbit and pricing targeted tests
+        run: npx vitest run src/components/OrbitSelector.test.tsx src/components/pricing/PricingDurationSelector.test.tsx
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
