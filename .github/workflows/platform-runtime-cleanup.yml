@@ -1,0 +1,268 @@
+name: Runtime Dependency Cleanup
+
+on:
+  push:
+    branches:
+      - fix/remove-lovable-runtime-dependency
+    paths:
+      - .github/workflows/platform-runtime-cleanup.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/remove-lovable-runtime-dependency
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Apply cleanup
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import json, re, shutil
+
+          def replace_file(path, replacements):
+              p = Path(path)
+              if not p.exists(): return
+              text = p.read_text(encoding='utf-8')
+              for old, new in replacements:
+                  text = text.replace(old, new)
+              p.write_text(text, encoding='utf-8')
+
+          # Neutral repository documentation.
+          Path('README.md').write_text('''# Pulse AI\n\nPulse AI is an AI Business Operating System for running, automating, and growing a business.\n\n## Runtime\n\n- Frontend: React + Vite\n- Hosting: Vercel\n- Backend/Auth/Database/Edge Functions: Supabase\n- Public domain: https://pulse-bos.com\n- Transition domain: https://kohablerjeve.top\n- AI: canonical Pulse AI multi-provider router\n\n## Development\n\nInstall dependencies with `npm install`, run locally with `npm run dev`, and validate with the repository CI checks.\n\nProduction changes are made through reviewed GitHub pull requests.\n''', encoding='utf-8')
+
+          replace_file('capacitor.config.ts', [
+              ('["*.supabase.co", "*.lovable.app", "kohablerjeve.top"]', '["*.supabase.co", "pulse-bos.com", "www.pulse-bos.com", "kohablerjeve.top", "www.kohablerjeve.top"]'),
+          ])
+          replace_file('docs/ARCHITECTURE.md', [
+              ('React (Lovable) → kohablerjeve.top', 'React/Vite → pulse-bos.com'),
+              ('Lovable Gateway (Gemini) primary + Anthropic Claude fallback', 'Canonical Pulse AI multi-provider router'),
+              ('Lovable/Anthropic AI', 'Canonical AI Router'),
+          ])
+          replace_file('docs/GSC_SETUP.md', [('Vercel / Lovable', 'Vercel')])
+          replace_file('docs/ai-1b-provider-bypass-audit.md', [
+              ('Lovable/Anthropic', 'legacy direct-provider'),
+              ('Lovable AI Gateway', 'legacy AI gateway'),
+          ])
+          replace_file('docs/generate_report.py', [
+              ('P1 — Sync Lovable', 'P1 — Sync GitHub'),
+              ("Lovable.dev → projekti → Settings → Git → 'Pull from GitHub'", "GitHub → repository → pull latest reviewed branch"),
+              ('FRONTEND: Lovable (React)', 'FRONTEND: React/Vite'),
+          ])
+
+          Path('playwright-fixture.ts').write_text('export { test, expect } from "@playwright/test";\n', encoding='utf-8')
+
+          replace_file('src/App.tsx', [('path="/.lovable/oauth/consent"', 'path="/oauth/consent"')])
+
+          pwa = Path('src/lib/pwaRegistration.ts')
+          if pwa.exists():
+              text = pwa.read_text(encoding='utf-8')
+              for line in [
+                  '    hostname === "lovableproject.com" ||\n',
+                  '    hostname.endsWith(".lovableproject.com") ||\n',
+                  '    hostname === "lovableproject-dev.com" ||\n',
+                  '    hostname.endsWith(".lovableproject-dev.com") ||\n',
+                  '    hostname === "beta.lovable.dev" ||\n',
+                  '    hostname.endsWith(".beta.lovable.dev") ||\n',
+              ]:
+                  text = text.replace(line, '')
+              pwa.write_text(text, encoding='utf-8')
+
+          replace_file('src/pages/PublicApi.tsx', [
+              ('const baseUrl = `${window.location.origin.replace("id-preview--", "").replace(".lovable.app", ".supabase.co")}/functions/v1/public-api`;',
+               'const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-api`;'),
+          ])
+          replace_file('src/hooks/useActivationStatus.ts', [
+              ('Platform uses Lovable AI by default. Add OpenAI key for custom models.', 'Platform uses the canonical AI router by default. Add provider keys for custom models.'),
+          ])
+
+          # Replace the former external frontend builder identity with a neutral local candidate.
+          factory_files = list(Path('src/factory').rglob('*.ts'))
+          for p in factory_files:
+              text = p.read_text(encoding='utf-8')
+              text = text.replace('lovable_mcp', 'frontend_builder_candidate')
+              text = text.replace('Lovable', 'frontend builder')
+              text = text.replace('lovable', 'frontend_builder')
+              p.write_text(text, encoding='utf-8')
+
+          # Make the neutral frontend candidate local/no external adapter.
+          bridge = Path('src/factory/phase2bBridge.ts')
+          if bridge.exists():
+              text = bridge.read_text(encoding='utf-8')
+              text = text.replace('frontend_builder_candidate: {\n    worker_id: "frontend_builder_candidate",\n    adapter_key: "frontend_builder_candidate",\n    worker_class: "builder",\n    status: "active_adapter",\n    requires_external_call: true,\n  },',
+                                  'frontend_builder_candidate: {\n    worker_id: "frontend_builder_candidate",\n    adapter_key: null,\n    worker_class: "builder",\n    status: "local_candidate",\n    requires_external_call: false,\n  },')
+              bridge.write_text(text, encoding='utf-8')
+
+          router = Path('src/factory/agentRouter.ts')
+          if router.exists():
+              text = router.read_text(encoding='utf-8')
+              text = text.replace('if (taskType === "full_prototype" || workerId === "frontend_builder_candidate" || workerId === "base44_mcp") {',
+                                  'if (taskType === "full_prototype" || workerId === "base44_mcp") {')
+              router.write_text(text, encoding='utf-8')
+
+          # Remove the retired external builder adapter from the server-side adapter registry.
+          adapter = Path('supabase/functions/builder-adapter-router/index.ts')
+          if adapter.exists():
+              text = adapter.read_text(encoding='utf-8')
+              text = re.sub(r'\n\s*frontend_builder_candidate:\s*\{.*?\n\s*\},', '', text, flags=re.S)
+              text = text.replace('frontend builder MCP', 'frontend builder')
+              text = text.replace('https://mcp.frontend_builder.dev', '')
+              adapter.write_text(text, encoding='utf-8')
+
+          # Replace generated/vendor MCP source with a native stateless Pulse AI MCP endpoint.
+          mcp_source = Path('src/lib/mcp')
+          if mcp_source.exists(): shutil.rmtree(mcp_source)
+
+          mcp = Path('supabase/functions/mcp/index.ts')
+          mcp.write_text(r'''import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.99.1";
+
+const headers = {
+  "Content-Type": "application/json",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, content-type, mcp-session-id",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const tools = [
+  { name: "whoami", title: "Who am I", description: "Return the authenticated Pulse AI user id and email.", inputSchema: { type: "object", properties: {}, additionalProperties: false }, annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } },
+  { name: "list_leads", title: "List leads", description: "List the signed-in user's leads, most recent first.", inputSchema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 100 }, status: { type: "string" } }, additionalProperties: false }, annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } },
+  { name: "create_lead", title: "Create lead", description: "Create a new lead in the signed-in user's CRM.", inputSchema: { type: "object", properties: { name: { type: "string", minLength: 1 }, email: { type: "string" }, phone: { type: "string" }, source: { type: "string" }, notes: { type: "string" } }, required: ["name"], additionalProperties: false }, annotations: { readOnlyHint: false, destructiveHint: false, openWorldHint: false } },
+  { name: "list_inbox_messages", title: "List inbox messages", description: "List recent unified inbox messages for the signed-in user.", inputSchema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 100 }, channel: { type: "string" }, unread_only: { type: "boolean" } }, additionalProperties: false }, annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } },
+  { name: "list_deals", title: "List deals", description: "List the signed-in user's CRM deals.", inputSchema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 100 }, stage: { type: "string" } }, additionalProperties: false }, annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } },
+  { name: "list_business_profiles", title: "List business profiles", description: "List the signed-in user's Pulse AI business profiles.", inputSchema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 50 } }, additionalProperties: false }, annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } },
+  { name: "list_inbox_threads", title: "List inbox threads", description: "List unified inbox conversation threads for the signed-in user.", inputSchema: { type: "object", properties: { limit: { type: "integer", minimum: 1, maximum: 100 }, channel_type: { type: "string" }, status: { type: "string" } }, additionalProperties: false }, annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } },
+  { name: "search_knowledge", title: "Search knowledge base", description: "Full-text search over the signed-in user's knowledge base chunks.", inputSchema: { type: "object", properties: { query: { type: "string", minLength: 2 }, limit: { type: "integer", minimum: 1, maximum: 50 }, business_id: { type: "string", format: "uuid" } }, required: ["query"], additionalProperties: false }, annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false } },
+];
+
+function ok(id: unknown, result: unknown) { return { jsonrpc: "2.0", id, result }; }
+function fail(id: unknown, code: number, message: string) { return { jsonrpc: "2.0", id, error: { code, message } }; }
+function toolText(value: unknown, key?: string) {
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  return { content: [{ type: "text", text }], ...(key ? { structuredContent: { [key]: value } } : {}) };
+}
+
+async function getContext(req: Request) {
+  const auth = req.headers.get("authorization") ?? "";
+  if (!auth.startsWith("Bearer ")) throw new Error("Not authenticated");
+  const token = auth.slice(7).trim();
+  const url = Deno.env.get("SUPABASE_URL");
+  const key = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
+  if (!url || !key) throw new Error("Supabase configuration missing");
+  const sb = createClient(url, key, { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } });
+  const { data: { user }, error } = await sb.auth.getUser(token);
+  if (error || !user) throw new Error("Not authenticated");
+  return { sb, user };
+}
+
+async function callTool(req: Request, name: string, args: Record<string, unknown>) {
+  const { sb, user } = await getContext(req);
+  switch (name) {
+    case "whoami": return toolText({ user_id: user.id, email: user.email ?? null });
+    case "list_leads": {
+      let q = sb.from("leads").select("*").order("created_at", { ascending: false }).limit(Number(args.limit ?? 20));
+      if (args.status) q = q.eq("status", String(args.status));
+      const { data, error } = await q; if (error) throw error; return toolText(data ?? [], "leads");
+    }
+    case "create_lead": {
+      const nameValue = String(args.name ?? "").trim(); if (!nameValue) throw new Error("name is required");
+      const { data, error } = await sb.from("leads").insert({ user_id: user.id, name: nameValue, email: args.email ? String(args.email) : null, phone: args.phone ? String(args.phone) : null, source: args.source ? String(args.source) : "mcp", notes: args.notes ? String(args.notes) : null, status: "new" }).select().single();
+      if (error) throw error; return toolText(data, "lead");
+    }
+    case "list_inbox_messages": {
+      let q = sb.from("inbox_messages").select("*").order("created_at", { ascending: false }).limit(Number(args.limit ?? 20));
+      if (args.channel) q = q.eq("channel", String(args.channel)); if (args.unread_only) q = q.eq("is_read", false);
+      const { data, error } = await q; if (error) throw error; return toolText(data ?? [], "messages");
+    }
+    case "list_deals": {
+      let q = sb.from("deals").select("*").order("updated_at", { ascending: false }).limit(Number(args.limit ?? 20));
+      if (args.stage) q = q.eq("stage", String(args.stage));
+      const { data, error } = await q; if (error) throw error; return toolText(data ?? [], "deals");
+    }
+    case "list_business_profiles": {
+      const { data, error } = await sb.from("business_profiles").select("*").order("created_at", { ascending: false }).limit(Number(args.limit ?? 20));
+      if (error) throw error; return toolText(data ?? [], "businesses");
+    }
+    case "list_inbox_threads": {
+      let q = sb.from("conversation_threads").select("*").order("last_message_at", { ascending: false }).limit(Number(args.limit ?? 20));
+      if (args.channel_type) q = q.eq("channel_type", String(args.channel_type)); if (args.status) q = q.eq("status", String(args.status));
+      const { data, error } = await q; if (error) throw error; return toolText(data ?? [], "threads");
+    }
+    case "search_knowledge": {
+      const query = String(args.query ?? "").replace(/[%_]/g, "").trim(); if (query.length < 2) throw new Error("query must contain at least 2 characters");
+      let q = sb.from("knowledge_chunks").select("id, business_id, content, content_type, chunk_index, created_at").ilike("content", `%${query}%`).order("created_at", { ascending: false }).limit(Number(args.limit ?? 10));
+      if (args.business_id) q = q.eq("business_id", String(args.business_id));
+      const { data, error } = await q; if (error) throw error; return toolText(data ?? [], "chunks");
+    }
+    default: throw new Error(`Unknown tool: ${name}`);
+  }
+}
+
+async function handleMessage(req: Request, message: any) {
+  const id = message?.id;
+  if (message?.method === "initialize") return ok(id, { protocolVersion: message?.params?.protocolVersion ?? "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "pulse-ai-mcp", version: "0.1.0" }, instructions: "Pulse AI tools operate under the authenticated user's existing Supabase row-level security policies." });
+  if (message?.method === "ping") return ok(id, {});
+  if (message?.method === "tools/list") return ok(id, { tools });
+  if (message?.method === "tools/call") {
+    try { return ok(id, await callTool(req, String(message?.params?.name ?? ""), (message?.params?.arguments ?? {}) as Record<string, unknown>)); }
+    catch (error) { return ok(id, { content: [{ type: "text", text: error instanceof Error ? error.message : "Tool failed" }], isError: true }); }
+  }
+  if (typeof message?.method === "string" && message.method.startsWith("notifications/")) return null;
+  return fail(id, -32601, "Method not found");
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  if (req.method !== "POST") return new Response(JSON.stringify({ error: "POST required" }), { status: 405, headers });
+  let payload: any; try { payload = await req.json(); } catch { return new Response(JSON.stringify(fail(null, -32700, "Parse error")), { status: 400, headers }); }
+  if (Array.isArray(payload)) {
+    const responses = (await Promise.all(payload.map((m) => handleMessage(req, m)))).filter(Boolean);
+    return new Response(JSON.stringify(responses), { status: responses.length ? 200 : 202, headers });
+  }
+  const result = await handleMessage(req, payload);
+  if (!result) return new Response(null, { status: 202, headers });
+  return new Response(JSON.stringify(result), { status: 200, headers });
+});
+''', encoding='utf-8')
+
+          package = Path('package.json')
+          data = json.loads(package.read_text(encoding='utf-8'))
+          data.get('dependencies', {}).pop('@lovable.dev/mcp-js', None)
+          package.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          Path('platform-runtime-audit.txt').unlink(missing_ok=True)
+          Path('.github/workflows/platform-runtime-cleanup.yml').unlink(missing_ok=True)
+          PY
+
+      - name: Regenerate npm lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Regenerate Bun lockfile
+        run: bun install --lockfile-only --ignore-scripts
+
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          git config user.name "MuslimBram"
+          git config user.email "223172034+MuslimBram@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: remove legacy runtime tooling"
+          git push origin HEAD:fix/remove-lovable-runtime-dependency
