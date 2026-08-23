@@ -8,10 +8,9 @@ import { getServiceKey } from "../_shared/admin-client.ts";
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-
 /**
  * Broadcast Send Engine
- * 
+ *
  * Processes the broadcast_send_queue with full compliance enforcement:
  * - Suppression list checking
  * - Opt-out enforcement
@@ -19,7 +18,7 @@ const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_
  * - Bounce detection & recording
  * - Retry scheduling with backoff
  * - Reputation score updates
- * 
+ *
  * Called via pg_cron every minute or manually triggered.
  */
 
@@ -39,8 +38,6 @@ serve(async (req) => {
   const unauth = requireCronAuth(req);
   if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...getCors(req), "Content-Type": "application/json" } });
 
-
-
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     getServiceKey()!,
@@ -54,7 +51,7 @@ serve(async (req) => {
     // 1. Fetch pending items ready to send (limit batch to avoid timeout)
     const { data: queue, error: qErr } = await supabase
       .from("broadcast_send_queue")
-      .select("*, broadcasts!inner(user_id, channel_type, throttle_per_minute, status)")
+      .select("*, broadcasts!inner(user_id, workspace_id, channel_type, throttle_per_minute, status)")
       .in("status", ["pending", "failed"])
       .or(`next_retry_at.is.null,next_retry_at.lte.${now.toISOString()}`)
       .lt("attempt_count", 3)
@@ -102,7 +99,7 @@ serve(async (req) => {
             .from("broadcast_send_queue")
             .update({ status: "suppressed", updated_at: now.toISOString() } as any)
             .eq("id", item.id);
-          
+
           await supabase
             .from("broadcast_recipients")
             .update({ status: "suppressed" } as any)
@@ -114,12 +111,11 @@ serve(async (req) => {
 
         // 3. Inject legal footer + unsubscribe link
         const unsubscribeUrl = await getUnsubscribeUrl(supabase, item, broadcastId);
-        
+
         // 4. Send via actual channel
         const sendResult = await dispatchToChannel(supabase, item, channelType, unsubscribeUrl);
 
         if (sendResult.success) {
-          // Mark sent
           await supabase
             .from("broadcast_send_queue")
             .update({
@@ -137,7 +133,6 @@ serve(async (req) => {
 
           stats.sent++;
         } else if (sendResult.bounce) {
-          // Record bounce in suppression list
           await supabase.from("global_suppression_list").upsert({
             user_id: item.user_id,
             contact_identifier: item.contact_identifier,
@@ -158,12 +153,10 @@ serve(async (req) => {
             .update({ status: "bounced", error_message: sendResult.error } as any)
             .eq("id", item.recipient_id);
 
-          // Increment bounce count on broadcast
           await supabase.rpc("increment_broadcast_counter", { _broadcast_id: broadcastId, _field: "bounce_count" }).catch(() => {});
 
           stats.failed++;
         } else {
-          // Transient failure — schedule retry
           const nextAttempt = item.attempt_count + 1;
           if (nextAttempt < item.max_attempts) {
             const delaySeconds = RETRY_DELAYS[Math.min(nextAttempt - 1, RETRY_DELAYS.length - 1)];
@@ -182,7 +175,6 @@ serve(async (req) => {
 
             stats.retried++;
           } else {
-            // Max retries exceeded
             await supabase
               .from("broadcast_send_queue")
               .update({ status: "failed", attempt_count: nextAttempt, last_error: "max_retries_exceeded", updated_at: now.toISOString() } as any)
@@ -208,7 +200,6 @@ serve(async (req) => {
         const sentCount = queueStats.filter(q => q.status === "sent").length;
         const failedCount = queueStats.filter(q => ["failed", "bounced"].includes(q.status)).length;
         const pendingCount = queueStats.filter(q => q.status === "pending").length;
-        const suppressedCount = queueStats.filter(q => q.status === "suppressed").length;
 
         const updateData: any = {
           sent_count: sentCount,
@@ -249,7 +240,6 @@ async function getUnsubscribeUrl(
 ): Promise<string> {
   const baseUrl = Deno.env.get("SUPABASE_URL");
 
-  // Check for existing token
   const { data: existing } = await supabase
     .from("broadcast_unsubscribe_tokens")
     .select("token")
@@ -263,7 +253,6 @@ async function getUnsubscribeUrl(
     return `${baseUrl}/functions/v1/broadcast-unsubscribe?token=${existing.token}`;
   }
 
-  // Create new token
   const token = crypto.randomUUID();
   await supabase.from("broadcast_unsubscribe_tokens").insert({
     user_id: item.user_id,
@@ -291,14 +280,14 @@ async function dispatchToChannel(
 ): Promise<{ success: boolean; bounce?: boolean; error?: string }> {
   const baseUrl = Deno.env.get("SUPABASE_URL");
   const serviceKey = getServiceKey();
-  
-  // Inject legal footer
+
   const footer = (LEGAL_FOOTER[channelType] || LEGAL_FOOTER.email)(unsubscribeUrl);
-  const messageWithFooter = (item.contact_identifier ? "" : "") + footer; // footer appended by channel sender
+  const messageWithFooter = (item.contact_identifier ? "" : "") + footer;
 
   try {
     let functionName = "";
     let body: Record<string, unknown> = {};
+    let internalSecret: string | undefined;
 
     switch (channelType) {
       case "email":
@@ -310,14 +299,21 @@ async function dispatchToChannel(
           user_id: item.user_id,
         };
         break;
-      case "sms":
+      case "sms": {
+        const workspaceId = item?.broadcasts?.workspace_id;
+        internalSecret = Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? undefined;
+        if (!workspaceId || !internalSecret) {
+          return { success: false, error: "SMS skipped: broadcast workspace and internal security context are required" };
+        }
         functionName = "send-sms";
         body = {
           to: item.contact_identifier,
-          message: messageWithFooter,
+          body: messageWithFooter,
+          workspace_id: workspaceId,
           user_id: item.user_id,
         };
         break;
+      }
       case "whatsapp":
         functionName = "send-whatsapp";
         body = {
@@ -338,12 +334,15 @@ async function dispatchToChannel(
         return { success: false, error: `Unsupported channel: ${channelType}` };
     }
 
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${serviceKey}`,
+    };
+    if (internalSecret) headers["x-internal-secret"] = internalSecret;
+
     const resp = await fetch(`${baseUrl}/functions/v1/${functionName}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${serviceKey}`,
-      },
+      headers,
       body: JSON.stringify(body),
     });
 
@@ -354,7 +353,6 @@ async function dispatchToChannel(
     const errData = await resp.json().catch(() => ({}));
     const errMsg = errData?.error || `HTTP ${resp.status}`;
 
-    // Hard bounce detection (invalid recipient indicators)
     if (resp.status === 400 && (errMsg.includes("invalid") || errMsg.includes("not found") || errMsg.includes("unregistered"))) {
       return { success: false, bounce: true, error: errMsg };
     }
@@ -371,7 +369,6 @@ async function updateReputation(
   channelType: string
 ) {
   try {
-    // Get aggregate stats from send queue
     const { data: sent } = await supabase
       .from("broadcast_send_queue")
       .select("status")
@@ -384,7 +381,6 @@ async function updateReputation(
     const totalBounced = sent.filter((s: any) => s.status === "bounced").length;
     const totalFailed = sent.filter((s: any) => s.status === "failed").length;
 
-    // Get complaint/unsub counts
     const { count: complainedCount } = await supabase
       .from("global_suppression_list")
       .select("id", { count: "exact", head: true })

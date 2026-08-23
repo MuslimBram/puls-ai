@@ -2,10 +2,20 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+
+function asStringRecord(value: unknown): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof item === "string") result[key] = item;
+  }
+  return result;
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -29,11 +39,28 @@ serve(async (req) => {
 
     const body = await req.json();
     const { action, workspace_id, call_id, number, contact_name, deal_id, target_number } = body;
+    if (!workspace_id) throw new Error("workspace_id required");
 
-    // Fetch business Twilio credentials from channels table
+    // SECURITY: request-controlled workspace_id is never trusted on its own.
+    // Authorize the authenticated user before any service-role credential read.
+    const [{ data: isMember }, { data: isOwned }] = await Promise.all([
+      supabase.rpc("is_workspace_member", { _user_id: user.id, _workspace_id: workspace_id }),
+      supabase.from("workspaces")
+        .select("id")
+        .eq("id", workspace_id)
+        .eq("owner_id", user.id)
+        .maybeSingle(),
+    ]);
+    if (!isMember && !isOwned) {
+      return new Response(JSON.stringify({ error: "Forbidden: not a member of this workspace" }), {
+        status: 403,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
     const { data: voipChannel } = await supabase
       .from("channels")
-      .select("settings")
+      .select("settings,credentials_encrypted")
       .eq("workspace_id", workspace_id)
       .eq("channel_type", "voip")
       .eq("is_enabled", true)
@@ -43,7 +70,8 @@ serve(async (req) => {
       throw new Error("No telephony provider configured. Please connect your VoIP provider in Settings → Telephony.");
     }
 
-    const settings = voipChannel.settings as Record<string, string>;
+    const settings = asStringRecord(voipChannel.settings);
+    const credentials = asStringRecord(voipChannel.credentials_encrypted);
     const provider = settings.provider || "twilio";
 
     if (provider !== "twilio") {
@@ -51,13 +79,14 @@ serve(async (req) => {
     }
 
     const accountSid = settings.account_sid;
-    const authToken = settings.auth_token;
+    const rawAuthToken = credentials.auth_token || settings.auth_token || ""; // legacy fallback
     const fromNumber = settings.phone_number;
 
-    if (!accountSid || !authToken || !fromNumber) {
+    if (!accountSid || !rawAuthToken || !fromNumber) {
       throw new Error("Incomplete Twilio credentials. Please update your telephony provider settings.");
     }
 
+    const authToken = await decryptIfNeeded(rawAuthToken);
     const twilioAuth = btoa(`${accountSid}:${authToken}`);
     const twilioBase = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}`;
 
@@ -67,7 +96,6 @@ serve(async (req) => {
       case "make_call": {
         if (!number) throw new Error("Phone number is required");
 
-        // Create call via Twilio API
         const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status-callback?workspace_id=${workspace_id}`;
         const twimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?type=outbound&workspace_id=${workspace_id}`;
 
@@ -92,7 +120,6 @@ serve(async (req) => {
           throw new Error(`Twilio error: ${twilioData.message || JSON.stringify(twilioData)}`);
         }
 
-        // Create call record
         const { data: callRecord } = await supabase
           .from("call_records")
           .insert({
@@ -109,7 +136,6 @@ serve(async (req) => {
           .select()
           .single();
 
-        // Create active call
         const { data: activeCall } = await supabase
           .from("active_calls")
           .insert({
@@ -126,7 +152,6 @@ serve(async (req) => {
           .select()
           .single();
 
-        // Update agent state
         await supabase
           .from("agent_telephony_state")
           .upsert({
@@ -144,15 +169,15 @@ serve(async (req) => {
       case "end_call": {
         if (!call_id) throw new Error("call_id required");
 
-        // Get the active call to find Twilio SID
         const { data: call } = await supabase
           .from("active_calls")
           .select("*")
           .eq("id", call_id)
+          .eq("workspace_id", workspace_id)
           .single();
+        if (!call) throw new Error("Call not found in this workspace");
 
-        if (call?.sip_call_id) {
-          // End call via Twilio
+        if (call.sip_call_id) {
           const twilioRes = await fetch(`${twilioBase}/Calls/${call.sip_call_id}.json`, {
             method: "POST",
             headers: {
@@ -162,33 +187,32 @@ serve(async (req) => {
             body: new URLSearchParams({ Status: "completed" }),
           });
           const twilioData = await twilioRes.json();
-          if (!twilioRes.ok) {
-            console.error("Twilio end call error:", twilioData);
-          }
+          if (!twilioRes.ok) console.error("Twilio end call error:", twilioData);
         }
 
         const now = new Date().toISOString();
         await supabase
           .from("active_calls")
           .update({ status: "completed", ended_at: now, updated_at: now })
-          .eq("id", call_id);
+          .eq("id", call_id)
+          .eq("workspace_id", workspace_id);
 
-        // Update call record with correct duration
-        if (call?.call_record_id && call?.answered_at) {
+        if (call.call_record_id && call.answered_at) {
           const duration = Math.floor(
-            (new Date(now).getTime() - new Date(call.answered_at).getTime()) / 1000
+            (new Date(now).getTime() - new Date(call.answered_at).getTime()) / 1000,
           );
           await supabase
             .from("call_records")
             .update({ call_status: "completed", call_duration: duration, updated_at: now })
-            .eq("id", call.call_record_id);
+            .eq("id", call.call_record_id)
+            .eq("workspace_id", workspace_id);
         }
 
-        // Update agent state
         const { data: agentState } = await supabase
           .from("agent_telephony_state")
           .select("calls_handled_today")
           .eq("user_id", user.id)
+          .eq("workspace_id", workspace_id)
           .single();
 
         await supabase
@@ -214,10 +238,11 @@ serve(async (req) => {
           .from("active_calls")
           .select("*")
           .eq("id", call_id)
+          .eq("workspace_id", workspace_id)
           .single();
+        if (!call) throw new Error("Call not found in this workspace");
 
-        if (call?.sip_call_id) {
-          // Update Twilio call with hold TwiML
+        if (call.sip_call_id) {
           const holdTwimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?type=hold&workspace_id=${workspace_id}`;
           await fetch(`${twilioBase}/Calls/${call.sip_call_id}.json`, {
             method: "POST",
@@ -236,7 +261,8 @@ serve(async (req) => {
             hold_started_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
-          .eq("id", call_id);
+          .eq("id", call_id)
+          .eq("workspace_id", workspace_id);
 
         result = { held: true };
         break;
@@ -249,9 +275,11 @@ serve(async (req) => {
           .from("active_calls")
           .select("*")
           .eq("id", call_id)
+          .eq("workspace_id", workspace_id)
           .single();
+        if (!call) throw new Error("Call not found in this workspace");
 
-        if (call?.sip_call_id) {
+        if (call.sip_call_id) {
           const resumeTwimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?type=outbound&workspace_id=${workspace_id}`;
           await fetch(`${twilioBase}/Calls/${call.sip_call_id}.json`, {
             method: "POST",
@@ -263,7 +291,7 @@ serve(async (req) => {
           });
         }
 
-        const holdDuration = call?.hold_started_at
+        const holdDuration = call.hold_started_at
           ? Math.floor((Date.now() - new Date(call.hold_started_at).getTime()) / 1000)
           : 0;
 
@@ -272,10 +300,11 @@ serve(async (req) => {
           .update({
             status: "in_progress",
             hold_started_at: null,
-            total_hold_seconds: (call?.total_hold_seconds || 0) + holdDuration,
+            total_hold_seconds: (call.total_hold_seconds || 0) + holdDuration,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", call_id);
+          .eq("id", call_id)
+          .eq("workspace_id", workspace_id);
 
         result = { resumed: true };
         break;
@@ -288,10 +317,11 @@ serve(async (req) => {
           .from("active_calls")
           .select("*")
           .eq("id", call_id)
+          .eq("workspace_id", workspace_id)
           .single();
+        if (!call) throw new Error("Call not found in this workspace");
 
-        if (call?.sip_call_id) {
-          // Cold transfer via Twilio - redirect to transfer TwiML
+        if (call.sip_call_id) {
           const transferTwimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?type=transfer&target=${encodeURIComponent(target_number)}&workspace_id=${workspace_id}`;
           await fetch(`${twilioBase}/Calls/${call.sip_call_id}.json`, {
             method: "POST",
@@ -311,9 +341,9 @@ serve(async (req) => {
             transferred_from: user.id,
             updated_at: new Date().toISOString(),
           })
-          .eq("id", call_id);
+          .eq("id", call_id)
+          .eq("workspace_id", workspace_id);
 
-        // Release agent
         await supabase
           .from("agent_telephony_state")
           .upsert({
@@ -336,10 +366,11 @@ serve(async (req) => {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("telephony-call-manager error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 400,
+    const message = error instanceof Error ? error.message : "Unknown error";
+    console.error("telephony-call-manager error:", message);
+    const status = message.startsWith("Forbidden") ? 403 : 400;
+    return new Response(JSON.stringify({ error: message }), {
+      status,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }

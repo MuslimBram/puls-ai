@@ -3,80 +3,119 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { isInternalServiceRequest } from "../_shared/ai3-executor-contract.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const json = (req: Request, body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
-    status, headers: { ...getCors(req), "Content-Type": "application/json" },
+    status,
+    headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
+function asStringRecord(value: unknown): Record<string, string> {
+  const result: Record<string, string> = {};
+  if (!value || typeof value !== "object" || Array.isArray(value)) return result;
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof item === "string") result[key] = item;
+  }
+  return result;
+}
+
 /**
- * Send SMS via Twilio REST API (direct, no third-party gateway).
- * Credentials retrieved server-side from encrypted channel settings.
- * auth_token NEVER returned to client.
+ * Send SMS via Twilio REST API.
+ * Secrets are resolved server-side from channels.credentials_encrypted.
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
+  const serviceKey = getServiceKey()!;
   const sb = createClient(
-    Deno.env.get("SUPABASE_URL")!, getServiceKey()!,
+    Deno.env.get("SUPABASE_URL")!,
+    serviceKey,
     { auth: { persistSession: false } },
   );
 
   try {
     const auth = req.headers.get("Authorization") ?? "";
-    if (!auth.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
-    const { data: { user }, error: ue } = await sb.auth.getUser(auth.slice(7));
-    if (ue || !user) return json(req, { error: "Unauthorized" }, 401);
+    const body = await req.json();
+    const {
+      to,
+      body: messageBody,
+      workspace_id,
+      user_id: requestedUserId,
+      from: fromOverride,
+    } = body;
 
-    const { to, body: messageBody, workspace_id, from: fromOverride } = await req.json();
     if (!to || !messageBody) return json(req, { error: "to and body required" }, 400);
 
-    // ── Workspace membership enforcement ───────────────────────────────────
-    // Reject cross-workspace use — user must be a member of the requested workspace
-    const wsId = workspace_id ?? user.id;
-    if (workspace_id && workspace_id !== user.id) {
-      const { data: isMember } = await sb.rpc("is_workspace_member",
-        { _user_id: user.id, _workspace_id: workspace_id });
-      const { data: isOwned } = await sb.from("workspaces")
-        .select("id").eq("id", workspace_id).eq("owner_id", user.id).maybeSingle();
-      if (!isMember && !isOwned) {
-        return json(req, { error: "Forbidden: not a member of this workspace" }, 403);
+    const workspaceId = String(workspace_id ?? "").trim();
+    if (!workspaceId) return json(req, { error: "workspace_id required" }, 400);
+
+    const isInternal = isInternalServiceRequest({
+      authHeader: auth,
+      internalSecretHeader: req.headers.get("x-internal-secret"),
+      serviceRoleKey: serviceKey,
+      internalSecret: Deno.env.get("INTERNAL_WEBHOOK_SECRET"),
+    });
+
+    let userId: string;
+
+    if (isInternal) {
+      userId = typeof requestedUserId === "string" ? requestedUserId.trim() : "";
+      if (!userId) {
+        return json(req, { error: "user_id required for internal SMS send" }, 400);
       }
+    } else {
+      if (!auth.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
+      const { data: { user }, error: userError } = await sb.auth.getUser(auth.slice(7));
+      if (userError || !user) return json(req, { error: "Unauthorized" }, 401);
+      userId = user.id;
     }
 
-    // ── Resolve workspace credentials ─────────────────────────────────────
-    const { data: ch } = await sb
+    // Every SMS send must be bound to a user/workspace relationship before
+    // service-role credential material is read, including trusted internal calls.
+    const [{ data: isMember }, { data: isOwned }] = await Promise.all([
+      sb.rpc("is_workspace_member", { _user_id: userId, _workspace_id: workspaceId }),
+      sb.from("workspaces").select("id").eq("id", workspaceId).eq("owner_id", userId).maybeSingle(),
+    ]);
+    if (!isMember && !isOwned) {
+      return json(req, { error: "Forbidden: user is not a member of this workspace" }, 403);
+    }
+
+    const { data: channel } = await sb
       .from("channels")
-      .select("settings")
-      .eq("workspace_id", wsId)
+      .select("settings,credentials_encrypted")
+      .eq("workspace_id", workspaceId)
       .eq("channel_type", "sms")
       .eq("is_enabled", true)
       .maybeSingle();
 
-    // Fall back to environment-level Twilio credentials
-    const settings = (ch?.settings as Record<string, string>) ?? {};
-    const accountSid  = settings.account_sid ?? Deno.env.get("TWILIO_ACCOUNT_SID");
-    const authTokenRaw = settings.auth_token  ?? Deno.env.get("TWILIO_AUTH_TOKEN");
-    const fromNumber   = fromOverride ?? settings.phone_number ?? Deno.env.get("TWILIO_PHONE_NUMBER");
+    if (!channel) {
+      return json(req, { error: "No active SMS channel configured for this workspace" }, 503);
+    }
+
+    const settings = asStringRecord(channel.settings);
+    const credentials = asStringRecord(channel.credentials_encrypted);
+    const accountSid = settings.account_sid || "";
+    const authTokenRaw = credentials.auth_token
+      || settings.auth_token // temporary legacy-row fallback
+      || "";
+    const fromNumber = fromOverride ?? settings.phone_number ?? "";
 
     if (!accountSid || !authTokenRaw || !fromNumber) {
       return json(req, {
-        error: "Twilio not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER.",
+        error: "Workspace SMS credentials are incomplete. Reconnect the SMS channel.",
         missing: {
-          account_sid:   !accountSid,
-          auth_token:    !authTokenRaw,
-          phone_number:  !fromNumber,
+          account_sid: !accountSid,
+          auth_token: !authTokenRaw,
+          phone_number: !fromNumber,
         },
       }, 503);
     }
 
-    // Decrypt if stored encrypted (uses TOKEN_ENCRYPTION_KEY)
     const authToken = await decryptIfNeeded(authTokenRaw);
-
-    // ── Direct Twilio REST API ────────────────────────────────────────────
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
-    const res = await fetch(twilioUrl, {
+    const response = await fetch(twilioUrl, {
       method: "POST",
       headers: {
         Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
@@ -85,20 +124,18 @@ serve(async (req) => {
       body: new URLSearchParams({ To: to, From: fromNumber, Body: messageBody }).toString(),
     });
 
-    const twilioData = await res.json() as Record<string, unknown>;
-
-    if (!res.ok) {
+    const twilioData = await response.json() as Record<string, unknown>;
+    if (!response.ok) {
       console.error("[send-sms] Twilio error", twilioData);
       return json(req, {
-        error: `Twilio error: ${(twilioData as any).message ?? res.status}`,
-        code:  (twilioData as any).code,
+        error: `Twilio error: ${(twilioData as any).message ?? response.status}`,
+        code: (twilioData as any).code,
       }, 400);
     }
 
-    // Log outbound message (no auth_token in log)
     await sb.from("inbox_messages").insert({
-      user_id: user.id,
-      workspace_id: wsId,
+      user_id: userId,
+      workspace_id: workspaceId,
       channel_type: "sms",
       source_name: "SMS",
       sender_name: fromNumber,
@@ -117,7 +154,7 @@ serve(async (req) => {
       to,
       status: twilioData.status,
     });
-  } catch (e: any) {
-    return json(req, { error: e.message }, 500);
+  } catch (error) {
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
