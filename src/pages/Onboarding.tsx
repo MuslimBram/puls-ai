@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ const stepRoutes: Record<string, string> = {
   create_automation: "/automations",
 };
 
-const stepIcons: Record<string, React.ReactNode> = {
+const stepIcons: Record<string, ReactNode> = {
   business_profile: <Settings2 className="h-5 w-5" />,
   connect_channel: <Sparkles className="h-5 w-5" />,
   import_contacts: <Bot className="h-5 w-5" />,
