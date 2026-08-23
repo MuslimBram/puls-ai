@@ -1,0 +1,96 @@
+name: Platform Runtime Migration
+
+on:
+  push:
+    branches:
+      - fix/remove-lovable-runtime-dependency
+    paths:
+      - .github/workflows/platform-runtime-migration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: fix/remove-lovable-runtime-dependency
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Apply runtime migration
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+          import shutil
+
+          branch_root = Path('.')
+
+          # Native Supabase OAuth wrapper under a neutral path.
+          oauth_path = Path('src/integrations/auth/oauth.ts')
+          oauth_path.parent.mkdir(parents=True, exist_ok=True)
+          oauth_path.write_text('''import { supabase } from "../supabase/client";\n\ntype SignInOptions = {\n  redirect_uri?: string;\n  extraParams?: Record<string, string>;\n};\n\nfunction normalizeRedirectUri(raw?: string) {\n  const fallback = `${window.location.origin}/auth/callback`;\n  if (!raw) return fallback;\n\n  try {\n    const parsed = new URL(raw, window.location.origin);\n    if (parsed.origin !== window.location.origin) return raw;\n\n    const isRoot = parsed.pathname === "/" || parsed.pathname === "";\n    if (isRoot) parsed.pathname = "/auth/callback";\n    return parsed.toString();\n  } catch {\n    return fallback;\n  }\n}\n\nexport const oauth = {\n  auth: {\n    signInWithOAuth: async (provider: "google" | "apple", opts?: SignInOptions) => {\n      const redirectTo = normalizeRedirectUri(opts?.redirect_uri);\n      const { data, error } = await supabase.auth.signInWithOAuth({\n        provider,\n        options: {\n          redirectTo,\n          queryParams: opts?.extraParams,\n        },\n      });\n\n      return {\n        redirected: Boolean(data?.url) && !error,\n        url: data?.url ?? null,\n        error,\n      };\n    },\n  },\n};\n''', encoding='utf-8')
+
+          for page in [Path('src/pages/Login.tsx'), Path('src/pages/Register.tsx')]:
+              text = page.read_text(encoding='utf-8')
+              text = text.replace('import { lovable } from "@/integrations/lovable/index";', 'import { oauth } from "@/integrations/auth/oauth";')
+              text = text.replace('lovable.auth.signInWithOAuth', 'oauth.auth.signInWithOAuth')
+              page.write_text(text, encoding='utf-8')
+
+          old_auth = Path('src/integrations/lovable')
+          if old_auth.exists():
+              shutil.rmtree(old_auth)
+
+          vite = Path('vite.config.ts')
+          text = vite.read_text(encoding='utf-8')
+          text = text.replace('import { componentTagger } from "lovable-tagger";\n', '')
+          text = text.replace('      mode === "development" && componentTagger(),\n', '')
+          vite.write_text(text, encoding='utf-8')
+
+          package = Path('package.json')
+          data = json.loads(package.read_text(encoding='utf-8'))
+          data.get('dependencies', {}).pop('@lovable.dev/cloud-auth-js', None)
+          data.get('devDependencies', {}).pop('lovable-tagger', None)
+          package.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+          metadata = Path('.lovable')
+          if metadata.exists():
+              shutil.rmtree(metadata)
+
+          # Remove this one-off migration workflow from the resulting branch.
+          Path('.github/workflows/platform-runtime-migration.yml').unlink(missing_ok=True)
+          PY
+
+      - name: Regenerate npm lockfile
+        run: npm install --package-lock-only --ignore-scripts
+
+      - name: Regenerate Bun lockfile
+        run: bun install --lockfile-only --ignore-scripts
+
+      - name: Commit migration
+        shell: bash
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git config user.name "MuslimBram"
+          git config user.email "223172034+MuslimBram@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: use platform-independent frontend runtime"
+          git push origin HEAD:fix/remove-lovable-runtime-dependency
