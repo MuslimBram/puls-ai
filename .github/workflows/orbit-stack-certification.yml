@@ -1,0 +1,55 @@
+name: Orbit Stack Certification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/components/OrbitSelector.tsx'
+      - 'src/components/OrbitSelector.test.tsx'
+      - 'src/components/pricing/PricingDurationSelector.tsx'
+      - 'src/components/pricing/PricingDurationSelector.test.tsx'
+      - 'src/components/leads/**'
+      - 'src/components/marketplace/IndustryPackOrbitSelector.tsx'
+      - 'src/components/marketplace/IndustryPackOrbitSelector.test.tsx'
+      - 'src/components/channels/ChannelOrbitSelector.tsx'
+      - 'src/components/channels/ChannelOrbitSelector.test.tsx'
+      - 'src/pages/Onboarding.tsx'
+      - 'src/pages/Marketplace.tsx'
+      - 'src/pages/Channels.tsx'
+      - '.github/workflows/orbit-stack-certification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Orbit stack targeted tests
+        run: >-
+          npx vitest run
+          src/components/OrbitSelector.test.tsx
+          src/components/pricing/PricingDurationSelector.test.tsx
+          src/components/leads/TeamSizeOrbitSelector.test.tsx
+          src/components/leads/PlanOrbitSelector.test.tsx
+          src/components/marketplace/IndustryPackOrbitSelector.test.tsx
+          src/components/channels/ChannelOrbitSelector.test.tsx
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
