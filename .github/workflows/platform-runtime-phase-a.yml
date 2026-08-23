@@ -1,0 +1,92 @@
+name: Runtime Cleanup Phase A
+
+on:
+  push:
+    branches:
+      - refactor/platform-independent-runtime
+    paths:
+      - .github/workflows/platform-runtime-phase-a.yml
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/platform-independent-runtime
+          fetch-depth: 0
+      - name: Apply phase A cleanup
+        shell: bash
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          def replace(path, pairs):
+              p = Path(path)
+              if not p.exists():
+                  return
+              text = p.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  text = text.replace(old, new)
+              p.write_text(text, encoding='utf-8')
+
+          Path('README.md').write_text('''# Pulse AI\n\nPulse AI is an AI Business Operating System for running, automating, and growing a business.\n\n## Runtime\n\n- Frontend: React + Vite\n- Hosting: Vercel\n- Backend/Auth/Database/Edge Functions: Supabase\n- Public domain: https://pulse-bos.com\n- Transition domain: https://kohablerjeve.top\n- AI: canonical Pulse AI multi-provider router\n\nProduction changes are made through reviewed GitHub pull requests.\n''', encoding='utf-8')
+
+          replace('capacitor.config.ts', [
+              ('["*.supabase.co", "*.lovable.app", "kohablerjeve.top"]', '["*.supabase.co", "pulse-bos.com", "www.pulse-bos.com", "kohablerjeve.top", "www.kohablerjeve.top"]'),
+          ])
+          replace('docs/ARCHITECTURE.md', [('Lovable', 'legacy platform'), ('lovable', 'legacy platform')])
+          replace('docs/GSC_SETUP.md', [(' / Lovable', ''), ('Lovable', 'Vercel')])
+          replace('docs/ai-1b-provider-bypass-audit.md', [('Lovable', 'legacy platform'), ('lovable', 'legacy platform')])
+          replace('docs/generate_report.py', [('Lovable', 'GitHub'), ('lovable', 'github')])
+          Path('playwright-fixture.ts').write_text('export { test, expect } from "@playwright/test";\n', encoding='utf-8')
+          replace('src/App.tsx', [('path="/.lovable/oauth/consent"', 'path="/oauth/consent"')])
+          replace('src/hooks/useActivationStatus.ts', [('Platform uses Lovable AI by default. Add OpenAI key for custom models.', 'Platform uses the canonical AI router by default. Add provider keys for custom models.')])
+          replace('src/pages/PublicApi.tsx', [('const baseUrl = `${window.location.origin.replace("id-preview--", "").replace(".lovable.app", ".supabase.co")}/functions/v1/public-api`;', 'const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-api`;')])
+
+          p = Path('src/lib/pwaRegistration.ts')
+          if p.exists():
+              text = p.read_text(encoding='utf-8')
+              for line in [
+                  '    hostname === "lovableproject.com" ||\n',
+                  '    hostname.endsWith(".lovableproject.com") ||\n',
+                  '    hostname === "lovableproject-dev.com" ||\n',
+                  '    hostname.endsWith(".lovableproject-dev.com") ||\n',
+                  '    hostname === "beta.lovable.dev" ||\n',
+                  '    hostname.endsWith(".beta.lovable.dev") ||\n',
+              ]:
+                  text = text.replace(line, '')
+              p.write_text(text, encoding='utf-8')
+
+          for p in Path('src/factory').rglob('*.ts'):
+              text = p.read_text(encoding='utf-8')
+              text = text.replace('lovable_mcp', 'frontend_builder_candidate')
+              text = text.replace('Lovable', 'Frontend Builder')
+              text = text.replace('lovable', 'frontend_builder')
+              p.write_text(text, encoding='utf-8')
+
+          p = Path('src/factory/phase2bBridge.ts')
+          if p.exists():
+              text = p.read_text(encoding='utf-8')
+              text = text.replace('adapter_key: "frontend_builder_candidate",\n    worker_class: "builder",\n    status: "active_adapter",\n    requires_external_call: true,', 'adapter_key: null,\n    worker_class: "builder",\n    status: "local_candidate",\n    requires_external_call: false,')
+              p.write_text(text, encoding='utf-8')
+
+          p = Path('src/factory/agentRouter.ts')
+          if p.exists():
+              text = p.read_text(encoding='utf-8')
+              text = text.replace('if (taskType === "full_prototype" || workerId === "frontend_builder_candidate" || workerId === "base44_mcp") {', 'if (taskType === "full_prototype" || workerId === "base44_mcp") {')
+              p.write_text(text, encoding='utf-8')
+
+          Path('platform-runtime-audit.txt').unlink(missing_ok=True)
+          Path('.github/workflows/platform-runtime-phase-a.yml').unlink(missing_ok=True)
+          PY
+      - name: Commit phase A cleanup
+        run: |
+          git config user.name "MuslimBram"
+          git config user.email "223172034+MuslimBram@users.noreply.github.com"
+          git add -A
+          git commit -m "refactor: neutralize legacy platform references"
+          git push origin HEAD:refactor/platform-independent-runtime
