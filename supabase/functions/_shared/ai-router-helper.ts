@@ -9,6 +9,7 @@ type CallAIRouterOptions = {
   authHeader?: string | null;
   maxTokens?: number;
   preferCheap?: boolean;
+  allowInternalNoWorkspace?: boolean;
 };
 
 export async function callAIRouter(
@@ -41,6 +42,7 @@ export async function callAIRouter(
   if (options.workspaceId) payload.workspace_id = options.workspaceId;
   if (options.userId) payload.user_id = options.userId;
   if (options.preferCheap !== undefined) payload.prefer_cheap = options.preferCheap;
+  if (options.allowInternalNoWorkspace) payload.internal_system_task = true;
 
   const res = await fetch(`${supabaseUrl}/functions/v1/ai-router`, {
     method: "POST",

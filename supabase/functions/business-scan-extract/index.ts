@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
@@ -176,15 +177,9 @@ serve(async (req) => {
     let suggestedKeywords: string[] = [];
     let competitorHints: any[] = [];
     let summaryJson: Record<string, unknown> = {};
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
-    if (markdown.length > 100 && LOVABLE_API_KEY) {
+    if (markdown.length > 100) {
       try {
-        const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const aiRes = await routerChatCompletion({
             model: "google/gemini-2.5-flash",
             messages: [
               {
@@ -247,8 +242,7 @@ serve(async (req) => {
               },
             ],
             tool_choice: { type: "function", function: { name: "extract_business_data" } },
-          }),
-        });
+          }, { workspaceId: workspace_id, userId: userData.user.id, authHeader, taskType: "balanced" });
 
         if (aiRes.ok) {
           const aiData = await aiRes.json();

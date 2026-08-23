@@ -193,13 +193,13 @@ describe("Phase 3C: Pure Quality Gate Engine", () => {
 
       const workerNoBrowser: WorkerResult = {
         ...validWorkerResult,
-        worker_id: "lovable_mcp",
+        worker_id: "frontend_builder_candidate",
         browser_result: undefined,
         screenshots: [],
       };
 
       const report = evaluateQualityGate(plan, contextPack, execPlan, [workerNoBrowser]);
-      expect(report.rejected_workers).toContain("lovable_mcp");
+      expect(report.rejected_workers).toContain("frontend_builder_candidate");
     });
 
     it("Backend task does NOT require screenshot evidence by default", () => {

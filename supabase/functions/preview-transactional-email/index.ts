@@ -8,28 +8,27 @@ const corsHeaders = {
 }
 
 // Renders all registered templates with their previewData.
-// Gated by LOVABLE_API_KEY — only the Go API calls this.
-
+// This endpoint is internal-only and requires EMAIL_PREVIEW_SECRET or the
+// shared INTERNAL_WEBHOOK_SECRET.
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
-  const apiKey = Deno.env.get('LOVABLE_API_KEY')
-  if (!apiKey) {
+  const previewSecret = Deno.env.get('EMAIL_PREVIEW_SECRET') || Deno.env.get('INTERNAL_WEBHOOK_SECRET') || ''
+  if (!previewSecret) {
     return new Response(
       JSON.stringify({ error: 'Server configuration error' }),
       {
-        status: 500,
+        status: 503,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
   }
 
-  // Verify the caller is authorized with LOVABLE_API_KEY
   const authHeader = req.headers.get('Authorization')
   const token = authHeader?.replace(/^Bearer\s+/i, '')
-  if (token !== apiKey) {
+  if (token !== previewSecret) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
       status: 401,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

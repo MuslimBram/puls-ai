@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
@@ -21,8 +22,6 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = getServiceKey()!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-
     const authClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_ANON_KEY")!, {
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
@@ -212,7 +211,7 @@ serve(async (req) => {
 
     // Generate AI suggestions if API key available
     let aiSuggestions: string[] = [];
-    if (lovableKey) {
+    {
       try {
         const prompt = `You are a business analytics AI. Based on these metrics for a business communication platform, provide 3-5 brief actionable suggestions (max 1 sentence each):
 - Leads this week: ${lw}, last week: ${ll}
@@ -224,15 +223,11 @@ serve(async (req) => {
 - Health score: ${overallScore}/100
 Return only a JSON array of strings.`;
 
-        const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
+        const aiResp = await routerChatCompletion({
             model: "google/gemini-2.5-flash-lite",
             messages: [{ role: "user", content: prompt }],
             temperature: 0.3,
-          }),
-        });
+          }, { workspaceId: workspace_id || undefined, userId: user_id, authHeader, taskType: "balanced" });
 
         if (aiResp.ok) {
           const aiData = await aiResp.json();

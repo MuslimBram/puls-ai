@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -16,8 +17,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = getServiceKey()!;
     const supabase = createClient(supabaseUrl, serviceKey);
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
     const { workspace_id, business_id, contact_identifier, new_message, channel_type } = await req.json();
     if (!workspace_id || !business_id || !contact_identifier) throw new Error("workspace_id, business_id and contact_identifier required");
@@ -63,18 +62,11 @@ serve(async (req) => {
     const previousSummary = existing?.summary || "No previous interactions recorded.";
     const previousFacts = existing?.key_facts || [];
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI conversation memory manager for "${bizProfile.business_name}".
+    const aiResponse = await routerChatCompletion({
+      messages: [
+        {
+          role: "system",
+          content: `You are an AI conversation memory manager for "${bizProfile.business_name}".
 Services: ${bizProfile.main_services || "N/A"}
 Tone: ${bizProfile.ai_tone || "professional"}
 Audience: ${bizProfile.target_audience || "N/A"}
@@ -92,18 +84,18 @@ Analyze only the conversation history for this business and return JSON:
   "deal_suggestion": "Brief suggestion about opportunity, or null"
 }
 Only return valid JSON.`,
-          },
-          {
-            role: "user",
-            content: `Recent conversation for this business:\n${conversationHistory}\n\nChannel: ${channel_type || "unknown"}\n${new_message ? `New message from contact: ${new_message}` : "Update memory from recent history."}`,
-          },
-        ],
-        temperature: 0.4,
-        max_tokens: 2000,
-      }),
+        },
+        {
+          role: "user",
+          content: `Recent conversation for this business:\n${conversationHistory}\n\nChannel: ${channel_type || "unknown"}\n${new_message ? `New message from contact: ${new_message}` : "Update memory from recent history."}`,
+        },
+      ],
+      temperature: 0.4,
+      max_tokens: 2000,
+    }, {
+      workspaceId: workspace_id,
+      taskType: "balanced",
     });
-
-    if (!aiResponse.ok) throw new Error(`AI gateway error: ${aiResponse.status}`);
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "{}";

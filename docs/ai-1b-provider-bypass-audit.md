@@ -11,7 +11,7 @@ Server-side audit covered `/supabase/functions` generative AI call sites (direct
 - Callers already using `ai-router`: `ai-help-bot`, `voice-ai-relay`, `customer-brain`, `score-leads`, `score-visitors`, `telegram-webhook`, `community-assess-profile`, `community-scan-image`
 
 ### BYPASS_TO_CONSOLIDATE (migrated in AI-1B)
-- `supabase/functions/_shared/ai-client.ts` (legacy direct Lovable/Anthropic path removed; now canonical `ai-router` only)
+- `supabase/functions/_shared/ai-client.ts` (legacy direct legacy platform/Anthropic path removed; now canonical `ai-router` only)
 - `supabase/functions/agent-config-manager/index.ts`
 - `supabase/functions/agent-orchestrator/index.ts`
 - `supabase/functions/multi-agent-engine/index.ts`
@@ -29,7 +29,7 @@ Server-side audit covered `/supabase/functions` generative AI call sites (direct
 | path | provider | reason | customer-facing | workspace data | why ai-router is inappropriate |
 |---|---|---|---|---|---|
 | `supabase/functions/transcribe-recording/index.ts` | OpenAI audio transcription endpoint | Speech-to-text transport endpoint (`/v1/audio/transcriptions`) is non-chat modality | YES | YES | Canonical router currently routes chat/message generation, not binary audio transcription transport |
-| `supabase/functions/job-worker/index.ts` | Lovable AI Gateway image model | Image/media generation worker path (`google/gemini-3.1-flash-image-preview`) | NO | YES | Canonical router currently targets text/chat provider contracts, not image generation job orchestration |
+| `supabase/functions/job-worker/index.ts` | legacy platform AI Gateway image model | Image/media generation worker path (`google/gemini-3.1-flash-image-preview`) | NO | YES | Canonical router currently targets text/chat provider contracts, not image generation job orchestration |
 
 ### EMBEDDINGS_OR_SPECIALIZED_NON_ROUTER_PATH
 - `supabase/functions/transcribe-recording/index.ts` (audio transcription and voice pipeline)

@@ -1,8 +1,8 @@
 import { corsHeaders } from "../_shared/security-headers.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
-const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = getServiceKey() ?? "";
 
@@ -86,21 +86,14 @@ Risk factors to check:
 Return ONLY valid JSON: {"risk_score": number, "reason": "explanation"}`;
 
     // Call AI
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-      },
-      body: JSON.stringify({
+    const aiResponse = await routerChatCompletion({
         model: "google/gemini-2.5-flash-lite",
         messages: [
           { role: "system", content: "You are a financial fraud detection AI. Always respond with valid JSON only." },
           { role: "user", content: prompt },
         ],
         response_format: { type: "json_object" },
-      }),
-    });
+      }, { authHeader, userId: wr.user_id, taskType: "balanced" });
 
     let riskScore = 50;
     let riskReason = "AI analysis unavailable";

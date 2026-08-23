@@ -2,7 +2,6 @@
  * builder-adapter-router v2 — Pulse AI Generic Multi-Builder Foundation
  *
  * Supported adapters (zero-cost validation phase):
- *   lovable_mcp   → https://mcp.lovable.dev        (OAuth)
  *   emergent_mcp  → https://mcp.emergent.sh/        (OAuth)
  *   base44_mcp    → https://app.base44.com/mcp      (OAuth)
  *   replit_mcp    → https://replit-mcp.com/server/mcp (OAuth 2.1/PKCE, Streamable HTTP)
@@ -28,25 +27,6 @@ const json = (b: unknown, s = 200) =>
 
 // ── ADAPTER REGISTRY ──────────────────────────────────────────────────────────
 const ADAPTERS = {
-  lovable_mcp: {
-    adapter_key:     "lovable_mcp",
-    display_name:    "Lovable MCP",
-    category:        "builder",
-    connection_type: "mcp_oauth",
-    endpoint:        "https://mcp.lovable.dev",
-    auth_mode:       "oauth",
-    oauth_flow:      "client_driven",
-    transport:       "http",
-    // Capability discovery via MCP toolset — not a closed static list.
-    // Core known capabilities; full set is discoverable via the MCP protocol.
-    capabilities: [
-      "create_project", "send_message", "deploy_project",
-      "list_projects", "read_file", "list_files", "write_file",
-      "query_database", "get_project", "get_diff", "list_edits",
-    ],
-    capability_discovery: true,
-    mutating_actions: ["create_project", "send_message", "deploy_project", "write_file"],
-  },
   emergent_mcp: {
     adapter_key:     "emergent_mcp",
     display_name:    "Emergent MCP",

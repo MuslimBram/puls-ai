@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
@@ -30,9 +31,6 @@ serve(async (req) => {
   try {
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
     if (!FIRECRAWL_API_KEY) throw new Error("FIRECRAWL_API_KEY not configured");
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       getServiceKey() ?? "",
@@ -262,13 +260,7 @@ serve(async (req) => {
         let topicTags: string[] = [];
         if (wordCount > 20 && i < 5) {
           try {
-            const tagRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${LOVABLE_API_KEY}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
+            const tagRes = await routerChatCompletion({
                 model: "google/gemini-2.5-flash-lite",
                 messages: [
                   { role: "system", content: "Extract 2-5 topic tags from this content. Return only a JSON array of lowercase strings." },
@@ -288,8 +280,7 @@ serve(async (req) => {
                   },
                 }],
                 tool_choice: { type: "function", function: { name: "extract_tags" } },
-              }),
-            });
+              }, { workspaceId: business.workspace_id, userId, authHeader, taskType: "rag" });
 
             if (tagRes.ok) {
               const tagData = await tagRes.json();

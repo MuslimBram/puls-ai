@@ -219,7 +219,7 @@ const App = () => (
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/unsubscribe" element={<Suspense fallback={<LazyFallback />}><Unsubscribe /></Suspense>} />
                 <Route path="/auth/callback" element={<Suspense fallback={<LazyFallback />}><AuthCallback /></Suspense>} />
-                <Route path="/.lovable/oauth/consent" element={<Suspense fallback={<LazyFallback />}><OAuthConsent /></Suspense>} />
+                <Route path="/oauth/consent" element={<Suspense fallback={<LazyFallback />}><OAuthConsent /></Suspense>} />
                 <Route path="/pricing" element={<PublicLocaleRedirect target="/pricing" />} />
                 <Route path="/white-label" element={<PublicLocaleRedirect target="/white-label" />} />
                 <Route path="/about" element={<PublicLocaleRedirect target="/about" />} />

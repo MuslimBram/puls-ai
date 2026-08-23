@@ -455,7 +455,7 @@ todo = [
     ("P0 — Meta App Review", "Apliko sot te developers.facebook.com → App Review\nKërko: instagram_manage_messages + whatsapp_business_messaging\nKoha: 4-6 javë"),
     ("P1 — Stripe live keys", "Krijo produkte te stripe.com/dashboard → kopjo price IDs → vendos te pricing_settings"),
     ("P1 — Resend.com", "Regjistrohu falas te resend.com → kopjo API key → shto si RESEND_API_KEY te Supabase secrets"),
-    ("P1 — Sync Lovable", "Lovable.dev → projekti → Settings → Git → 'Pull from GitHub'\nMerr 100+ commits automatikisht"),
+    ("P1 — Sync GitHub", "GitHub.dev → projekti → Settings → Git → 'Pull from GitHub'\nMerr 100+ commits automatikisht"),
     ("P2 — Google Ads API", "console.developers.google.com → Google Ads API → credentials → jepma Developer Token + Customer ID"),
     ("P2 — Vicidial CDR", "Jepma: VICIDIAL_API_URL + VICIDIAL_USER + VICIDIAL_PASS nga serveri juaj Vicidial"),
 ]
@@ -566,7 +566,7 @@ answer_box = Table([[
         "   Arsyeja: 0 cost shtesë, gjithçka brenda Supabase, audit trail i plotë.\n\n"
         "5. SIGURIA: Device Trust AI — asnjë hyrje pa aprovim njeriu\n"
         "   Arsyeja: bizneset me të dhëna të ndjeshme kërkojnë Human-in-the-Loop.\n\n"
-        "6. FRONTEND: Lovable (React) + Role-based navigation\n"
+        "6. FRONTEND: GitHub (React) + Role-based navigation\n"
         "   Arsyeja: Owner, Admin, Business, Freelancer, Agent, Ambassador — secili sheh vetëm atë që duhet.",
         S("ans", fontName="Helvetica", fontSize=10, textColor=DGRAY, leading=17))
 ]], colWidths=[15.5*cm])

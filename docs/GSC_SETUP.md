@@ -18,7 +18,7 @@
    <meta name="google-site-verification" content="REPLACE_WITH_YOUR_GSC_VERIFICATION_CODE" />
    ```
 4. Zëvendëso `REPLACE_WITH_YOUR_GSC_VERIFICATION_CODE` me kodin real nga Google
-5. Deploy aplikacionin (push te Vercel / Lovable)
+5. Deploy aplikacionin (push te Vercel)
 6. Kthehu te GSC dhe kliko **Verify**
 
 ### Metoda B — HTML File (alternativë)

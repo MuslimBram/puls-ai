@@ -42,7 +42,7 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
 
   describe("1. Canonical Worker & Phase 2B Bridge Classification", () => {
     it("should correctly classify builders vs engineering agents", () => {
-      expect(getWorkerClass("lovable_mcp")).toBe("builder");
+      expect(getWorkerClass("frontend_builder_candidate")).toBe("builder");
       expect(getWorkerClass("emergent_mcp")).toBe("builder");
       expect(getWorkerClass("base44_mcp")).toBe("builder");
       expect(getWorkerClass("replit_mcp")).toBe("builder");
@@ -51,8 +51,9 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
       expect(getWorkerClass("antigravity_candidate")).toBe("engineering_agent");
     });
 
-    it("should accurately map Phase 2B adapter keys and preserve Antigravity as candidate", () => {
-      expect(getPhase2BAdapterKey("lovable_mcp")).toBe("lovable_mcp");
+    it("should accurately map Phase 2B adapter keys and preserve local candidates", () => {
+      // Frontend builder is retained as a planning candidate, not as a live external adapter.
+      expect(getPhase2BAdapterKey("frontend_builder_candidate")).toBeNull();
       expect(getPhase2BAdapterKey("emergent_mcp")).toBe("emergent_mcp");
       expect(getPhase2BAdapterKey("base44_mcp")).toBe("base44_mcp");
       expect(getPhase2BAdapterKey("replit_mcp")).toBe("replit_mcp");
@@ -62,8 +63,8 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
       expect(getPhase2BAdapterKey("antigravity_candidate")).toBeNull();
     });
 
-    it("should mark Antigravity as local environment without external HTTP call requirements", () => {
-      expect(isExternalCallRequired("lovable_mcp")).toBe(true);
+    it("should mark local candidates as not requiring external HTTP calls", () => {
+      expect(isExternalCallRequired("frontend_builder_candidate")).toBe(false);
       expect(isExternalCallRequired("claude_code")).toBe(true);
       expect(isExternalCallRequired("antigravity_candidate")).toBe(false);
     });
@@ -109,7 +110,7 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
   });
 
   describe("3. Scenario-Specific Routing Tests", () => {
-    it("UI task -> recommends suitable builder pair (Base44 + Lovable)", () => {
+    it("UI task -> recommends suitable builder pair (Base44 + Frontend Builder)", () => {
       const uiInput: SoftwareTaskInput = {
         ...validBaseInput,
         objective: "Design a new modern UI dashboard layout with React buttons and modal",
@@ -120,7 +121,7 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
 
       const workerIds = execPlan.selected_workers.map((w) => w.worker_id);
       expect(workerIds).toContain("base44_mcp");
-      expect(workerIds).toContain("lovable_mcp");
+      expect(workerIds).toContain("frontend_builder_candidate");
       expect(execPlan.strategy).toBe("parallel_compare");
     });
 
@@ -167,7 +168,7 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
       expect(workerIds).toContain("antigravity_candidate");
     });
 
-    it("Full prototype -> max 3 builders (Lovable + Emergent + Replit)", () => {
+    it("Full prototype -> max 3 builders (Frontend Builder + Emergent + Replit)", () => {
       const prototypeInput: SoftwareTaskInput = {
         ...validBaseInput,
         objective: "Build full prototype complete app system end-to-end",
@@ -177,7 +178,7 @@ describe("Phase 3B: Multi-Builder / Agent Router Engine", () => {
       const execPlan = createExecutionPlan(plan, contextPack);
 
       const workerIds = execPlan.selected_workers.map((w) => w.worker_id);
-      expect(workerIds).toContain("lovable_mcp");
+      expect(workerIds).toContain("frontend_builder_candidate");
       expect(workerIds).toContain("emergent_mcp");
       expect(workerIds).toContain("replit_mcp");
       expect(execPlan.selected_workers.length).toBe(3);

@@ -173,6 +173,7 @@ serve(async (req) => {
 
     if (generationError) throw generationError;
 
+    const queueStatus = mediaType === "image" ? "media_pending" : "pending";
     const { data: job, error: jobError } = await supabase
       .from("job_queue")
       .insert({
@@ -185,7 +186,7 @@ serve(async (req) => {
           media_type: mediaType,
           provider_key: selectedProvider.provider_key,
         },
-        status: "pending",
+        status: queueStatus,
         attempts: 0,
         max_attempts: mediaType === "video" ? 8 : 4,
         scheduled_for: new Date().toISOString(),
@@ -218,17 +219,19 @@ serve(async (req) => {
     });
 
     const workerUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/job-worker`;
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const cronSecret = Deno.env.get("CRON_SECRET");
 
-    if (anonKey) {
+    if (cronSecret) {
       fetch(workerUrl, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${anonKey}`,
+          "x-cron-secret": cronSecret,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ source: "generate-media", businessId: businessProfile.id }),
       }).catch((error) => console.error("Failed to trigger job-worker", error));
+    } else {
+      console.error("CRON_SECRET not configured; media job remains queued for scheduled worker processing");
     }
 
     return json(req, {

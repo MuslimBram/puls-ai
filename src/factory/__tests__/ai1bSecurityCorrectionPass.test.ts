@@ -158,7 +158,7 @@ describe("AI-1B security correction pass", () => {
 
     for (const file of migratedFiles) {
       const source = readFileSync(file, "utf-8");
-      expect(source, file).not.toContain("ai.gateway.lovable.dev");
+      expect(source, file).not.toContain("ai.gateway.frontend_builder.dev");
       expect(source, file).not.toContain("api.anthropic.com/v1/messages");
       expect(source, file).toMatch(/askAI\(|callAI\(|callAIRouter\(|analyzePublicLead\(|runVerifiedDeepScan\(/);
     }

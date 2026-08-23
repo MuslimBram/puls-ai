@@ -48,7 +48,7 @@ serve(async (req) => {
       });
     }
 
-    const origin = req.headers.get("origin") || "https://talk-finder-bot.lovable.app";
+    const origin = req.headers.get("origin") || Deno.env.get("PUBLIC_SITE_URL") || "https://pulse-bos.com";
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: customers.data[0].id,
       return_url: `${origin}/subscription`,

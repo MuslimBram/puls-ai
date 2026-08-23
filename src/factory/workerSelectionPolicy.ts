@@ -31,8 +31,8 @@ export function recommendWorkers(
 
   switch (taskType) {
     case "ui":
-      workers = ["base44_mcp", "lovable_mcp"];
-      rationale = "UI tasks prioritize Base44 layout generation and Lovable frontend components.";
+      workers = ["base44_mcp", "frontend_builder_candidate"];
+      rationale = "UI tasks prioritize Base44 layout generation and Frontend Builder frontend components.";
       break;
 
     case "backend":
@@ -46,8 +46,8 @@ export function recommendWorkers(
       break;
 
     case "full_prototype":
-      workers = ["lovable_mcp", "emergent_mcp", "replit_mcp"];
-      rationale = "Full prototypes leverage Lovable UI, Emergent backend logic, and Replit sandbox.";
+      workers = ["frontend_builder_candidate", "emergent_mcp", "replit_mcp"];
+      rationale = "Full prototypes leverage Frontend Builder UI, Emergent backend logic, and Replit sandbox.";
       break;
 
     case "refactor":

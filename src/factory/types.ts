@@ -18,7 +18,7 @@ export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type EstimatedComplexity = "XS" | "S" | "M" | "L" | "XL";
 
 export type WorkerType =
-  | "lovable_mcp"
+  | "frontend_builder_candidate"
   | "emergent_mcp"
   | "base44_mcp"
   | "replit_mcp"

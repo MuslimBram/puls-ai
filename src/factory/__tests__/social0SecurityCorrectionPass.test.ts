@@ -18,7 +18,7 @@ describe("SOCIAL-0 security correction pass", () => {
     expect(scoreLeads).toContain("callAIRouter(");
     expect(scoreLeads).toContain("authHeader");
     expect(scoreLeads).toContain("workspaceId: workspace_id");
-    expect(scoreLeads).not.toContain("ai.gateway.lovable.dev");
+    expect(scoreLeads).not.toContain("ai.gateway.frontend_builder.dev");
 
     expect(scoreVisitors).toContain("callAIRouter(");
     expect(scoreVisitors).toContain("authHeader");

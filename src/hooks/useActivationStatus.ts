@@ -258,7 +258,7 @@ export const useActivationStatus = () => {
         configCompletePct: openaiConn?.status === "connected" ? 100 : 0,
         fixSuggestion:
           oaStatus === "missing"
-            ? "Platform uses Lovable AI by default. Add OpenAI key for custom models."
+            ? "Platform uses the canonical AI router by default. Add provider keys for custom models."
             : null,
         blockerLevel: "ok",
       });

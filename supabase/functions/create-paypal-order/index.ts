@@ -70,7 +70,7 @@ serve(async (req) => {
     }
 
     const { token: ppToken, base } = await getPayPalAccessToken(clientId, clientSecret, sandbox);
-    const origin = req.headers.get("origin") || "https://pulsi.lovable.app";
+    const origin = req.headers.get("origin") || Deno.env.get("PUBLIC_SITE_URL") || "https://pulse-bos.com";
 
     const orderPayload = {
       intent: "CAPTURE",

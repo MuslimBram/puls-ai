@@ -36,7 +36,7 @@ const PublicApiPage = () => {
   const [newWebhookEvent, setNewWebhookEvent] = useState("lead.created");
   const [newWebhookLabel, setNewWebhookLabel] = useState("");
 
-  const baseUrl = `${window.location.origin.replace("id-preview--", "").replace(".lovable.app", ".supabase.co")}/functions/v1/public-api`;
+  const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-api`;
 
   const handleCreateKey = async () => {
     const result = await createKey.mutateAsync({ label: newKeyLabel || "Default", permissions: newKeyPerms });

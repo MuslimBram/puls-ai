@@ -2,9 +2,10 @@
 
 ## Përmbledhje
 Pulse AI është një Business Operating System AI ndërtuar mbi:
-- **Frontend**: React (Lovable) → kohablerjeve.top
+- **Frontend**: React + Vite → pulse-bos.com (kohablerjeve.top mbetet vetëm domain tranzicioni)
+- **Hosting**: Vercel
 - **Backend**: Supabase (PostgreSQL + Edge Functions + Auth + Storage)
-- **AI**: Lovable Gateway (Gemini) primary + Anthropic Claude fallback
+- **AI**: canonical Pulse AI multi-provider router me provider selection/failover të centralizuar
 - **Kanalet**: Instagram, WhatsApp Business, Facebook, Telegram, SMS
 
 ---
@@ -22,10 +23,11 @@ Pulse AI është një Business Operating System AI ndërtuar mbi:
     │     → memoria + sistem prompt   │
     │  2. journey-engine (enrich)     │
     │     → ton sipas fazës           │
-    │  3. Lovable/Anthropic AI        │
+    │  3. Pulse AI Router             │
+    │     → zgjedh provider/model     │
     │     → gjeneron përgjigje        │
     │  4. sendToChannel               │
-    │     → dërgon (<1 sekondë)       │
+    │     → dërgon përgjigjen         │
     └─────────────────────────────────┘
                     ↓
     ┌─────────────────────────────────┐
@@ -46,82 +48,97 @@ Pulse AI është një Business Operating System AI ndërtuar mbi:
 - Facebook Messenger API
 - Telegram Bot API
 - SMS (Twilio)
-- **Unified webhook**: 1 endpoint për të gjitha
+- **Unified webhook** për hyrjet e mbështetura
 
 ### Shtresa 2: Siguria (Security Layer)
 - JWT authentication (Supabase Auth)
-- RLS (Row Level Security) per-biznes
+- RLS (Row Level Security) per-biznes/workspace
 - AES-GCM token encryption
-- Device Trust AI (pajisje të reja kërkojnë aprovim)
-- Rate limiting: 300 mesazhe/minutë
+- Device Trust AI
+- Rate limiting sipas endpoint-it/provider-it
 
 ### Shtresa 3: AI Intelligence (3 nën-shtresa)
-- **Business Memory Engine**: 14 lloje memories, confidence decay
+- **Business Memory Engine**
 - **Revenue Intelligence**: lead scoring, churn prediction, upsell
-- **Journey Intelligence**: 9 faza, 8 stile komunikimi
+- **Journey Intelligence**: fazat dhe stilet e komunikimit
+- **Canonical AI Router**: provider selection, failover, workspace authorization dhe usage accounting në një rrugë të centralizuar
 
 ### Shtresa 4: Automatizimet (Automation Layer)
 - Sales Sequences (A/B testing + AI personalizim)
-- Email Campaigns (si ActiveCampaign)
-- Client Success Reminders (7/14/30 ditë)
-- Appointment Booking (si Calendly)
-- pg_cron: 6 cron jobs automatike
+- Email Campaigns
+- Client Success Reminders
+- Appointment Booking
+- pg_cron për worker-at e planifikuar
 
 ### Shtresa 5: Business Intelligence
-- Revenue Engine + pricing AI
-- Lead scoring 0-100
-- CEO Dashboard live
-- Meta Ads + Google Ads ROI
-- Vicidial CDR + analiza AI
+- Revenue Engine + pricing intelligence
+- Lead scoring
+- CEO Dashboard
+- Ads/ROI analytics sipas integrimeve aktive
+- Telephony analytics sipas provider-it të konfiguruar
 
 ### Shtresa 6: Administrimi
-- Invoices PDF (auto-numbering)
-- Contracts (e-sign tokens)
-- Google Workspace sync
+- Invoices PDF
+- Contracts
+- Google integrations sipas konfigurimit
 - Supabase Storage (dokumentet)
 
 ### Shtresa 7: Multi-tenant
-- Per-biznes izolim (business_id everywhere)
+- Izolim me workspace/business context
 - Workspace switcher
-- 6 role types: Owner/Admin/Business/Freelancer/Agent/Ambassador
+- Role-based authorization
 
 ### Shtresa 8: Infrastruktura
-- Supabase (PostgreSQL 15 + PostGIS)
-- 120 Edge Functions (Deno runtime)
-- 154+ SQL migrations
+- Supabase (PostgreSQL + Edge Functions)
 - GitHub CI/CD
 - Vercel (frontend hosting)
+- Provider integrations të ndara nga application layer
 
 ---
 
-## Integrimet e Jashtme
+## Runtime integrations
 
-### Owner (Platforma — 1 herë):
-| Integrim | Secret | Ndikon |
-|----------|--------|--------|
-| Anthropic API | ANTHROPIC_API_KEY | Fallback AI |
-| Meta App | META_APP_ID/SECRET | Të gjitha bizneset |
-| Stripe | STRIPE_SECRET_KEY | Billing platform |
-| Resend | RESEND_API_KEY | Emaile platform |
-| Google Ads | GOOGLE_ADS_* | CEO Dashboard |
-| Vicidial | VICIDIAL_* | Telephony |
+### AI
+- Pulse AI Router është rruga canonical për text AI.
+- Provider credentials qëndrojnë server-side.
+- Image generation përdor media-provider abstraction; provider-i aktiv i target-it të ri është Replicate.
 
-### Biznes (Çdo biznes vetë):
+### Email
+- Transactional/auth queues ruhen në Supabase.
+- Delivery target i runtime-it të ri është Resend.
+- Supabase Auth Send Email Hook përdor Standard Webhooks.
+- Bounce/complaint/suppression events verifikohen nga webhook-u i provider-it.
+
+### Telegram
+- Telegram Bot API përdoret direkt.
+- Bot credential ruhet i enkriptuar server-side.
+- Inbound përdor webhook; cron-i i Telegram kontrollon webhook health dhe nuk konkurron me `getUpdates`.
+
+### Owner / platform configuration
+| Integrim | Secret / Config | Ndikon |
+|----------|-----------------|--------|
+| AI providers | Provider-specific server secrets | Pulse AI Router |
+| Meta App | META_APP_ID/SECRET | Meta channels |
+| Stripe / billing providers | Provider-specific secrets | Billing |
+| Resend | RESEND_API_KEY | Email delivery |
+| Replicate | REPLICATE_API_TOKEN | Media generation |
+| Twilio | Encrypted channel credentials / server config | SMS/Voice |
+
+### Biznes / workspace
 | Integrim | Si lidhet | Ndikon |
 |----------|-----------|--------|
-| Instagram | OAuth 1 klikim | DMs + skanim |
-| WhatsApp | QR code scan | Mesazhe |
-| Facebook | OAuth | Messenger |
-| Google Calendar | Service account | Rezervimet |
-| Google Drive | Sharing me email | Dokumentet |
+| Instagram | OAuth/provider setup | DMs + social workflows |
+| WhatsApp | Meta/provider setup | Mesazhe |
+| Facebook | OAuth/provider setup | Messenger |
+| Telegram | Bot setup server-side | Mesazhe |
+| Google integrations | OAuth/service configuration sipas modulit | Calendar/Drive workflows |
 
 ---
 
-## Performanca
+## Parime runtime
 
-- **Koha e përgjigjes AI**: < 2 sekonda
-- **Throughput**: 300 mesazhe/minutë/kanal
-- **Uptime target**: 99.9% (Supabase SLA)
-- **Database**: autoscaling deri 100GB
-- **Edge Functions**: 0ms cold start (Deno Deploy)
-
+- Browser-i nuk duhet të mbajë provider secrets.
+- Workspace authorization verifikohet server-side.
+- Text AI nuk duhet të bëjë provider bypass jashtë canonical AI Router.
+- Integrimet e jashtme përdorin adapter/provider boundaries që mund të zëvendësohen pa rindërtuar application layer.
+- Production rollout, migrations dhe provider secrets kërkojnë verifikim/deployment të veçantë; ekzistenca në branch nuk barazohet me production-live.

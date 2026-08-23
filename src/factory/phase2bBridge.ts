@@ -17,12 +17,12 @@ export interface Phase2BBridgeMapping {
 }
 
 export const PHASE_2B_BRIDGE_REGISTRY: Record<WorkerType, Phase2BBridgeMapping> = {
-  lovable_mcp: {
-    worker_id: "lovable_mcp",
-    adapter_key: "lovable_mcp",
+  frontend_builder_candidate: {
+    worker_id: "frontend_builder_candidate",
+    adapter_key: null,
     worker_class: "builder",
-    status: "active_adapter",
-    requires_external_call: true,
+    status: "local_candidate",
+    requires_external_call: false,
   },
   emergent_mcp: {
     worker_id: "emergent_mcp",

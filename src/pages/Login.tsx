@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+import { oauth } from "@/integrations/auth/oauth";
 import { validateInternalPath } from "@/lib/safeNavigate";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -571,7 +571,7 @@ const Login = () => {
               disabled={loading}
               onClick={async () => {
                 try {
-                  const { error } = await lovable.auth.signInWithOAuth("google", {
+                  const { error } = await oauth.auth.signInWithOAuth("google", {
                     redirect_uri: oauthRedirect,
                   });
                   if (error) {
@@ -600,7 +600,7 @@ const Login = () => {
               disabled={loading}
               onClick={async () => {
                 try {
-                  const { error } = await lovable.auth.signInWithOAuth("apple", {
+                  const { error } = await oauth.auth.signInWithOAuth("apple", {
                     redirect_uri: oauthRedirect,
                   });
                   if (error) {

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
@@ -50,10 +51,6 @@ serve(async (req) => {
         status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
-
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = getServiceKey()!;
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -179,20 +176,13 @@ serve(async (req) => {
 
     const systemPrompt = `You are a Dedicated AI Assistant for a business. You respond to visitor inquiries based only on the selected business below.\n\nBusiness ID: ${bizProfile.id}\n${businessContext}${knowledgeContext}\n\nKeywords the business monitors: ${keywordList.join(", ") || "none"}\n\nRules:\n- Always respond in the language the visitor writes in\n- Use only this business context and never mix in another business\n- Be helpful and knowledgeable about the business's products/services\n- Use the knowledge base information when relevant to provide detailed, accurate answers\n- Present yourself as the business's dedicated AI assistant\n- For simple questions, provide a direct and helpful answer\n- For complex questions, provide an initial helpful response but mention that a team member will follow up\n- Always include a call-to-action\n- Keep responses concise (2-5 sentences)\n- Never make up specific prices, dates, or promises not mentioned in the business profile or knowledge base`;
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const aiResponse = await routerChatCompletion({
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: message },
         ],
-      }),
-    });
+      }, { workspaceId: bizProfile.workspace_id, userId: user_id, taskType: "sales_reply" });
 
     if (!aiResponse.ok) {
       if (aiResponse.status === 429) {

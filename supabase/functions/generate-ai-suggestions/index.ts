@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -89,15 +90,7 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = getServiceKey()!;
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
     const sb = createClient(supabaseUrl, serviceKey);
-
-    if (!lovableKey) {
-      return new Response(JSON.stringify({ error: "AI key not configured" }), {
-        status: 503,
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
 
     // Light context pull — kept intentionally small per-focus so each
     // category gets relevant signals without an expensive full scan.
@@ -105,7 +98,7 @@ serve(async (req) => {
 
     const { data: bizProfile } = await sb
       .from("business_profiles")
-      .select("business_name, industry, short_description, target_audience, main_services")
+      .select("business_name, industry, short_description, target_audience, main_services, workspace_id")
       .eq("user_id", user_id)
       .maybeSingle();
     if (bizProfile) ctx.business = bizProfile;
@@ -144,15 +137,11 @@ serve(async (req) => {
 
     const prompt = PROMPT_BY_FOCUS[focus as Focus](ctx);
 
-    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const aiResp = await routerChatCompletion({
         model: "google/gemini-2.5-flash-lite",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.4,
-      }),
-    });
+      }, { workspaceId: workspace_id || bizProfile?.workspace_id || undefined, userId: user_id, authHeader: req.headers.get("Authorization"), taskType: focus === "replies" ? "sales_reply" : focus === "seo" ? "web_research" : "marketing_copy" });
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();

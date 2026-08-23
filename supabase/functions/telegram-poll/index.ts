@@ -1,19 +1,16 @@
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
-const GATEWAY_URL = "https://connector-gateway.lovable.dev/telegram";
-const MAX_RUNTIME_MS = 55_000;
-const MIN_REMAINING_MS = 5_000;
-
-Deno.serve(async () => {
-  const startTime = Date.now();
-
-  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!LOVABLE_API_KEY) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY missing" }), { status: 500 });
-
-  const TELEGRAM_API_KEY = Deno.env.get("TELEGRAM_API_KEY");
-  if (!TELEGRAM_API_KEY) return new Response(JSON.stringify({ error: "TELEGRAM_API_KEY missing" }), { status: 500 });
+Deno.serve(async (req) => {
+  const unauthorized = requireCronAuth(req);
+  if (unauthorized) {
+    return new Response(unauthorized.body, {
+      status: unauthorized.status,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -21,125 +18,112 @@ Deno.serve(async () => {
     { auth: { persistSession: false } },
   );
 
-  let totalProcessed = 0;
+  try {
+    const { data: channels, error } = await supabase
+      .from("channels")
+      .select("id, workspace_id, user_id, channel_name, credentials_encrypted, settings, connection_status")
+      .eq("channel_type", "telegram")
+      .eq("is_enabled", true)
+      .limit(25);
+    if (error) throw error;
 
-  // Read offset from telegram_bot_state
-  const { data: state, error: stateErr } = await supabase
-    .from("telegram_bot_state")
-    .select("update_offset")
-    .eq("id", 1)
-    .single();
-
-  if (stateErr) {
-    return new Response(JSON.stringify({ error: stateErr.message }), { status: 500 });
-  }
-
-  let currentOffset = state.update_offset;
-
-  while (true) {
-    const elapsed = Date.now() - startTime;
-    const remainingMs = MAX_RUNTIME_MS - elapsed;
-    if (remainingMs < MIN_REMAINING_MS) break;
-
-    const timeout = Math.min(50, Math.floor(remainingMs / 1000) - 5);
-    if (timeout < 1) break;
-
-    const response = await fetch(`${GATEWAY_URL}/getUpdates`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": TELEGRAM_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        offset: currentOffset,
-        timeout,
-        allowed_updates: ["message"],
-      }),
-    });
-
-    const data = await response.json();
-    if (!response.ok) {
-      return new Response(JSON.stringify({ error: data }), { status: 502 });
+    if (!channels?.length) {
+      return new Response(JSON.stringify({
+        ok: true,
+        mode: "webhook",
+        active_channels: 0,
+        healthy: 0,
+        needs_reconnect: 0,
+      }), { headers: { "Content-Type": "application/json" } });
     }
 
-    const updates = data.result ?? [];
-    if (updates.length === 0) continue;
-
-    // Store messages (upsert for idempotency)
-    const rows = updates
-      .filter((u: any) => u.message)
-      .map((u: any) => ({
-        update_id: u.update_id,
-        chat_id: u.message.chat.id,
-        text: u.message.text ?? null,
-        raw_update: u,
-      }));
-
-    if (rows.length > 0) {
-      const { error: insertErr } = await supabase
-        .from("telegram_messages")
-        .upsert(rows, { onConflict: "update_id" });
-
-      if (insertErr) {
-        return new Response(JSON.stringify({ error: insertErr.message }), { status: 500 });
+    const checks: Array<Record<string, unknown>> = [];
+    for (const channel of channels) {
+      const credentials = (channel.credentials_encrypted || {}) as Record<string, unknown>;
+      const encryptedToken = typeof credentials.bot_token === "string" ? credentials.bot_token : "";
+      let botToken = "";
+      try {
+        botToken = encryptedToken ? await decryptIfNeeded(encryptedToken) : "";
+      } catch (decryptError) {
+        checks.push({
+          channel_id: channel.id,
+          workspace_id: channel.workspace_id,
+          ok: false,
+          status: "credential_error",
+          error: decryptError instanceof Error ? decryptError.message : "Credential decrypt failed",
+        });
+        continue;
       }
 
-      // Also ingest into inbox_messages for unified inbox
-      for (const u of updates.filter((u: any) => u.message)) {
-        const msg = u.message;
-        const chatId = msg.chat.id.toString();
-        const senderName = [msg.from?.first_name, msg.from?.last_name].filter(Boolean).join(" ") || chatId;
+      if (!botToken) {
+        checks.push({
+          channel_id: channel.id,
+          workspace_id: channel.workspace_id,
+          ok: false,
+          status: "needs_reconnect",
+        });
+        continue;
+      }
 
-        // Find workspace owner who has telegram channel
-        const { data: ch } = await supabase
-          .from("channels")
-          .select("user_id, id, workspace_id")
-          .eq("channel_type", "telegram")
-          .eq("is_enabled", true)
-          .limit(1);
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${botToken}/getWebhookInfo`);
+        const data = await response.json().catch(() => ({})) as Record<string, any>;
+        const webhook = data.result || {};
+        const healthy = Boolean(response.ok && data.ok && webhook.url);
 
-        if (ch?.[0]) {
-          const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
-            _user_id: ch[0].user_id,
-            _channel_type: "telegram",
-            _contact_identifier: chatId,
-            _contact_name: senderName,
-            _message_preview: msg.text || "[media]",
-            _direction: "inbound",
-          });
+        checks.push({
+          channel_id: channel.id,
+          workspace_id: channel.workspace_id,
+          ok: healthy,
+          status: healthy ? "webhook_active" : "webhook_inactive",
+          pending_update_count: Number(webhook.pending_update_count || 0),
+          last_error_date: webhook.last_error_date || null,
+          last_error_message: webhook.last_error_message || null,
+        });
 
-          await supabase.from("inbox_messages").insert({
-            user_id: ch[0].user_id,
-            workspace_id: ch[0].workspace_id,
-            channel_id: ch[0].id,
-            channel_type: "telegram",
-            source_name: "Telegram",
-            sender_name: senderName,
-            sender_identifier: chatId,
-            message_content: msg.text || "[media]",
-            message_timestamp: new Date(msg.date * 1000).toISOString(),
-            is_unread: true,
-            status: "received",
-            direction: "inbound",
-            delivery_status: "delivered",
-            provider_message_id: msg.message_id?.toString(),
-            thread_id: threadId || null,
-          } as any);
+        if (healthy && channel.connection_status !== "connected") {
+          await supabase.from("channels").update({
+            connection_status: "connected",
+            last_error: null,
+            updated_at: new Date().toISOString(),
+          }).eq("id", channel.id);
+        } else if (!healthy) {
+          await supabase.from("channels").update({
+            connection_status: "error",
+            last_error: String(webhook.last_error_message || "Telegram webhook is not active"),
+            updated_at: new Date().toISOString(),
+          }).eq("id", channel.id);
         }
+      } catch (checkError) {
+        checks.push({
+          channel_id: channel.id,
+          workspace_id: channel.workspace_id,
+          ok: false,
+          status: "check_failed",
+          error: checkError instanceof Error ? checkError.message : "Webhook health check failed",
+        });
       }
-
-      totalProcessed += rows.length;
     }
 
-    const newOffset = Math.max(...updates.map((u: any) => u.update_id)) + 1;
-    await supabase
-      .from("telegram_bot_state")
-      .update({ update_offset: newOffset, updated_at: new Date().toISOString() })
-      .eq("id", 1);
+    const healthy = checks.filter((item) => item.ok === true).length;
+    const needsReconnect = checks.filter((item) => item.status === "needs_reconnect").length;
 
-    currentOffset = newOffset;
+    return new Response(JSON.stringify({
+      ok: true,
+      mode: "webhook",
+      active_channels: channels.length,
+      healthy,
+      needs_reconnect: needsReconnect,
+      checks,
+    }), { headers: { "Content-Type": "application/json" } });
+  } catch (error) {
+    console.error("[TELEGRAM-HEALTH]", error);
+    return new Response(JSON.stringify({
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown error",
+    }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
-
-  return new Response(JSON.stringify({ ok: true, processed: totalProcessed, finalOffset: currentOffset }));
 });

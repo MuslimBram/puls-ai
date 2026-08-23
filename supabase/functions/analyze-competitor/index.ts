@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -11,10 +12,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       getServiceKey() ?? ""
@@ -69,7 +67,7 @@ serve(async (req) => {
       for (const comp of toScan.slice(0, 5)) { // Limit to 5 per run
         try {
           const result = await scanSingleCompetitor(
-            supabase, comp, FIRECRAWL_API_KEY!, LOVABLE_API_KEY
+            supabase, comp, FIRECRAWL_API_KEY!
           );
           scanned++;
           alertsCreated += result.alertsCreated;
@@ -103,7 +101,7 @@ serve(async (req) => {
       if (compErr || !competitor) throw new Error("Competitor not found");
 
       const result = await scanSingleCompetitor(
-        supabase, competitor, FIRECRAWL_API_KEY, LOVABLE_API_KEY
+        supabase, competitor, FIRECRAWL_API_KEY
       );
 
       return new Response(JSON.stringify({ 
@@ -136,13 +134,7 @@ serve(async (req) => {
         .eq("user_id", userId)
         .maybeSingle();
 
-      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const aiResponse = await routerChatCompletion({
           model: "google/gemini-3-flash-preview",
           messages: [
             {
@@ -184,8 +176,7 @@ Target audience: ${profile?.target_audience || "general"}`,
             },
           }],
           tool_choice: { type: "function", function: { name: "competitor_insights" } },
-        }),
-      });
+        }, { workspaceId: competitor.workspace_id || profile?.workspace_id || undefined, userId: userId || undefined, authHeader, taskType: "web_research", allowInternalNoWorkspace: !authHeader && !(competitor.workspace_id || profile?.workspace_id) });
 
       if (!aiResponse.ok) throw new Error(`AI error: ${aiResponse.status}`);
 
@@ -235,8 +226,7 @@ Target audience: ${profile?.target_audience || "general"}`,
 async function scanSingleCompetitor(
   supabase: any,
   competitor: any,
-  firecrawlKey: string,
-  lovableKey: string
+  firecrawlKey: string
 ) {
   const scrapedPages: any[] = [];
 
@@ -293,13 +283,7 @@ async function scanSingleCompetitor(
   const combinedContent = scrapedPages.map((p) => `## ${p.title}\n${p.content}`).join("\n\n---\n\n");
   const previousData = competitor.previous_scan_data || {};
 
-  const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${lovableKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  const aiResponse = await routerChatCompletion({
       model: "google/gemini-3-flash-preview",
       messages: [
         {
@@ -364,8 +348,7 @@ ${combinedContent.slice(0, 8000)}`,
         },
       }],
       tool_choice: { type: "function", function: { name: "competitor_analysis" } },
-    }),
-  });
+    }, { workspaceId: competitor.workspace_id || undefined, userId: competitor.user_id, taskType: "web_research", allowInternalNoWorkspace: !competitor.workspace_id });
 
   if (!aiResponse.ok) {
     const status = aiResponse.status;

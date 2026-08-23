@@ -9,12 +9,6 @@ const isPreviewContext = () => {
     window.self !== window.top ||
     hostname.startsWith("id-preview--") ||
     hostname.startsWith("preview--") ||
-    hostname === "lovableproject.com" ||
-    hostname.endsWith(".lovableproject.com") ||
-    hostname === "lovableproject-dev.com" ||
-    hostname.endsWith(".lovableproject-dev.com") ||
-    hostname === "beta.lovable.dev" ||
-    hostname.endsWith(".beta.lovable.dev") ||
     new URLSearchParams(window.location.search).get("sw") === "off"
   );
 };

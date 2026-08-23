@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -11,9 +12,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
     if (!FIRECRAWL_API_KEY) throw new Error("Firecrawl connector not configured");
 
     const supabase = createClient(
@@ -102,13 +101,7 @@ serve(async (req) => {
     };
 
     // AI Analysis
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
+    const aiResponse = await routerChatCompletion({
         model: "google/gemini-3-flash-preview",
         messages: [
           {
@@ -246,8 +239,7 @@ ${markdown.slice(0, 3000)}`,
           },
         }],
         tool_choice: { type: "function", function: { name: "seo_audit_result" } },
-      }),
-    });
+      }, { userId, authHeader, taskType: "web_research" });
 
     if (!aiResponse.ok) {
       const status = aiResponse.status;

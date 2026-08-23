@@ -5,11 +5,10 @@ import { join } from "path";
 const repoFile = (...parts: string[]) => join(process.cwd(), ...parts);
 
 describe("AI-1A2 Public AI Help Bot Consolidation", () => {
-  it("removes direct Lovable gateway/provider bypass and routes through canonical ai-router", () => {
+  it("removes direct Frontend Builder gateway/provider bypass and routes through canonical ai-router", () => {
     const helpBot = readFileSync(repoFile("supabase", "functions", "ai-help-bot", "index.ts"), "utf-8");
 
-    expect(helpBot).not.toContain("LOVABLE_API_KEY");
-    expect(helpBot).not.toContain("ai.gateway.lovable.dev");
+    expect(helpBot).not.toContain("ai.gateway.frontend_builder.dev");
     expect(helpBot).not.toContain("gemini-3-flash-preview");
 
     expect(helpBot).toContain("/functions/v1/ai-router");
@@ -44,8 +43,10 @@ describe("AI-1A2 Public AI Help Bot Consolidation", () => {
     expect(router).toContain('rpc("is_workspace_member"');
 
     expect(router).toContain("allowInternalNoWorkspaceCustomerSupport");
+    expect(router).toContain("allowInternalSystemTask");
+    expect(router).toContain("isInternal && internal_system_task === true");
     expect(router).toContain('normalizedTaskType === "customer_support"');
-    expect(router).toContain("if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport)");
+    expect(router).toContain("if (!authorizedWorkspaceId && !allowInternalNoWorkspaceCustomerSupport && !allowInternalSystemTask)");
   });
 
   it("fails malformed message payloads safely and preserves frontend escalation contract", () => {
