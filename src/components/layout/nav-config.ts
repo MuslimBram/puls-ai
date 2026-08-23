@@ -375,18 +375,26 @@ export const ambassadorNavGroups: NavGroup[] = [
 // ============================================================
 function mergeGroups(...sets: NavGroup[][]): NavGroup[] {
   const merged: NavGroup[] = [];
+  const seenDestinations = new Set<string>();
+
   for (const group of sets.flat()) {
-    const existing = merged.find((g) => g.label === group.label);
+    const uniqueItems = group.items.filter((item) => {
+      if (seenDestinations.has(item.href)) return false;
+      seenDestinations.add(item.href);
+      return true;
+    });
+
+    if (uniqueItems.length === 0) continue;
+
+    const existing = merged.find((candidate) => candidate.label === group.label);
     if (!existing) {
-      merged.push({ ...group, items: [...group.items] });
+      merged.push({ ...group, items: uniqueItems });
       continue;
     }
-    for (const item of group.items) {
-      if (!existing.items.some((i) => i.href === item.href)) {
-        existing.items.push(item);
-      }
-    }
+
+    existing.items.push(...uniqueItems);
   }
+
   return merged;
 }
 
