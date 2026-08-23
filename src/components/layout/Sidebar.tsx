@@ -101,19 +101,21 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
     : filterGroups(getNavGroupsForRoles(roles));
 
   const normalizedQuery = navQuery.trim().toLocaleLowerCase();
-  const allGroups: NavGroup[] = normalizedQuery
-    ? permissionFilteredGroups
-        .map((group) => ({
-          ...group,
-          defaultOpen: true,
-          items: group.items.filter(
-            (item) =>
-              item.label.toLocaleLowerCase().includes(normalizedQuery) ||
-              group.label.toLocaleLowerCase().includes(normalizedQuery),
-          ),
-        }))
-        .filter((group) => group.items.length > 0)
-    : permissionFilteredGroups;
+  const allGroups: NavGroup[] = (normalizedQuery
+    ? permissionFilteredGroups.map((group) => ({
+        ...group,
+        defaultOpen: true,
+        items: group.items.filter(
+          (item) =>
+            item.label.toLocaleLowerCase().includes(normalizedQuery) ||
+            group.label.toLocaleLowerCase().includes(normalizedQuery),
+        ),
+      }))
+    : permissionFilteredGroups.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.searchOnly),
+      }))
+  ).filter((group) => group.items.length > 0);
 
   const itemMatches = (href: string): boolean => {
     const [path, query] = href.split("?");
