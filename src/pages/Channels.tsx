@@ -12,10 +12,11 @@ import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { ChannelConnectionModal } from "@/components/channels/ChannelConnectionModal";
 import { ConnectedChannelCard } from "@/components/channels/ConnectedChannelCard";
 import { ChannelCatalogCard } from "@/components/channels/ChannelCatalogCard";
+import { ChannelOrbitSelector } from "@/components/channels/ChannelOrbitSelector";
 import { ValidateWhatsAppButton } from "@/components/channels/ValidateWhatsAppButton";
 import type { PlanKey } from "@/types/monetization";
 import {
-  Globe, Mail, MessageSquare, Phone, Plug, Radio, Webhook,
+  Globe, Mail, MessageSquare, Plug, Radio, Webhook,
   type LucideIcon,
 } from "lucide-react";
 
@@ -76,7 +77,30 @@ const Channels = () => {
 
         <TabsContent value="channels">
           <div className="space-y-4">
-            {/* Connected Channels */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Plug className="h-5 w-5 text-primary" />
+                  Explore Communication Channels
+                </CardTitle>
+                <CardDescription>
+                  Browse the channel registry. Moving focus never creates a connection; choose a channel to open its existing connection flow.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ChannelOrbitSelector
+                  items={registryItems}
+                  connectedChannels={channels}
+                  canAccess={canAccessChannel}
+                  onChoose={(item, existing) => setConnectModal({
+                    channel: item,
+                    existingId: existing?.id,
+                    existingMode: existing?.connection_mode,
+                  })}
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
@@ -117,7 +141,6 @@ const Channels = () => {
               </CardContent>
             </Card>
 
-            {/* Channel Catalog — Buffer-style cards */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
