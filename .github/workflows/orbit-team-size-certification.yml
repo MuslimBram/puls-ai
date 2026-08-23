@@ -1,0 +1,43 @@
+name: Orbit Team Size Certification
+
+on:
+  pull_request:
+    branches:
+      - chatgpt/orbit-pricing-phase-2
+    paths:
+      - 'src/components/OrbitSelector.tsx'
+      - 'src/components/OrbitSelector.test.tsx'
+      - 'src/components/leads/TeamSizeOrbitSelector.tsx'
+      - 'src/components/leads/TeamSizeOrbitSelector.test.tsx'
+      - 'src/components/leads/PublicLeadForm.tsx'
+      - '.github/workflows/orbit-team-size-certification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Orbit and team-size targeted tests
+        run: npx vitest run src/components/OrbitSelector.test.tsx src/components/leads/TeamSizeOrbitSelector.test.tsx
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
