@@ -15,6 +15,8 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://kohablerjeve.top",
   "https://www.kohablerjeve.top",
   "https://pulsi.lovable.app",
+  "https://www.pulse-bos.com",
+  "https://pulse-bos.com",
 ]);
 
 const ALLOWED_SUFFIXES = [
