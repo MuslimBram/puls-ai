@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { acquireTelephonyRealtimeSubscription } from "./telephonyRealtimeRegistry";
 import type { ActiveCall, AgentTelephonyState, CallQueue, TelephonyStatus } from "./types";
 
 const STALE_OFFLINE_MS = 5 * 60 * 1000;
@@ -113,15 +114,6 @@ export function useTelephonyRealtime() {
 
   useEffect(() => {
     if (!workspace?.id) return;
-    const channel = supabase
-      .channel("telephony-realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "active_calls" }, () => {
-        qc.invalidateQueries({ queryKey: ["active-calls"] });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "agent_telephony_state" }, () => {
-        qc.invalidateQueries({ queryKey: ["agent-telephony-state"] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return acquireTelephonyRealtimeSubscription(workspace.id, qc);
   }, [workspace?.id, qc]);
 }
