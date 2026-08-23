@@ -8,21 +8,30 @@ import { TrialCountdown } from "@/components/TrialCountdown";
 import { SoftphoneWidget } from "@/components/telephony/SoftphoneWidget";
 import { AgentStatusBar } from "@/components/telephony/AgentStatusBar";
 import { Menu, ArrowLeft, ArrowRight, Home } from "lucide-react";
-import { businessNavGroups, adminNavGroups } from "./nav-config";
+import { getNavGroupsForRoles } from "./nav-config";
 
 interface DashboardHeaderProps {
   onMenuClick: () => void;
 }
 
 export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
-  const { isAdmin, isBusinessOwner } = useRolePermissions();
+  const { roles } = useRolePermissions();
   const location = useLocation();
   const navigate = useNavigate();
 
-  const hasElevatedNavAccess = isAdmin || isBusinessOwner;
-  const allGroups = hasElevatedNavAccess ? [...adminNavGroups, ...businessNavGroups] : businessNavGroups;
-  const allNavFlat = allGroups.flatMap((g) => g.items);
-  const currentPageTitle = allNavFlat.find((i) => i.href === location.pathname)?.label || "Dashboard";
+  const allNavFlat = getNavGroupsForRoles(roles).flatMap((group) => group.items);
+  const currentPageTitle =
+    allNavFlat.find((item) => {
+      const [path, query] = item.href.split("?");
+      if (path !== location.pathname) return false;
+      if (!query) return true;
+
+      const expected = new URLSearchParams(query);
+      const current = new URLSearchParams(location.search);
+      return Array.from(expected.entries()).every(
+        ([key, value]) => current.get(key) === value,
+      );
+    })?.label || "Pulse AI";
 
   return (
     <header className="flex h-12 items-center gap-3 border-b border-border px-4 lg:px-6">
