@@ -302,7 +302,7 @@ async function callProvider(
     async (ctrl) => {
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `******` },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
         body: JSON.stringify({ model, messages: allMessages, max_tokens: maxTokens, temperature: 0.7 }),
         signal: ctrl.signal,
       });
@@ -652,6 +652,12 @@ serve(async (req: Request): Promise<Response> => {
       replicate: "REPLICATE",
     };
     const providerKey = providerMap[explicitProvider.toLowerCase()];
+    if (providerKey === "REPLICATE") {
+      return json({
+        error: "Replicate is temporarily unavailable until usage accounting is enabled.",
+        code: "PROVIDER_ACCOUNTING_UNAVAILABLE",
+      }, 503);
+    }
     if (providerKey && providerKey in PROVIDERS) {
       const providerDef = PROVIDERS[providerKey] as typeof PROVIDERS[typeof providerKey] & { name: string };
       const start = Date.now();
