@@ -1,0 +1,43 @@
+name: Orbit Business Profile Certification
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'src/pages/BusinessProfile.tsx'
+      - 'src/components/business/BusinessProfileAiOrbitSelectors.tsx'
+      - 'src/components/business/BusinessProfileAiOrbitSelectors.test.tsx'
+      - 'src/components/OrbitSelector.tsx'
+      - '.github/workflows/orbit-business-profile-certification.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Targeted Orbit tests
+        run: >-
+          npx vitest run
+          src/components/OrbitSelector.test.tsx
+          src/components/business/BusinessProfileAiOrbitSelectors.test.tsx
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Production build
+        run: npm run build
