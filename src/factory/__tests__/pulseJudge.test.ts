@@ -92,16 +92,16 @@ describe("Phase 3D: Pulse Judge Engine", () => {
 
       const failingWorker: WorkerResult = {
         ...workerResult1,
-        worker_id: "lovable_mcp",
+        worker_id: "frontend_builder_candidate",
         build_result: { success: false, errors: ["Compilation error"] }, // Failing build
       };
 
       const qReport = evaluateQualityGate(plan, contextPack, execPlan, [failingWorker, workerResult2]);
       const decision = evaluatePulseJudge(plan, contextPack, execPlan, qReport, [failingWorker, workerResult2]);
 
-      expect(decision.selected_base_worker).not.toBe("lovable_mcp");
+      expect(decision.selected_base_worker).not.toBe("frontend_builder_candidate");
       expect(decision.selected_base_worker).toBe("claude_code");
-      expect(decision.rejected_candidates).toContain("lovable_mcp");
+      expect(decision.rejected_candidates).toContain("frontend_builder_candidate");
     });
 
     it("no viable candidates -> produces no_viable_candidate or needs_repair decision", () => {
@@ -162,7 +162,7 @@ describe("Phase 3D: Pulse Judge Engine", () => {
       expect(decision.selected_base_worker).toBe("antigravity_candidate");
     });
 
-    it("UI task -> favors browser-proven builder (Base44 or Lovable)", () => {
+    it("UI task -> favors browser-proven builder (Base44 or Frontend Builder)", () => {
       const uiInput: SoftwareTaskInput = {
         ...validBaseInput,
         objective: "Design a new modern UI button and page layout",
@@ -170,7 +170,7 @@ describe("Phase 3D: Pulse Judge Engine", () => {
 
       const uiWorker: WorkerResult = {
         ...workerResult1,
-        worker_id: "lovable_mcp",
+        worker_id: "frontend_builder_candidate",
         browser_result: { passed: true, page_title: "Dashboard", visual_diff_passed: true },
         screenshots: ["https://screenshots.local/ui.png"],
       };
@@ -181,7 +181,7 @@ describe("Phase 3D: Pulse Judge Engine", () => {
       const qReport = evaluateQualityGate(plan, contextPack, execPlan, [uiWorker]);
 
       const decision = evaluatePulseJudge(plan, contextPack, execPlan, qReport, [uiWorker]);
-      expect(decision.selected_base_worker).toBe("lovable_mcp");
+      expect(decision.selected_base_worker).toBe("frontend_builder_candidate");
     });
 
     it("Security task -> forces human review (requires_human_review: true)", () => {

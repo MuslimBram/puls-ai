@@ -7,7 +7,7 @@ const config: CapacitorConfig = {
   server: {
     androidScheme: "https",
     iosScheme: "https",
-    allowNavigation: ["*.supabase.co", "*.lovable.app", "kohablerjeve.top"],
+    allowNavigation: ["*.supabase.co", "pulse-bos.com", "www.pulse-bos.com", "kohablerjeve.top", "www.kohablerjeve.top"],
   },
   plugins: {
     SplashScreen: {

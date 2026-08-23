@@ -5,7 +5,7 @@
  * Deterministically routes TaskPlan + ContextPack into a safe, normalized ExecutionPlan.
  *
  * Support Candidate Workers:
- *   - lovable_mcp         (Builder, Phase 2B adapter)
+ *   - frontend_builder_candidate         (Builder, Phase 2B adapter)
  *   - emergent_mcp        (Builder, Phase 2B adapter)
  *   - base44_mcp          (Builder, Phase 2B adapter)
  *   - replit_mcp          (Builder, Phase 2B adapter)
@@ -83,7 +83,7 @@ export function determineRoutingStrategy(
  */
 export function getWorkerCapabilities(workerId: WorkerType): string[] {
   switch (workerId) {
-    case "lovable_mcp":
+    case "frontend_builder_candidate":
       return ["react_components", "ui_design", "css_layout", "frontend_build"];
 
     case "emergent_mcp":
@@ -126,7 +126,7 @@ export function determineIsolationStrategy(
   if (workerId === "replit_mcp") {
     return "sandbox";
   }
-  if (taskType === "full_prototype" || workerId === "lovable_mcp" || workerId === "base44_mcp") {
+  if (taskType === "full_prototype" || workerId === "base44_mcp") {
     return "remote_builder_project";
   }
   return "git_branch";

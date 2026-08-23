@@ -2,9 +2,9 @@
 
 ## Përmbledhje
 Pulse AI është një Business Operating System AI ndërtuar mbi:
-- **Frontend**: React (Lovable) → kohablerjeve.top
+- **Frontend**: React (legacy platform) → kohablerjeve.top
 - **Backend**: Supabase (PostgreSQL + Edge Functions + Auth + Storage)
-- **AI**: Lovable Gateway (Gemini) primary + Anthropic Claude fallback
+- **AI**: legacy platform Gateway (Gemini) primary + Anthropic Claude fallback
 - **Kanalet**: Instagram, WhatsApp Business, Facebook, Telegram, SMS
 
 ---
@@ -22,7 +22,7 @@ Pulse AI është një Business Operating System AI ndërtuar mbi:
     │     → memoria + sistem prompt   │
     │  2. journey-engine (enrich)     │
     │     → ton sipas fazës           │
-    │  3. Lovable/Anthropic AI        │
+    │  3. legacy platform/Anthropic AI        │
     │     → gjeneron përgjigje        │
     │  4. sendToChannel               │
     │     → dërgon (<1 sekondë)       │

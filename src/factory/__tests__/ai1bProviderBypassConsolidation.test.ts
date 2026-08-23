@@ -89,7 +89,7 @@ describe("AI-1B shared ai-client canonicalization", () => {
     const filePath = join(process.cwd(), "supabase", "functions", "_shared", "ai-client.ts");
     const source = readFileSync(filePath, "utf-8");
 
-    expect(source).not.toContain("ai.gateway.lovable.dev");
+    expect(source).not.toContain("ai.gateway.frontend_builder.dev");
     expect(source).not.toContain("api.anthropic.com/v1/messages");
     expect(source).toContain("callAIRouter");
   });

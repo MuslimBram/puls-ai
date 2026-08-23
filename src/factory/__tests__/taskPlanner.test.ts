@@ -95,10 +95,10 @@ describe("Phase 3A: Task Planner & Context Pack Engine", () => {
       }
     });
 
-    it("should select Base44 + Lovable for UI tasks", () => {
+    it("should select Base44 + Frontend Builder for UI tasks", () => {
       const result = recommendWorkers("ui");
       expect(result.recommended_workers).toContain("base44_mcp");
-      expect(result.recommended_workers).toContain("lovable_mcp");
+      expect(result.recommended_workers).toContain("frontend_builder_candidate");
     });
 
     it("should select Emergent + Claude Code for backend tasks", () => {
@@ -114,9 +114,9 @@ describe("Phase 3A: Task Planner & Context Pack Engine", () => {
       expect(result.recommended_workers).toContain("antigravity_candidate");
     });
 
-    it("should select Lovable + Emergent + Replit for full prototypes", () => {
+    it("should select Frontend Builder + Emergent + Replit for full prototypes", () => {
       const result = recommendWorkers("full_prototype");
-      expect(result.recommended_workers).toContain("lovable_mcp");
+      expect(result.recommended_workers).toContain("frontend_builder_candidate");
       expect(result.recommended_workers).toContain("emergent_mcp");
       expect(result.recommended_workers).toContain("replit_mcp");
     });

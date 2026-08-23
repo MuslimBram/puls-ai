@@ -40,7 +40,7 @@ export function calculateTaskFitScore(
 
   switch (taskType) {
     case "ui":
-      if (workerId === "base44_mcp" || workerId === "lovable_mcp") score += 20;
+      if (workerId === "base44_mcp" || workerId === "frontend_builder_candidate") score += 20;
       if (workerRes.browser_result?.passed) score += 10;
       break;
 
@@ -64,7 +64,7 @@ export function calculateTaskFitScore(
       break;
 
     case "full_prototype":
-      if (workerId === "lovable_mcp" || workerId === "emergent_mcp" || workerId === "replit_mcp") score += 20;
+      if (workerId === "frontend_builder_candidate" || workerId === "emergent_mcp" || workerId === "replit_mcp") score += 20;
       if (workerRes.build_result?.success && workerRes.test_result?.passed) score += 10;
       break;
 
