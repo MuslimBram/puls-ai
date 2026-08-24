@@ -3,20 +3,22 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
-const ALLOW_ANY_ORIGIN = false;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
+const json = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...getCors(req), "Content-Type": "application/json" },
+});
 
-/**
- * Send message via Instagram DM or Facebook Messenger
- * 
- * Body:
- *   { channel: "instagram"|"facebook", recipient_id: string, message: string, media_url?: string }
- * 
- * Uses page access token from channel settings.
- */
+function asRecord(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
+}
+
+/** Send an Instagram DM or Facebook Messenger message using workspace-scoped encrypted credentials. */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method !== "POST") return json(req, { error: "POST required" }, 405);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -25,79 +27,74 @@ serve(async (req) => {
   );
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing authorization");
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) throw new Error("Unauthorized");
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.slice(7));
+    if (authErr || !user) return json(req, { error: "Unauthorized" }, 401);
 
-    const { channel, recipient_id, message, media_url } = await req.json();
-    if (!channel || !recipient_id || !message) {
-      throw new Error("channel, recipient_id, and message are required");
+    const { channel, recipient_id, message, media_url, workspace_id } = await req.json();
+    if (!channel || !recipient_id || !message || !workspace_id) {
+      return json(req, { error: "channel, recipient_id, message, and workspace_id are required" }, 400);
     }
-
     if (!["instagram", "facebook"].includes(channel)) {
-      throw new Error("channel must be 'instagram' or 'facebook'");
+      return json(req, { error: "channel must be 'instagram' or 'facebook'" }, 400);
     }
 
-    // Get channel credentials
-    const { data: channels } = await supabase
+    const [{ data: member }, { data: owned }] = await Promise.all([
+      supabase.rpc("is_workspace_member", { _user_id: user.id, _workspace_id: workspace_id }),
+      supabase.from("workspaces").select("id").eq("id", workspace_id).eq("owner_id", user.id).maybeSingle(),
+    ]);
+    if (!member && !owned) return json(req, { error: "Forbidden: not a workspace member" }, 403);
+
+    const { data: channels, error: channelError } = await supabase
       .from("channels")
-      .select("id, settings, workspace_id")
-      .eq("user_id", user.id)
+      .select("id,settings,credentials_encrypted,workspace_id,connection_status,is_enabled")
+      .eq("workspace_id", workspace_id)
       .eq("channel_type", channel)
       .eq("is_enabled", true)
+      .eq("connection_status", "connected")
       .limit(1);
+    if (channelError) throw channelError;
 
     const ch = channels?.[0];
-    const settings = ch?.settings as Record<string, any> | null;
-    const pageAccessToken = settings?.page_access_token || settings?.access_token;
-    const pageId = settings?.page_id;
+    if (!ch) return json(req, { error: `${channel} is not connected in this workspace` }, 400);
 
-    if (!pageAccessToken) {
-      throw new Error(`${channel} not configured. Add your Page Access Token in channel settings.`);
+    const settings = asRecord(ch.settings);
+    const encrypted = asRecord(ch.credentials_encrypted);
+    const storedToken = encrypted.page_access_token || encrypted.access_token || settings.page_access_token || settings.access_token;
+    if (!storedToken || typeof storedToken !== "string") {
+      return json(req, { error: `${channel} credentials are not configured` }, 400);
     }
 
-    // Build message payload
-    const messagePayload: any = {
+    const accessToken = await decryptIfNeeded(storedToken);
+    const pageId = settings.page_id ? String(settings.page_id) : null;
+
+    const messagePayload: Record<string, unknown> = {
       recipient: { id: recipient_id },
-      message: {},
+      message: media_url
+        ? { attachment: { type: "image", payload: { url: media_url, is_reusable: true } } }
+        : { text: message },
     };
 
-    if (media_url) {
-      messagePayload.message = {
-        attachment: {
-          type: "image",
-          payload: { url: media_url, is_reusable: true },
-        },
-      };
-    } else {
-      messagePayload.message = { text: message };
-    }
-
-    // Send via Graph API
-    const apiUrl = channel === "instagram"
-      ? `https://graph.facebook.com/v19.0/me/messages`
-      : `https://graph.facebook.com/v19.0/${pageId || "me"}/messages`;
-
+    const graphVersion = Deno.env.get("META_GRAPH_VERSION") || "v23.0";
+    const endpointId = channel === "facebook" ? (pageId || "me") : "me";
+    const apiUrl = `https://graph.facebook.com/${graphVersion}/${endpointId}/messages`;
     const res = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${pageAccessToken}`,
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(messagePayload),
     });
 
-    const data = await res.json();
+    const data = await res.json() as Record<string, any>;
     if (!res.ok) {
-      console.error(`[SEND-META] ${channel} error:`, data);
-      throw new Error(data?.error?.message || `${channel} API error`);
+      console.error(`[SEND-META] ${channel} request failed`, { status: res.status, code: data?.error?.code });
+      return json(req, { error: data?.error?.message || `${channel} API error` }, 502);
     }
 
-    const providerMessageId = data.message_id;
-
-    // Store outbound message
+    const providerMessageId = data.message_id || data.id || null;
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: user.id,
       _channel_type: channel,
@@ -107,10 +104,10 @@ serve(async (req) => {
       _direction: "outbound",
     });
 
-    await supabase.from("inbox_messages").insert({
+    const { error: insertError } = await supabase.from("inbox_messages").insert({
       user_id: user.id,
-      workspace_id: ch?.workspace_id,
-      channel_id: ch?.id,
+      workspace_id,
+      channel_id: ch.id,
       channel_type: channel,
       source_name: channel === "instagram" ? "Instagram" : "Facebook Messenger",
       sender_name: "You",
@@ -124,15 +121,11 @@ serve(async (req) => {
       provider_message_id: providerMessageId,
       thread_id: threadId || null,
     } as any);
+    if (insertError) console.error("[SEND-META] message audit insert failed", insertError.message);
 
-    return new Response(JSON.stringify({ ok: true, message_id: providerMessageId }), {
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("[SEND-META] Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    return json(req, { ok: true, message_id: providerMessageId, workspace_id });
+  } catch (error) {
+    console.error("[SEND-META]", error);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

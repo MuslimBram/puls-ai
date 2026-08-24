@@ -1,0 +1,32 @@
+name: Facebook E2E Certification
+
+on:
+  pull_request:
+    paths:
+      - 'src/components/channels/ChannelConnectionModal.tsx'
+      - 'src/pages/OAuthCallback.tsx'
+      - 'src/hooks/useSendMessage.ts'
+      - 'supabase/functions/instagram-oauth-start/index.ts'
+      - 'supabase/functions/instagram-oauth-callback/index.ts'
+      - 'supabase/functions/send-meta-message/index.ts'
+      - 'supabase/migrations/20260824053200_oauth_states_workspace_scope.sql'
+      - 'src/factory/__tests__/facebookE2EHardening.test.ts'
+      - '.github/workflows/facebook-e2e-certification.yml'
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Facebook E2E targeted tests
+        run: npx vitest run src/factory/__tests__/facebookE2EHardening.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
