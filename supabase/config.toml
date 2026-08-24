@@ -17,6 +17,8 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.meta-webhook-test]
     verify_jwt = false
+  [functions.meta-deauthorize]
+    verify_jwt = false
   [functions.send-transactional-email]
     verify_jwt = true
   [functions.preview-transactional-email]

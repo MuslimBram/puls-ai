@@ -5,13 +5,18 @@ type SignInOptions = {
   extraParams?: Record<string, string>;
 };
 
-function normalizeRedirectUri(raw?: string) {
+/**
+ * Keep browser OAuth callbacks on the current origin and canonical callback path.
+ * A root redirect is normalized to /auth/callback; malformed/cross-origin targets
+ * fail closed to the same canonical callback.
+ */
+export function normalizeRedirectUri(raw?: string) {
   const fallback = `${window.location.origin}/auth/callback`;
   if (!raw) return fallback;
 
   try {
     const parsed = new URL(raw, window.location.origin);
-    if (parsed.origin !== window.location.origin) return raw;
+    if (parsed.origin !== window.location.origin) return fallback;
 
     const isRoot = parsed.pathname === "/" || parsed.pathname === "";
     if (isRoot) parsed.pathname = "/auth/callback";
@@ -23,7 +28,7 @@ function normalizeRedirectUri(raw?: string) {
 
 export const oauth = {
   auth: {
-    signInWithOAuth: async (provider: "google" | "apple", opts?: SignInOptions) => {
+    signInWithOAuth: async (provider: "google" | "facebook" | "apple", opts?: SignInOptions) => {
       const redirectTo = normalizeRedirectUri(opts?.redirect_uri);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,

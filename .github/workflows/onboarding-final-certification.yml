@@ -1,0 +1,31 @@
+name: Onboarding Final Certification
+
+on:
+  pull_request:
+    paths:
+      - "src/pages/Onboarding.tsx"
+      - "src/pages/Automations.tsx"
+      - "src/hooks/useOnboardingProgress.ts"
+      - "src/hooks/useAutomations.ts"
+      - "src/__tests__/onboardingFinalCertification.test.ts"
+      - ".github/workflows/onboarding-final-certification.yml"
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Final onboarding truth tests
+        run: npx vitest run src/__tests__/onboardingFinalCertification.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        env:
+          VITE_SUPABASE_URL: https://ci-only.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: ci-only-anon-key
+        run: npm run build

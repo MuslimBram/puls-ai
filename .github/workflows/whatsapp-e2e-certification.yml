@@ -1,0 +1,29 @@
+name: WhatsApp E2E Certification
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/send-whatsapp/**"
+      - "supabase/functions/validate-whatsapp-connection/**"
+      - "supabase/functions/whatsapp-webhook/**"
+      - "src/hooks/useSendMessage.ts"
+      - "src/components/channels/ValidateWhatsAppButton.tsx"
+      - "src/factory/__tests__/whatsappE2EHardening.test.ts"
+      - ".github/workflows/whatsapp-e2e-certification.yml"
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: WhatsApp hardening tests
+        run: npx vitest run src/factory/__tests__/whatsappE2EHardening.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build

@@ -13,8 +13,12 @@ export interface OnboardingStep {
 const ONBOARDING_STEPS = [
   { key: "business_profile", label: "Create Business Profile", description: "Set up your business name, industry, and description" },
   { key: "connect_channel", label: "Connect First Channel", description: "Connect WhatsApp, Telegram, or another messaging channel" },
-  { key: "import_contacts", label: "Import Contacts", description: "Add your first contacts to the CRM" },
-  { key: "upload_knowledge", label: "Upload Knowledge Base", description: "Train AI with your business documents" },
+  // Keep the legacy step key so existing stored onboarding progress remains compatible.
+  // The product-facing label now reflects the CRM capability that is actually implemented.
+  { key: "import_contacts", label: "Add First CRM Deal", description: "Create your first deal in the CRM pipeline" },
+  // Keep the legacy step key for stored onboarding progress compatibility.
+  // The Knowledge Base supports both website ingestion and document upload, so the label must not imply documents only.
+  { key: "upload_knowledge", label: "Add Knowledge Source", description: "Add a website or document to your AI knowledge base" },
   { key: "create_automation", label: "Create First Automation", description: "Set up an automated workflow" },
 ];
 
@@ -42,17 +46,17 @@ export const useOnboardingProgress = () => {
   const signals = useQuery({
     queryKey: ["onboarding-signals", user?.id],
     queryFn: async () => {
-      const [profile, channels, contacts, knowledge, automations] = await Promise.all([
+      const [profile, channels, deals, knowledge, automations] = await Promise.all([
         supabase.from("business_profiles").select("id").eq("user_id", user!.id).limit(1),
         supabase.from("channels").select("id").eq("user_id", user!.id).eq("connection_status", "connected").limit(1),
-        supabase.from("leads").select("id").eq("user_id", user!.id).limit(1),
+        supabase.from("deals").select("id").eq("user_id", user!.id).limit(1),
         supabase.from("knowledge_sources").select("id").eq("user_id", user!.id).limit(1),
         supabase.from("automation_workflows").select("id").eq("user_id", user!.id).limit(1),
       ]);
       return {
         business_profile: (profile.data ?? []).length > 0,
         connect_channel: (channels.data ?? []).length > 0,
-        import_contacts: (contacts.data ?? []).length > 0,
+        import_contacts: (deals.data ?? []).length > 0,
         upload_knowledge: (knowledge.data ?? []).length > 0,
         create_automation: (automations.data ?? []).length > 0,
       } as Record<string, boolean>;
