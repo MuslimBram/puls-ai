@@ -574,7 +574,7 @@ describe("SOCIAL-1D regression: intent score band still correct", () => {
 describe("SOCIAL-1F: canonical persistence adapter", () => {
   it("uses canonical next_best_actions path and not a parallel social table", () => {
     const migration = readFileSync(
-      resolve(process.cwd(), "supabase/migrations/20260822180000_social_1f_controlled_nba.sql"),
+      resolve(process.cwd(), "supabase/migrations/20260822180500_social_1f_controlled_nba.sql"),
       "utf-8",
     );
     expect(migration).toContain("ALTER TABLE public.next_best_actions");
