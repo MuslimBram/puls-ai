@@ -23,7 +23,7 @@ const Login = () => {
   const postAuthTarget = safeNext ?? "/dashboard";
   const oauthRedirect = safeNext
     ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
-    : window.location.origin;
+    : `${window.location.origin}/auth/callback`;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -590,6 +590,30 @@ const Login = () => {
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
               Continue with Google
+            </Button>
+
+            {/* Facebook button */}
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={loading}
+              onClick={async () => {
+                try {
+                  const { error } = await oauth.auth.signInWithOAuth("facebook", {
+                    redirect_uri: oauthRedirect,
+                  });
+                  if (error) {
+                    toast.error("Facebook login failed: " + String(error));
+                  }
+                } catch (err) {
+                  console.error("Facebook OAuth error:", err);
+                  toast.error("Could not connect to Facebook. Please try again.");
+                }
+              }}
+            >
+              <span className="mr-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#1877F2] text-[11px] font-bold leading-none text-white">f</span>
+              Continue with Facebook
             </Button>
 
             {/* Apple button */}
