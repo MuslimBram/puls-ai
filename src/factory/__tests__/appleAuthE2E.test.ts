@@ -13,7 +13,8 @@ describe("Apple auth E2E code contract", () => {
     expect(oauth).toContain('provider: "google" | "facebook" | "apple"');
     expect(oauth).toContain('supabase.auth.signInWithOAuth');
     expect(login).toContain('signInWithOAuth("apple"');
-    expect(register).toContain('signInWithOAuth("apple"');
+    expect(register).toContain('handleSocialRegister("apple")');
+    expect(register).toContain('type SocialProvider = "google" | "facebook" | "apple"');
   });
 
   it("normalizes OAuth completion onto /auth/callback and fails closed cross-origin", () => {
