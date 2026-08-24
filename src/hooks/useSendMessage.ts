@@ -7,22 +7,18 @@ export type SendableChannel = "whatsapp" | "instagram" | "facebook" | "sms" | "e
 
 interface SendMessageParams {
   channel: SendableChannel;
-  to: string; // phone, email, recipient_id, chat_id
+  to: string;
   message: string;
-  // WhatsApp-specific
   type?: "text" | "template" | "image" | "document";
   template_name?: string;
   template_language?: string;
   template_params?: string[];
   media_url?: string;
   media_caption?: string;
-  // Email-specific
   subject?: string;
   reply_to_message_id?: string;
-  // Telegram-specific
   chat_id?: string | number;
   parse_mode?: "HTML" | "Markdown";
-  // SMS-specific
   from?: string;
   user_id?: string;
 }
@@ -49,6 +45,7 @@ export const useSendMessage = () => {
 
       switch (params.channel) {
         case "whatsapp":
+          if (!workspace?.id) throw new Error("Select a workspace before sending WhatsApp messages.");
           body = {
             to: params.to,
             message: params.message,
@@ -58,6 +55,7 @@ export const useSendMessage = () => {
             template_params: params.template_params,
             media_url: params.media_url,
             media_caption: params.media_caption,
+            workspace_id: workspace.id,
           };
           break;
         case "instagram":
