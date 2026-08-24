@@ -23,7 +23,7 @@ function normalizeRedirectUri(raw?: string) {
 
 export const oauth = {
   auth: {
-    signInWithOAuth: async (provider: "google" | "apple", opts?: SignInOptions) => {
+    signInWithOAuth: async (provider: "google" | "facebook" | "apple", opts?: SignInOptions) => {
       const redirectTo = normalizeRedirectUri(opts?.redirect_uri);
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
