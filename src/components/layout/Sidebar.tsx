@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
@@ -23,6 +24,7 @@ import {
   type NavGroup,
   type NavItem,
 } from "./nav-config";
+import { getNavLabel } from "./nav-labels";
 import { APP_VERSION } from "@/config/version";
 
 interface SidebarProps {
@@ -51,6 +53,7 @@ function getRoleLabel(roles: string[]): { label: string; color: string } {
 
 export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const { signOut, user } = useAuth();
+  const { i18n } = useTranslation();
   const { workspace, workspaces, switchWorkspace } = useWorkspace();
   const { isSuperAdmin, permissions, roles, isLoading } =
     useRolePermissions();
@@ -58,6 +61,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
 
   const roleInfo = getRoleLabel(roles);
   const [navQuery, setNavQuery] = useState("");
+  const language = i18n.resolvedLanguage ?? i18n.language;
 
   // Filtro items bazuar në permissions
   const filterItems = (items: NavItem[]): NavItem[] =>
@@ -108,7 +112,13 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
         items: group.items.filter(
           (item) =>
             item.label.toLocaleLowerCase().includes(normalizedQuery) ||
-            group.label.toLocaleLowerCase().includes(normalizedQuery),
+            getNavLabel(item.label, language)
+              .toLocaleLowerCase()
+              .includes(normalizedQuery) ||
+            group.label.toLocaleLowerCase().includes(normalizedQuery) ||
+            getNavLabel(group.label, language)
+              .toLocaleLowerCase()
+              .includes(normalizedQuery),
         ),
       }))
     : permissionFilteredGroups.map((group) => ({
@@ -200,7 +210,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
       {!isLoading && (
         <div className="border-b border-border p-2">
           <label className="relative block">
-            <span className="sr-only">Kërko në menu</span>
+            <span className="sr-only">{language.startsWith("sq") ? "Kërko në menu" : "Search menu"}</span>
             <Search
               className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
               aria-hidden="true"
@@ -209,8 +219,8 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
               type="search"
               value={navQuery}
               onChange={(event) => setNavQuery(event.target.value)}
-              placeholder="Kërko në menu..."
-              aria-label="Kërko në menu"
+              placeholder={language.startsWith("sq") ? "Kërko në menu..." : "Search menu..."}
+              aria-label={language.startsWith("sq") ? "Kërko në menu" : "Search menu"}
               className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
             />
           </label>
@@ -238,7 +248,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
               >
                 <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
                   <group.icon className="h-3 w-3 shrink-0" />
-                  <span className="flex-1 text-left">{group.label}</span>
+                  <span className="flex-1 text-left">{getNavLabel(group.label, language)}</span>
                   <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -257,7 +267,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
                         )}
                       >
                         <item.icon className="h-3.5 w-3.5 shrink-0" />
-                        <span className="flex-1">{item.label}</span>
+                        <span className="flex-1">{getNavLabel(item.label, language)}</span>
                         {item.badge === "live" && (
                           <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
                         )}
@@ -275,7 +285,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
           })}
           {normalizedQuery && allGroups.length === 0 && (
             <p className="px-2 py-6 text-center text-xs text-muted-foreground">
-              Nuk u gjet asnjë faqe.
+              {language.startsWith("sq") ? "Nuk u gjet asnjë faqe." : "No pages found."}
             </p>
           )}
         </nav>
@@ -292,7 +302,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
           onClick={signOut}
         >
           <LogOut className="h-3.5 w-3.5" />
-          Dil
+          {language.startsWith("sq") ? "Dil" : "Sign out"}
         </Button>
       </div>
     </aside>
