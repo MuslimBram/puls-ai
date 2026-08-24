@@ -22,13 +22,13 @@ describe("role-aware navigation", () => {
 
 
   it.each([
-    [],
-    ["user"],
-    ["controller"],
-    ["worker"],
-    ["moderator"],
-    ["unknown_role"],
-  ])("defaults unsupported roles to least-privilege navigation: %s", (roles) => {
+    { name: "empty", roles: [] },
+    { name: "user", roles: ["user"] },
+    { name: "controller", roles: ["controller"] },
+    { name: "worker", roles: ["worker"] },
+    { name: "moderator", roles: ["moderator"] },
+    { name: "unknown", roles: ["unknown_role"] },
+  ])("defaults unsupported roles to least-privilege navigation: $name", ({ roles }) => {
     expect(getNavGroupsForRoles(roles)).toEqual([]);
   });
 
