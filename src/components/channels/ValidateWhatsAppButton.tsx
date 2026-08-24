@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 
 export const ValidateWhatsAppButton = () => {
@@ -13,13 +14,21 @@ export const ValidateWhatsAppButton = () => {
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
+  const { workspace } = useWorkspace();
 
   const run = async (sendTest: boolean) => {
+    if (!workspace?.id) {
+      toast.error("Select a workspace before validating WhatsApp.");
+      return;
+    }
     setLoading(true);
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("validate-whatsapp-connection", {
-        body: sendTest ? { to } : {},
+        body: {
+          workspace_id: workspace.id,
+          ...(sendTest ? { to } : {}),
+        },
       });
       if (error) throw error;
       setResult(data);
