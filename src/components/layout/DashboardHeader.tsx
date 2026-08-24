@@ -24,11 +24,13 @@ export const DashboardHeader = ({
   const { roles } = useRolePermissions();
   const { i18n } = useTranslation();
   const location = useLocation();
+  const language = i18n.resolvedLanguage ?? i18n.language;
+  const isSq = language.startsWith("sq");
   const navigate = useNavigate();
 
   const allNavFlat = getNavGroupsForRoles(roles).flatMap((group) => group.items);
-  const currentPageTitle =
-    allNavFlat.find((item) => {
+  const matchingItems = allNavFlat
+    .filter((item) => {
       const [path, query] = item.href.split("?");
       if (path !== location.pathname) return false;
       if (!query) return true;
@@ -38,10 +40,16 @@ export const DashboardHeader = ({
       return Array.from(expected.entries()).every(
         ([key, value]) => current.get(key) === value,
       );
-    })?.label || "Pulse AI";
+    })
+    .sort((left, right) => {
+      const leftSpecificity = left.href.split("?")[1]?.split("&").length ?? 0;
+      const rightSpecificity = right.href.split("?")[1]?.split("&").length ?? 0;
+      return rightSpecificity - leftSpecificity;
+    });
+  const currentPageTitle = matchingItems[0]?.label || "Pulse AI";
   const localizedPageTitle = getNavLabel(
     currentPageTitle,
-    i18n.resolvedLanguage ?? i18n.language,
+    language,
   );
 
   return (
@@ -51,7 +59,7 @@ export const DashboardHeader = ({
         size="icon"
         className="lg:hidden h-7 w-7"
         onClick={onMenuClick}
-        aria-label="Hap menunë"
+        aria-label={isSq ? "Hap menunë" : "Open menu"}
         aria-controls="dashboard-sidebar"
         aria-expanded={mobileOpen}
       >
@@ -65,8 +73,8 @@ export const DashboardHeader = ({
           size="icon"
           className="h-7 w-7 text-muted-foreground hover:text-foreground"
           onClick={() => navigate(-1)}
-          aria-label="Go back"
-          title="Back"
+          aria-label={isSq ? "Kthehu prapa" : "Go back"}
+          title={isSq ? "Prapa" : "Back"}
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
@@ -75,8 +83,8 @@ export const DashboardHeader = ({
           size="icon"
           className="h-7 w-7 text-muted-foreground hover:text-foreground"
           onClick={() => navigate(1)}
-          aria-label="Go forward"
-          title="Forward"
+          aria-label={isSq ? "Shko përpara" : "Go forward"}
+          title={isSq ? "Përpara" : "Forward"}
         >
           <ArrowRight className="h-4 w-4" />
         </Button>
@@ -85,8 +93,8 @@ export const DashboardHeader = ({
           size="icon"
           className="h-7 w-7 text-muted-foreground hover:text-foreground"
           onClick={() => navigate("/dashboard")}
-          aria-label="Home"
-          title="Home"
+          aria-label={isSq ? "Kryefaqja" : "Home"}
+          title={isSq ? "Kryefaqja" : "Home"}
         >
           <Home className="h-4 w-4" />
         </Button>
