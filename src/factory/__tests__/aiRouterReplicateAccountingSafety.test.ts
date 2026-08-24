@@ -25,7 +25,7 @@ describe("AI router Replicate accounting safety", () => {
 
   it("blocks Replicate before any explicit-provider external call", () => {
     const blockIdx = explicitSection.indexOf('providerKey === "REPLICATE"');
-    const callIdx = explicitSection.indexOf("await callProvider(providerKey");
+    const callIdx = explicitSection.indexOf("await governedProviderCall(providerKey)");
     expect(blockIdx).toBeGreaterThan(-1);
     expect(callIdx).toBeGreaterThan(-1);
     expect(blockIdx).toBeLessThan(callIdx);

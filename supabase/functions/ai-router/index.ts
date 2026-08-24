@@ -9,6 +9,16 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { getServiceKey } from "../_shared/admin-client.ts";
 import {
+  finishAiUsageRequest,
+  loadDurablyUnavailableProviders,
+  recordAiProviderAttempt,
+  recordDurableProviderFailure,
+  recordDurableProviderSuccess,
+  safeProviderErrorCode,
+  startAiUsageRequest,
+  type ProviderFailureCategory as DurableProviderFailureCategory,
+} from "../_shared/ai-provider-governance.ts";
+import {
   classifyProviderFailure,
   executeWithFailover,
   FailoverExhaustedError,
@@ -499,6 +509,13 @@ async function incrementAiReplies(
   if (error) console.error("[ai-router] increment ai_replies failed:", error.message);
 }
 
+function failureCategoryForGovernance(error: unknown): DurableProviderFailureCategory {
+  const message = error instanceof Error ? error.message : String(error);
+  const statusMatch = message.match(/\((\d{3})\)/);
+  const status = statusMatch ? parseInt(statusMatch[1], 10) : 0;
+  return classifyProviderFailure(status, message) as DurableProviderFailureCategory;
+}
+
 // ── MAIN HANDLER ──────────────────────────────────────────────
 serve(async (req: Request): Promise<Response> => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
@@ -634,6 +651,63 @@ serve(async (req: Request): Promise<Response> => {
     }
   }
 
+  const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
+  const resolvedTaskType = normalizedTaskType ?? classifyTask(lastUserMsg, { planTier: plan_tier, preferCheap: prefer_cheap });
+  const usageRequestId = crypto.randomUUID();
+  const usageTaskType = explicitProvider ? (normalizedTaskType ?? "explicit_provider") : resolvedTaskType;
+
+  await startAiUsageRequest(supabase, {
+    requestId: usageRequestId,
+    workspaceId: authorizedWorkspaceId,
+    userId: user?.id ?? null,
+    authContext: isInternal ? "internal" : "user",
+    taskType: usageTaskType,
+    explicitProviderKey: explicitProvider ?? null,
+  });
+
+  let providerAttemptIndex = 0;
+  const governedProviderCall = async (providerKey: ProviderKey) => {
+    const attemptIndex = ++providerAttemptIndex;
+    const attemptStart = Date.now();
+    const providerDef = PROVIDERS[providerKey];
+    try {
+      const result = await callProvider(providerKey, messages, system_prompt, max_tokens, {});
+      const latencyMs = Date.now() - attemptStart;
+      const costUsd = (result.tokensIn / 1_000_000 * providerDef.costIn) +
+        (result.tokensOut / 1_000_000 * providerDef.costOut);
+      await recordDurableProviderSuccess(supabase, providerKey, latencyMs);
+      await recordAiProviderAttempt(supabase, {
+        requestId: usageRequestId,
+        providerKey,
+        providerName: providerDef.name,
+        attemptIndex,
+        success: true,
+        latencyMs,
+        tokensIn: result.tokensIn,
+        tokensOut: result.tokensOut,
+        costUsd,
+      });
+      return result;
+    } catch (error: unknown) {
+      const latencyMs = Date.now() - attemptStart;
+      const message = error instanceof Error ? error.message : String(error);
+      const failureCategory = failureCategoryForGovernance(error);
+      const errorCode = safeProviderErrorCode(message);
+      await recordDurableProviderFailure(supabase, providerKey, failureCategory, errorCode, latencyMs);
+      await recordAiProviderAttempt(supabase, {
+        requestId: usageRequestId,
+        providerKey,
+        providerName: providerDef.name,
+        attemptIndex,
+        success: false,
+        failureCategory,
+        errorCode,
+        latencyMs,
+      });
+      throw error;
+    }
+  };
+
   // ── EXPLICIT PROVIDER OVERRIDE ────────────────────────────────
   // Contract: if an authorized caller explicitly requests a provider,
   // respect that request. Do NOT silently reroute. If the provider fails,
@@ -655,16 +729,36 @@ serve(async (req: Request): Promise<Response> => {
     };
     const providerKey = providerMap[explicitProvider.toLowerCase()];
     if (providerKey === "REPLICATE") {
+      await finishAiUsageRequest(supabase, {
+        requestId: usageRequestId,
+        status: "blocked",
+        errorCode: "PROVIDER_ACCOUNTING_UNAVAILABLE",
+      });
       return json({
         error: "Replicate is temporarily unavailable until usage accounting is enabled.",
         code: "PROVIDER_ACCOUNTING_UNAVAILABLE",
+        request_id: usageRequestId,
       }, 503);
     }
     if (providerKey && providerKey in PROVIDERS) {
+      const unavailable = await loadDurablyUnavailableProviders(supabase, [providerKey]);
+      if (unavailable.has(providerKey)) {
+        await finishAiUsageRequest(supabase, {
+          requestId: usageRequestId,
+          status: "blocked",
+          errorCode: "PROVIDER_TEMPORARILY_UNAVAILABLE",
+        });
+        return json({
+          error: `Provider ${explicitProvider} is temporarily unavailable`,
+          code: "PROVIDER_TEMPORARILY_UNAVAILABLE",
+          request_id: usageRequestId,
+        }, 503);
+      }
+
       const providerDef = PROVIDERS[providerKey] as typeof PROVIDERS[typeof providerKey] & { name: string };
       const start = Date.now();
       try {
-        const result = await callProvider(providerKey, messages, system_prompt, max_tokens, {});
+        const result = await governedProviderCall(providerKey);
         const latencyMs = Date.now() - start;
         const costUsd = (result.tokensIn / 1_000_000 * providerDef.costIn) +
           (result.tokensOut / 1_000_000 * providerDef.costOut);
@@ -682,6 +776,18 @@ serve(async (req: Request): Promise<Response> => {
           if (txErr) console.error("[ai-router] billing insert failed:", txErr.message);
         }
         if (limitCtx) await incrementAiReplies(supabase, limitCtx);
+        await finishAiUsageRequest(supabase, {
+          requestId: usageRequestId,
+          status: "succeeded",
+          successfulProviderKey: providerKey,
+          tokensIn: result.tokensIn,
+          tokensOut: result.tokensOut,
+          costUsd,
+          creditsUsed,
+          latencyMs,
+          fallbackUsed: false,
+          totalProviderAttempts: providerAttemptIndex,
+        });
         return json({
           response: result.text, content: result.text, text: result.text,
           provider: providerDef.name, provider_key: providerKey,
@@ -693,28 +799,69 @@ serve(async (req: Request): Promise<Response> => {
           fallback_used: false,
           attempted_providers: [{ provider: providerDef.name, success: true }],
           total_attempts: 1,
+          request_id: usageRequestId,
         });
       } catch (e: any) {
-        const msg = e instanceof Error ? e.message : String(e);
-        return json({ error: `Provider ${explicitProvider} failed`, code: "EXPLICIT_PROVIDER_FAILED" }, 503);
+        await finishAiUsageRequest(supabase, {
+          requestId: usageRequestId,
+          status: "failed",
+          latencyMs: Date.now() - start,
+          totalProviderAttempts: providerAttemptIndex,
+          errorCode: "EXPLICIT_PROVIDER_FAILED",
+        });
+        return json({
+          error: `Provider ${explicitProvider} failed`,
+          code: "EXPLICIT_PROVIDER_FAILED",
+          request_id: usageRequestId,
+        }, 503);
       }
     }
+    await finishAiUsageRequest(supabase, {
+      requestId: usageRequestId,
+      status: "blocked",
+      errorCode: "UNKNOWN_PROVIDER",
+    });
     return json({
       error: `Unknown provider "${explicitProvider}". Valid explicit providers: kimi, moonshot, claude, anthropic, deepseek, mistral, gemini, openai, gpt, gpt4o, perplexity, grok, zai, replicate, groq.`,
+      request_id: usageRequestId,
     }, 400);
   }
 
   // ── MULTI-PROVIDER FAILOVER ROUTING ───────────────────────────
-  const lastUserMsg = messages.filter(m => m.role === "user").slice(-1)[0]?.content ?? "";
-  const taskType = normalizedTaskType ?? classifyTask(lastUserMsg, { planTier: plan_tier, preferCheap: prefer_cheap });
+  const taskType = resolvedTaskType;
   const routeConfig = ROUTE_CHAINS[taskType];
   if (!routeConfig) {
-    return json({ error: `No routing profile for task_type "${taskType}"`, code: "TASK_TYPE_ROUTE_UNDEFINED" }, 400);
+    await finishAiUsageRequest(supabase, {
+      requestId: usageRequestId,
+      status: "blocked",
+      errorCode: "TASK_TYPE_ROUTE_UNDEFINED",
+    });
+    return json({
+      error: `No routing profile for task_type "${taskType}"`,
+      code: "TASK_TYPE_ROUTE_UNDEFINED",
+      request_id: usageRequestId,
+    }, 400);
   }
 
-  // Cap chain to total provider budget
-  const chain = routeConfig.chain.slice(0, TOTAL_PROVIDER_BUDGET);
-  const apiKeys: Record<string, string> = {};
+  // Cap chain to total provider budget, then skip providers that have an
+  // authoritative future cooldown/quota window. If the health store is not
+  // available yet, the helper returns an empty set and legacy routing remains.
+  const candidateChain = routeConfig.chain.slice(0, TOTAL_PROVIDER_BUDGET);
+  const unavailableProviders = await loadDurablyUnavailableProviders(supabase, candidateChain);
+  const chain = candidateChain.filter((key) => !unavailableProviders.has(key));
+  if (!chain.length) {
+    await finishAiUsageRequest(supabase, {
+      requestId: usageRequestId,
+      status: "blocked",
+      errorCode: "ALL_PROVIDERS_UNAVAILABLE",
+    });
+    return json({
+      error: "All AI providers are temporarily unavailable",
+      code: "ALL_PROVIDERS_UNAVAILABLE",
+      request_id: usageRequestId,
+    }, 503);
+  }
+
   const start = Date.now();
 
   // Same task context is forwarded unchanged to every provider candidate.
@@ -722,7 +869,7 @@ serve(async (req: Request): Promise<Response> => {
   try {
     const failoverResult = await executeWithFailover(
       chain,
-      (key) => callProvider(key as ProviderKey, messages, system_prompt, max_tokens, apiKeys),
+      (key) => governedProviderCall(key as ProviderKey),
       (key) => (PROVIDERS[key as ProviderKey] as { name: string }).name,
       { attempted: new Set() },
     );
@@ -735,7 +882,7 @@ serve(async (req: Request): Promise<Response> => {
     const creditsUsed = Math.ceil(costUsd * 1000);
 
     // Billing: charge only for the ONE successful provider call.
-    // Failed attempts are never billed.
+    // Failed attempts are never billed to the customer.
     if (user?.id) {
       const wsId = (authorizedWorkspaceId && authorizedWorkspaceId !== "internal")
         ? authorizedWorkspaceId : null;
@@ -751,6 +898,19 @@ serve(async (req: Request): Promise<Response> => {
 
     // One logical request counts once — even if several providers were attempted.
     if (limitCtx) await incrementAiReplies(supabase, limitCtx);
+
+    await finishAiUsageRequest(supabase, {
+      requestId: usageRequestId,
+      status: "succeeded",
+      successfulProviderKey: usedKey,
+      tokensIn: failoverResult.value.tokensIn,
+      tokensOut: failoverResult.value.tokensOut,
+      costUsd,
+      creditsUsed,
+      latencyMs,
+      fallbackUsed: failoverResult.fallbackUsed,
+      totalProviderAttempts: providerAttemptIndex,
+    });
 
     // Safe observability metadata — no API keys, no raw provider bodies
     const attemptedMeta = failoverResult.attemptedProviders.map(a => ({
@@ -776,6 +936,7 @@ serve(async (req: Request): Promise<Response> => {
       fallback_used: failoverResult.fallbackUsed,
       attempted_providers: attemptedMeta,
       total_attempts: failoverResult.totalAttempts,
+      request_id: usageRequestId,
     });
   } catch (err: any) {
     const latencyMs = Date.now() - start;
@@ -784,6 +945,13 @@ serve(async (req: Request): Promise<Response> => {
         .filter(a => !a.success)
         .map(a => a.failureCategory ?? "UNKNOWN");
       const uniqueCategories = [...new Set(failCategories)];
+      await finishAiUsageRequest(supabase, {
+        requestId: usageRequestId,
+        status: "failed",
+        latencyMs,
+        totalProviderAttempts: providerAttemptIndex,
+        errorCode: "ALL_PROVIDERS_FAILED",
+      });
       // Safe: only expose counts and categories — no raw provider bodies
       return json({
         error: "All AI providers failed",
@@ -791,10 +959,22 @@ serve(async (req: Request): Promise<Response> => {
         attempted_count: err.attempts.length,
         failure_categories: uniqueCategories,
         latency_ms: latencyMs,
+        request_id: usageRequestId,
       }, 503);
     }
+    await finishAiUsageRequest(supabase, {
+      requestId: usageRequestId,
+      status: "failed",
+      latencyMs,
+      totalProviderAttempts: providerAttemptIndex,
+      errorCode: "ROUTER_ERROR",
+    });
     // Unexpected error
     console.error("[ai-router] unexpected error:", err);
-    return json({ error: "Internal router error", code: "ROUTER_ERROR" }, 500);
+    return json({
+      error: "Internal router error",
+      code: "ROUTER_ERROR",
+      request_id: usageRequestId,
+    }, 500);
   }
 });
