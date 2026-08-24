@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BrandingThemeProvider } from "@/components/BrandingThemeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -10,8 +10,16 @@ import { OnboardingWelcomeModal } from "@/components/OnboardingWelcomeModal";
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const wasMobileOpen = useRef(false);
   const { i18n } = useTranslation();
   const isSq = (i18n.resolvedLanguage ?? i18n.language).startsWith("sq");
+
+  useEffect(() => {
+    if (wasMobileOpen.current && !mobileOpen) {
+      document.getElementById("dashboard-mobile-menu-trigger")?.focus();
+    }
+    wasMobileOpen.current = mobileOpen;
+  }, [mobileOpen]);
 
   useEffect(() => {
     if (!mobileOpen) return;
