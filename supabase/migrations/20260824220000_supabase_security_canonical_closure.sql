@@ -28,8 +28,10 @@ alter function public.community_calculate_service_tax(text, numeric)
 alter function public.community_suggest_category(text, text)
   set search_path = pg_catalog, public;
 
--- This is an exact duplicate of the constraint-backed unique index
--- community_ratings_post_id_rater_user_id_key. Keep the constraint-owned index.
-drop index if exists public.community_ratings_post_rater_unique;
+-- Both live objects are identical UNIQUE constraints on
+-- (post_id, rater_user_id). Preserve the original auto-named constraint and
+-- remove only the later duplicate constraint with its backing index.
+alter table public.community_ratings
+  drop constraint if exists community_ratings_post_rater_unique;
 
 commit;
