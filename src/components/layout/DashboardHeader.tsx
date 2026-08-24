@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -9,6 +10,7 @@ import { SoftphoneWidget } from "@/components/telephony/SoftphoneWidget";
 import { AgentStatusBar } from "@/components/telephony/AgentStatusBar";
 import { Menu, ArrowLeft, ArrowRight, Home } from "lucide-react";
 import { getNavGroupsForRoles } from "./nav-config";
+import { getNavLabel } from "./nav-labels";
 
 interface DashboardHeaderProps {
   mobileOpen: boolean;
@@ -20,6 +22,7 @@ export const DashboardHeader = ({
   onMenuClick,
 }: DashboardHeaderProps) => {
   const { roles } = useRolePermissions();
+  const { i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -36,6 +39,10 @@ export const DashboardHeader = ({
         ([key, value]) => current.get(key) === value,
       );
     })?.label || "Pulse AI";
+  const localizedPageTitle = getNavLabel(
+    currentPageTitle,
+    i18n.resolvedLanguage ?? i18n.language,
+  );
 
   return (
     <header className="flex h-12 items-center gap-3 border-b border-border px-4 lg:px-6">
@@ -87,7 +94,7 @@ export const DashboardHeader = ({
         <ThemeToggle />
       </div>
 
-      <h2 className="text-base font-semibold text-foreground">{currentPageTitle}</h2>
+      <h2 className="text-base font-semibold text-foreground">{localizedPageTitle}</h2>
       <div className="hidden md:flex ml-4">
         <AgentStatusBar />
       </div>
