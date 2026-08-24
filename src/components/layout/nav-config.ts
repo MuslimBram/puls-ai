@@ -335,16 +335,27 @@ function mergeGroups(...sets: NavGroup[][]): NavGroup[] {
 }
 
 export function getNavGroupsForRoles(roles: string[]): NavGroup[] {
-  // Platform owner sees the Owner Panel plus every business/admin area.
-  if (roles.includes("super_admin"))
-    return mergeGroups(ownerNavGroups, adminNavGroups, businessNavGroups);
-  if (roles.includes("admin"))
-    return mergeGroups(adminNavGroups, businessNavGroups);
-  if (roles.includes("freelancer")) return [...freelancerNavGroups];
-  if (roles.includes("agent") || roles.includes("business_manager")) return [...agentNavGroups];
-  if (roles.includes("ambassador")) return [...ambassadorNavGroups];
-  if (roles.includes("business_owner") || roles.includes("partner")) return [...businessNavGroups];
-  // Default: business
-  return [...businessNavGroups];
+  const sets: NavGroup[][] = [];
+
+  // Compose every applicable role instead of hiding authorized destinations
+  // behind a hard-coded role precedence.
+  if (roles.includes("super_admin")) {
+    sets.push(ownerNavGroups, adminNavGroups, businessNavGroups);
+  } else if (roles.includes("admin")) {
+    sets.push(adminNavGroups, businessNavGroups);
+  }
+
+  if (roles.includes("business_owner") || roles.includes("partner")) {
+    sets.push(businessNavGroups);
+  }
+  if (roles.includes("freelancer")) sets.push(freelancerNavGroups);
+  if (roles.includes("agent") || roles.includes("business_manager")) {
+    sets.push(agentNavGroups);
+  }
+  if (roles.includes("ambassador")) sets.push(ambassadorNavGroups);
+
+  // Unknown, internal, or temporarily unresolved roles get no navigation.
+  // This is deliberately least-privilege; route guards remain authoritative.
+  return sets.length > 0 ? mergeGroups(...sets) : [];
 }
 
