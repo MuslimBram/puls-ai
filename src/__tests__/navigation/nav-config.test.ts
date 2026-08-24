@@ -60,6 +60,14 @@ describe("role-aware navigation", () => {
     expect(visibleDestinations).toHaveLength(23);
   });
 
+  it("preserves the Helpdesk automation permission gate", () => {
+    const helpdesk = getNavGroupsForRoles(["business_owner"])
+      .flatMap((group) => group.items)
+      .find((item) => item.href === "/helpdesk");
+
+    expect(helpdesk?.requiredPermission).toBe("canConfigureAutomations");
+  });
+
   it("keeps advanced destinations searchable without crowding the sidebar", () => {
     const items = getNavGroupsForRoles(["business_owner"]).flatMap(
       (group) => group.items,
