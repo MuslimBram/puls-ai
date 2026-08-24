@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
@@ -58,6 +58,11 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const { isSuperAdmin, permissions, roles, isLoading } =
     useRolePermissions();
   const location = useLocation();
+  const asideRef = useRef<HTMLElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window === "undefined" ? true : window.matchMedia("(min-width: 1024px)").matches,
+  );
 
   const roleInfo = getRoleLabel(roles);
   const [navQuery, setNavQuery] = useState("");
@@ -70,11 +75,52 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
     }
   });
   const language = i18n.resolvedLanguage ?? i18n.language;
+  const mobileInactive = !isDesktop && !mobileOpen;
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (isDesktop || !mobileOpen) return;
+    searchRef.current?.focus();
+
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !asideRef.current) return;
+      const focusable = Array.from(
+        asideRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    const node = asideRef.current;
+    node?.addEventListener("keydown", trapFocus);
+    return () => node?.removeEventListener("keydown", trapFocus);
+  }, [isDesktop, mobileOpen]);
 
   const setGroupOpen = (label: string, open: boolean) => {
     setOpenGroups((current) => {
       const next = { ...current, [label]: open };
-      localStorage.setItem("pulse-nav-open-groups", JSON.stringify(next));
+      try {
+        localStorage.setItem("pulse-nav-open-groups", JSON.stringify(next));
+      } catch {
+        // Persistence is optional; navigation must still work.
+      }
       return next;
     });
   };
@@ -99,6 +145,8 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const filterGroups = (groups: NavGroup[]): NavGroup[] =>
     groups
       .map((group) => {
+        if (group.adminOnly && !roles.some((role) => role === "admin" || role === "super_admin"))
+          return null;
         if (
           group.requiredPermission &&
           !permissions[group.requiredPermission]
@@ -146,7 +194,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const itemMatches = (href: string): boolean => {
     const [path, query] = href.split("?");
     if (location.pathname !== path) return false;
-    if (!query) return true;
+    if (!query) return location.search === "";
     const want = new URLSearchParams(query);
     const have = new URLSearchParams(location.search);
     for (const [k, v] of want.entries()) {
@@ -155,9 +203,21 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
     return true;
   };
 
+  const activeHref = allGroups
+    .flatMap((group) => group.items)
+    .filter((item) => itemMatches(item.href))
+    .sort((left, right) => {
+      const leftSpecificity = left.href.split("?")[1]?.split("&").length ?? 0;
+      const rightSpecificity = right.href.split("?")[1]?.split("&").length ?? 0;
+      return rightSpecificity - leftSpecificity;
+    })[0]?.href;
+
   return (
     <aside
+      ref={asideRef}
       id="dashboard-sidebar"
+      aria-hidden={mobileInactive || undefined}
+      inert={mobileInactive || undefined}
       aria-label={language.startsWith("sq") ? "Navigimi kryesor" : "Main navigation"}
       className={cn(
         "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0",
@@ -232,6 +292,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
               aria-hidden="true"
             />
             <input
+              ref={searchRef}
               type="search"
               value={navQuery}
               onChange={(event) => setNavQuery(event.target.value)}
@@ -254,9 +315,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
       {!isLoading && (
         <nav aria-label={language.startsWith("sq") ? "Faqet e Pulse AI" : "Pulse AI pages"} className="flex-1 overflow-y-auto p-2 space-y-px">
           {allGroups.map((group) => {
-            const isGroupActive = group.items.some((item) =>
-              itemMatches(item.href),
-            );
+            const isGroupActive = group.items.some((item) => item.href === activeHref);
             return (
               <Collapsible
                 key={group.label}
@@ -266,7 +325,9 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
                     : (openGroups[group.label] ??
                       Boolean(group.defaultOpen || isGroupActive))
                 }
-                onOpenChange={(open) => setGroupOpen(group.label, open)}
+                onOpenChange={(open) => {
+                  if (!normalizedQuery) setGroupOpen(group.label, open);
+                }}
               >
                 <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
                   <group.icon className="h-3 w-3 shrink-0" />
@@ -280,10 +341,10 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
                         key={item.href}
                         to={item.href}
                         onClick={onClose}
-                        aria-current={itemMatches(item.href) ? "page" : undefined}
+                        aria-current={item.href === activeHref ? "page" : undefined}
                         className={cn(
                           "flex items-center gap-2 rounded-md px-2 py-1 text-[13px] font-medium transition-colors",
-                          itemMatches(item.href)
+                          item.href === activeHref
                             ? "bg-primary/10 text-primary"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground",
                         )}
@@ -306,7 +367,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
             );
           })}
           {normalizedQuery && allGroups.length === 0 && (
-            <p className="px-2 py-6 text-center text-xs text-muted-foreground">
+            <p role="status" aria-live="polite" className="px-2 py-6 text-center text-xs text-muted-foreground">
               {language.startsWith("sq") ? "Nuk u gjet asnjë faqe." : "No pages found."}
             </p>
           )}
