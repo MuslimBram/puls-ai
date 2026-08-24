@@ -11,10 +11,14 @@ import { Menu, ArrowLeft, ArrowRight, Home } from "lucide-react";
 import { getNavGroupsForRoles } from "./nav-config";
 
 interface DashboardHeaderProps {
+  mobileOpen: boolean;
   onMenuClick: () => void;
 }
 
-export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
+export const DashboardHeader = ({
+  mobileOpen,
+  onMenuClick,
+}: DashboardHeaderProps) => {
   const { roles } = useRolePermissions();
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,7 +39,15 @@ export const DashboardHeader = ({ onMenuClick }: DashboardHeaderProps) => {
 
   return (
     <header className="flex h-12 items-center gap-3 border-b border-border px-4 lg:px-6">
-      <Button variant="ghost" size="icon" className="lg:hidden h-7 w-7" onClick={onMenuClick}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="lg:hidden h-7 w-7"
+        onClick={onMenuClick}
+        aria-label="Hap menunë"
+        aria-controls="dashboard-sidebar"
+        aria-expanded={mobileOpen}
+      >
         <Menu className="h-5 w-5" />
       </Button>
 
