@@ -49,6 +49,8 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.webchat-ingest]
     verify_jwt = false
+  [functions.ai-router-runtime-check]
+    verify_jwt = false
   [functions.community-profile]
     verify_jwt = true
   [functions.community-feed]
