@@ -30,8 +30,8 @@ describe("WhatsApp Cloud API E2E hardening", () => {
   });
 
   it("keeps routing identifiers non-secret for exact webhook workspace resolution", () => {
-    expect(webhook).toContain('settings.phone_number_id');
     expect(webhook).toContain('s.phone_number_id === wabaPhone');
+    expect(webhook).toContain('s.waba_phone_number_id === wabaPhone');
     expect(webhook).toContain('matches.length > 1');
     expect(webhook).toContain('verifyMetaSignature');
     expect(webhook).toContain('WHATSAPP_APP_SECRET');
