@@ -162,7 +162,7 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/revenue-engine", label: "Revenue Engine", icon: Banknote, requiredPermission: "canViewAnalytics" },
       { href: "/telephony", label: "Telephony", icon: Phone, requiredPermission: "canConnectChannels" },
       { href: "/broadcast", label: "Broadcast", icon: Send, requiredPermission: "canConfigureAutomations", searchOnly: true },
-      { href: "/helpdesk", label: "Helpdesk", icon: Headphones, searchOnly: true },
+      { href: "/helpdesk", label: "Helpdesk", icon: Headphones, requiredPermission: "canConfigureAutomations", searchOnly: true },
       { href: "/ai-marketplace", label: "AI Marketplace", icon: Zap, requiredPermission: "canConfigureAutomations", searchOnly: true },
       { href: "/ai-training", label: "AI Training Center", icon: Brain, requiredPermission: "canConfigureAutomations", searchOnly: true },
       { href: "/integration-wizard", label: "Integration Wizard", icon: Plug, requiredPermission: "canConfigureAutomations", searchOnly: true },
