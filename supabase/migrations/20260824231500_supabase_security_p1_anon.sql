@@ -1,0 +1,56 @@
+-- P1 closure for accidental anonymous execution of SECURITY DEFINER RPCs.
+-- Authenticated and service-role contracts are preserved unless the function is trigger-only.
+
+begin;
+
+-- Authenticated workspace/user RPCs: remove PUBLIC/anon inheritance only.
+revoke execute on function public.assign_thread_round_robin(uuid, uuid) from public, anon;
+revoke execute on function public.boost_memory_confidence(uuid, text, numeric) from public, anon;
+revoke execute on function public.check_asset_duplicate(text, text) from public, anon;
+revoke execute on function public.check_business_creation_limit(uuid) from public, anon;
+revoke execute on function public.check_channel_business_ownership(uuid, uuid) from public, anon;
+revoke execute on function public.check_freelancer_discount_eligibility(uuid) from public, anon;
+revoke execute on function public.check_freelancer_relation_eligibility(uuid, uuid, text) from public, anon;
+revoke execute on function public.check_rate_limit(text, uuid, text, integer, integer, integer) from public, anon;
+revoke execute on function public.check_storage_quota(uuid, text) from public, anon;
+revoke execute on function public.compute_agent_performance(uuid, timestamptz, timestamptz) from public, anon;
+revoke execute on function public.compute_ai_metrics(uuid, timestamptz, timestamptz) from public, anon;
+revoke execute on function public.compute_channel_performance(uuid, timestamptz, timestamptz) from public, anon;
+revoke execute on function public.compute_executive_summary(uuid, date) from public, anon;
+revoke execute on function public.compute_funnel_analytics(uuid, timestamptz, timestamptz) from public, anon;
+revoke execute on function public.compute_thread_sla(uuid, uuid) from public, anon;
+revoke execute on function public.consume_media_quota(uuid, uuid, text, integer, integer) from public, anon;
+revoke execute on function public.consume_media_quota(uuid, uuid, text, integer, integer, integer, integer) from public, anon;
+revoke execute on function public.ensure_current_user_bootstrap() from public, anon;
+revoke execute on function public.ensure_media_daily_usage(uuid, uuid, integer, integer) from public, anon;
+revoke execute on function public.ensure_media_daily_usage(uuid, uuid, integer, integer, integer) from public, anon;
+revoke execute on function public.evaluate_contact_policy(uuid, uuid, text, text) from public, anon;
+revoke execute on function public.generate_daily_kpi(uuid) from public, anon;
+revoke execute on function public.get_active_referral_count(uuid) from public, anon;
+revoke execute on function public.get_media_usage_policy_for_user(uuid) from public, anon;
+revoke execute on function public.increment_usage_count(uuid) from public, anon;
+revoke execute on function public.is_contact_suppressed(uuid, text, text) from public, anon;
+revoke execute on function public.log_audit(uuid, uuid, text, text, text, jsonb) from public, anon;
+revoke execute on function public.upsert_conversation_thread(uuid, text, text, text, text, text) from public, anon;
+revoke execute on function public.validate_nba_against_rules(uuid, text, numeric, text, uuid) from public, anon;
+
+-- Pre-auth/bootstrap security helpers are invoked through trusted backend paths.
+revoke execute on function public.bootstrap_user_account_for(uuid) from public, anon, authenticated;
+revoke execute on function public.detect_suspicious_login(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.bootstrap_user_account_for(uuid) to service_role;
+grant execute on function public.detect_suspicious_login(uuid, text, text) to service_role;
+
+-- Trigger-only helper.
+revoke execute on function public.notify_admin_on_payment_submission() from public, anon, authenticated;
+grant execute on function public.notify_admin_on_payment_submission() to service_role;
+
+-- Intentionally public and therefore unchanged:
+--   get_legal_training_response(text, text)
+--   get_prohibited_rules(text)
+--   verify_white_label_license(text)
+-- RLS-dependent helpers are also unchanged in this batch:
+--   has_role(uuid, app_role)
+--   is_workspace_member(uuid, uuid)
+--   is_workspace_owner(uuid, uuid)
+
+commit;
