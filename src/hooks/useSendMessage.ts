@@ -62,11 +62,13 @@ export const useSendMessage = () => {
           break;
         case "instagram":
         case "facebook":
+          if (!workspace?.id) throw new Error("Select a workspace before sending a Meta message.");
           body = {
             channel: params.channel,
             recipient_id: params.to,
             message: params.message,
             media_url: params.media_url,
+            workspace_id: workspace.id,
           };
           break;
         case "sms":
