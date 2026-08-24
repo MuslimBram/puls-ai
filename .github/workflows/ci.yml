@@ -71,15 +71,21 @@ jobs:
           const files = fs.readdirSync('supabase/migrations').filter(f => f.endsWith('.sql'));
           console.log('Validating ' + files.length + ' SQL migration files...');
           let lastVersion = '';
+          const seenVersions = new Map();
           for (const f of files.sort()) {
             const version = f.split('_')[0];
+            if (seenVersions.has(version)) {
+              console.error('Duplicate migration version ' + version + ': ' + seenVersions.get(version) + ' and ' + f);
+              process.exit(1);
+            }
+            seenVersions.set(version, f);
             if (version < lastVersion) {
               console.error('Migration order anomaly: ' + f);
               process.exit(1);
             }
             lastVersion = version;
           }
-          console.log('Migration sequence valid.');
+          console.log('Migration sequence valid; all versions are unique.');
           "
 
       - name: Build Vite Production Bundle
