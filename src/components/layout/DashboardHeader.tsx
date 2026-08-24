@@ -55,6 +55,7 @@ export const DashboardHeader = ({
   return (
     <header className="flex h-12 items-center gap-3 border-b border-border px-4 lg:px-6">
       <Button
+        id="dashboard-mobile-menu-trigger"
         variant="ghost"
         size="icon"
         className="lg:hidden h-7 w-7"
