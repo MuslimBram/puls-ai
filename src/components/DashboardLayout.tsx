@@ -1,4 +1,5 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BrandingThemeProvider } from "@/components/BrandingThemeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -9,6 +10,19 @@ import { OnboardingWelcomeModal } from "@/components/OnboardingWelcomeModal";
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { i18n } = useTranslation();
+  const isSq = (i18n.resolvedLanguage ?? i18n.language).startsWith("sq");
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileOpen]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -21,7 +35,7 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
           type="button"
           className="fixed inset-0 z-30 bg-foreground/20 lg:hidden"
           onClick={() => setMobileOpen(false)}
-          aria-label="Mbyll menunë"
+          aria-label={isSq ? "Mbyll menunë" : "Close menu"}
         />
       )}
 
