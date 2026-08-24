@@ -131,6 +131,8 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
 
   return (
     <aside
+      id="dashboard-sidebar"
+      aria-label="Navigimi kryesor"
       className={cn(
         "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -167,6 +169,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
           size="icon"
           className="ml-auto lg:hidden h-7 w-7"
           onClick={onClose}
+          aria-label="Mbyll menunë"
         >
           <X className="h-4 w-4" />
         </Button>
@@ -223,7 +226,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
 
       {/* Navigimi */}
       {!isLoading && (
-        <nav className="flex-1 overflow-y-auto p-2 space-y-px">
+        <nav aria-label="Faqet e Pulse AI" className="flex-1 overflow-y-auto p-2 space-y-px">
           {allGroups.map((group) => {
             const isGroupActive = group.items.some((item) =>
               itemMatches(item.href),
@@ -245,6 +248,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
                         key={item.href}
                         to={item.href}
                         onClick={onClose}
+                        aria-current={itemMatches(item.href) ? "page" : undefined}
                         className={cn(
                           "flex items-center gap-2 rounded-md px-2 py-1 text-[13px] font-medium transition-colors",
                           itemMatches(item.href)
