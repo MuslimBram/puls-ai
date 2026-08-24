@@ -3,21 +3,21 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
-const ALLOW_ANY_ORIGIN = false;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
+const json = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...getCors(req), "Content-Type": "application/json" },
+});
 
-/**
- * Send WhatsApp message via Cloud API
- * 
- * Body:
- *   { to: string, message: string, type?: "text"|"template"|"image"|"document", template_name?: string, template_language?: string, template_params?: string[], media_url?: string, media_caption?: string }
- * 
- * Auth: Bearer token (authenticated user)
- * WhatsApp credentials from channel settings (access_token, phone_number_id)
- */
+function asRecord(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method !== "POST") return json(req, { error: "POST required" }, 405);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -26,37 +26,55 @@ serve(async (req) => {
   );
 
   try {
-    // Auth
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) throw new Error("Missing authorization");
-    const token = authHeader.replace("Bearer ", "");
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
-    if (authErr || !user) throw new Error("Unauthorized");
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
+    const { data: { user }, error: authErr } = await supabase.auth.getUser(authHeader.slice(7));
+    if (authErr || !user) return json(req, { error: "Unauthorized" }, 401);
 
-    const { to, message, type = "text", template_name, template_language = "en", template_params, media_url, media_caption } = await req.json();
-    if (!to) throw new Error("'to' phone number is required");
+    const {
+      to,
+      message,
+      type = "text",
+      template_name,
+      template_language = "en",
+      template_params,
+      media_url,
+      media_caption,
+      workspace_id,
+    } = await req.json();
 
-    // Get WhatsApp channel credentials
-    const { data: channels } = await supabase
+    if (!to) return json(req, { error: "'to' phone number is required" }, 400);
+    if (!workspace_id) return json(req, { error: "workspace_id is required" }, 400);
+
+    const [{ data: member }, { data: owned }] = await Promise.all([
+      supabase.rpc("is_workspace_member", { _user_id: user.id, _workspace_id: workspace_id }),
+      supabase.from("workspaces").select("id").eq("id", workspace_id).eq("owner_id", user.id).maybeSingle(),
+    ]);
+    if (!member && !owned) return json(req, { error: "Forbidden: not a workspace member" }, 403);
+
+    const { data: channels, error: channelError } = await supabase
       .from("channels")
-      .select("id, settings, workspace_id")
-      .eq("user_id", user.id)
+      .select("id,settings,credentials_encrypted,workspace_id,connection_status,is_enabled")
+      .eq("workspace_id", workspace_id)
       .eq("channel_type", "whatsapp")
       .eq("is_enabled", true)
       .limit(1);
+    if (channelError) throw channelError;
 
     const channel = channels?.[0];
-    const settings = channel?.settings as Record<string, any> | null;
-    if (!settings?.access_token || !settings?.phone_number_id) {
-      throw new Error("WhatsApp not configured. Add your access token and phone number ID in channel settings.");
+    if (!channel) return json(req, { error: "WhatsApp is not configured in this workspace" }, 400);
+
+    const settings = asRecord(channel.settings);
+    const credentials = asRecord(channel.credentials_encrypted);
+    const phoneNumberId = settings.phone_number_id || settings.waba_phone_number_id;
+    const storedToken = credentials.access_token || settings.access_token;
+    if (!phoneNumberId || !storedToken || typeof storedToken !== "string") {
+      return json(req, { error: "WhatsApp credentials are incomplete" }, 400);
     }
 
-    const phoneNumberId = settings.phone_number_id;
-    const accessToken = settings.access_token;
+    const accessToken = await decryptIfNeeded(storedToken);
 
-    // Build request payload
     let payload: any = { messaging_product: "whatsapp", to };
-
     if (type === "template" && template_name) {
       payload.type = "template";
       payload.template = {
@@ -76,35 +94,27 @@ serve(async (req) => {
       payload.type = "document";
       payload.document = { link: media_url, caption: media_caption || "" };
     } else {
-      if (!message) throw new Error("'message' is required for text messages");
+      if (!message) return json(req, { error: "'message' is required for text messages" }, 400);
       payload.type = "text";
       payload.text = { body: message, preview_url: true };
     }
 
-    // Send via WhatsApp Cloud API
-    const waRes = await fetch(
-      `https://graph.facebook.com/v19.0/${phoneNumberId}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+    const graphVersion = Deno.env.get("META_GRAPH_VERSION") || "v23.0";
+    const waRes = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
       },
-    );
-
-    const waData = await waRes.json();
-
+      body: JSON.stringify(payload),
+    });
+    const waData = await waRes.json() as Record<string, any>;
     if (!waRes.ok) {
-      const errMsg = waData?.error?.message || "WhatsApp API error";
-      console.error("[SEND-WA] Error:", waData);
-      throw new Error(errMsg);
+      console.error("[SEND-WA] provider request failed", { status: waRes.status, code: waData?.error?.code });
+      return json(req, { error: waData?.error?.message || "WhatsApp API error" }, 502);
     }
 
     const providerMessageId = waData.messages?.[0]?.id;
-
-    // Store outbound in inbox + delivery state
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: user.id,
       _channel_type: "whatsapp",
@@ -114,14 +124,14 @@ serve(async (req) => {
       _direction: "outbound",
     });
 
-    const { data: inboxMsg } = await supabase.from("inbox_messages").insert({
+    const { data: inboxMsg, error: inboxError } = await supabase.from("inbox_messages").insert({
       user_id: user.id,
-      workspace_id: channel?.workspace_id,
-      channel_id: channel?.id,
+      workspace_id,
+      channel_id: channel.id,
       channel_type: "whatsapp",
       source_name: "WhatsApp",
       sender_name: "You",
-      sender_identifier: phoneNumberId,
+      sender_identifier: String(phoneNumberId),
       message_content: message || `[${type}: ${template_name || media_url || ""}]`,
       message_timestamp: new Date().toISOString(),
       is_unread: false,
@@ -131,11 +141,12 @@ serve(async (req) => {
       provider_message_id: providerMessageId,
       thread_id: threadId || null,
     } as any).select("id").single();
+    if (inboxError) console.error("[SEND-WA] inbox audit insert failed", inboxError.message);
 
     if (providerMessageId && inboxMsg) {
       await supabase.from("message_delivery_states").insert({
         user_id: user.id,
-        workspace_id: channel?.workspace_id,
+        workspace_id,
         inbox_message_id: inboxMsg.id,
         channel_type: "whatsapp",
         direction: "outbound",
@@ -144,14 +155,9 @@ serve(async (req) => {
       } as any);
     }
 
-    return new Response(JSON.stringify({ ok: true, message_id: providerMessageId }), {
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("[SEND-WA] Error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    return json(req, { ok: true, message_id: providerMessageId, workspace_id });
+  } catch (error) {
+    console.error("[SEND-WA]", error);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown" }, 500);
   }
 });
