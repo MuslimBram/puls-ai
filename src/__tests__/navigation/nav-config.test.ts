@@ -21,6 +21,28 @@ describe("role-aware navigation", () => {
   });
 
 
+  it.each([
+    [],
+    ["user"],
+    ["controller"],
+    ["worker"],
+    ["moderator"],
+    ["unknown_role"],
+  ])("defaults unsupported roles to least-privilege navigation: %s", (roles) => {
+    expect(getNavGroupsForRoles(roles)).toEqual([]);
+  });
+
+  it("composes multiple applicable roles without duplicate destinations", () => {
+    const groups = getNavGroupsForRoles(["business_owner", "agent"]);
+    const destinations = groups.flatMap((group) =>
+      group.items.map((item) => item.href),
+    );
+
+    expect(destinations).toContain("/managed-businesses");
+    expect(destinations).toContain("/helpdesk");
+    expect(new Set(destinations).size).toBe(destinations.length);
+  });
+
   it("keeps ordinary business navigation compact and predictable", () => {
     const groups = getNavGroupsForRoles(["business_owner"]);
 
