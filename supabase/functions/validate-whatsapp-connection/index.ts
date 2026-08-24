@@ -3,116 +3,127 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
-const ALLOW_ANY_ORIGIN = false;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
+const json = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...getCors(req), "Content-Type": "application/json" },
+});
 
-/**
- * Validate WhatsApp Business channel end-to-end.
- *
- * Runs 4 checks for the user's WhatsApp channel(s):
- *  1. Channel row exists and is enabled
- *  2. Credentials present (phone_number_id + access_token)
- *  3. Live verification with Meta Graph API (/me)
- *  4. Optional: send a test text message if `to` is provided
- */
+function asRecord(value: unknown): Record<string, any> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : {};
+}
+
+/** Validate the active workspace's WhatsApp Business connection and optionally send one explicit test message. */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method !== "POST") return json(req, { error: "POST required" }, 405);
+
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    getServiceKey()!,
+    { auth: { persistSession: false } },
+  );
 
   try {
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), {
-        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      getServiceKey()!,
-      { auth: { persistSession: false } },
-    );
-    const { data: { user }, error: aErr } = await supabase.auth.getUser(authHeader.replace("Bearer ", ""));
-    if (aErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.startsWith("Bearer ")) return json(req, { error: "Unauthorized" }, 401);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(authHeader.slice(7));
+    if (authError || !user) return json(req, { error: "Unauthorized" }, 401);
 
     const body = await req.json().catch(() => ({}));
-    const { channel_id, to, test_message } = body;
+    const workspaceId = String(body.workspace_id ?? "").trim();
+    const channelId = body.channel_id ? String(body.channel_id) : null;
+    const to = body.to ? String(body.to) : null;
+    const testMessage = body.test_message ? String(body.test_message) : "✅ Pulse AI WhatsApp connection test successful.";
+    if (!workspaceId) return json(req, { error: "workspace_id is required" }, 400);
 
-    let q = supabase.from("channels").select("id, channel_name, is_enabled, settings").eq("user_id", user.id).eq("channel_type", "whatsapp");
-    if (channel_id) q = q.eq("id", channel_id);
-    const { data: channels } = await q;
+    const [{ data: member }, { data: owned }] = await Promise.all([
+      supabase.rpc("is_workspace_member", { _user_id: user.id, _workspace_id: workspaceId }),
+      supabase.from("workspaces").select("id").eq("id", workspaceId).eq("owner_id", user.id).maybeSingle(),
+    ]);
+    if (!member && !owned) return json(req, { error: "Forbidden: not a workspace member" }, 403);
 
-    if (!channels || channels.length === 0) {
-      return new Response(JSON.stringify({
+    let q = supabase.from("channels")
+      .select("id,channel_name,is_enabled,connection_status,settings,credentials_encrypted")
+      .eq("workspace_id", workspaceId)
+      .eq("channel_type", "whatsapp");
+    if (channelId) q = q.eq("id", channelId);
+    const { data: channels, error: channelError } = await q;
+    if (channelError) throw channelError;
+
+    if (!channels?.length) {
+      return json(req, {
         ok: false,
         checks: { channel_exists: false },
-        message: "No WhatsApp channel configured. Connect WhatsApp first via Channels → Add WhatsApp Business.",
-      }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
+        message: "No WhatsApp channel configured in this workspace.",
+      });
     }
 
+    const graphVersion = Deno.env.get("META_GRAPH_VERSION") || "v23.0";
     const results: any[] = [];
+
     for (const ch of channels) {
-      const settings = (ch.settings as any) || {};
+      const settings = asRecord(ch.settings);
+      const credentials = asRecord(ch.credentials_encrypted);
+      const phoneNumberId = settings.phone_number_id || settings.waba_phone_number_id;
+      const storedToken = credentials.access_token || settings.access_token;
       const checks: any = {
         channel_exists: true,
         channel_enabled: ch.is_enabled === true,
-        has_phone_number_id: !!settings.phone_number_id,
-        has_access_token: !!settings.access_token,
+        connection_status_connected: ch.connection_status === "connected",
+        has_phone_number_id: !!phoneNumberId,
+        has_access_token: !!storedToken,
         meta_verified: false,
         test_send: null,
       };
       let detail = "";
 
-      if (checks.has_phone_number_id && checks.has_access_token) {
+      let accessToken = "";
+      if (phoneNumberId && typeof storedToken === "string" && storedToken) {
         try {
-          const r = await fetch(
-            `https://graph.facebook.com/v19.0/${settings.phone_number_id}?access_token=${settings.access_token}`,
-          );
-          const d = await r.json();
-          if (r.ok && d.id) {
+          accessToken = await decryptIfNeeded(storedToken);
+          const r = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}?fields=id,display_phone_number,verified_name`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          });
+          const data = await r.json() as Record<string, any>;
+          if (r.ok && data.id) {
             checks.meta_verified = true;
-            detail = `Verified phone: ${d.display_phone_number || d.id}`;
+            detail = `Verified phone: ${data.display_phone_number || data.id}`;
           } else {
-            detail = d?.error?.message || "Meta verification failed";
+            detail = data?.error?.message || "Meta verification failed";
           }
-        } catch (e) {
-          detail = `Network error: ${(e as Error).message}`;
+        } catch (error) {
+          detail = `Verification error: ${error instanceof Error ? error.message : "Unknown"}`;
         }
       } else {
-        detail = "Missing access_token or phone_number_id in channel settings";
+        detail = "Missing encrypted access token or phone_number_id";
       }
 
-      // Optional test send
-      if (to && checks.meta_verified) {
+      if (to && checks.meta_verified && accessToken) {
         try {
-          const sendRes = await fetch(
-            `https://graph.facebook.com/v19.0/${settings.phone_number_id}/messages`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${settings.access_token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                messaging_product: "whatsapp",
-                to,
-                type: "text",
-                text: { body: test_message || "✅ Pulse AI WhatsApp connection test successful." },
-              }),
+          const sendRes = await fetch(`https://graph.facebook.com/${graphVersion}/${phoneNumberId}/messages`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
             },
-          );
-          const sendData = await sendRes.json();
+            body: JSON.stringify({
+              messaging_product: "whatsapp",
+              to,
+              type: "text",
+              text: { body: testMessage },
+            }),
+          });
+          const sendData = await sendRes.json() as Record<string, any>;
           checks.test_send = {
             ok: sendRes.ok,
-            message_id: sendData.messages?.[0]?.id,
-            error: sendData?.error?.message,
+            message_id: sendData.messages?.[0]?.id ?? null,
+            error: sendData?.error?.message ?? null,
           };
-        } catch (e) {
-          checks.test_send = { ok: false, error: (e as Error).message };
+        } catch (error) {
+          checks.test_send = { ok: false, error: error instanceof Error ? error.message : "Unknown" };
         }
       }
 
@@ -125,14 +136,9 @@ serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({
-      ok: results.every((r) => r.ok),
-      results,
-    }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
-  } catch (e) {
-    console.error("validate-whatsapp-connection error", e);
-    return new Response(JSON.stringify({ error: (e as Error).message }), {
-      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    return json(req, { ok: results.every((r) => r.ok), workspace_id: workspaceId, results });
+  } catch (error) {
+    console.error("[VALIDATE-WHATSAPP]", error);
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });
