@@ -20,6 +20,34 @@ describe("role-aware navigation", () => {
     expect(new Set(destinations).size).toBe(destinations.length);
   });
 
+
+  it("keeps ordinary business navigation compact and predictable", () => {
+    const groups = getNavGroupsForRoles(["business_owner"]);
+
+    expect(groups.map((group) => group.label)).toEqual([
+      "Core",
+      "Growth",
+      "Automation",
+      "Business",
+      "Settings",
+    ]);
+
+    const visibleDestinations = groups.flatMap((group) =>
+      group.items.filter((item) => !item.searchOnly),
+    );
+    expect(visibleDestinations).toHaveLength(23);
+  });
+
+  it("keeps advanced destinations searchable without crowding the sidebar", () => {
+    const items = getNavGroupsForRoles(["business_owner"]).flatMap(
+      (group) => group.items,
+    );
+
+    expect(items.find((item) => item.href === "/ai-marketplace")?.searchOnly).toBe(true);
+    expect(items.find((item) => item.href === "/seo-audit")?.searchOnly).toBe(true);
+    expect(items.find((item) => item.href === "/content-calendar")?.searchOnly).toBe(true);
+  });
+
   it("keeps owner destinations out of ordinary business navigation", () => {
     const destinations = getNavGroupsForRoles(["business_owner"]).flatMap(
       (group) => group.items.map((item) => item.href),
