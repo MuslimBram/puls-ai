@@ -16,6 +16,7 @@ import {
   getCapabilitiesForMode, supportsMode,
 } from "@/hooks/useChannelCapabilities";
 import { useChannels } from "@/hooks/useChannels";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -60,6 +61,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
   const [notes, setNotes] = useState("");
   const [isConnecting, setIsConnecting] = useState(false);
   const { addChannel, updateChannel } = useChannels();
+  const { workspace } = useWorkspace();
 
   useEffect(() => {
     if (open) {
@@ -130,14 +132,21 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
 
   const handleOAuthConnect = async () => {
     if (!channel) return;
+    if (!workspace?.id) {
+      toast.error("Select a workspace before connecting a social channel.");
+      return;
+    }
     setIsConnecting(true);
     try {
       const redirectUri = `${window.location.origin}/oauth/callback`;
       const { data, error } = await supabase.functions.invoke("instagram-oauth-start", {
-        body: { channel_type: channel.id, redirect_uri: redirectUri },
+        body: {
+          channel_type: channel.id,
+          redirect_uri: redirectUri,
+          workspace_id: workspace.id,
+        },
       });
       if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to start OAuth");
-      // Redirect to Instagram OAuth
       window.location.href = data.url;
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "OAuth failed");
@@ -149,7 +158,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
     if (selectedMode === "personal") {
       setStep("limited_form");
     } else if (OAUTH_CHANNELS.includes(channel.id)) {
-      // Trigger OAuth redirect for supported channels
+      // Trigger the provider-specific OAuth URL returned by the server.
       handleOAuthConnect();
     } else if (channel.credential_fields.length > 0) {
       setStep("credentials");
