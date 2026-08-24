@@ -6,20 +6,23 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, XCircle, Loader2, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 
 export const ValidateWhatsAppButton = () => {
+  const { workspace } = useWorkspace();
   const [open, setOpen] = useState(false);
   const [to, setTo] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
 
   const run = async (sendTest: boolean) => {
+    if (!workspace?.id) return toast.error("Select a workspace before validating WhatsApp");
     setLoading(true);
     setResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("validate-whatsapp-connection", {
-        body: sendTest ? { to } : {},
+        body: { workspace_id: workspace.id, ...(sendTest ? { to } : {}) },
       });
       if (error) throw error;
       setResult(data);
@@ -46,26 +49,18 @@ export const ValidateWhatsAppButton = () => {
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Validate WhatsApp Connection</DialogTitle>
-          </DialogHeader>
-
+          <DialogHeader><DialogTitle>Validate WhatsApp Connection</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <Button onClick={() => run(false)} disabled={loading} className="w-full">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Run validation checks
+            <Button onClick={() => run(false)} disabled={loading || !workspace?.id} className="w-full">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}Run validation checks
             </Button>
-
             <div className="space-y-2">
               <Label>Optional: send test message to phone (E.164, e.g. +355691234567)</Label>
               <div className="flex gap-2">
                 <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="+355..." />
-                <Button onClick={() => run(true)} disabled={loading || !to}>
-                  Send test
-                </Button>
+                <Button onClick={() => run(true)} disabled={loading || !to || !workspace?.id}>Send test</Button>
               </div>
             </div>
-
             {result && (
               <div className="space-y-3 rounded-md border border-border p-3">
                 {(result.results || []).map((r: any) => (
@@ -77,23 +72,17 @@ export const ValidateWhatsAppButton = () => {
                     <Row label="Channel enabled" ok={r.checks.channel_enabled} />
                     <Row label="Phone Number ID present" ok={r.checks.has_phone_number_id} />
                     <Row label="Access token present" ok={r.checks.has_access_token} />
+                    <Row label="Credentials encrypted" ok={r.checks.credentials_encrypted} />
                     <Row label="Verified with Meta API" ok={r.checks.meta_verified} />
-                    {r.checks.test_send && (
-                      <Row label={`Test message sent (${r.checks.test_send.message_id || r.checks.test_send.error || "no id"})`} ok={r.checks.test_send.ok} />
-                    )}
+                    {r.checks.test_send && <Row label={`Test message sent (${r.checks.test_send.message_id || r.checks.test_send.error || "no id"})`} ok={r.checks.test_send.ok} />}
                     <p className="text-xs text-muted-foreground">{r.detail}</p>
                   </div>
                 ))}
-                {!result.results && (
-                  <p className="text-sm text-destructive">{result.message || "No channel configured"}</p>
-                )}
+                {!result.results && <p className="text-sm text-destructive">{result.message || "No channel configured"}</p>}
               </div>
             )}
           </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Close</Button>
-          </DialogFooter>
+          <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Close</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     </>

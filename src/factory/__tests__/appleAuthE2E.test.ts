@@ -10,7 +10,7 @@ const app = read("src/App.tsx");
 
 describe("Apple auth E2E code contract", () => {
   it("exposes Apple through the canonical Supabase OAuth wrapper", () => {
-    expect(oauth).toContain('provider: "google" | "apple"');
+    expect(oauth).toContain('provider: "google" | "facebook" | "apple"');
     expect(oauth).toContain('supabase.auth.signInWithOAuth');
     expect(login).toContain('signInWithOAuth("apple"');
     expect(register).toContain('signInWithOAuth("apple"');
