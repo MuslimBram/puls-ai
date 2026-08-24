@@ -61,7 +61,23 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
 
   const roleInfo = getRoleLabel(roles);
   const [navQuery, setNavQuery] = useState("");
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      return JSON.parse(localStorage.getItem("pulse-nav-open-groups") ?? "{}");
+    } catch {
+      return {};
+    }
+  });
   const language = i18n.resolvedLanguage ?? i18n.language;
+
+  const setGroupOpen = (label: string, open: boolean) => {
+    setOpenGroups((current) => {
+      const next = { ...current, [label]: open };
+      localStorage.setItem("pulse-nav-open-groups", JSON.stringify(next));
+      return next;
+    });
+  };
 
   // Filtro items bazuar në permissions
   const filterItems = (items: NavItem[]): NavItem[] =>
@@ -243,8 +259,14 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
             );
             return (
               <Collapsible
-                key={`${group.label}:${normalizedQuery ? "search" : "nav"}`}
-                defaultOpen={group.defaultOpen || isGroupActive}
+                key={group.label}
+                open={
+                  normalizedQuery
+                    ? true
+                    : (openGroups[group.label] ??
+                      Boolean(group.defaultOpen || isGroupActive))
+                }
+                onOpenChange={(open) => setGroupOpen(group.label, open)}
               >
                 <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
                   <group.icon className="h-3 w-3 shrink-0" />
