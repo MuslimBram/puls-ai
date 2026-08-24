@@ -1,0 +1,44 @@
+-- P0 explicit EXECUTE closure for SECURITY DEFINER functions verified live on 2026-08-24.
+-- No function bodies, RLS policies, triggers, or business behavior are changed.
+
+begin;
+
+-- Vault RPCs are intentionally available to authenticated workspace owners/admins.
+-- Remove accidental unauthenticated inheritance while preserving the intended roles.
+revoke execute on function public.vault_store_secret(uuid, text, text, text) from public, anon;
+revoke execute on function public.vault_read_secret(text) from public, anon;
+revoke execute on function public.vault_delete_secret(text) from public, anon;
+
+grant execute on function public.vault_store_secret(uuid, text, text, text) to authenticated, service_role;
+grant execute on function public.vault_read_secret(text) to authenticated, service_role;
+grant execute on function public.vault_delete_secret(text) to authenticated, service_role;
+
+-- Trigger helpers execute through their owning triggers, not from browser roles.
+revoke execute on function public.api_keys_block_privilege_escalation() from public, anon, authenticated;
+revoke execute on function public.auto_block_brute_force() from public, anon, authenticated;
+revoke execute on function public.auto_reopen_thread_on_inbound() from public, anon, authenticated;
+revoke execute on function public.create_partner_wallet() from public, anon, authenticated;
+revoke execute on function public.create_user_wallet() from public, anon, authenticated;
+revoke execute on function public.device_requests_block_self_approval() from public, anon, authenticated;
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
+revoke execute on function public.payout_requests_enforce_initial_status() from public, anon, authenticated;
+revoke execute on function public.withdrawal_requests_enforce_initial_status() from public, anon, authenticated;
+revoke execute on function public.touch_support_ticket_on_message() from public, anon, authenticated;
+revoke execute on function public.update_sales_sequences_updated_at() from public, anon, authenticated;
+
+-- Backend maintenance and aggregation functions are invoked by Edge/cron/service paths.
+revoke execute on function public.archive_old_messages(uuid, integer) from public, anon, authenticated;
+revoke execute on function public.billing_consistency_report() from public, anon, authenticated;
+revoke execute on function public.cleanup_expired_locks() from public, anon, authenticated;
+revoke execute on function public.decay_memory_confidence(integer) from public, anon, authenticated;
+revoke execute on function public.process_escalations(uuid) from public, anon, authenticated;
+revoke execute on function public.sync_referral_statuses() from public, anon, authenticated;
+
+grant execute on function public.archive_old_messages(uuid, integer) to service_role;
+grant execute on function public.billing_consistency_report() to service_role;
+grant execute on function public.cleanup_expired_locks() to service_role;
+grant execute on function public.decay_memory_confidence(integer) to service_role;
+grant execute on function public.process_escalations(uuid) to service_role;
+grant execute on function public.sync_referral_statuses() to service_role;
+
+commit;
