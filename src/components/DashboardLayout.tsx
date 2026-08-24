@@ -1,4 +1,5 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BrandingThemeProvider } from "@/components/BrandingThemeProvider";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Sidebar } from "@/components/layout/Sidebar";
@@ -9,6 +10,27 @@ import { OnboardingWelcomeModal } from "@/components/OnboardingWelcomeModal";
 
 export const DashboardLayout = ({ children }: { children: ReactNode }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const wasMobileOpen = useRef(false);
+  const { i18n } = useTranslation();
+  const isSq = (i18n.resolvedLanguage ?? i18n.language).startsWith("sq");
+
+  useEffect(() => {
+    if (wasMobileOpen.current && !mobileOpen) {
+      document.getElementById("dashboard-mobile-menu-trigger")?.focus();
+    }
+    wasMobileOpen.current = mobileOpen;
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [mobileOpen]);
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -17,11 +39,19 @@ export const DashboardLayout = ({ children }: { children: ReactNode }) => {
       <Sidebar mobileOpen={mobileOpen} onClose={() => setMobileOpen(false)} />
 
       {mobileOpen && (
-        <div className="fixed inset-0 z-30 bg-foreground/20 lg:hidden" onClick={() => setMobileOpen(false)} />
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-foreground/20 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+          aria-label={isSq ? "Mbyll menunë" : "Close menu"}
+        />
       )}
 
       <div className="flex flex-1 flex-col">
-        <DashboardHeader onMenuClick={() => setMobileOpen(true)} />
+        <DashboardHeader
+          mobileOpen={mobileOpen}
+          onMenuClick={() => setMobileOpen(true)}
+        />
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">
           <ErrorBoundary>{children}</ErrorBoundary>
         </main>

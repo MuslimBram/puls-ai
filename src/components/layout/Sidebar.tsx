@@ -1,4 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
@@ -16,12 +18,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { X, LogOut, ChevronDown, Crown } from "lucide-react";
+import { X, LogOut, ChevronDown, Crown, Search } from "lucide-react";
 import {
   getNavGroupsForRoles,
   type NavGroup,
   type NavItem,
 } from "./nav-config";
+import { getNavLabel } from "./nav-labels";
 import { APP_VERSION } from "@/config/version";
 
 interface SidebarProps {
@@ -50,12 +53,77 @@ function getRoleLabel(roles: string[]): { label: string; color: string } {
 
 export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const { signOut, user } = useAuth();
+  const { i18n } = useTranslation();
   const { workspace, workspaces, switchWorkspace } = useWorkspace();
   const { isSuperAdmin, permissions, roles, isLoading } =
     useRolePermissions();
   const location = useLocation();
+  const asideRef = useRef<HTMLElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const [isDesktop, setIsDesktop] = useState(() =>
+    typeof window === "undefined" ? true : window.matchMedia("(min-width: 1024px)").matches,
+  );
 
   const roleInfo = getRoleLabel(roles);
+  const [navQuery, setNavQuery] = useState("");
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      return JSON.parse(localStorage.getItem("pulse-nav-open-groups") ?? "{}");
+    } catch {
+      return {};
+    }
+  });
+  const language = i18n.resolvedLanguage ?? i18n.language;
+  const mobileInactive = !isDesktop && !mobileOpen;
+
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsDesktop(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (isDesktop || !mobileOpen) return;
+    searchRef.current?.focus();
+
+    const trapFocus = (event: KeyboardEvent) => {
+      if (event.key !== "Tab" || !asideRef.current) return;
+      const focusable = Array.from(
+        asideRef.current.querySelectorAll<HTMLElement>(
+          'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ),
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    const node = asideRef.current;
+    node?.addEventListener("keydown", trapFocus);
+    return () => node?.removeEventListener("keydown", trapFocus);
+  }, [isDesktop, mobileOpen]);
+
+  const setGroupOpen = (label: string, open: boolean) => {
+    setOpenGroups((current) => {
+      const next = { ...current, [label]: open };
+      try {
+        localStorage.setItem("pulse-nav-open-groups", JSON.stringify(next));
+      } catch {
+        // Persistence is optional; navigation must still work.
+      }
+      return next;
+    });
+  };
 
   // Filtro items bazuar në permissions
   const filterItems = (items: NavItem[]): NavItem[] =>
@@ -77,6 +145,8 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
   const filterGroups = (groups: NavGroup[]): NavGroup[] =>
     groups
       .map((group) => {
+        if (group.adminOnly && !roles.some((role) => role === "admin" || role === "super_admin"))
+          return null;
         if (
           group.requiredPermission &&
           !permissions[group.requiredPermission]
@@ -94,14 +164,37 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
       .filter(Boolean) as NavGroup[];
 
   // Zgjedh nav-groups sipas roleve
-  const allGroups: NavGroup[] = isLoading
+  const permissionFilteredGroups: NavGroup[] = isLoading
     ? []
     : filterGroups(getNavGroupsForRoles(roles));
+
+  const normalizedQuery = navQuery.trim().toLocaleLowerCase();
+  const allGroups: NavGroup[] = (normalizedQuery
+    ? permissionFilteredGroups.map((group) => ({
+        ...group,
+        defaultOpen: true,
+        items: group.items.filter(
+          (item) =>
+            item.label.toLocaleLowerCase().includes(normalizedQuery) ||
+            getNavLabel(item.label, language)
+              .toLocaleLowerCase()
+              .includes(normalizedQuery) ||
+            group.label.toLocaleLowerCase().includes(normalizedQuery) ||
+            getNavLabel(group.label, language)
+              .toLocaleLowerCase()
+              .includes(normalizedQuery),
+        ),
+      }))
+    : permissionFilteredGroups.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !item.searchOnly),
+      }))
+  ).filter((group) => group.items.length > 0);
 
   const itemMatches = (href: string): boolean => {
     const [path, query] = href.split("?");
     if (location.pathname !== path) return false;
-    if (!query) return true;
+    if (!query) return location.search === "";
     const want = new URLSearchParams(query);
     const have = new URLSearchParams(location.search);
     for (const [k, v] of want.entries()) {
@@ -110,8 +203,22 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
     return true;
   };
 
+  const activeHref = allGroups
+    .flatMap((group) => group.items)
+    .filter((item) => itemMatches(item.href))
+    .sort((left, right) => {
+      const leftSpecificity = left.href.split("?")[1]?.split("&").length ?? 0;
+      const rightSpecificity = right.href.split("?")[1]?.split("&").length ?? 0;
+      return rightSpecificity - leftSpecificity;
+    })[0]?.href;
+
   return (
     <aside
+      ref={asideRef}
+      id="dashboard-sidebar"
+      aria-hidden={mobileInactive || undefined}
+      inert={mobileInactive || undefined}
+      aria-label={language.startsWith("sq") ? "Navigimi kryesor" : "Main navigation"}
       className={cn(
         "fixed inset-y-0 left-0 z-40 flex w-60 flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
@@ -148,6 +255,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
           size="icon"
           className="ml-auto lg:hidden h-7 w-7"
           onClick={onClose}
+          aria-label={language.startsWith("sq") ? "Mbyll menunë" : "Close menu"}
         >
           <X className="h-4 w-4" />
         </Button>
@@ -174,6 +282,28 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
         </div>
       )}
 
+      {/* Search only within destinations already allowed for this role. */}
+      {!isLoading && (
+        <div className="border-b border-border p-2">
+          <label className="relative block">
+            <span className="sr-only">{language.startsWith("sq") ? "Kërko në menu" : "Search menu"}</span>
+            <Search
+              className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              ref={searchRef}
+              type="search"
+              value={navQuery}
+              onChange={(event) => setNavQuery(event.target.value)}
+              placeholder={language.startsWith("sq") ? "Kërko në menu..." : "Search menu..."}
+              aria-label={language.startsWith("sq") ? "Kërko në menu" : "Search menu"}
+              className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-xs text-foreground outline-none placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            />
+          </label>
+        </div>
+      )}
+
       {/* Loading state */}
       {isLoading && (
         <div className="flex flex-1 items-center justify-center">
@@ -183,19 +313,25 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
 
       {/* Navigimi */}
       {!isLoading && (
-        <nav className="flex-1 overflow-y-auto p-2 space-y-px">
+        <nav aria-label={language.startsWith("sq") ? "Faqet e Pulse AI" : "Pulse AI pages"} className="flex-1 overflow-y-auto p-2 space-y-px">
           {allGroups.map((group) => {
-            const isGroupActive = group.items.some((item) =>
-              itemMatches(item.href),
-            );
+            const isGroupActive = group.items.some((item) => item.href === activeHref);
             return (
               <Collapsible
                 key={group.label}
-                defaultOpen={group.defaultOpen || isGroupActive}
+                open={
+                  normalizedQuery
+                    ? true
+                    : (openGroups[group.label] ??
+                      Boolean(group.defaultOpen || isGroupActive))
+                }
+                onOpenChange={(open) => {
+                  if (!normalizedQuery) setGroupOpen(group.label, open);
+                }}
               >
-                <CollapsibleTrigger className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
+                <CollapsibleTrigger className="group flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground hover:text-foreground transition-colors">
                   <group.icon className="h-3 w-3 shrink-0" />
-                  <span className="flex-1 text-left">{group.label}</span>
+                  <span className="flex-1 text-left">{getNavLabel(group.label, language)}</span>
                   <ChevronDown className="h-3 w-3 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
@@ -205,15 +341,16 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
                         key={item.href}
                         to={item.href}
                         onClick={onClose}
+                        aria-current={item.href === activeHref ? "page" : undefined}
                         className={cn(
                           "flex items-center gap-2 rounded-md px-2 py-1 text-[13px] font-medium transition-colors",
-                          itemMatches(item.href)
+                          item.href === activeHref
                             ? "bg-primary/10 text-primary"
                             : "text-muted-foreground hover:bg-muted hover:text-foreground",
                         )}
                       >
                         <item.icon className="h-3.5 w-3.5 shrink-0" />
-                        <span className="flex-1">{item.label}</span>
+                        <span className="flex-1">{getNavLabel(item.label, language)}</span>
                         {item.badge === "live" && (
                           <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
                         )}
@@ -229,6 +366,11 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
               </Collapsible>
             );
           })}
+          {normalizedQuery && allGroups.length === 0 && (
+            <p role="status" aria-live="polite" className="px-2 py-6 text-center text-xs text-muted-foreground">
+              {language.startsWith("sq") ? "Nuk u gjet asnjë faqe." : "No pages found."}
+            </p>
+          )}
         </nav>
       )}
 
@@ -243,7 +385,7 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
           onClick={signOut}
         >
           <LogOut className="h-3.5 w-3.5" />
-          Dil
+          {language.startsWith("sq") ? "Dil" : "Sign out"}
         </Button>
       </div>
     </aside>
