@@ -139,6 +139,15 @@ serve(async (req: Request) => {
       const longData = await longRes.json() as Record<string, unknown>;
       const userAccessToken = String(longData.access_token || exchange.access_token);
 
+      const userUrl = new URL(`https://graph.facebook.com/${graphVersion}/me`);
+      userUrl.searchParams.set("fields", "id");
+      const userRes = await fetch(userUrl, { headers: { Authorization: `Bearer ${userAccessToken}` } });
+      const facebookUser = await userRes.json() as { id?: string; error?: { message?: string } };
+      if (!userRes.ok || !facebookUser.id) {
+        throw new Error(facebookUser.error?.message || "Unable to resolve Facebook user identity");
+      }
+      const facebookUserId = String(facebookUser.id);
+
       const pagesUrl = new URL(`https://graph.facebook.com/${graphVersion}/me/accounts`);
       pagesUrl.searchParams.set("fields", "id,name,access_token,category,tasks,instagram_business_account{id,username,name,profile_picture_url}");
       const pagesRes = await fetch(pagesUrl, { headers: { Authorization: `Bearer ${userAccessToken}` } });
@@ -170,6 +179,7 @@ serve(async (req: Request) => {
           page_category: page.category ?? null,
           instagram_username: instagramAccount?.username ?? null,
           oauth_provider: "facebook",
+          facebook_user_id: facebookUserId,
         },
       });
 
