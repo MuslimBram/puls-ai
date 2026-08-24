@@ -1,0 +1,30 @@
+name: Apple Auth E2E Certification
+
+on:
+  pull_request:
+    paths:
+      - 'src/integrations/auth/oauth.ts'
+      - 'src/pages/Login.tsx'
+      - 'src/pages/Register.tsx'
+      - 'src/pages/AuthCallback.tsx'
+      - 'src/App.tsx'
+      - 'src/factory/__tests__/appleAuthE2E.test.ts'
+      - '.github/workflows/apple-auth-e2e-certification.yml'
+
+jobs:
+  certify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Apple auth targeted tests
+        run: npx vitest run src/factory/__tests__/appleAuthE2E.test.ts
+      - name: Lint
+        run: npm run lint
+      - name: Production build
+        run: npm run build
