@@ -81,8 +81,8 @@ describe("GlobalFooter", () => {
       const { container } = renderFooter();
       const footer = container.querySelector("footer");
       const hasTagline =
-        footer?.textContent?.includes("The AI Business Operating System") ||
-        footer?.textContent?.includes("Sistemi Operativ i Biznesit AI");
+        footer?.textContent?.includes("One intelligent system to run, automate and grow your business.") ||
+        footer?.textContent?.includes("Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.");
       expect(hasTagline).toBe(true);
     });
 
@@ -102,19 +102,23 @@ describe("GlobalFooter", () => {
   describe("i18n & Localization", () => {
     it("should have English translations for footer", () => {
       const enResources = i18n.getResourceBundle("en", "translation");
-      expect(enResources.footer.privacy).toBeDefined();
-      expect(enResources.footer.terms).toBeDefined();
-      expect(enResources.footer.cookies).toBeDefined();
-      expect(enResources.footer.security).toBeDefined();
+      expect(enResources.footer.links.privacy).toBeDefined();
+      expect(enResources.footer.links.terms).toBeDefined();
+      expect(enResources.footer.links.cookies).toBeDefined();
+      expect(enResources.footer.links.security).toBeDefined();
+      expect(enResources.footer.links.contact).toBeDefined();
+      expect(enResources.footer.rightsReserved).toBeDefined();
       expect(enResources.footer.tagline).toBeDefined();
     });
 
     it("should have Albanian translations for footer", () => {
       const sqResources = i18n.getResourceBundle("sq", "translation");
-      expect(sqResources.footer.privacy).toBeDefined();
-      expect(sqResources.footer.terms).toBeDefined();
-      expect(sqResources.footer.cookies).toBeDefined();
-      expect(sqResources.footer.security).toBeDefined();
+      expect(sqResources.footer.links.privacy).toBeDefined();
+      expect(sqResources.footer.links.terms).toBeDefined();
+      expect(sqResources.footer.links.cookies).toBeDefined();
+      expect(sqResources.footer.links.security).toBeDefined();
+      expect(sqResources.footer.links.contact).toBeDefined();
+      expect(sqResources.footer.rightsReserved).toBeDefined();
       expect(sqResources.footer.tagline).toBeDefined();
     });
 
@@ -131,7 +135,7 @@ describe("GlobalFooter", () => {
       const { container } = renderFooter();
       // Check for Albanian footer text
       expect(
-        container.textContent?.includes("Sistemi Operativ i Biznesit AI")
+        container.textContent?.includes("Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.")
       ).toBe(true);
     });
   });

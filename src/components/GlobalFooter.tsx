@@ -70,11 +70,21 @@ export const GlobalFooter = () => {
             >
               {t("footer.links.security")}
             </Link>
+            <span className="text-border/30">/</span>
+            <Link
+              to="/contact"
+              className="hover:text-foreground transition-colors"
+              title={t("footer.links.contact")}
+            >
+              {t("footer.links.contact")}
+            </Link>
           </div>
 
           {/* Right: Tagline */}
           <div className="text-right text-xs text-muted-foreground">
-            {t("footer.tagline")}
+            {t("footer.tagline", {
+              defaultValue: "The AI Business Operating System",
+            })}
           </div>
         </div>
 
@@ -119,11 +129,21 @@ export const GlobalFooter = () => {
             >
               {t("footer.links.security")}
             </Link>
+            <span className="text-border/30">·</span>
+            <Link
+              to="/contact"
+              className="hover:text-foreground transition-colors"
+              title={t("footer.links.contact")}
+            >
+              {t("footer.links.contact")}
+            </Link>
           </div>
 
           {/* Row 3: Tagline (optional on mobile) */}
           <div className="text-xs text-muted-foreground leading-tight">
-            {t("footer.tagline")}
+            {t("footer.tagline", {
+              defaultValue: "The AI Business Operating System",
+            })}
           </div>
         </div>
       </div>

@@ -624,6 +624,8 @@ export default {
       privacy: "Politika e Privatësisë",
       terms: "Kushtet e Shërbimit",
       cookies: "Politika e Cookies",
+      security: "Siguria",
+      contact: "Kontakt",
       dpa: "Marrëveshja e Përpunimit të të Dhënave",
     },
   },
@@ -1019,13 +1021,5 @@ export default {
     refund:           "Politika e Rimbursimit",
     affiliateTerms:   "Kushtet e Ambasadorit",
     termsAndPayments: "Kushtet e Pagesës",
-  },
-  footer: {
-    privacy: "Privatësia",
-    terms: "Kushtet",
-    cookies: "Cookies",
-    security: "Siguria",
-    contact: "Kontakt",
-    tagline: "Sistemi Operativ i Biznesit AI",
   },
 } as const;

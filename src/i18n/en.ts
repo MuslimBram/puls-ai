@@ -624,6 +624,8 @@ export default {
       privacy: "Privacy Policy",
       terms: "Terms of Service",
       cookies: "Cookie Policy",
+      security: "Security",
+      contact: "Contact",
       dpa: "DPA",
     },
   },
@@ -1019,13 +1021,5 @@ export default {
     refund:           "Refund Policy",
     affiliateTerms:   "Ambassador Terms",
     termsAndPayments: "Payment Terms",
-  },
-  footer: {
-    privacy: "Privacy",
-    terms: "Terms",
-    cookies: "Cookies",
-    security: "Security",
-    contact: "Contact",
-    tagline: "The AI Business Operating System",
   },
 } as const;
