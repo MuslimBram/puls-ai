@@ -41,7 +41,7 @@ export const GlobalFooter = () => {
         <div className="hidden gap-6 sm:grid sm:grid-cols-[minmax(220px,1fr)_2fr] sm:items-start">
           <div>
             <Link to="/" className="text-base font-semibold text-foreground" title="Pulse AI">
-              Pulse <span className="text-primary">AI</span>
+              Pulse AI
             </Link>
             <p className="mt-2 max-w-sm text-sm leading-6">
               {t("footer.tagline", {
