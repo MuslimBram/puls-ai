@@ -236,12 +236,12 @@ const Register = () => {
           <CardContent className="space-y-4">
             <div className="grid gap-3 sm:grid-cols-2">
               {[
-                { value: "ai" as const, icon: Bot, title: "AI-guided setup", reason: "Best if you are unsure. Pulse AI guides you through the account type and setup choices.", recommended: true },
-                { value: "email" as const, icon: AtSign, title: "Continue with email", reason: "Best for full control with a separate password and security code." },
-                { value: "google" as const, icon: Zap, title: "Continue with Google", reason: "Fastest setup if your business already uses Google." },
-                { value: "facebook" as const, icon: Users, title: "Continue with Facebook", reason: "Useful when your customer activity starts from Facebook or Messenger." },
-                { value: "apple" as const, icon: ShieldCheck, title: "Continue with Apple", reason: "A privacy-focused sign-up using your Apple account." },
-              ].map(({ value, icon: Icon, title, reason, recommended }) => (
+                { value: "ai" as const, icon: Bot, title: "AI-guided setup", reason: "Best when you are not sure which account fits.", benefits: ["Guided account-type recommendation", "Explains plans and next steps", "AI help remains available during setup"], recommended: true },
+                { value: "email" as const, icon: AtSign, title: "Continue with email", reason: "Best for an independent Pulse AI login.", benefits: ["Separate password", "Personal security code", "Not tied to another provider"] },
+                { value: "google" as const, icon: Zap, title: "Continue with Google", reason: "Fastest when your business already uses Google.", benefits: ["Fewer fields to complete", "Google identity verification", "One-click sign-in later"] },
+                { value: "facebook" as const, icon: Users, title: "Continue with Facebook", reason: "Useful for Facebook or Messenger-led businesses.", benefits: ["Faster social identity setup", "One-click sign-in later", "Account type is still chosen by you"] },
+                { value: "apple" as const, icon: ShieldCheck, title: "Continue with Apple", reason: "A privacy-focused choice for Apple users.", benefits: ["Apple identity verification", "Privacy-oriented sign-in", "One-click sign-in later"] },
+              ].map(({ value, icon: Icon, title, reason, benefits, recommended }) => (
                 <button
                   key={value}
                   type="button"
@@ -258,12 +258,14 @@ const Register = () => {
                       {recommended && <Badge className="text-[10px]">Recommended</Badge>}
                     </span>
                     <span className="mt-1 block text-xs leading-5 text-muted-foreground">{reason}</span>
+                    <span className="mt-2 block text-[11px] font-semibold text-foreground">What you get:</span>
+                    <span className="mt-1 block text-[11px] leading-5 text-muted-foreground">{benefits.map((benefit) => `✓ ${benefit}`).join("  ·  ")}</span>
                   </span>
                 </button>
               ))}
             </div>
             <p className="text-center text-xs text-muted-foreground">
-              You will choose Business, Freelancer, Ambassador or White-Label next.
+              5 registration methods are available. Next, choose one of 4 account profiles: Business, Freelancer, Ambassador or White-Label.
             </p>
             <p className="text-center text-sm text-muted-foreground">
               Already have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
