@@ -1,6 +1,9 @@
 import { validateInternalPath } from "@/lib/safeNavigate";
 
-export function buildLoggedOutCtaLoginHref(appDestination?: string) {
+export function buildLoggedOutCtaRegisterHref(appDestination?: string) {
   const safeDestination = validateInternalPath(appDestination ?? "/dashboard") ?? "/dashboard";
-  return `/login?next=${encodeURIComponent(safeDestination)}`;
+  return `/register?next=${encodeURIComponent(safeDestination)}`;
 }
+
+/** @deprecated Public acquisition CTAs now start registration directly. */
+export const buildLoggedOutCtaLoginHref = buildLoggedOutCtaRegisterHref;
