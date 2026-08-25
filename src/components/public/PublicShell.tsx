@@ -1,14 +1,13 @@
 /**
  * PublicShell — top-level layout wrapper for all public (marketing) pages.
  *
- * Wraps children with PublicHeader and PublicFooter.
+ * Wraps children with the single public header. The global footer is mounted once in App.
  * Does NOT include DashboardLayout, FloatingAIBot, or authenticated-only components.
  * Safe to render for unauthenticated visitors.
  */
 
 import type { ReactNode } from "react";
 import { PublicHeader } from "./PublicHeader";
-import { PublicFooter } from "./PublicFooter";
 import { cn } from "@/lib/utils";
 
 interface PublicShellProps {
@@ -28,7 +27,6 @@ export function PublicShell({ children, mainClassName }: PublicShellProps) {
       >
         {children}
       </main>
-      <PublicFooter />
     </div>
   );
 }
