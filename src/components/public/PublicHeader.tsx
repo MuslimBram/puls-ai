@@ -118,12 +118,9 @@ export function PublicHeader({ className }: PublicHeaderProps) {
           </Button>
 
           <div className="hidden items-center gap-2 sm:flex">
-            <PublicCTA
-              priority="secondary"
-              size="sm"
-              label={t("cta.login")}
-              appDestination="/dashboard"
-            />
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/login">{t("cta.login")}</Link>
+            </Button>
             <PublicCTA priority="primary" size="sm" appDestination="/dashboard" />
           </div>
 
