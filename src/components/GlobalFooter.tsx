@@ -71,7 +71,7 @@ export const GlobalFooter = () => {
         <div className="space-y-5 sm:hidden">
           <div>
             <Link to="/" className="text-base font-semibold text-foreground" title="Pulse AI">
-              Pulse <span className="text-primary">AI</span>
+              Pulse AI
             </Link>
             <p className="mt-2 text-sm leading-6">
               {t("footer.tagline", {
