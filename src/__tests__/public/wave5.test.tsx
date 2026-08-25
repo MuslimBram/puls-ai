@@ -153,9 +153,14 @@ describe("Wave 5 localization helpers", () => {
     });
   });
 
-  it("localizes all public nav links for SQ", () => {
+  it("localizes locale-aware nav links and preserves the standalone Lidhjet route", () => {
     allPublicNavItems.forEach((item) => {
-      expect(localizePublicPath(item.href, "sq")).toMatch(/^\/sq(?:\/|$)/);
+      const localized = localizePublicPath(item.href, "sq");
+      if (item.href === "/lidhjet-public") {
+        expect(localized).toBe("/lidhjet-public");
+      } else {
+        expect(localized).toMatch(/^\/sq(?:\/|$)/);
+      }
     });
   });
 
