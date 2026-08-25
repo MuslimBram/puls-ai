@@ -152,7 +152,7 @@ describe("CTA auth-aware navigation safety (validateInternalPath)", () => {
   });
 
   it("registration CTA uses `next` param (not `returnTo`) — safe contract", () => {
-    // The PublicCTA builds /login?next=<encoded-path>
+    // The PublicCTA builds /register?next=<encoded-path>
     const loginHref = `/register?next=${encodeURIComponent("/pricing")}`;
     expect(validateInternalPath(loginHref)).toBe(loginHref);
     // Verify `next` is the param name — returnTo must NOT be used
