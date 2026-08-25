@@ -1,9 +1,15 @@
 import { expect, test } from "@playwright/test";
 
-test("Create Account orbit is usable on desktop and mobile", async ({ page }, testInfo) => {
+test("Create Account registration choices and orbit are usable on desktop and mobile", async ({ page }, testInfo) => {
   await page.goto("/register");
 
   await expect(page.getByRole("heading", { name: "Create Account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /AI-guided setup/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Continue with email/i })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Continue with Facebook/i })).toBeVisible();
+
+  await page.getByRole("button", { name: /AI-guided setup/i }).click();
+
   const orbit = page.getByRole("listbox", { name: "Choose your account type" });
   await expect(orbit).toBeVisible();
 
