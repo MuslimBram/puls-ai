@@ -24,13 +24,20 @@ serve(async (req) => {
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
     if (authErr || !user) throw new Error("Unauthorized");
 
-    const { chat_id, message, parse_mode, reply_to_message_id } = await req.json();
+    const { chat_id, message, parse_mode, reply_to_message_id, workspace_id } = await req.json();
     if (!chat_id || !message) throw new Error("'chat_id' and 'message' are required");
+    if (!workspace_id) throw new Error("'workspace_id' is required");
+
+    const [{ data: member }, { data: owned }] = await Promise.all([
+      supabase.rpc("is_workspace_member", { _user_id: user.id, _workspace_id: workspace_id }),
+      supabase.from("workspaces").select("id").eq("id", workspace_id).eq("owner_id", user.id).maybeSingle(),
+    ]);
+    if (!member && !owned) throw new Error("Forbidden: not a workspace member");
 
     const { data: channels, error: channelError } = await supabase
       .from("channels")
       .select("id, workspace_id, credentials_encrypted")
-      .eq("user_id", user.id)
+      .eq("workspace_id", workspace_id)
       .eq("channel_type", "telegram")
       .eq("is_enabled", true)
       .order("updated_at", { ascending: false })
@@ -77,7 +84,7 @@ serve(async (req) => {
 
     await supabase.from("inbox_messages").insert({
       user_id: user.id,
-      workspace_id: channel.workspace_id,
+      workspace_id,
       channel_id: channel.id,
       channel_type: "telegram",
       source_name: "Telegram",
