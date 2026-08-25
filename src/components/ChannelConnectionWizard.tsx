@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import {
   CheckCircle2, AlertCircle, Loader2, Copy, ArrowRight, ArrowLeft,
@@ -50,6 +53,8 @@ interface WizardProps {
 
 export const ChannelConnectionWizard = ({ provider, open, onClose }: WizardProps) => {
   const { channels, addChannel } = useChannels();
+  const { workspace } = useWorkspace();
+  const queryClient = useQueryClient();
   const existing = channels.find((c) => c.channel_type === provider.id);
 
   const [step, setStep] = useState<Step>("Credentials");
@@ -97,7 +102,23 @@ export const ChannelConnectionWizard = ({ provider, open, onClose }: WizardProps
     setVerifying(true);
     setVerifyResult(null);
     try {
-      if (provider.verifyFn) {
+      if (provider.id === "telegram") {
+        if (!workspace?.id) throw new Error("Select a workspace before connecting Telegram.");
+        const { data, error } = await supabase.functions.invoke("save-telegram-credentials", {
+          body: {
+            action: "verify",
+            workspace_id: workspace.id,
+            bot_token: creds.bot_token,
+            channel_name: creds.channel_name || provider.name,
+          },
+        });
+        if (error) throw error;
+        const res = data?.ok
+          ? { ok: true, detail: `Connected as ${data.bot_username || data.bot_name || "Telegram bot"}` }
+          : { ok: false, detail: data?.error || "Telegram verification failed" };
+        setVerifyResult(res);
+        if (!res.ok) toast.error(res.detail);
+      } else if (provider.verifyFn) {
         const res = await provider.verifyFn(creds);
         setVerifyResult(res);
         if (!res.ok) toast.error(res.detail || "Verification failed");
@@ -116,17 +137,37 @@ export const ChannelConnectionWizard = ({ provider, open, onClose }: WizardProps
   const handleSave = async () => {
     setSaving(true);
     try {
-      const channelData: ChannelData = {
-        channel_type: provider.id,
-        channel_name: creds.channel_name || provider.name,
-        settings: {
-          ...creds,
-          webhook_url: webhookUrl || undefined,
-          connected_at: new Date().toISOString(),
-          verified: true,
-        },
-      };
-      await addChannel.mutateAsync(channelData);
+      if (provider.id === "telegram") {
+        if (!workspace?.id) throw new Error("Select a workspace before connecting Telegram.");
+        const { data, error } = await supabase.functions.invoke("save-telegram-credentials", {
+          body: {
+            action: "save",
+            workspace_id: workspace.id,
+            bot_token: creds.bot_token,
+            channel_name: creds.channel_name || provider.name,
+          },
+        });
+        if (error) throw error;
+        if (!data?.ok || !data?.webhook_configured) {
+          throw new Error(data?.error || "Telegram webhook activation failed");
+        }
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["channels"] }),
+          queryClient.invalidateQueries({ queryKey: ["connected-channels"] }),
+        ]);
+      } else {
+        const channelData: ChannelData = {
+          channel_type: provider.id,
+          channel_name: creds.channel_name || provider.name,
+          settings: {
+            ...creds,
+            webhook_url: webhookUrl || undefined,
+            connected_at: new Date().toISOString(),
+            verified: true,
+          },
+        };
+        await addChannel.mutateAsync(channelData);
+      }
       toast.success(`${provider.name} connected successfully!`);
       goNext(); // move to Done
     } catch {
