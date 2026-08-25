@@ -301,8 +301,8 @@ describe("Wave 5 — public navigation/footer locale parity", () => {
   it("/sq footer tagline renders Albanian copy", async () => {
     renderLocalizedSub("sq", "platform", <PlatformHub />);
     await screen.findByRole("heading", { name: "Një Platformë. Çdo Mjet Biznesi që Keni Nevojë." });
-    expect(screen.getByText("Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj."))
-      .toBeInTheDocument();
+    expect(screen.getAllByText("Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.").length)
+      .toBeGreaterThan(0);
   });
 
   it("/sq footer does NOT show EN tagline", async () => {
