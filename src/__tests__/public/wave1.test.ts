@@ -7,7 +7,7 @@
  * - Canonical public Lidhjet route = /lidhjet-public
  * - Partners route = /platform/partners
  * - validateInternalPath (auth-aware CTA foundation)
- * - Login CTA uses the existing safe `next` contract
+ * - Get Started opens registration with the safe `next` contract
  * - publicSecurityClaim integrity (no forbidden claims, local PASS / remote pending distinction)
  * - locale keys present in EN and SQ
  * - publicNavConfig: no admin/internal routes exposed
@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { validateInternalPath } from "../../lib/safeNavigate";
 import { SECURITY_CLAIM } from "../../lib/publicSecurityClaim";
-import { buildLoggedOutCtaLoginHref } from "../../components/public/publicCtaDestination";
+import { buildLoggedOutCtaRegisterHref } from "../../components/public/publicCtaDestination";
 import {
   platformNavItems,
   standaloneNavItems,
@@ -151,9 +151,9 @@ describe("CTA auth-aware navigation safety (validateInternalPath)", () => {
     expect(validateInternalPath("/register?beta=1")).toBe("/register?beta=1");
   });
 
-  it("login CTA uses `next` param (not `returnTo`) — safe contract", () => {
+  it("registration CTA uses `next` param (not `returnTo`) — safe contract", () => {
     // The PublicCTA builds /login?next=<encoded-path>
-    const loginHref = `/login?next=${encodeURIComponent("/pricing")}`;
+    const loginHref = `/register?next=${encodeURIComponent("/pricing")}`;
     expect(validateInternalPath(loginHref)).toBe(loginHref);
     // Verify `next` is the param name — returnTo must NOT be used
     expect(loginHref).toContain("next=");
@@ -161,8 +161,8 @@ describe("CTA auth-aware navigation safety (validateInternalPath)", () => {
   });
 
   it("accepts /login?next=%2Fpricing (next-URL)", () => {
-    expect(validateInternalPath("/login?next=%2Fpricing")).toBe(
-      "/login?next=%2Fpricing",
+    expect(validateInternalPath("/register?next=%2Fpricing")).toBe(
+      "/register?next=%2Fpricing",
     );
   });
 
