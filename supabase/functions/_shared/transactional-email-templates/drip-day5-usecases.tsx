@@ -4,7 +4,7 @@ import { Body, Button, Container, Head, Heading, Html, Preview, Text } from 'npm
 import type { TemplateEntry } from './registry.ts'
 
 const SITE_NAME = 'Pulse AI'
-const APP_URL = 'https://kohablerjeve.top'
+const APP_URL = 'https://pulse-bos.com'
 
 interface Props { name?: string }
 
