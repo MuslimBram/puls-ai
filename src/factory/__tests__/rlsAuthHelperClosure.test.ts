@@ -20,7 +20,7 @@ describe("RLS authorization helper closure", () => {
       '"Workspace owners and admins can manage vault refs"',
     ]) {
       expect(migration).toMatch(
-        new RegExp(`alter policy ${policy}\\s+on public\\.[a-z_]+ to authenticated`, "i"),
+        new RegExp(`alter policy ${policy}\\s+on public\\.[a-z0-9_]+ to authenticated`, "i"),
       );
     }
   });
