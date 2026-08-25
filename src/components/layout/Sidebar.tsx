@@ -264,6 +264,9 @@ export const Sidebar = ({ mobileOpen, onClose }: SidebarProps) => {
       {/* Workspace Switcher (vetëm për jo-owner) */}
       {!isSuperAdmin && workspaces.length > 1 && (
         <div className="border-b border-border p-2">
+          <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            {language.startsWith("sq") ? "Workspace i punës" : "Active workspace"}
+          </p>
           <Select
             value={workspace?.id ?? ""}
             onValueChange={switchWorkspace}
