@@ -534,7 +534,6 @@ export default {
     tryAgain: "Provo Përsëri",
   },
 
-<<<<<<< HEAD
   // ─── Uebsajti publik — Vala 1 ───────────────────────────────────────────────
 
   // Brend
@@ -1020,6 +1019,7 @@ export default {
     refund:           "Politika e Rimbursimit",
     affiliateTerms:   "Kushtet e Ambasadorit",
     termsAndPayments: "Kushtet e Pagesës",
+  },
   footer: {
     privacy: "Privatësia",
     terms: "Kushtet",

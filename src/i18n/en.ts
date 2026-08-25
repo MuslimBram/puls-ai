@@ -534,7 +534,6 @@ export default {
     tryAgain: "Try Again",
   },
 
-<<<<<<< HEAD
   // ─── Public website — Wave 1 ────────────────────────────────────────────────
 
   // Brand
@@ -1020,6 +1019,7 @@ export default {
     refund:           "Refund Policy",
     affiliateTerms:   "Ambassador Terms",
     termsAndPayments: "Payment Terms",
+  },
   footer: {
     privacy: "Privacy",
     terms: "Terms",
