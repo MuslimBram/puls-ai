@@ -34,7 +34,7 @@ export const GlobalFooter = () => {
             <div className="flex items-center">
               <span className="font-semibold text-foreground">Pulse AI</span>
             </div>
-            <span className="text-xs">© {currentYear}</span>
+            <span className="text-xs">© {currentYear} {t("footer.rightsReserved")}</span>
           </div>
 
           {/* Center: Legal Links */}
@@ -42,33 +42,33 @@ export const GlobalFooter = () => {
             <Link
               to="/privacy"
               className="hover:text-foreground transition-colors"
-              title={t("footer.privacy")}
+              title={t("footer.links.privacy")}
             >
-              {t("footer.privacy")}
+              {t("footer.links.privacy")}
             </Link>
             <span className="text-border/30">/</span>
             <Link
               to="/terms"
               className="hover:text-foreground transition-colors"
-              title={t("footer.terms")}
+              title={t("footer.links.terms")}
             >
-              {t("footer.terms")}
+              {t("footer.links.terms")}
             </Link>
             <span className="text-border/30">/</span>
             <Link
               to="/cookies"
               className="hover:text-foreground transition-colors"
-              title={t("footer.cookies")}
+              title={t("footer.links.cookies")}
             >
-              {t("footer.cookies")}
+              {t("footer.links.cookies")}
             </Link>
             <span className="text-border/30">/</span>
             <Link
               to="/security"
               className="hover:text-foreground transition-colors"
-              title={t("footer.security")}
+              title={t("footer.links.security")}
             >
-              {t("footer.security")}
+              {t("footer.links.security")}
             </Link>
           </div>
 
@@ -83,7 +83,7 @@ export const GlobalFooter = () => {
           {/* Row 1: Logo & Copyright */}
           <div className="flex items-center gap-2">
             <span className="font-semibold text-foreground text-sm">Pulse AI</span>
-            <span className="text-xs">© {currentYear}</span>
+            <span className="text-xs">© {currentYear} {t("footer.rightsReserved")}</span>
           </div>
 
           {/* Row 2: Legal Links */}
@@ -91,33 +91,33 @@ export const GlobalFooter = () => {
             <Link
               to="/privacy"
               className="hover:text-foreground transition-colors"
-              title={t("footer.privacy")}
+              title={t("footer.links.privacy")}
             >
-              {t("footer.privacy")}
+              {t("footer.links.privacy")}
             </Link>
             <span className="text-border/30">·</span>
             <Link
               to="/terms"
               className="hover:text-foreground transition-colors"
-              title={t("footer.terms")}
+              title={t("footer.links.terms")}
             >
-              {t("footer.terms")}
+              {t("footer.links.terms")}
             </Link>
             <span className="text-border/30">·</span>
             <Link
               to="/cookies"
               className="hover:text-foreground transition-colors"
-              title={t("footer.cookies")}
+              title={t("footer.links.cookies")}
             >
-              {t("footer.cookies")}
+              {t("footer.links.cookies")}
             </Link>
             <span className="text-border/30">·</span>
             <Link
               to="/security"
               className="hover:text-foreground transition-colors"
-              title={t("footer.security")}
+              title={t("footer.links.security")}
             >
-              {t("footer.security")}
+              {t("footer.links.security")}
             </Link>
           </div>
 

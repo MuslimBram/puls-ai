@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Seo } from "@/components/Seo";
+import { FloatingAIBot } from "@/components/FloatingAIBot";
 import { PublicShell } from "@/components/public/PublicShell";
 import { PublicCTA } from "@/components/public/PublicCTA";
 import { TrustBadgeRow } from "@/components/public/TrustBadge";
@@ -30,12 +31,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
-import { AIToolsSection } from "@/components/landing/AIToolsSection";
-import { IndustriesSection } from "@/components/landing/IndustriesSection";
-import { IntelligenceToolsSection } from "@/components/landing/IntelligenceToolsSection";
-import { OpportunitySelector } from "@/components/landing/OpportunitySelector";
-import { BusinessScanWidget } from "@/components/landing/BusinessScanWidget";
-import { formatALL } from "@/lib/currency";
 
 const HERO_CHANNELS = [
   { label: "WhatsApp", icon: Phone },
@@ -497,90 +492,6 @@ const Index = () => {
               <p className="mt-4 text-lg text-muted-foreground">
                 {t("homepage.control.description")}
               </p>
-            </div>
-
-            <div className="mt-10 grid gap-4 md:grid-cols-3">
-              {CONTROL_KEYS.map((key) => {
-                const Icon = controlIcons[key];
-                return (
-                  <Card key={key} className="animate-on-scroll border-border/70 bg-background/90">
-                    <CardContent className="space-y-4 p-6">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                        <Icon className="h-5 w-5" aria-hidden="true" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold text-foreground">
-                          {t(`homepage.control.items.${key}.title`)}
-                        </h3>
-                        <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                          {t(`homepage.control.items.${key}.description`)}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-
-        <HowItWorks />
-
-        {/* Features Grid */}
-        <section className="container mx-auto px-4 py-16">
-          <div className="mb-12 text-center animate-on-scroll">
-            <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.featuresTitle")}</h2>
-            <p className="mx-auto max-w-lg text-muted-foreground">{t("landing.featuresDesc")}</p>
-          </div>
-          <div className="mx-auto grid max-w-5xl gap-6 md:grid-cols-2 lg:grid-cols-3 stagger-children">
-            {[
-              { icon: MessageSquare, title: t("landing.features.unifiedInbox"), desc: t("landing.features.unifiedInboxDesc") },
-              { icon: Bot, title: t("landing.features.dedicatedAI"), desc: t("landing.features.dedicatedAIDesc") },
-              { icon: BarChart3, title: t("landing.features.smartAnalytics"), desc: t("landing.features.smartAnalyticsDesc") },
-              { icon: Target, title: t("landing.features.leadDiscovery"), desc: t("landing.features.leadDiscoveryDesc") },
-              { icon: Users, title: t("landing.features.crmPipeline"), desc: t("landing.features.crmPipelineDesc") },
-              { icon: Shield, title: t("landing.features.competitorIntel"), desc: t("landing.features.competitorIntelDesc") },
-              { icon: Sparkles, title: t("landing.features.campaignBuilder"), desc: t("landing.features.campaignBuilderDesc") },
-              { icon: Phone, title: t("landing.features.callTracking"), desc: t("landing.features.callTrackingDesc") },
-              { icon: Zap, title: t("landing.features.automationEngine"), desc: t("landing.features.automationEngineDesc") },
-            ].map((f) => (
-              <div key={f.title} className="rounded-xl border border-border p-6 hover-lift card-glow">
-                <f.icon className="mb-3 h-8 w-8 text-primary" />
-                <h3 className="mb-1 font-semibold text-foreground">{f.title}</h3>
-                <p className="text-sm text-muted-foreground">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <BusinessCapabilities />
-        <FreelancerCapabilities />
-        
-        {/* Opportunity Selector */}
-        <section className="border-t border-border bg-muted/20">
-          <div className="container mx-auto px-4 py-16">
-            <div className="text-center mb-12 animate-on-scroll">
-              <h2 className="mb-2 text-3xl font-bold text-foreground md:text-4xl">{t("landing.opportunitiesTitle")}</h2>
-              <p className="text-muted-foreground">{t("landing.opportunitiesDesc")}</p>
-            </div>
-            <OpportunitySelector />
-          </div>
-        </section>
-
-        <AIToolsSection />
-        <IndustriesSection />
-        <IntelligenceToolsSection />
-        <CompetitorComparison />
-
-        {/* Business Qualification Engine */}
-        <BusinessScanWidget />
-
-        {/* Pricing Preview */}
-        <section className="border-t border-border bg-muted/30">
-          <div className="container mx-auto px-4 py-16 text-center">
-            <div className="animate-on-scroll">
-              <h2 className="mb-2 text-3xl font-bold text-foreground">{t("landing.pricingTitle")}</h2>
-              <p className="mb-8 text-muted-foreground">{t("landing.pricingDesc")}</p>
             </div>
 
             <div className="mt-10 grid gap-4 md:grid-cols-3">
