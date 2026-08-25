@@ -1020,8 +1020,6 @@ export default {
     refund:           "Politika e Rimbursimit",
     affiliateTerms:   "Kushtet e Ambasadorit",
     termsAndPayments: "Kushtet e Pagesës",
-=======
-  // Footer
   footer: {
     privacy: "Privatësia",
     terms: "Kushtet",
@@ -1029,6 +1027,5 @@ export default {
     security: "Siguria",
     contact: "Kontakt",
     tagline: "Sistemi Operativ i Biznesit AI",
->>>>>>> 8b6920d (Phase 3: Implement global compact footer)
   },
 } as const;

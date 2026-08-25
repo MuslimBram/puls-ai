@@ -45,27 +45,6 @@ export default function LidhjetPublic() {
     },
   ];
 
-  const testimonials = [
-    {
-      name: "Artina D.",
-      role: "Service Provider, Tirana",
-      quote: "Found 5 new clients in my first month. The community is real and active.",
-      stars: 5
-    },
-    {
-      name: "Blerim S.",
-      role: "Small Business Owner, Durres",
-      quote: "Best platform to find skilled freelancers without middlemen taking cuts.",
-      stars: 5
-    },
-    {
-      name: "Genta M.",
-      role: "Freelancer, Vlora",
-      quote: "Lidhjet connected me with businesses looking exactly for my expertise.",
-      stars: 5
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -109,12 +88,12 @@ export default function LidhjetPublic() {
           Always free. No credit card required.
         </p>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-8 max-w-xl mx-auto mt-16">
-          {[["10K+", "Active Members"], ["50K+", "Opportunities Posted"], ["100%", "Community Verified"]].map(([num, label]) => (
+          {[["", ""], ["", ""], ["", ""]].map(([num, label]) => (
             <div key={label}>
-              <div className="text-3xl font-bold text-primary">{num}</div>
-              <div className="text-sm text-muted-foreground mt-1">{label}</div>
+              <div className="text-sm text-muted-foreground mt-1">
+                {label}
+              </div>
             </div>
           ))}
         </div>
@@ -162,31 +141,6 @@ export default function LidhjetPublic() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="bg-muted/30 py-20">
-        <div className="max-w-5xl mx-auto px-4">
-          <h2 className="text-3xl font-bold text-center mb-12">Community Stories</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map((tst) => (
-              <Card key={tst.name} className="hover:shadow-lg transition-shadow">
-                <CardContent className="pt-6">
-                  <div className="flex gap-0.5 mb-4">
-                    {Array.from({ length: tst.stars }).map((_, i) => (
-                      <Star key={i} className="h-4 w-4 fill-amber-400 text-amber-400" />
-                    ))}
-                  </div>
-                  <p className="text-sm text-muted-foreground mb-4 italic">"{tst.quote}"</p>
-                  <div>
-                    <p className="text-sm font-semibold text-foreground">{tst.name}</p>
-                    <p className="text-xs text-muted-foreground">{tst.role}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* CTA */}
       <section className="border-t border-border py-20 text-center">
         <div className="max-w-2xl mx-auto px-4">
@@ -197,11 +151,11 @@ export default function LidhjetPublic() {
             Start connecting with real people and real opportunities today.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button size="lg" onClick={() => navigate("/register")} className="gap-2">
-              Create Free Account <ArrowRight className="h-5 w-5" />
+            <Button size="lg" onClick={() => navigate("/register?source=lidhjet")} className="gap-2">
+              {t("landing.getStarted")} <ArrowRight className="h-5 w-5" />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/login")} className="gap-2">
-              Already a Member <ArrowRight className="h-5 w-5" />
+            <Button size="lg" variant="outline" onClick={() => navigate("/login?source=lidhjet")} className="gap-2">
+              {t("landing.signIn")} <ArrowRight className="h-5 w-5" />
             </Button>
           </div>
         </div>

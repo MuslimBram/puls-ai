@@ -1020,8 +1020,6 @@ export default {
     refund:           "Refund Policy",
     affiliateTerms:   "Ambassador Terms",
     termsAndPayments: "Payment Terms",
-=======
-  // Footer
   footer: {
     privacy: "Privacy",
     terms: "Terms",
@@ -1029,6 +1027,5 @@ export default {
     security: "Security",
     contact: "Contact",
     tagline: "The AI Business Operating System",
->>>>>>> 8b6920d (Phase 3: Implement global compact footer)
   },
 } as const;
