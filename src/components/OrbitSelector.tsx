@@ -3,52 +3,30 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type OrbitSelectorItem<T extends string = string> = {
-  value: T;
-  label: string;
-  icon?: ReactNode;
-  description?: string;
-  disabled?: boolean;
+  value: T; label: string; icon?: ReactNode; description?: string; disabled?: boolean;
 };
 
 type OrbitSelectorProps<T extends string = string> = {
-  items: OrbitSelectorItem<T>[];
-  selectedValue?: T;
-  onSelect: (value: T) => void;
-  ariaLabel: string;
-  rotationInterval?: number;
-  autoRotate?: boolean;
-  pauseOnInteractionMs?: number;
-  centralContent?: (item: OrbitSelectorItem<T> | undefined) => ReactNode;
-  className?: string;
+  items: OrbitSelectorItem<T>[]; selectedValue?: T; onSelect: (value: T) => void;
+  ariaLabel: string; rotationInterval?: number; autoRotate?: boolean; pauseOnInteractionMs?: number;
+  centralContent?: (item: OrbitSelectorItem<T> | undefined) => ReactNode; className?: string;
 };
 
 function useMediaQuery(query: string) {
-  const [matches, setMatches] = useState(() =>
-    typeof window !== "undefined" ? window.matchMedia(query).matches : false,
-  );
-
+  const [matches, setMatches] = useState(() => typeof window !== "undefined" ? window.matchMedia(query).matches : false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     const media = window.matchMedia(query);
     const update = () => setMatches(media.matches);
-    update();
-    media.addEventListener?.("change", update);
+    update(); media.addEventListener?.("change", update);
     return () => media.removeEventListener?.("change", update);
   }, [query]);
-
   return matches;
 }
 
 export function OrbitSelector<T extends string = string>({
-  items,
-  selectedValue,
-  onSelect,
-  ariaLabel,
-  rotationInterval = 2500,
-  autoRotate = true,
-  pauseOnInteractionMs = 5000,
-  centralContent,
-  className,
+  items, selectedValue, onSelect, ariaLabel, rotationInterval = 2500, autoRotate = true,
+  pauseOnInteractionMs = 5000, centralContent, className,
 }: OrbitSelectorProps<T>) {
   const initialIndex = Math.max(0, items.findIndex((item) => item.value === selectedValue));
   const [focusedIndex, setFocusedIndex] = useState(initialIndex);
@@ -61,7 +39,6 @@ export function OrbitSelector<T extends string = string>({
   const compact = useMediaQuery("(max-width: 639px)");
 
   useEffect(() => {
-    if (!items.length) return;
     const selectedIndex = items.findIndex((item) => item.value === selectedValue);
     if (selectedIndex >= 0) setFocusedIndex(selectedIndex);
   }, [items, selectedValue]);
@@ -69,154 +46,94 @@ export function OrbitSelector<T extends string = string>({
   useEffect(() => {
     if (!items.length || !autoRotate || reducedMotion || hovered) return;
     const id = window.setInterval(() => {
-      if (Date.now() < pausedUntil) return;
-      setFocusedIndex((index) => (index + 1) % items.length);
+      if (Date.now() >= pausedUntil) setFocusedIndex((index) => (index + 1) % items.length);
     }, rotationInterval);
     return () => window.clearInterval(id);
   }, [autoRotate, hovered, items.length, pausedUntil, reducedMotion, rotationInterval]);
 
-  useEffect(() => {
-    if (!items.length) return;
-    setFocusedIndex((index) => Math.min(index, items.length - 1));
-  }, [items.length]);
-
   const pauseFromInteraction = () => setPausedUntil(Date.now() + pauseOnInteractionMs);
-
   const moveFocus = (delta: number) => {
     if (!items.length) return;
     pauseFromInteraction();
     setFocusedIndex((index) => (index + delta + items.length) % items.length);
   };
-
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === "ArrowRight") {
-      event.preventDefault();
-      moveFocus(1);
-    } else if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      moveFocus(-1);
+    if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+      event.preventDefault(); moveFocus(event.key === "ArrowRight" ? 1 : -1);
     } else if ((event.key === "Enter" || event.key === " ") && items[focusedIndex] && !items[focusedIndex].disabled) {
-      event.preventDefault();
-      pauseFromInteraction();
-      onSelect(items[focusedIndex].value);
+      event.preventDefault(); pauseFromInteraction(); onSelect(items[focusedIndex].value);
     }
   };
-
-  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = event.touches[0]?.clientX ?? null;
-  };
-
+  const handleTouchStart = (event: TouchEvent<HTMLDivElement>) => { touchStartX.current = event.touches[0]?.clientX ?? null; };
   const handleTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
-    const startX = touchStartX.current;
-    touchStartX.current = null;
-    if (startX === null) return;
+    const startX = touchStartX.current; touchStartX.current = null;
     const endX = event.changedTouches[0]?.clientX;
-    if (endX === undefined) return;
-    const delta = endX - startX;
-    if (Math.abs(delta) < 40) return;
-    moveFocus(delta < 0 ? 1 : -1);
+    if (startX === null || endX === undefined || Math.abs(endX - startX) < 40) return;
+    moveFocus(endX < startX ? 1 : -1);
   };
 
   const focusedItem = items[focusedIndex];
-  const focusedOptionId = focusedItem ? `${idPrefix}-${focusedItem.value}` : undefined;
-  const radius = compact ? 118 : 150;
+  const radiusX = compact ? 126 : 205;
+  const radiusY = compact ? 104 : 142;
+  const optionAngles = [0, -60, -120, -180];
 
   return (
-    <div
-      role="listbox"
-      aria-label={ariaLabel}
-      aria-activedescendant={focusedOptionId}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+    <div role="listbox" aria-label={ariaLabel}
+      aria-activedescendant={focusedItem ? `${idPrefix}-${focusedItem.value}` : undefined}
+      tabIndex={0} onKeyDown={handleKeyDown} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
+      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
       onFocus={() => setHovered(true)}
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setHovered(false);
-      }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-      className={cn(
-        "relative mx-auto w-full max-w-2xl rounded-3xl border bg-card/80 p-4 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-6",
-        className,
-      )}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setHovered(false); }}
+      className={cn("relative mx-auto w-full max-w-2xl rounded-3xl border bg-card/80 p-4 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-6", className)}
     >
-      <div className="relative min-h-[340px] touch-pan-y overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-background to-primary/10 sm:min-h-[390px]">
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-52 w-52 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/15 sm:h-64 sm:w-64" />
-        <div className="pointer-events-none absolute left-1/2 top-1/2 h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full border border-primary/10 sm:h-80 sm:w-80" />
+      <div className="relative min-h-[300px] touch-pan-y overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-background to-primary/10 sm:min-h-[350px]">
+        <svg data-testid="orbit-arch" aria-hidden="true" viewBox="0 0 520 250"
+          className="pointer-events-none absolute left-1/2 top-[18%] h-[62%] w-[92%] -translate-x-1/2 overflow-visible">
+          <path d="M 35 220 A 225 190 0 0 1 485 220" fill="none" stroke="currentColor"
+            className="text-primary/25" strokeWidth="2" strokeLinecap="round" />
+        </svg>
 
-        <div className="absolute left-1/2 top-1/2 z-10 flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/30 bg-background/95 shadow-lg sm:h-36 sm:w-36">
-          {centralContent ? (
-            centralContent(focusedItem)
-          ) : (
-            <div className="flex flex-col items-center gap-2 px-3 text-center">
-              <div className="text-primary">{focusedItem?.icon}</div>
-              <span className="text-xs font-semibold sm:text-sm">{focusedItem?.label}</span>
-            </div>
-          )}
+        <div data-testid="orbit-center-symbol"
+          className="absolute left-1/2 top-[76%] z-10 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/95 shadow-lg sm:h-28 sm:w-28">
+          {centralContent ? centralContent(focusedItem) : <div className="text-primary">{focusedItem?.icon}</div>}
         </div>
 
         {items.map((item, index) => {
           const count = Math.max(items.length, 1);
-          const relative = ((index - focusedIndex + count) % count + count) % count;
-          const signed = relative > count / 2 ? relative - count : relative;
-          const angle = signed * (360 / count) - 20;
-          const x = Math.cos((angle * Math.PI) / 180) * radius;
-          const y = Math.sin((angle * Math.PI) / 180) * radius;
+          const slot = ((index - focusedIndex + count) % count + count) % count;
+          const angle = optionAngles[slot % optionAngles.length] * Math.PI / 180;
+          const x = Math.cos(angle) * radiusX;
+          const y = Math.sin(angle) * radiusY;
           const isFocused = index === focusedIndex;
           const isSelected = item.value === selectedValue;
-
           return (
-            <button
-              key={item.value}
-              id={`${idPrefix}-${item.value}`}
-              type="button"
-              role="option"
-              aria-selected={isSelected}
-              disabled={item.disabled}
-              onClick={() => {
-                setFocusedIndex(index);
-                pauseFromInteraction();
-                if (!item.disabled) onSelect(item.value);
-              }}
-              style={{
-                transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(${isFocused ? 1.08 : 0.92})`,
-              }}
+            <button key={item.value} id={`${idPrefix}-${item.value}`} type="button" role="option"
+              aria-selected={isSelected} disabled={item.disabled}
+              onClick={() => { setFocusedIndex(index); pauseFromInteraction(); if (!item.disabled) onSelect(item.value); }}
+              style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(${isFocused ? 1.06 : 0.9})` }}
               className={cn(
-                "absolute left-1/2 top-1/2 flex min-w-20 max-w-28 flex-col items-center gap-1 rounded-2xl border bg-background/95 px-3 py-2 text-center shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-500 ease-out motion-reduce:transition-none",
-                isFocused ? "z-20 border-primary/60 opacity-100 shadow-md" : "z-0 border-border/70 opacity-70",
+                "absolute left-1/2 top-[76%] flex min-w-20 max-w-28 flex-col items-center gap-1 rounded-2xl border bg-background/95 px-3 py-2 text-center shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-700 ease-in-out motion-reduce:transition-none",
+                isFocused ? "z-20 border-primary/70 opacity-100 shadow-md" : "z-10 border-border/70 opacity-75",
                 isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                 item.disabled && "cursor-not-allowed opacity-40",
-              )}
-            >
+              )}>
               <span className={cn("text-muted-foreground", (isFocused || isSelected) && "text-primary")}>{item.icon}</span>
               <span className="text-[11px] font-medium leading-tight sm:text-xs">{item.label}</span>
             </button>
           );
         })}
 
-        <button
-          type="button"
-          aria-label="Previous option"
-          onClick={() => moveFocus(-1)}
-          className="absolute bottom-3 left-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-background/90 shadow-sm transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
+        <button type="button" aria-label="Previous option" onClick={() => moveFocus(-1)}
+          className="absolute bottom-3 left-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-background/90 shadow-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <ChevronLeft className="h-4 w-4" />
         </button>
-        <button
-          type="button"
-          aria-label="Next option"
-          onClick={() => moveFocus(1)}
-          className="absolute bottom-3 right-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-background/90 shadow-sm transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-        >
+        <button type="button" aria-label="Next option" onClick={() => moveFocus(1)}
+          className="absolute bottom-3 right-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-background/90 shadow-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-
       <div className="mt-3 flex min-h-10 items-center justify-center text-center">
-        <p className="text-xs text-muted-foreground">
-          {focusedItem?.description || "Use arrow keys, swipe, or the controls to explore. Click an option to select it."}
-        </p>
+        <p className="text-xs text-muted-foreground">{focusedItem?.description || "Use arrow keys, swipe, or the controls to explore. Click an option to select it."}</p>
       </div>
     </div>
   );
@@ -224,19 +141,9 @@ export function OrbitSelector<T extends string = string>({
 
 export function LiveDigitalClock({ className }: { className?: string }) {
   const [now, setNow] = useState(() => new Date());
-
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 1000);
-    return () => window.clearInterval(id);
-  }, []);
-
-  return (
-    <time
-      className={cn("font-mono text-xl font-bold tracking-wider text-primary sm:text-2xl", className)}
-      dateTime={now.toISOString()}
-      aria-label={`Local time ${now.toLocaleTimeString()}`}
-    >
-      {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-    </time>
-  );
+  useEffect(() => { const id = window.setInterval(() => setNow(new Date()), 1000); return () => window.clearInterval(id); }, []);
+  return <time className={cn("font-mono text-xl font-bold tracking-wider text-primary sm:text-2xl", className)}
+    dateTime={now.toISOString()} aria-label={`Local time ${now.toLocaleTimeString()}`}>
+    {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+  </time>;
 }
