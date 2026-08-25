@@ -75,3 +75,12 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = true
   [functions.community-scan-image]
     verify_jwt = true
+
+  [functions.ai-action-approve]
+    verify_jwt = true
+  [functions.golden-journey]
+    verify_jwt = true
+  [functions.pulse-ai]
+    verify_jwt = false
+  [functions.save-telegram-credentials]
+    verify_jwt = true
