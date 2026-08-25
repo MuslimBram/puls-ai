@@ -22,7 +22,6 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import { Seo } from "@/components/Seo";
-import { FloatingAIBot } from "@/components/FloatingAIBot";
 import { PublicShell } from "@/components/public/PublicShell";
 import { PublicCTA } from "@/components/public/PublicCTA";
 import { TrustBadgeRow } from "@/components/public/TrustBadge";
@@ -587,8 +586,6 @@ const Index = () => {
           </div>
         </section>
       </div>
-
-      <FloatingAIBot />
     </PublicShell>
   );
 };
