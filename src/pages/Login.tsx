@@ -233,8 +233,8 @@ const Login = () => {
   // Security code verification screen
   if (loginStep === "security_code") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background bg-[radial-gradient(circle_at_18%_18%,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_82%_82%,hsl(var(--primary)/0.10),transparent_28%)] px-4 py-8 sm:px-8">
+        <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <ShieldCheck className="h-6 w-6 text-primary-foreground" />
@@ -285,8 +285,8 @@ const Login = () => {
   // 2FA method chooser
   if (needs2FA && twoFAMethod === "choose") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background bg-[radial-gradient(circle_at_18%_18%,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_82%_82%,hsl(var(--primary)/0.10),transparent_28%)] px-4 py-8 sm:px-8">
+        <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <ShieldCheck className="h-6 w-6 text-primary-foreground" />
@@ -353,8 +353,8 @@ const Login = () => {
   // TOTP enrollment screen - show QR code
   if (needs2FA && twoFAMethod === "authenticator_enroll") {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background bg-[radial-gradient(circle_at_18%_18%,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_82%_82%,hsl(var(--primary)/0.10),transparent_28%)] px-4 py-8 sm:px-8">
+        <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <ShieldCheck className="h-6 w-6 text-primary-foreground" />
@@ -426,8 +426,8 @@ const Login = () => {
   if (needs2FA && (twoFAMethod === "authenticator" || twoFAMethod === "email")) {
     const isEmail = twoFAMethod === "email";
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <Card className="w-full max-w-md">
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background bg-[radial-gradient(circle_at_18%_18%,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_82%_82%,hsl(var(--primary)/0.10),transparent_28%)] px-4 py-8 sm:px-8">
+        <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <ShieldCheck className="h-6 w-6 text-primary-foreground" />
@@ -510,8 +510,8 @@ const Login = () => {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background bg-[radial-gradient(circle_at_18%_18%,hsl(var(--primary)/0.16),transparent_30%),radial-gradient(circle_at_82%_82%,hsl(var(--primary)/0.10),transparent_28%)] px-4 py-8 sm:px-8">
+      <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <Zap className="h-6 w-6 text-primary-foreground" />
