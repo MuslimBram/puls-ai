@@ -40,7 +40,7 @@ export const GlobalFooter = () => {
       <div className="mx-auto max-w-7xl">
         <div className="hidden gap-6 sm:grid sm:grid-cols-[minmax(220px,1fr)_2fr] sm:items-start">
           <div>
-            <Link to="/" className="text-base font-semibold text-foreground" title="Pulse AI">
+            <Link to="/" className="text-base font-semibold text-foreground transition-colors hover:text-foreground" title="Pulse AI">
               Pulse AI
             </Link>
             <p className="mt-2 max-w-sm text-sm leading-6">
@@ -70,7 +70,7 @@ export const GlobalFooter = () => {
 
         <div className="space-y-5 sm:hidden">
           <div>
-            <Link to="/" className="text-base font-semibold text-foreground" title="Pulse AI">
+            <Link to="/" className="text-base font-semibold text-foreground transition-colors hover:text-foreground" title="Pulse AI">
               Pulse AI
             </Link>
             <p className="mt-2 text-sm leading-6">
