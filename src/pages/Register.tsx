@@ -13,7 +13,7 @@ import { oauth } from "@/integrations/auth/oauth";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { AccountTypeOrbitSelector } from "@/components/register/AccountTypeOrbitSelector";
-import { AuthBackdropVisual } from "@/components/auth/AuthBackdropVisual";
+import { AuthDialogShell } from "@/components/auth/AuthDialogShell";
 
 type AccountType = "business" | "freelancer" | "ambassador" | "white_label" | null;
 type Step = "method" | "account-type" | "plan-selection" | "credentials";
@@ -205,7 +205,7 @@ const Register = () => {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8 sm:px-8">
-      <AuthBackdropVisual />
+      <AuthDialogShell>
       <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-3xl overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
         <CardHeader className="text-center">
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
@@ -543,6 +543,7 @@ const Register = () => {
           </form>
         )}
       </Card>
+      </AuthDialogShell>
     </div>
   );
 };
