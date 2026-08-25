@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, User, Zap, Building2, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck } from "lucide-react";
+import { Mail, Lock, User, Zap, Building2, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Bot, AtSign } from "lucide-react";
 import { formatALL } from "@/lib/currency";
 import { oauth } from "@/integrations/auth/oauth";
 import { cn } from "@/lib/utils";
@@ -16,7 +16,8 @@ import { AccountTypeOrbitSelector } from "@/components/register/AccountTypeOrbit
 import { AuthBackdropVisual } from "@/components/auth/AuthBackdropVisual";
 
 type AccountType = "business" | "freelancer" | "ambassador" | "white_label" | null;
-type Step = "account-type" | "plan-selection" | "credentials";
+type Step = "method" | "account-type" | "plan-selection" | "credentials";
+type RegistrationMethod = "ai" | "email" | "google" | "facebook" | "apple";
 type SocialProvider = "google" | "facebook" | "apple";
 
 interface PlanTier {
@@ -54,7 +55,8 @@ const Register = () => {
   const [searchParams] = useSearchParams();
   const refCode = searchParams.get("ref") || "";
   const source = searchParams.get("source") || "";
-  const [step, setStep] = useState<Step>("account-type");
+  const [step, setStep] = useState<Step>("method");
+  const [registrationMethod, setRegistrationMethod] = useState<RegistrationMethod | null>(null);
 
   const { data: dbPlans } = useQuery({
     queryKey: ["pricing-settings-register"],
@@ -99,6 +101,10 @@ const Register = () => {
     }
     setSelectedTier("standard");
     setSelectedDuration("trial");
+    if (registrationMethod === "google" || registrationMethod === "facebook" || registrationMethod === "apple") {
+      void handleSocialRegister(registrationMethod);
+      return;
+    }
     setStep("credentials");
   };
 
@@ -207,12 +213,13 @@ const Register = () => {
           </div>
           <CardTitle className="text-2xl">Create Account</CardTitle>
           <CardDescription>
-            {step === "account-type" && "Choose your account type"}
+            {step === "method" && "Choose how you want to create your account"}
+            {step === "account-type" && (registrationMethod === "ai" ? "Let AI guide your account setup" : "Choose your account type")}
             {step === "plan-selection" && "Choose your billing plan"}
             {step === "credentials" && "Fill in your details"}
           </CardDescription>
           <div className="mx-auto mt-3 flex items-center gap-2">
-            {["account-type", "plan-selection", "credentials"].map((s) => (
+            {["method", "account-type", "plan-selection", "credentials"].map((s) => (
               <div
                 key={s}
                 className={cn(
@@ -224,6 +231,45 @@ const Register = () => {
             ))}
           </div>
         </CardHeader>
+
+        {step === "method" && (
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                { value: "ai" as const, icon: Bot, title: "AI-guided setup", reason: "Best if you are unsure. Pulse AI guides you through the account type and setup choices.", recommended: true },
+                { value: "email" as const, icon: AtSign, title: "Continue with email", reason: "Best for full control with a separate password and security code." },
+                { value: "google" as const, icon: Zap, title: "Continue with Google", reason: "Fastest setup if your business already uses Google." },
+                { value: "facebook" as const, icon: Users, title: "Continue with Facebook", reason: "Useful when your customer activity starts from Facebook or Messenger." },
+                { value: "apple" as const, icon: ShieldCheck, title: "Continue with Apple", reason: "A privacy-focused sign-up using your Apple account." },
+              ].map(({ value, icon: Icon, title, reason, recommended }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => { setRegistrationMethod(value); setStep("account-type"); }}
+                  className={cn(
+                    "relative flex items-start gap-3 rounded-2xl border p-4 text-left transition hover:border-primary/60 hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    recommended && "border-primary/40 bg-primary/5 sm:col-span-2",
+                  )}
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><Icon className="h-5 w-5" /></span>
+                  <span>
+                    <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                      {title}
+                      {recommended && <Badge className="text-[10px]">Recommended</Badge>}
+                    </span>
+                    <span className="mt-1 block text-xs leading-5 text-muted-foreground">{reason}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <p className="text-center text-xs text-muted-foreground">
+              You will choose Business, Freelancer, Ambassador or White-Label next.
+            </p>
+            <p className="text-center text-sm text-muted-foreground">
+              Already have an account? <Link to="/login" className="text-primary hover:underline">Sign in</Link>
+            </p>
+          </CardContent>
+        )}
 
         {step === "account-type" && (
           <CardContent className="space-y-4">
