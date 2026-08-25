@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Mail, Lock, User, Zap, Building2, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Bot, AtSign } from "lucide-react";
+import { Mail, Lock, User, Zap, Building2, Check, ArrowLeft, ArrowRight, Crown, ShieldCheck, Bot, AtSign, Users } from "lucide-react";
 import { formatALL } from "@/lib/currency";
 import { oauth } from "@/integrations/auth/oauth";
 import { cn } from "@/lib/utils";
