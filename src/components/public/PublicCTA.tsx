@@ -160,7 +160,7 @@ export function PublicCTA({
   }
 
   // Logged out → registration method choices with safe intended destination
-  const loginHref = buildLoggedOutCtaLoginHref(appDestination);
+  const registerHref = buildLoggedOutCtaRegisterHref(appDestination);
 
   return (
     <Button
