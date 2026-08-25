@@ -104,5 +104,5 @@ describe("Homepage behavior", () => {
     const lidhjet = screen.getAllByRole("link", { name: "Lidhjet" });
     expect(lidhjet.some((link) => link.getAttribute("href") === "/lidhjet-public")).toBe(true);
     expect(screen.queryByText(/coming soon|së shpejti/i)).not.toBeInTheDocument();
-  });;
+  });
 });
