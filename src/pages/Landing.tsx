@@ -93,7 +93,8 @@ export default function Landing() {
             <Zap className="h-6 w-6 text-primary" />
             <span className="font-bold text-lg">Pulse AI</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate("/lidhjet-public")}>Lidhjet</Button>
             <Button variant="ghost" size="sm" onClick={() => navigate("/login")}>Sign in</Button>
             <Button size="sm" onClick={() => navigate("/register")}>Start free</Button>
           </div>
@@ -148,6 +149,70 @@ export default function Landing() {
               <div className="text-sm text-muted-foreground mt-1">{l}</div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* BUSINESS PROBLEM — EMOTIONAL CTA */}
+      <section className="bg-gradient-to-r from-destructive/10 via-destructive/5 to-background py-20">
+        <div className="max-w-5xl mx-auto px-4">
+          <div className="space-y-8">
+            {/* Eyebrow */}
+            <div className="text-center space-y-4">
+              <div className="text-sm font-semibold text-destructive tracking-wide">
+                THE PROBLEM HIDING IN YOUR SILENCE
+              </div>
+              {/* Main Headline */}
+              <h2 className="text-3xl sm:text-4xl font-bold text-foreground max-w-3xl mx-auto leading-tight">
+                How many customers have you lost because your reply came too late?
+              </h2>
+              {/* Supporting Copy */}
+              <p className="text-lg text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                A forgotten message is not just a notification. It's a customer who waited, got no response, and chose a competitor instead — while you never knew what you lost.
+              </p>
+            </div>
+
+            {/* Problem Cards */}
+            <div className="grid md:grid-cols-2 gap-6 mt-12">
+              <div className="bg-card border border-border rounded-xl p-6 space-y-3">
+                <div className="text-3xl text-destructive">✕</div>
+                <h3 className="font-semibold text-foreground">Messages Lost in the Chaos</h3>
+                <p className="text-sm text-muted-foreground">
+                  Conversations scattered across WhatsApp, Instagram, email, SMS. One message missed in one channel = one lost opportunity.
+                </p>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-6 space-y-3">
+                <div className="text-3xl text-destructive">✕</div>
+                <h3 className="font-semibold text-foreground">Slow Follow-Ups Kill Deals</h3>
+                <p className="text-sm text-muted-foreground">
+                  By the time your team replies, they've already contacted 3 other businesses. Speed is revenue.
+                </p>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-6 space-y-3">
+                <div className="text-3xl text-destructive">✕</div>
+                <h3 className="font-semibold text-foreground">Context Disappears Between Team Members</h3>
+                <p className="text-sm text-muted-foreground">
+                  One person replies with outdated pricing. Another forgets what the customer asked about. Confusion costs trust.
+                </p>
+              </div>
+              <div className="bg-card border border-border rounded-xl p-6 space-y-3">
+                <div className="text-3xl text-destructive">✕</div>
+                <h3 className="font-semibold text-foreground">No Visibility Into What Went Wrong</h3>
+                <p className="text-sm text-muted-foreground">
+                  Revenue vanishes. You look at reports and see a number dropped, but nobody knows why or when you lost that customer.
+                </p>
+              </div>
+            </div>
+
+            {/* CTAs */}
+            <div className="text-center space-y-4 mt-12">
+              <Button size="lg" onClick={() => navigate("/register")} className="gap-2 font-semibold">
+                Don't Lose Your Next Customer <ArrowRight className="h-5 w-5" />
+              </Button>
+              <p className="text-sm text-muted-foreground">
+                See how Pulse AI catches every message, replies in seconds, and keeps nothing lost.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 

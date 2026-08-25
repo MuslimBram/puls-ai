@@ -52,6 +52,7 @@ const Register = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const refCode = searchParams.get("ref") || "";
+  const source = searchParams.get("source") || "";
   const [step, setStep] = useState<Step>("account-type");
 
   const { data: dbPlans } = useQuery({
@@ -149,6 +150,7 @@ const Register = () => {
             billing_plan: selectedTier,
             billing_duration: selectedDuration,
             ...(refCode ? { referral_code: refCode } : {}),
+            ...(source ? { signup_source: source } : {}),
             ...(fraudData?.risk_score !== undefined ? { ai_risk_score: fraudData.risk_score } : {}),
           },
           emailRedirectTo: window.location.origin,
@@ -159,6 +161,7 @@ const Register = () => {
         toast.error(error.message);
       } else {
         localStorage.setItem("pending_security_code", securityCode);
+        localStorage.setItem("registration_source", source || "");
         toast.success("Check your email to confirm your account");
         navigate("/login");
       }

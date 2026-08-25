@@ -10,6 +10,8 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
 import { PermissionRoute } from "@/components/PermissionRoute";
+import { GlobalTopNav } from "@/components/GlobalTopNav";
+import { GlobalFooter } from "@/components/GlobalFooter";
 import type { RolePermissions } from "@/hooks/useRolePermissions";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { CookieConsentBanner } from "@/components/legal/CookieConsentBanner";
@@ -93,6 +95,7 @@ const PlatformLidhjet = lazy(() => import("./pages/platform/PlatformLidhjet"));
 const Branding = lazy(() => import("./pages/Branding"));
 const SalesEngine = lazy(() => import("./pages/SalesEngine"));
 const FinancialIntelligence = lazy(() => import("./pages/FinancialIntelligence"));
+const LidhjetPublic = lazy(() => import("./pages/LidhjetPublic"));
 const SaaSHealth = lazy(() => import("./pages/SaaSHealth"));
 const ResellerDashboard = lazy(() => import("./pages/ResellerDashboard"));
 const MarketingAutomation = lazy(() => import("./pages/MarketingAutomation"));
@@ -210,8 +213,12 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <Routes>
-                <Route path="/" element={<PublicLocaleRedirect target="/" />} />
+              <div className="flex flex-col min-h-screen">
+                <GlobalTopNav />
+                <main className="flex-1">
+                  <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/lidhjet-public" element={<Suspense fallback={<LazyFallback />}><LidhjetPublic /></Suspense>} />
                 <Route path="/install" element={<Suspense fallback={<LazyFallback />}><InstallPage /></Suspense>} />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
@@ -374,6 +381,9 @@ const App = () => (
         <Route path="/landing" element={<Suspense fallback={<LazyFallback />}><Landing /></Suspense>} />
         <Route path="*" element={<NotFound />} />
               </Routes>
+                </main>
+                <GlobalFooter />
+              </div>
               <PWAInstallPrompt />
               <CookieConsentBanner />
             </BrowserRouter>
