@@ -9,10 +9,10 @@ type AccountTypeOrbitSelectorProps = {
 };
 
 const ACCOUNT_TYPES: OrbitSelectorItem<AccountTypeValue>[] = [
-  { value: "business", label: "Business", icon: <Building2 className="h-6 w-6" />, description: "Manage your business — inbox, CRM, marketing, AI, telephony & analytics in one platform." },
-  { value: "freelancer", label: "Freelancer", icon: <Briefcase className="h-6 w-6" />, description: "Manage client businesses — rewards follow your approved referral and management terms." },
-  { value: "ambassador", label: "Ambassador", icon: <Users className="h-6 w-6" />, description: "Referrals only — rewards follow the active partner terms for your account." },
-  { value: "white_label", label: "White-Label", icon: <Palette className="h-6 w-6" />, description: "Resell Pulse AI under your own brand, logo and domain." },
+  { value: "business", label: "Business", icon: <Building2 className="h-6 w-6" />, description: "For company owners and teams: unified inbox, CRM, AI assistant, marketing automation, telephony, analytics and a 7-day trial in one workspace." },
+  { value: "freelancer", label: "Freelancer", icon: <Briefcase className="h-6 w-6" />, description: "For consultants and operators managing client businesses: separate client workspaces, management tools and eligible referral rewards under approved terms." },
+  { value: "ambassador", label: "Ambassador", icon: <Users className="h-6 w-6" />, description: "For people who introduce businesses to Pulse AI: no client-management workload, referral tracking and eligible rewards under the active partner terms." },
+  { value: "white_label", label: "White-Label", icon: <Palette className="h-6 w-6" />, description: "For agencies and resellers: your own brand, logo and domain, client account management and a reviewed commercial setup." },
 ];
 
 export function AccountTypeOrbitSelector({ value, onChange }: AccountTypeOrbitSelectorProps) {
