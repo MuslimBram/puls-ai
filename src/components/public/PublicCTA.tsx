@@ -22,7 +22,7 @@ import { useTranslation } from "react-i18next";
 import { validateInternalPath } from "@/lib/safeNavigate";
 import { cn } from "@/lib/utils";
 import { ArrowRight, Bell, Loader2 } from "lucide-react";
-import { buildLoggedOutCtaLoginHref } from "./publicCtaDestination";
+import { buildLoggedOutCtaRegisterHref } from "./publicCtaDestination";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 export type CTAVariant = "default" | "beta" | "coming_soon";
@@ -159,8 +159,8 @@ export function PublicCTA({
     );
   }
 
-  // Logged out → login with safe intended app destination using `next` contract
-  const loginHref = buildLoggedOutCtaLoginHref(appDestination);
+  // Logged out → registration method choices with safe intended destination
+  const registerHref = buildLoggedOutCtaRegisterHref(appDestination);
 
   return (
     <Button
@@ -170,7 +170,7 @@ export function PublicCTA({
       asChild
       {...rest}
     >
-      <Link to={loginHref}>
+      <Link to={registerHref}>
         {label ?? t("cta.getStarted")}
         {showIcon && <ArrowRight className="h-4 w-4" aria-hidden="true" />}
       </Link>

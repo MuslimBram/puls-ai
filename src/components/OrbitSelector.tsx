@@ -31,7 +31,6 @@ export function OrbitSelector<T extends string = string>({
   const initialIndex = Math.max(0, items.findIndex((item) => item.value === selectedValue));
   const [focusedIndex, setFocusedIndex] = useState(initialIndex);
   const [pausedUntil, setPausedUntil] = useState(0);
-  const [hovered, setHovered] = useState(false);
   const touchStartX = useRef<number | null>(null);
   const rawId = useId();
   const idPrefix = `orbit-${rawId.replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -44,12 +43,12 @@ export function OrbitSelector<T extends string = string>({
   }, [items, selectedValue]);
 
   useEffect(() => {
-    if (!items.length || !autoRotate || reducedMotion || hovered) return;
+    if (!items.length || !autoRotate || reducedMotion) return;
     const id = window.setInterval(() => {
       if (Date.now() >= pausedUntil) setFocusedIndex((index) => (index + 1) % items.length);
     }, rotationInterval);
     return () => window.clearInterval(id);
-  }, [autoRotate, hovered, items.length, pausedUntil, reducedMotion, rotationInterval]);
+  }, [autoRotate, items.length, pausedUntil, reducedMotion, rotationInterval]);
 
   const pauseFromInteraction = () => setPausedUntil(Date.now() + pauseOnInteractionMs);
   const moveFocus = (delta: number) => {
@@ -81,9 +80,6 @@ export function OrbitSelector<T extends string = string>({
     <div role="listbox" aria-label={ariaLabel}
       aria-activedescendant={focusedItem ? `${idPrefix}-${focusedItem.value}` : undefined}
       tabIndex={0} onKeyDown={handleKeyDown} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}
-      onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
-      onFocus={() => setHovered(true)}
-      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setHovered(false); }}
       className={cn("relative mx-auto w-full max-w-2xl rounded-3xl border bg-card/80 p-4 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-6", className)}
     >
       <div className="relative min-h-[300px] touch-pan-y overflow-hidden rounded-2xl bg-gradient-to-br from-primary/5 via-background to-primary/10 sm:min-h-[350px]">
