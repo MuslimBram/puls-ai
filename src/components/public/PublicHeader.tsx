@@ -5,7 +5,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, ArrowRight, Home, Moon, Sun } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,7 +24,6 @@ export function PublicHeader({ className }: PublicHeaderProps) {
   const { t } = useTranslation();
   const { localizedPath } = usePublicLocale();
   const navigate = useNavigate();
-  const location = useLocation();
   const [isDark, setIsDark] = useState(false);
 
   useEffect(() => {
@@ -131,7 +130,6 @@ export function PublicHeader({ className }: PublicHeaderProps) {
           <PublicMobileNav />
         </div>
       </div>
-      <span className="sr-only" aria-live="polite">{location.pathname}</span>
     </header>
   );
 }
