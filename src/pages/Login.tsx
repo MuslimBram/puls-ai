@@ -19,8 +19,11 @@ const Login = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const nextRaw = searchParams.get("next");
+  const source = searchParams.get("source") || "";
+  const registrationSource = typeof window !== "undefined" ? localStorage.getItem("registration_source") || "" : "";
   const safeNext = validateInternalPath(nextRaw);
-  const postAuthTarget = safeNext ?? "/dashboard";
+  const postAuthTarget =
+    safeNext ?? (source === "lidhjet" || registrationSource === "lidhjet" ? "/lidhjet/onboarding" : "/dashboard");
   const oauthRedirect = safeNext
     ? `${window.location.origin}/auth/callback?next=${encodeURIComponent(safeNext)}`
     : `${window.location.origin}/auth/callback`;

@@ -10,6 +10,10 @@ export default {
     search: "Kërko",
     filter: "Filtro",
     back: "Mbrapa",
+    forward: "Përpara",
+    home: "Shtëpia",
+    lightMode: "Mënyra e Lehtë",
+    darkMode: "Mënyra e Errët",
     next: "Tjetri",
     submit: "Dërgo",
     confirm: "Konfirmo",
@@ -164,6 +168,8 @@ export default {
       automationEngine: "Motor Automatizimi",
       automationEngineDesc: "Aktivizo procese automatike për ngjarje klientësh, mesazhe dhe më shumë.",
     },
+    opportunitiesTitle: "Katër Mënyra si Pulse AI Fuqëzon Rritjen Tuaj",
+    opportunitiesDesc: "Zgjidhni fokusimin tuaj. Shikoni biznesi juaj të transformohet.",
     pricingTitle: "Çmimet e Drejtpërdrejta nga Katalogu",
     pricingDesc: "Planet, etiketat dhe çmimet qëndrojnë të përditësuara me backend-in.",
     recommended: "E rekomanduar",
@@ -184,6 +190,14 @@ export default {
     getStarted: "Fillo Tani",
     pricing: "Çmimet",
     allRightsReserved: "Të gjitha të drejtat e rezervuara.",
+    footer: {
+      privacy: "Privatësia",
+      terms: "Kushtet",
+      cookies: "Cookies",
+      security: "Siguria",
+      contact: "Kontakt",
+      tagline: "Sistemi Operativ i Biznesit AI",
+    },
     howItWorks: {
       title: "Si Funksionon",
       desc: "Filloni me 4 hapa të thjeshtë",
@@ -520,6 +534,7 @@ export default {
     tryAgain: "Provo Përsëri",
   },
 
+<<<<<<< HEAD
   // ─── Uebsajti publik — Vala 1 ───────────────────────────────────────────────
 
   // Brend
@@ -1005,5 +1020,15 @@ export default {
     refund:           "Politika e Rimbursimit",
     affiliateTerms:   "Kushtet e Ambasadorit",
     termsAndPayments: "Kushtet e Pagesës",
+=======
+  // Footer
+  footer: {
+    privacy: "Privatësia",
+    terms: "Kushtet",
+    cookies: "Cookies",
+    security: "Siguria",
+    contact: "Kontakt",
+    tagline: "Sistemi Operativ i Biznesit AI",
+>>>>>>> 8b6920d (Phase 3: Implement global compact footer)
   },
 } as const;

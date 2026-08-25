@@ -10,6 +10,10 @@ export default {
     search: "Search",
     filter: "Filter",
     back: "Back",
+    forward: "Forward",
+    home: "Home",
+    lightMode: "Light Mode",
+    darkMode: "Dark Mode",
     next: "Next",
     submit: "Submit",
     confirm: "Confirm",
@@ -164,6 +168,8 @@ export default {
       automationEngine: "Automation Engine",
       automationEngineDesc: "Trigger workflows on lead events, messages, and more.",
     },
+    opportunitiesTitle: "Four Ways Pulse AI Powers Your Growth",
+    opportunitiesDesc: "Choose your focus. Watch your business transform.",
     pricingTitle: "Live Pricing From the Product Catalog",
     pricingDesc: "Plans, labels, and pricing stay aligned with the backend.",
     recommended: "Recommended",
@@ -184,6 +190,14 @@ export default {
     getStarted: "Get Started",
     pricing: "Pricing",
     allRightsReserved: "All rights reserved.",
+    footer: {
+      privacy: "Privacy",
+      terms: "Terms",
+      cookies: "Cookies",
+      security: "Security",
+      contact: "Contact",
+      tagline: "The AI Business Operating System",
+    },
     howItWorks: {
       title: "How It Works",
       desc: "Get started in 4 simple steps",
@@ -520,6 +534,7 @@ export default {
     tryAgain: "Try Again",
   },
 
+<<<<<<< HEAD
   // ─── Public website — Wave 1 ────────────────────────────────────────────────
 
   // Brand
@@ -1005,5 +1020,15 @@ export default {
     refund:           "Refund Policy",
     affiliateTerms:   "Ambassador Terms",
     termsAndPayments: "Payment Terms",
+=======
+  // Footer
+  footer: {
+    privacy: "Privacy",
+    terms: "Terms",
+    cookies: "Cookies",
+    security: "Security",
+    contact: "Contact",
+    tagline: "The AI Business Operating System",
+>>>>>>> 8b6920d (Phase 3: Implement global compact footer)
   },
 } as const;
