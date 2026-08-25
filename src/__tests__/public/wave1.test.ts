@@ -167,9 +167,9 @@ describe("CTA auth-aware navigation safety (validateInternalPath)", () => {
   });
 
   it("default logged-out CTA builds next from validated appDestination", () => {
-    expect(buildLoggedOutCtaLoginHref("/crm")).toBe("/login?next=%2Fcrm");
-    expect(buildLoggedOutCtaLoginHref("https://evil.com")).toBe("/login?next=%2Fdashboard");
-    expect(buildLoggedOutCtaLoginHref()).toBe("/login?next=%2Fdashboard");
+    expect(buildLoggedOutCtaRegisterHref("/crm")).toBe("/register?next=%2Fcrm");
+    expect(buildLoggedOutCtaRegisterHref("https://evil.com")).toBe("/register?next=%2Fdashboard");
+    expect(buildLoggedOutCtaRegisterHref()).toBe("/register?next=%2Fdashboard");
   });
 
   it("rejects external URL in CTA destination", () => {
