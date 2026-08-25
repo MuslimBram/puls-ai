@@ -4,6 +4,7 @@ import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,18 +12,21 @@ import { useInbox, InboxFilters } from "@/hooks/useInbox";
 import { useLeads } from "@/hooks/useLeads";
 import { AIContextPanel } from "@/components/AIContextPanel";
 import { CustomerIntelligenceProfile } from "@/components/CustomerIntelligenceProfile";
-import { Inbox as InboxIcon, Search, Star, Eye, MessageSquare, ChevronLeft, ChevronRight } from "lucide-react";
+import { Inbox as InboxIcon, Search, Star, MessageSquare, ChevronLeft, ChevronRight, Send, Loader2 } from "lucide-react";
 import { IntentBadge, INTENT_TYPE_OPTIONS } from "@/components/IntentBadge";
 import { toast } from "@/components/ui/sonner";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { CoachTour } from "@/components/CoachTour";
+import { useSendMessage } from "@/hooks/useSendMessage";
 
 const Inbox = () => {
   const [filters, setFilters] = useState<InboxFilters>({});
   const [selectedMsg, setSelectedMsg] = useState<any>(null);
+  const [replyText, setReplyText] = useState("");
   const { messages, total, isLoading, markRead, updateStatus, updatePriority, subscribeRealtime, page, pageSize, nextPage, prevPage, setPage } = useInbox(filters);
   const { updateStatus: updateLeadStatus } = useLeads();
+  const sendMessage = useSendMessage();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -33,6 +37,21 @@ const Inbox = () => {
   const handleOpen = (msg: any) => {
     setSelectedMsg(msg);
     if (msg.is_unread) markRead.mutate(msg.id);
+  };
+
+  const handleTelegramReply = async () => {
+    const chatId = selectedMsg?.metadata?.chat_id;
+    const message = replyText.trim();
+    if (!chatId || !message) return;
+
+    await sendMessage.mutateAsync({
+      channel: "telegram",
+      to: String(chatId),
+      chat_id: String(chatId),
+      message,
+      reply_to_message_id: selectedMsg.provider_message_id || undefined,
+    });
+    setReplyText("");
   };
 
   const priorityColor = (p: string) => {
@@ -185,6 +204,30 @@ const Inbox = () => {
                   <p className="text-xs font-medium text-muted-foreground mb-1">Message</p>
                   <p className="text-sm text-foreground rounded-lg bg-muted p-3">{selectedMsg.message_content}</p>
                 </div>
+                {selectedMsg.channel_type === "telegram" && selectedMsg.metadata?.chat_id && (
+                  <div className="space-y-2 rounded-lg border border-border p-3">
+                    <p className="text-xs font-medium text-muted-foreground">Reply on Telegram</p>
+                    <Textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Write a reply..."
+                      rows={3}
+                      maxLength={4096}
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        size="sm"
+                        onClick={handleTelegramReply}
+                        disabled={!replyText.trim() || sendMessage.isPending}
+                      >
+                        {sendMessage.isPending
+                          ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          : <Send className="mr-1 h-3.5 w-3.5" />}
+                        Send Reply
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 {selectedMsg.matched_keywords?.length > 0 && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Matched Keywords</p>

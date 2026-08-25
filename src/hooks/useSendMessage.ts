@@ -88,10 +88,13 @@ export const useSendMessage = () => {
           };
           break;
         case "telegram":
+          if (!workspace?.id) throw new Error("Select a workspace before sending a Telegram message.");
           body = {
             chat_id: params.chat_id || params.to,
             message: params.message,
             parse_mode: params.parse_mode,
+            reply_to_message_id: params.reply_to_message_id,
+            workspace_id: workspace.id,
           };
           break;
         default:
