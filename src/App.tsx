@@ -10,7 +10,6 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
 import { PermissionRoute } from "@/components/PermissionRoute";
-import { GlobalTopNav } from "@/components/GlobalTopNav";
 import { GlobalFooter } from "@/components/GlobalFooter";
 import type { RolePermissions } from "@/hooks/useRolePermissions";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
@@ -214,7 +213,6 @@ const App = () => (
             <Sonner />
             <BrowserRouter>
               <div className="flex flex-col min-h-screen">
-                <GlobalTopNav />
                 <main className="flex-1">
                   <Routes>
                 <Route path="/" element={<Index />} />

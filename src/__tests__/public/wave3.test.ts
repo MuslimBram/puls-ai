@@ -116,11 +116,11 @@ describe("publicNavConfig Wave 3", () => {
     expect(partners?.comingSoon).toBe(true);
   });
 
-  it("lidhjet nav item points to /platform/lidhjet", () => {
+  it("lidhjet nav item points to the active public experience", () => {
     const lidhjet = allPublicNavItems.find((i) => i.labelKey === "nav.standalone.lidhjet");
     expect(lidhjet).toBeDefined();
-    expect(lidhjet?.href).toBe("/platform/lidhjet");
-    expect(lidhjet?.comingSoon).toBe(true);
+    expect(lidhjet?.href).toBe("/lidhjet-public");
+    expect(lidhjet?.comingSoon).not.toBe(true);
   });
 
   it("no /developer (non-canonical) in public nav", () => {

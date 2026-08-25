@@ -4,7 +4,7 @@
  * Covers:
  * - publicNavConfig structure with canonical routes
  * - No non-canonical routes (/platform/ai-intelligence, /platform/crm-sales, /developer)
- * - Canonical public Lidhjet route = /platform/lidhjet
+ * - Canonical public Lidhjet route = /lidhjet-public
  * - Partners route = /platform/partners
  * - validateInternalPath (auth-aware CTA foundation)
  * - Login CTA uses the existing safe `next` contract
@@ -81,10 +81,11 @@ describe("publicNavConfig", () => {
     expect(exposed).toBe(false);
   });
 
-  it("keeps Lidhjet as a non-live coming soon item", () => {
+  it("publishes Lidhjet as a live public item", () => {
     const lidhjetItem = allPublicNavItems.find((i) => i.labelKey === "nav.standalone.lidhjet");
     expect(lidhjetItem).toBeDefined();
-    expect(lidhjetItem?.comingSoon).toBe(true);
+    expect(lidhjetItem?.href).toBe("/lidhjet-public");
+    expect(lidhjetItem?.comingSoon).not.toBe(true);
   });
 
   it("Partners route is /platform/partners (not /partners)", () => {

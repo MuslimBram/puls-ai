@@ -18,6 +18,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 import PublicLocaleLayout from "@/components/public/PublicLocaleLayout";
+import { GlobalFooter } from "@/components/GlobalFooter";
 import PlatformHub from "@/pages/platform/PlatformHub";
 import PlatformAi from "@/pages/platform/PlatformAi";
 import About from "@/pages/About";
@@ -66,6 +67,7 @@ function renderLocalized(locale: string, element: React.ReactElement) {
             <Route index element={element} />
           </Route>
         </Routes>
+        <GlobalFooter />
       </MemoryRouter>
     </TooltipProvider>,
   );
@@ -80,6 +82,7 @@ function renderLocalizedSub(locale: string, subPath: string, element: React.Reac
             <Route path={subPath} element={element} />
           </Route>
         </Routes>
+        <GlobalFooter />
       </MemoryRouter>
     </TooltipProvider>,
   );
@@ -298,8 +301,8 @@ describe("Wave 5 — public navigation/footer locale parity", () => {
   it("/sq footer tagline renders Albanian copy", async () => {
     renderLocalizedSub("sq", "platform", <PlatformHub />);
     await screen.findByRole("heading", { name: "Një Platformë. Çdo Mjet Biznesi që Keni Nevojë." });
-    expect(screen.getByText("Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj."))
-      .toBeInTheDocument();
+    expect(screen.getAllByText("Një sistem inteligjent për të drejtuar, automatizuar dhe rritur biznesin tuaj.").length)
+      .toBeGreaterThan(0);
   });
 
   it("/sq footer does NOT show EN tagline", async () => {

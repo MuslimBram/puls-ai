@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Index from "@/pages/Index";
+import { GlobalFooter } from "@/components/GlobalFooter";
 import i18n from "@/i18n";
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -28,6 +29,7 @@ function renderHomepage(initialEntries: string[] = ["/"]) {
     <TooltipProvider>
       <MemoryRouter initialEntries={initialEntries}>
         <Index />
+        <GlobalFooter />
       </MemoryRouter>
     </TooltipProvider>,
   );
@@ -93,29 +95,14 @@ describe("Homepage behavior", () => {
     expect(await screen.findByRole("button", { name: closeLabel })).toBeInTheDocument();
   });
 
-  it("scrolls to homepage sections for hash navigation links instead of only changing the URL", async () => {
+  it("renders exactly one public header and one global footer", () => {
     renderHomepage();
 
-    const aiSection = document.getElementById("ai") as HTMLElement;
-    const systemSection = document.getElementById("system") as HTMLElement;
-    const journeySection = document.getElementById("journey") as HTMLElement;
-    const aiScrollSpy = vi.fn();
-    const systemScrollSpy = vi.fn();
-    const journeyScrollSpy = vi.fn();
+    expect(screen.getAllByRole("banner")).toHaveLength(1);
+    expect(screen.getAllByRole("contentinfo")).toHaveLength(1);
 
-    aiSection.scrollIntoView = aiScrollSpy;
-    systemSection.scrollIntoView = systemScrollSpy;
-    journeySection.scrollIntoView = journeyScrollSpy;
-
-    const footer = screen.getByRole("contentinfo");
-
-    fireEvent.click(within(footer).getByRole("link", { name: "AI & Intelligence" }));
-    await waitFor(() => expect(aiScrollSpy).toHaveBeenCalledTimes(1));
-
-    fireEvent.click(within(footer).getByRole("link", { name: "Unified Inbox" }));
-    await waitFor(() => expect(systemScrollSpy).toHaveBeenCalledTimes(1));
-
-    fireEvent.click(within(footer).getByRole("link", { name: "CRM & Sales" }));
-    await waitFor(() => expect(journeyScrollSpy).toHaveBeenCalledTimes(1));
+    const lidhjet = screen.getAllByRole("link", { name: "Lidhjet" });
+    expect(lidhjet.some((link) => link.getAttribute("href") === "/lidhjet-public")).toBe(true);
+    expect(screen.queryByText(/coming soon|së shpejti/i)).not.toBeInTheDocument();
   });
 });

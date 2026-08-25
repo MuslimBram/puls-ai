@@ -10,7 +10,6 @@ import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Separator } from "@/components/ui/separator";
 import { TrustBadge } from "./TrustBadge";
-import { PublicLanguageSelector } from "./PublicLanguageSelector";
 import { cn } from "@/lib/utils";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
 
@@ -27,7 +26,7 @@ const FOOTER_PLATFORM = [
 const FOOTER_BUSINESS = [
   { labelKey: "nav.standalone.pricing", href: "/pricing" },
   { labelKey: "nav.business.whiteLabel", href: "/white-label" },
-  { labelKey: "nav.standalone.lidhjet", href: "/#community", comingSoon: true },
+  { labelKey: "nav.standalone.lidhjet", href: "/lidhjet-public" },
 ];
 
 const FOOTER_COMPANY = [
@@ -55,7 +54,7 @@ export function PublicFooter() {
     <footer className="border-t border-border bg-muted/30" aria-label={t("footer.label", { defaultValue: "Site footer" })}>
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Brand + tagline */}
-        <div className="mb-10 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="mb-10">
           <div className="space-y-2">
             <Link
               to={localizedPath("/")}
@@ -68,7 +67,6 @@ export function PublicFooter() {
             </p>
             <TrustBadge />
           </div>
-          <PublicLanguageSelector />
         </div>
 
         {/* Link grid */}

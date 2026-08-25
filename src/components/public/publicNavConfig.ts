@@ -38,7 +38,7 @@ export const platformNavItems: NavItem[] = [
 
 /** Standalone top-level nav items */
 export const standaloneNavItems: NavItem[] = [
-  { labelKey: "nav.standalone.lidhjet", href: "/platform/lidhjet", comingSoon: true },
+  { labelKey: "nav.standalone.lidhjet", href: "/lidhjet-public" },
   { labelKey: "nav.standalone.pricing", href: "/pricing" },
   { labelKey: "nav.standalone.security", href: "/security" },
 ];

@@ -11,16 +11,8 @@ import { Input } from "@/components/ui/input";
 import {
   CheckCircle, Zap, Brain, Shield, BarChart3,
   MessageSquare, Users, Star, ArrowRight, Phone,
-  Instagram, Inbox, Sparkles, Target, TrendingUp, ChevronDown
+  Instagram, Inbox, Sparkles, Target, TrendingUp
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { LEGAL_LINKS } from "@/components/legal/LegalLayout";
-
 
 const FEATURES = [
   { icon: Inbox, title: "Unified Inbox", desc: "WhatsApp, Instagram, Facebook, SMS — everything in one place. AI replies 24/7." },
@@ -347,30 +339,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="border-t border-border py-8 text-center text-sm text-muted-foreground">
-        <div className="flex items-center justify-center gap-2 mb-2">
-          <Zap className="h-4 w-4 text-primary" />
-          <span className="font-semibold text-foreground">Pulse AI</span>
-        </div>
-        <p>Business Operating System AI · kohablerjeve.top</p>
-        <div className="flex flex-wrap gap-x-4 gap-y-2 justify-center mt-3 text-xs px-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger className="inline-flex items-center gap-1 hover:text-foreground">
-              Legal &amp; Trust <ChevronDown className="h-3 w-3" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="center" className="w-56">
-              {LEGAL_LINKS.map((l) => (
-                <DropdownMenuItem key={l.href} asChild>
-                  <a href={l.href}>{l.label}</a>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <a href="mailto:info@mso.re" className="hover:text-foreground">Contact</a>
-        </div>
-
-      </footer>
 
     </div>
   );
