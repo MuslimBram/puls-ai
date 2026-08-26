@@ -24,10 +24,9 @@ const ASSIGNABLE_ROLES: { value: AppRole; label: string; icon: React.ReactNode }
   { value: "moderator", label: "Moderator", icon: <Shield className="h-3 w-3" /> },
 ];
 
-// Roles a workspace Owner (business_owner, not platform admin) is allowed to
-// grant or revoke. Mirrors the DB RLS policies in user_roles — owners can
-// only touch 'admin', never super_admin or other system roles.
-const OWNER_MANAGEABLE_ROLES: AppRole[] = ["admin"];
+// Platform admins may manage operational platform roles only.
+// super_admin remains the sole authority for protected/global role changes.
+const ADMIN_MANAGEABLE_ROLES: AppRole[] = ["admin", "controller", "worker", "moderator"];
 
 const ROLE_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   super_admin: "destructive",
@@ -43,14 +42,12 @@ const ROLE_COLORS: Record<string, "default" | "secondary" | "destructive" | "out
 export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
   const queryClient = useQueryClient();
   const { log } = useAuditLog();
-  const { isAdmin, isBusinessOwner } = useRolePermissions();
+  const { isAdmin, isSuperAdmin } = useRolePermissions();
   const [selectedRole, setSelectedRole] = useState<AppRole>("admin");
-  // Full admins/super_admins can manage any assignable role.
-  // Workspace Owners can only manage the 'admin' role (promote/demote admins),
-  // matching the DB RLS policy exactly.
-  const canManageRoles = isAdmin || isBusinessOwner;
-  const canManageRole = (role: AppRole) => isAdmin || (isBusinessOwner && OWNER_MANAGEABLE_ROLES.includes(role));
-  const visibleRoleOptions = isAdmin ? ASSIGNABLE_ROLES : ASSIGNABLE_ROLES.filter((r) => OWNER_MANAGEABLE_ROLES.includes(r.value));
+  const canManageRoles = isAdmin;
+  const canManageRole = (role: AppRole) =>
+    isSuperAdmin || (isAdmin && ADMIN_MANAGEABLE_ROLES.includes(role));
+  const visibleRoleOptions = ASSIGNABLE_ROLES;
 
   const rolesQuery = useQuery({
     queryKey: ["admin-all-user-roles"],
@@ -108,17 +105,15 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
           Role Management
         </CardTitle>
         <CardDescription>
-          {isAdmin
-            ? "Assign or remove roles for platform users"
-            : isBusinessOwner
-            ? "As Owner, you can promote/demote the Admin role for your workspace users"
-            : "Only admins and owners can assign/remove roles"}
+{isAdmin
+            ? "Assign operational platform roles. Workspace roles are managed inside each business workspace."
+            : "Only platform admins can assign or remove platform roles."}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {!canManageRoles ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            You have admin panel access, but role changes are restricted to admins and owners.
+            Platform role changes are restricted to platform administrators.
           </p>
         ) : profiles.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">No users found</p>
