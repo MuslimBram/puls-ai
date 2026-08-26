@@ -28,7 +28,7 @@ export const useInbox = (filters: InboxFilters = {}) => {
 
       let q = supabase
         .from("inbox_messages")
-        .select("*", { count: "exact" })
+        .select("*, conversation_threads(contact_identifier, contact_name)", { count: "exact" })
         .eq("user_id", user!.id)
         .order("message_timestamp", { ascending: false })
         .limit(PAGE_SIZE + 1); // fetch one extra to detect hasMore
