@@ -40,6 +40,8 @@ describe("WhatsApp Full E2E hardening", () => {
     expect(webhook).toContain('phone_number_id');
     expect(webhook).toContain('Ambiguous channel mapping');
     expect(webhook).toContain('processed_webhook_events');
+    expect(webhook).toContain('.select("id,user_id,workspace_id,settings")');
+    expect(webhook).toContain('user_id:            ch.user_id');
     expect(webhook).toContain('releaseEventClaim');
     expect(webhook).toContain('Inbox persistence failed');
     expect(webhook).not.toContain('.eq("provider_message_id", st.id).catch');
