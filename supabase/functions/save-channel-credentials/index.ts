@@ -213,6 +213,8 @@ Deno.serve(async (req) => {
         channel_type: channelType,
         workspace_id: workspaceId,
         is_enabled: true,
+        connection_status: "connected",
+        last_error: null,
         connection_mode: body.connection_mode ?? "professional",
         account_type: body.account_type ?? "unknown",
         capabilities: Array.isArray(body.capabilities) ? body.capabilities : [],

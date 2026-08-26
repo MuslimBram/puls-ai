@@ -40,5 +40,16 @@ describe("WhatsApp Full E2E hardening", () => {
     expect(webhook).toContain('phone_number_id');
     expect(webhook).toContain('Ambiguous channel mapping');
     expect(webhook).toContain('processed_webhook_events');
+    expect(webhook).toContain('releaseEventClaim');
+    expect(webhook).toContain('Inbox persistence failed');
+    expect(webhook).not.toContain('.eq("provider_message_id", st.id).catch');
+    expect(webhook).not.toContain('.single()\n            .catch');
+    expect(webhook).not.toContain('{ onConflict: "workspace_id,lead_id,channel" }).catch');
+  });
+
+  it("marks a verified generic channel connected when Save & Activate succeeds", () => {
+    const writer = read("supabase/functions/save-channel-credentials/index.ts");
+    expect(writer).toContain('connection_status: "connected"');
+    expect(writer).toContain('last_error: null');
   });
 });
