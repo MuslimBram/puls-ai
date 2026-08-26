@@ -237,7 +237,7 @@ const Inbox = () => {
                     <div className="flex justify-end">
                       <Button
                         size="sm"
-                        onClick={handleTelegramReply}
+                        onClick={handleChannelReply}
                         disabled={!replyText.trim() || sendMessage.isPending}
                       >
                         {sendMessage.isPending
