@@ -39,18 +39,33 @@ const Inbox = () => {
     if (msg.is_unread) markRead.mutate(msg.id);
   };
 
-  const handleTelegramReply = async () => {
-    const chatId = selectedMsg?.metadata?.chat_id;
+  const handleChannelReply = async () => {
     const message = replyText.trim();
-    if (!chatId || !message) return;
+    if (!selectedMsg || !message) return;
 
-    await sendMessage.mutateAsync({
-      channel: "telegram",
-      to: String(chatId),
-      chat_id: String(chatId),
-      message,
-      reply_to_message_id: selectedMsg.provider_message_id || undefined,
-    });
+    if (selectedMsg.channel_type === "telegram") {
+      const chatId = selectedMsg.metadata?.chat_id;
+      if (!chatId) return;
+      await sendMessage.mutateAsync({
+        channel: "telegram",
+        to: String(chatId),
+        chat_id: String(chatId),
+        message,
+        reply_to_message_id: selectedMsg.provider_message_id || undefined,
+      });
+    } else if (selectedMsg.channel_type === "whatsapp") {
+      const recipient = selectedMsg.sender_identifier;
+      if (!recipient) return;
+      await sendMessage.mutateAsync({
+        channel: "whatsapp",
+        to: String(recipient),
+        message,
+        type: "text",
+      });
+    } else {
+      return;
+    }
+
     setReplyText("");
   };
 
@@ -178,7 +193,7 @@ const Inbox = () => {
 
         {/* Message Detail */}
         <Dialog open={!!selectedMsg} onOpenChange={() => setSelectedMsg(null)}>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
             <DialogHeader><DialogTitle>Message Details</DialogTitle></DialogHeader>
             {selectedMsg && (
               <div className="space-y-4">
@@ -204,9 +219,14 @@ const Inbox = () => {
                   <p className="text-xs font-medium text-muted-foreground mb-1">Message</p>
                   <p className="text-sm text-foreground rounded-lg bg-muted p-3">{selectedMsg.message_content}</p>
                 </div>
-                {selectedMsg.channel_type === "telegram" && selectedMsg.metadata?.chat_id && (
+                {(
+                  (selectedMsg.channel_type === "telegram" && selectedMsg.metadata?.chat_id)
+                  || (selectedMsg.channel_type === "whatsapp" && selectedMsg.sender_identifier)
+                ) && (
                   <div className="space-y-2 rounded-lg border border-border p-3">
-                    <p className="text-xs font-medium text-muted-foreground">Reply on Telegram</p>
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Reply on {selectedMsg.channel_type === "whatsapp" ? "WhatsApp" : "Telegram"}
+                    </p>
                     <Textarea
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
@@ -245,17 +265,24 @@ const Inbox = () => {
                     </Button>
                   )}
                 </div>
-                <CustomerIntelligenceProfile
-                  contactIdentifier={selectedMsg.sender_identifier || selectedMsg.sender_name}
-                  contactName={selectedMsg.sender_name}
-                />
-                <AIContextPanel
-                  contactIdentifier={selectedMsg.sender_name || selectedMsg.sender_identifier}
-                  contactName={selectedMsg.sender_name}
-                  leadId={selectedMsg.lead_id}
-                  channelType={selectedMsg.channel_type}
-                  latestMessage={selectedMsg.message_content}
-                />
+                <details className="rounded-lg border border-border">
+                  <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+                    Customer intelligence & AI context
+                  </summary>
+                  <div className="space-y-4 border-t border-border p-3">
+                    <CustomerIntelligenceProfile
+                      contactIdentifier={selectedMsg.sender_identifier || selectedMsg.sender_name}
+                      contactName={selectedMsg.sender_name}
+                    />
+                    <AIContextPanel
+                      contactIdentifier={selectedMsg.sender_name || selectedMsg.sender_identifier}
+                      contactName={selectedMsg.sender_name}
+                      leadId={selectedMsg.lead_id}
+                      channelType={selectedMsg.channel_type}
+                      latestMessage={selectedMsg.message_content}
+                    />
+                  </div>
+                </details>
               </div>
             )}
           </DialogContent>
