@@ -95,7 +95,7 @@ serve(async (req) => {
 
     // Load all enabled WhatsApp channels once
     const { data: channels } = await sb.from("channels")
-      .select("id,workspace_id,settings")
+      .select("id,user_id,workspace_id,settings")
       .eq("channel_type", "whatsapp")
       .eq("is_enabled", true);
 
@@ -158,6 +158,7 @@ serve(async (req) => {
 
           // Inbox
           const { error: inboxError } = await sb.from("inbox_messages").insert({
+            user_id:            ch.user_id,
             workspace_id:       workspaceId,
             channel_id:         channelId,
             channel_type:       "whatsapp",
