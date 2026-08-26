@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { InboxEmptyState } from "@/components/EmptyState";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +23,7 @@ import { useSendMessage } from "@/hooks/useSendMessage";
 const Inbox = () => {
   const [filters, setFilters] = useState<InboxFilters>({});
   const [selectedMsg, setSelectedMsg] = useState<any>(null);
+  const [selectedThreadMessages, setSelectedThreadMessages] = useState<any[]>([]);
   const [replyText, setReplyText] = useState("");
   const { messages, total, isLoading, markRead, updateStatus, updatePriority, subscribeRealtime, page, pageSize, nextPage, prevPage, setPage } = useInbox(filters);
   const { updateStatus: updateLeadStatus } = useLeads();
@@ -34,9 +35,18 @@ const Inbox = () => {
     return () => { channel.unsubscribe(); };
   }, []);
 
-  const handleOpen = (msg: any) => {
-    setSelectedMsg(msg);
-    if (msg.is_unread) markRead.mutate(msg.id);
+  const handleOpen = (conversation: any) => {
+    setSelectedThreadMessages(conversation.messages);
+    const replyAnchor = [...conversation.messages].reverse().find((message: any) => message.direction === "inbound")
+      || conversation.latest;
+    setSelectedMsg({
+      ...replyAnchor,
+      sender_identifier: conversation.contactIdentifier,
+      sender_name: conversation.contactName,
+    });
+    conversation.messages
+      .filter((message: any) => message.is_unread)
+      .forEach((message: any) => markRead.mutate(message.id));
   };
 
   const handleChannelReply = async () => {
@@ -75,7 +85,61 @@ const Inbox = () => {
     return "outline" as const;
   };
 
-  const unreadCount = messages.filter((m) => m.is_unread).length;
+  const conversations = useMemo(() => {
+    const grouped = new Map<string, any>();
+
+    for (const message of messages) {
+      const canonicalThread = Array.isArray((message as any).conversation_threads)
+        ? (message as any).conversation_threads[0]
+        : (message as any).conversation_threads;
+      const rawContact = message.direction === "outbound"
+        ? canonicalThread?.contact_identifier
+        : message.sender_identifier;
+      const contactIdentifier = message.channel_type === "telegram"
+        ? String(rawContact || "").replace(/^telegram:/, "")
+        : String(rawContact || "");
+      const safeContact = contactIdentifier || `thread:${message.thread_id || message.id}`;
+      const key = [
+        message.workspace_id || "no-workspace",
+        message.channel_id || message.channel_type,
+        safeContact,
+      ].join(":");
+
+      const existing = grouped.get(key);
+      if (existing) {
+        existing.messages.push(message);
+      } else {
+        grouped.set(key, {
+          key,
+          channelType: message.channel_type,
+          contactIdentifier: safeContact,
+          contactName: message.direction === "inbound"
+            ? (message.sender_name || canonicalThread?.contact_name || safeContact)
+            : (canonicalThread?.contact_name || safeContact),
+          messages: [message],
+        });
+      }
+    }
+
+    return [...grouped.values()]
+      .map((conversation) => {
+        const sortedMessages = conversation.messages
+          .slice()
+          .sort((a: any, b: any) => new Date(a.message_timestamp).getTime() - new Date(b.message_timestamp).getTime());
+        const latest = sortedMessages[sortedMessages.length - 1];
+        const inboundIdentity = sortedMessages.find((message: any) => message.direction === "inbound");
+        return {
+          ...conversation,
+          contactName: inboundIdentity?.sender_name || conversation.contactName,
+          messages: sortedMessages,
+          latest,
+          unreadCount: sortedMessages.filter((message: any) => message.is_unread).length,
+        };
+      })
+      .sort((a, b) => new Date(b.latest.message_timestamp).getTime() - new Date(a.latest.message_timestamp).getTime());
+  }, [messages]);
+
+  const unreadCount = conversations.reduce((sum, conversation) => sum + conversation.unreadCount, 0);
   const totalPages = Math.ceil(total / pageSize);
 
   const handleFilterChange = (fn: (f: InboxFilters) => InboxFilters) => {
@@ -131,7 +195,7 @@ const Inbox = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <InboxIcon className="h-5 w-5 text-primary" />
-              Inbox ({total})
+              Inbox ({conversations.length})
               {unreadCount > 0 && <Badge variant="destructive" className="text-xs">{unreadCount} new</Badge>}
             </CardTitle>
           </CardHeader>
@@ -144,37 +208,33 @@ const Inbox = () => {
               <InboxEmptyState />
             ) : (
               <div className="space-y-2">
-                {messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex items-start justify-between gap-3 rounded-lg border p-3 cursor-pointer transition-colors hover:bg-muted/50 ${msg.is_unread ? "border-primary/30 bg-primary/5" : "border-border"}`}
-                    onClick={() => handleOpen(msg)}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        {msg.is_unread && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
-                        <span className="text-xs font-medium text-muted-foreground">{msg.sender_name || "Unknown"}</span>
-                        <Badge variant="secondary" className="text-xs">{msg.channel_type}</Badge>
-                        <span className="text-xs text-muted-foreground">{msg.source_name}</span>
-                        <span className="text-xs text-muted-foreground ml-auto">{format(new Date(msg.message_timestamp), "MMM d, HH:mm")}</span>
-                      </div>
-                      <p className="text-sm text-foreground line-clamp-1">{msg.message_content}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        {msg.matched_keywords?.length > 0 && msg.matched_keywords.map((kw: string) => (
-                          <Badge key={kw} variant="secondary" className="text-xs">{kw}</Badge>
-                        ))}
-                        <Badge variant={priorityColor(msg.priority)} className="text-xs">{msg.priority}</Badge>
-                        {msg.intent_score > 0 && <Badge variant="outline" className="text-xs">Intent: {Math.round(Number(msg.intent_score) * 100)}%</Badge>}
-                        <IntentBadge
-                          intentType={(msg as any).intent_type}
-                          urgencyLevel={(msg as any).urgency_level}
-                          recommendedAction={(msg as any).recommended_action}
-                          compact
-                        />
+                {conversations.map((conversation) => {
+                  const msg = conversation.latest;
+                  return (
+                    <div
+                      key={conversation.key}
+                      className={`flex cursor-pointer items-start justify-between gap-3 rounded-lg border p-3 transition-colors hover:bg-muted/50 ${conversation.unreadCount > 0 ? "border-primary/30 bg-primary/5" : "border-border"}`}
+                      onClick={() => handleOpen(conversation)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-1 flex items-center gap-2">
+                          {conversation.unreadCount > 0 && <div className="h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                          <span className="text-xs font-medium text-muted-foreground">{conversation.contactName || "Unknown"}</span>
+                          <Badge variant="secondary" className="text-xs">{conversation.channelType}</Badge>
+                          <span className="text-xs text-muted-foreground">{conversation.messages.length} messages</span>
+                          <span className="ml-auto text-xs text-muted-foreground">{format(new Date(msg.message_timestamp), "MMM d, HH:mm")}</span>
+                        </div>
+                        <p className="line-clamp-1 text-sm text-foreground">
+                          {msg.direction === "outbound" ? "You: " : ""}{msg.message_content}
+                        </p>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Badge variant={priorityColor(msg.priority)} className="text-xs">{msg.priority}</Badge>
+                          {conversation.unreadCount > 0 && <Badge variant="destructive" className="text-xs">{conversation.unreadCount} new</Badge>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
 
                 {/* Pagination */}
                 {totalPages > 1 && (
@@ -192,7 +252,7 @@ const Inbox = () => {
         </Card>
 
         {/* Message Detail */}
-        <Dialog open={!!selectedMsg} onOpenChange={() => setSelectedMsg(null)}>
+        <Dialog open={!!selectedMsg} onOpenChange={() => { setSelectedMsg(null); setSelectedThreadMessages([]); }}>
           <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
             <DialogHeader><DialogTitle>Message Details</DialogTitle></DialogHeader>
             {selectedMsg && (
@@ -215,9 +275,23 @@ const Inbox = () => {
                     <p className="text-sm text-foreground">{Math.round(Number(selectedMsg.intent_score) * 100)}%</p>
                   </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground mb-1">Message</p>
-                  <p className="text-sm text-foreground rounded-lg bg-muted p-3">{selectedMsg.message_content}</p>
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Conversation</p>
+                  <div className="max-h-[40dvh] space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-2">
+                    {selectedThreadMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.direction === "outbound" ? "justify-end" : "justify-start"}`}
+                      >
+                        <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${message.direction === "outbound" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
+                          <p>{message.message_content}</p>
+                          <p className={`mt-1 text-[10px] ${message.direction === "outbound" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                            {message.direction === "outbound" ? "You" : (message.sender_name || "Contact")} · {format(new Date(message.message_timestamp), "MMM d, HH:mm")}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 {(
                   (selectedMsg.channel_type === "telegram" && selectedMsg.metadata?.chat_id)
@@ -279,7 +353,9 @@ const Inbox = () => {
                       contactName={selectedMsg.sender_name}
                       leadId={selectedMsg.lead_id}
                       channelType={selectedMsg.channel_type}
-                      latestMessage={selectedMsg.message_content}
+                      latestMessage={selectedThreadMessages
+                        .map((message) => `${message.direction === "outbound" ? "Business" : "Customer"}: ${message.message_content}`)
+                        .join("\n")}
                     />
                   </div>
                 </details>
