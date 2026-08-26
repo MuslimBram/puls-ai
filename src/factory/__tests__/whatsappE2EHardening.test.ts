@@ -49,6 +49,15 @@ describe("WhatsApp Full E2E hardening", () => {
     expect(webhook).not.toContain('{ onConflict: "workspace_id,lead_id,channel" }).catch');
   });
 
+  it("exposes a compact WhatsApp reply flow in the unified inbox", () => {
+    const inbox = read("src/pages/Inbox.tsx");
+    expect(inbox).toContain('selectedMsg.channel_type === "whatsapp"');
+    expect(inbox).toContain('channel: "whatsapp"');
+    expect(inbox).toContain('Reply on {selectedMsg.channel_type');
+    expect(inbox).toContain('max-h-[90dvh]');
+    expect(inbox).toContain('Customer intelligence & AI context');
+  });
+
   it("marks a verified generic channel connected when Save & Activate succeeds", () => {
     const writer = read("supabase/functions/save-channel-credentials/index.ts");
     expect(writer).toContain('connection_status: "connected"');
