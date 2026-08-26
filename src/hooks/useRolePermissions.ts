@@ -14,7 +14,10 @@ export type AppRole =
   | "business_manager"
   | "agent"
   | "freelancer"
-  | "ambassador";
+  | "ambassador"
+  | "support_agent"
+  | "staff"
+  | "accountant";
 
 export interface RolePermissions {
   canCreateAdmin: boolean;
@@ -168,11 +171,13 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canRespondInbox: true,
     canViewAnalytics: true,
     canConfigureAutomations: true,
-    // Business connects via API/token/webhook — not OAuth
-    canConnectOAuth: false,
+    // Business owners may connect provider accounts scoped to their own workspace.
+    canConnectOAuth: true,
+    canReconnectOAuth: true,
+    canDisconnectOAuth: true,
     canConnectApiToken: true,
     canTestConnections: true,
-    canManageProviderAccounts: false,
+    canManageProviderAccounts: true,
     canManagePlatformProviders: false,
     canViewConnectionLogs: true,
     canManageBusinessScopedIntegrations: true,
@@ -238,6 +243,11 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canTestConnections: true,
     // Ambassador is referral-only, no business management
   },
+  // These database roles are intentionally explicit and deny-by-default.
+  // Their scopes must be approved before any capability is enabled.
+  support_agent: { ...BASE_PERMISSIONS },
+  staff: { ...BASE_PERMISSIONS },
+  accountant: { ...BASE_PERMISSIONS },
   user: {
     ...BASE_PERMISSIONS,
   },
