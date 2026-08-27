@@ -43,6 +43,11 @@ const PROVIDERS = {
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
     model: "llama-3.1-8b-instant", keyEnv: "GROQ_API_KEY", type: "openai_compat",
   },
+  LOVABLE_FLASH: {
+    name: "Lovable AI Gateway", costIn: 0, costOut: 0,
+    endpoint: "https://ai.gateway.lovable.dev/v1/chat/completions",
+    model: "google/gemini-3-flash-preview", keyEnv: "LOVABLE_API_KEY", type: "openai_compat",
+  },
   DEEPSEEK_FLASH: {
     name: "DeepSeek V4 Flash", costIn: 0.14, costOut: 0.28,
     endpoint: "https://api.deepseek.com/v1/chat/completions",
@@ -225,7 +230,7 @@ const ROUTE_CHAINS: Record<TaskType, {
   },
   // Customer support — reliability + quality
   customer_support: {
-    chain: ["GROQ_LLAMA8B", "MISTRAL_SMALL", "DEEPSEEK_FLASH", "GPT_MINI", "CLAUDE_SONNET"],
+    chain: ["LOVABLE_FLASH", "GROQ_LLAMA8B", "MISTRAL_SMALL", "DEEPSEEK_FLASH", "GPT_MINI"],
     tier: "cheap",
   },
 };
