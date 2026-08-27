@@ -54,7 +54,9 @@ describe("WhatsApp Full E2E hardening", () => {
     expect(inbox).toContain('selectedMsg.channel_type === "whatsapp"');
     expect(inbox).toContain('channel: "whatsapp"');
     expect(inbox).toContain('Reply on {selectedMsg.channel_type');
-    expect(inbox).toContain('max-h-[90dvh]');
+    expect(inbox).toContain('h-[92dvh]');
+    expect(inbox).toContain('min-h-0 flex-1');
+    expect(inbox).toContain('overflow-hidden');
     expect(inbox).toContain('Customer intelligence & AI context');
   });
 
