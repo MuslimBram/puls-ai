@@ -156,6 +156,20 @@ serve(async (req) => {
           const senderName = contact?.profile?.name ?? msg.from;
           const msgContent = msg.text?.body ?? msg.caption ?? `[${msg.type ?? "media"}]`;
 
+          const { data: threadId, error: threadError } = await sb.rpc("upsert_conversation_thread", {
+            _user_id: ch.user_id,
+            _workspace_id: workspaceId,
+            _channel_type: "whatsapp",
+            _contact_identifier: msg.from,
+            _contact_name: senderName,
+            _message_preview: msgContent,
+            _direction: "inbound",
+          });
+          if (threadError || !threadId) {
+            await releaseEventClaim(sb, "whatsapp", waId, workspaceId);
+            throw new Error(`Conversation thread persistence failed: ${threadError?.message || "missing thread id"}`);
+          }
+
           // Inbox
           const { error: inboxError } = await sb.from("inbox_messages").insert({
             user_id:            ch.user_id,
@@ -171,6 +185,7 @@ serve(async (req) => {
             status:             "received",
             delivery_status:    "delivered",
             provider_message_id: waId,
+            thread_id:           threadId,
             is_unread:          true,
             metadata:           { waba_phone: wabaPhone, wa_id: msg.from, type: msg.type },
           });

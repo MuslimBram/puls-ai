@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { InboxEmptyState } from "@/components/EmptyState";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +25,7 @@ const Inbox = () => {
   const [selectedMsg, setSelectedMsg] = useState<any>(null);
   const [selectedThreadMessages, setSelectedThreadMessages] = useState<any[]>([]);
   const [replyText, setReplyText] = useState("");
-  const { messages, total, isLoading, markRead, updateStatus, updatePriority, subscribeRealtime, page, pageSize, nextPage, prevPage, setPage } = useInbox(filters);
+  const { messages, conversations, total, isLoading, markThreadRead, updateStatus, updatePriority, subscribeRealtime, page, pageSize, nextPage, prevPage, setPage } = useInbox(filters);
   const { updateStatus: updateLeadStatus } = useLeads();
   const sendMessage = useSendMessage();
   const navigate = useNavigate();
@@ -44,9 +44,9 @@ const Inbox = () => {
       sender_identifier: conversation.contactIdentifier,
       sender_name: conversation.contactName,
     });
-    conversation.messages
-      .filter((message: any) => message.is_unread)
-      .forEach((message: any) => markRead.mutate(message.id));
+    if (conversation.unreadCount > 0 && conversation.id) {
+      markThreadRead.mutate(conversation.id);
+    }
   };
 
   const handleChannelReply = async () => {
@@ -85,59 +85,6 @@ const Inbox = () => {
     return "outline" as const;
   };
 
-  const conversations = useMemo(() => {
-    const grouped = new Map<string, any>();
-
-    for (const message of messages) {
-      const canonicalThread = Array.isArray((message as any).conversation_threads)
-        ? (message as any).conversation_threads[0]
-        : (message as any).conversation_threads;
-      const rawContact = message.direction === "outbound"
-        ? canonicalThread?.contact_identifier
-        : message.sender_identifier;
-      const contactIdentifier = message.channel_type === "telegram"
-        ? String(rawContact || "").replace(/^telegram:/, "")
-        : String(rawContact || "");
-      const safeContact = contactIdentifier || `thread:${message.thread_id || message.id}`;
-      const key = [
-        message.workspace_id || "no-workspace",
-        message.channel_id || message.channel_type,
-        safeContact,
-      ].join(":");
-
-      const existing = grouped.get(key);
-      if (existing) {
-        existing.messages.push(message);
-      } else {
-        grouped.set(key, {
-          key,
-          channelType: message.channel_type,
-          contactIdentifier: safeContact,
-          contactName: message.direction === "inbound"
-            ? (message.sender_name || canonicalThread?.contact_name || safeContact)
-            : (canonicalThread?.contact_name || safeContact),
-          messages: [message],
-        });
-      }
-    }
-
-    return [...grouped.values()]
-      .map((conversation) => {
-        const sortedMessages = conversation.messages
-          .slice()
-          .sort((a: any, b: any) => new Date(a.message_timestamp).getTime() - new Date(b.message_timestamp).getTime());
-        const latest = sortedMessages[sortedMessages.length - 1];
-        const inboundIdentity = sortedMessages.find((message: any) => message.direction === "inbound");
-        return {
-          ...conversation,
-          contactName: inboundIdentity?.sender_name || conversation.contactName,
-          messages: sortedMessages,
-          latest,
-          unreadCount: sortedMessages.filter((message: any) => message.is_unread).length,
-        };
-      })
-      .sort((a, b) => new Date(b.latest.message_timestamp).getTime() - new Date(a.latest.message_timestamp).getTime());
-  }, [messages]);
 
   const unreadCount = conversations.reduce((sum, conversation) => sum + conversation.unreadCount, 0);
   const totalPages = Math.ceil(total / pageSize);
@@ -253,10 +200,10 @@ const Inbox = () => {
 
         {/* Message Detail */}
         <Dialog open={!!selectedMsg} onOpenChange={() => { setSelectedMsg(null); setSelectedThreadMessages([]); }}>
-          <DialogContent className="max-h-[90dvh] w-[calc(100vw-1rem)] overflow-y-auto p-4 sm:max-w-lg sm:p-6">
+          <DialogContent className="flex h-[92dvh] max-h-[92dvh] w-[calc(100vw-0.75rem)] flex-col overflow-hidden p-3 sm:max-w-2xl sm:p-5">
             <DialogHeader><DialogTitle>Message Details</DialogTitle></DialogHeader>
             {selectedMsg && (
-              <div className="space-y-4">
+              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground mb-1">Sender</p>
@@ -275,9 +222,9 @@ const Inbox = () => {
                     <p className="text-sm text-foreground">{Math.round(Number(selectedMsg.intent_score) * 100)}%</p>
                   </div>
                 </div>
-                <div className="space-y-2">
+                <div className="flex min-h-0 flex-1 flex-col gap-2">
                   <p className="text-xs font-medium text-muted-foreground">Conversation</p>
-                  <div className="max-h-[40dvh] space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-2">
+                  <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-2">
                     {selectedThreadMessages.map((message) => (
                       <div
                         key={message.id}
@@ -287,6 +234,7 @@ const Inbox = () => {
                           <p>{message.message_content}</p>
                           <p className={`mt-1 text-[10px] ${message.direction === "outbound" ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                             {message.direction === "outbound" ? "You" : (message.sender_name || "Contact")} · {format(new Date(message.message_timestamp), "MMM d, HH:mm")}
+                            {message.direction === "outbound" && message.delivery_status ? ` · ${message.delivery_status}` : ""}
                           </p>
                         </div>
                       </div>
@@ -329,8 +277,8 @@ const Inbox = () => {
                   </div>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => { updateStatus.mutate({ id: selectedMsg.id, status: "reviewed" }); setSelectedMsg({ ...selectedMsg, status: "reviewed" }); }}>Mark Reviewed</Button>
-                  <Button size="sm" variant="outline" onClick={() => { updatePriority.mutate({ id: selectedMsg.id, priority: selectedMsg.priority === "high" ? "normal" : "high" }); setSelectedMsg({ ...selectedMsg, priority: selectedMsg.priority === "high" ? "normal" : "high" }); }}>
+                  <Button size="sm" variant="outline" onClick={() => { updateStatus.mutate({ id: selectedMsg.id, threadId: selectedMsg.thread_id, status: "reviewed" }); setSelectedMsg({ ...selectedMsg, status: "reviewed" }); }}>Mark Reviewed</Button>
+                  <Button size="sm" variant="outline" onClick={() => { updatePriority.mutate({ id: selectedMsg.id, threadId: selectedMsg.thread_id, priority: selectedMsg.priority === "high" ? "normal" : "high" }); setSelectedMsg({ ...selectedMsg, priority: selectedMsg.priority === "high" ? "normal" : "high" }); }}>
                     <Star className="h-3 w-3 mr-1" />{selectedMsg.priority === "high" ? "Unmark Priority" : "Mark Priority"}
                   </Button>
                   {selectedMsg.lead_id && (
@@ -339,7 +287,7 @@ const Inbox = () => {
                     </Button>
                   )}
                 </div>
-                <details className="rounded-lg border border-border">
+                <details className="max-h-[38dvh] shrink-0 overflow-y-auto rounded-lg border border-border">
                   <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
                     Customer intelligence & AI context
                   </summary>
