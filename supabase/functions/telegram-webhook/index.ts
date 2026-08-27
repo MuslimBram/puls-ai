@@ -218,6 +218,23 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       }
     }
 
+    const { data: threadId, error: threadError } = await supabase.rpc("upsert_conversation_thread", {
+      _user_id: channel.user_id,
+      _workspace_id: workspaceId,
+      _channel_type: "telegram",
+      _contact_identifier: chatId,
+      _contact_name: senderName,
+      _message_preview: msg.text,
+      _direction: "inbound",
+    });
+    if (threadError || !threadId) {
+      await supabase
+        .from("integration_event_logs")
+        .update({ status: "failed", event_message: "Telegram thread persistence failure" })
+        .eq("idempotency_key", idempotencyKey);
+      throw new Error(threadError?.message || "Conversation thread persistence failed");
+    }
+
     await supabase.from("inbox_messages").insert({
       user_id: channel.user_id,
       workspace_id: workspaceId,
@@ -233,6 +250,7 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       direction: "inbound",
       delivery_status: "delivered",
       provider_message_id: String(msg.message_id),
+      thread_id: threadId,
       metadata: { chat_id: chatId, telegram_user_id: senderId },
       intent_score: intentScore,
     } as never);
