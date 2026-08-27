@@ -200,6 +200,12 @@ serve(async (req) => {
 
     const userId = matchedChannel.user_id;
     const workspaceId = matchedChannel.workspace_id;
+    if (!workspaceId) {
+      throw new Error("SMS channel is not linked to a workspace");
+    }
+    if (resolvedWorkspaceId && resolvedWorkspaceId !== workspaceId) {
+      throw new Error("Signed Twilio destination does not match the resolved workspace");
+    }
 
     // Build media attachments
     const mediaAttachments = mediaItems.map(m => ({
@@ -211,6 +217,7 @@ serve(async (req) => {
     // Thread
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: userId,
+      _workspace_id: workspaceId,
       _channel_type: "sms",
       _contact_identifier: from,
       _contact_name: from,
