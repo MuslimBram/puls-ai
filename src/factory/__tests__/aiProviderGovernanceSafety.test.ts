@@ -133,6 +133,22 @@ describe("ai-router provider governance wiring", () => {
   });
 });
 
+describe("AI free-first paid fallback policy", () => {
+  it("tries documented free allowances before every paid candidate", () => {
+    expect(router).toContain("FREE_ALLOWANCE_PROVIDERS");
+    expect(router).toContain("configuredChain.filter((key) => FREE_ALLOWANCE_PROVIDERS.has(key))");
+    expect(router).toContain("configuredChain.filter((key) => !FREE_ALLOWANCE_PROVIDERS.has(key))");
+  });
+
+  it("fails closed for paid calls without a working spend ledger", () => {
+    expect(router).toContain("AI_PAID_FALLBACK_ENABLED");
+    expect(router).toContain("AI_PAID_DAILY_BUDGET_USD");
+    expect(router).toContain("SPEND_LEDGER_UNAVAILABLE");
+    expect(router).toContain("DAILY_PAID_BUDGET_REACHED");
+    expect(router).toContain("Paid fallback blocked");
+  });
+});
+
 describe("bounded ai-router runtime acceptance harness", () => {
   it("requires server-side cron authentication", () => {
     expect(runtimeCheck).toContain('requireCronAuth(req)');
