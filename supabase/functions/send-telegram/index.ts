@@ -75,6 +75,7 @@ serve(async (req) => {
 
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: user.id,
+      _workspace_id: workspace_id,
       _channel_type: "telegram",
       _contact_identifier: chat_id.toString(),
       _contact_name: chat_id.toString(),
