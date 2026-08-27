@@ -14,6 +14,8 @@ import {
   ExternalLink, Shield, Plug, Zap, Eye, EyeOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+import { getChannelGuide, getGuideLocale } from "@/config/channelGuides";
 
 /* ── Provider definitions ── */
 
@@ -55,6 +57,10 @@ export const ChannelConnectionWizard = ({ provider, open, onClose }: WizardProps
   const { channels, addChannel } = useChannels();
   const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
+  const { i18n } = useTranslation();
+  const guide = getChannelGuide(provider.id);
+  const guideCopy = guide?.copy[getGuideLocale(i18n.language)];
+  const isSq = getGuideLocale(i18n.language) === "sq";
   const existing = channels.find((c) => c.channel_type === provider.id);
 
   const [step, setStep] = useState<Step>("Credentials");
@@ -222,6 +228,33 @@ export const ChannelConnectionWizard = ({ provider, open, onClose }: WizardProps
         {step === "Credentials" && (
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">{provider.description}</p>
+
+            {guideCopy && (
+              <details className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <summary className="cursor-pointer font-medium text-primary">
+                  {isSq ? "Udhëzuesi hap pas hapi · Lexo më shumë" : "Step-by-step guide · Read more"}
+                </summary>
+                <div className="mt-3 space-y-3 text-xs text-muted-foreground">
+                  <p>{guideCopy.summary}</p>
+                  <div>
+                    <p className="font-semibold text-foreground">{isSq ? "Çfarë të duhet" : "What you need"}</p>
+                    <ul className="ml-5 list-disc space-y-1">{guideCopy.requirements.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">{isSq ? "Hapat" : "Steps"}</p>
+                    <ol className="ml-5 list-decimal space-y-1">{guideCopy.steps.map((item) => <li key={item}>{item}</li>)}</ol>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-foreground">{isSq ? "Gabimet e zakonshme" : "Common errors"}</p>
+                    <ul className="space-y-1">{guideCopy.errors.map((item) => <li key={item.error}><strong>{item.error}:</strong> {item.fix}</li>)}</ul>
+                  </div>
+                  <p className="rounded bg-background p-2"><strong>{isSq ? "Siguri:" : "Security:"}</strong> {guideCopy.security}</p>
+                  <a className="inline-flex items-center text-primary underline" href={`/help-center#channel-${provider.id}`}>
+                    {isSq ? "Lexo udhëzuesin e plotë" : "Read the complete guide"}
+                  </a>
+                </div>
+              </details>
+            )}
 
             {provider.docsUrl && (
               <a
