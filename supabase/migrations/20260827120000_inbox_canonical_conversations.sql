@@ -2,7 +2,7 @@
 -- This keeps one conversation per workspace/channel/contact and removes the
 -- message-page split that previously duplicated conversations in the UI.
 
-DROP INDEX IF EXISTS public.conversation_threads_user_channel_contact;
+ALTER TABLE public.conversation_threads\n  DROP CONSTRAINT IF EXISTS conversation_threads_user_channel_contact;\nDROP INDEX IF EXISTS public.conversation_threads_user_channel_contact;
 
 CREATE UNIQUE INDEX IF NOT EXISTS conversation_threads_user_workspace_channel_contact
   ON public.conversation_threads
