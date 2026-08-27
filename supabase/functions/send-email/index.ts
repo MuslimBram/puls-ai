@@ -50,6 +50,9 @@ serve(async (req) => {
     if (!settings?.smtp_host || !settings?.smtp_user || !settings?.smtp_password) {
       throw new Error("Email SMTP not configured. Add SMTP credentials in your email channel settings.");
     }
+    if (!channel?.workspace_id) {
+      throw new Error("Email channel is not linked to a workspace.");
+    }
 
     const smtpHost = settings.smtp_host;
     const smtpPort = settings.smtp_port || 587;
@@ -144,6 +147,7 @@ serve(async (req) => {
     // Record in inbox + thread
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: user.id,
+      _workspace_id: channel.workspace_id,
       _channel_type: "email",
       _contact_identifier: to,
       _contact_name: to,
