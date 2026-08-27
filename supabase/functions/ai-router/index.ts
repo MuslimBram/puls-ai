@@ -78,7 +78,7 @@ const PROVIDERS = {
   CLAUDE_SONNET: {
     name: "Claude Sonnet 4.6", costIn: 3.00, costOut: 15.00,
     endpoint: "https://api.anthropic.com/v1/messages",
-    model: "claude-sonnet-4-6", keyEnv: "ANTHROPIC_API_KEY", type: "anthropic",
+    model: "claude-sonnet-4-20250514", keyEnv: "ANTHROPIC_API_KEY", type: "anthropic",
   },
   GPT4O: {
     name: "GPT-4o", costIn: 2.50, costOut: 15.00,
