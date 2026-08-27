@@ -225,7 +225,7 @@ const ROUTE_CHAINS: Record<TaskType, {
   },
   // Customer support — reliability + quality
   customer_support: {
-    chain: ["CLAUDE_SONNET", "DEEPSEEK_FLASH", "MISTRAL_SMALL", "GROQ_LLAMA8B", "GPT_MINI"],
+    chain: ["GROQ_LLAMA8B", "MISTRAL_SMALL", "DEEPSEEK_FLASH", "GPT_MINI", "CLAUDE_SONNET"],
     tier: "cheap",
   },
 };
