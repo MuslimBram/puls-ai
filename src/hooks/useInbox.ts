@@ -48,13 +48,23 @@ export const useInbox = (filters: InboxFilters = {}) => {
       if (error) throw error;
 
       const conversations = (data ?? [])
-        .map((thread: any) => ({
-          ...thread,
-          messages: [...(thread.inbox_messages ?? [])].sort(
+        .map((thread: any) => {
+          const messages = [...(thread.inbox_messages ?? [])].sort(
             (a: any, b: any) =>
               new Date(a.message_timestamp).getTime() - new Date(b.message_timestamp).getTime(),
-          ),
-        }))
+          );
+          const latest = messages[messages.length - 1];
+          return {
+            ...thread,
+            key: thread.id,
+            channelType: thread.channel_type,
+            contactIdentifier: thread.contact_identifier,
+            contactName: thread.contact_name || thread.contact_identifier || "Unknown",
+            unreadCount: messages.filter((message: any) => message.is_unread).length,
+            latest,
+            messages,
+          };
+        })
         .filter((thread: any) => thread.messages.length > 0);
 
       const messages = conversations.flatMap((thread: any) =>
