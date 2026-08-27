@@ -127,7 +127,7 @@ function buildSystemPrompt(pricingRows: PricingRow[], pricingOk: boolean): strin
 
 function buildGroundedFallback(messages: ChatMessage[]): string {
   const question = [...messages].reverse().find((msg) => msg.role === "user")?.content.toLowerCase() ?? "";
-  const albanian = /\b(si|çfarë|cfare|lidh|regjistr|ndihm|nuk|kam|është|eshte|mund)\b/.test(question);
+  const albanian = /\b(si|sa|çfarë|cfare|lidh|regjistr|ndihm|nuk|kam|është|eshte|mund|kusht)\b/.test(question);
 
   if (/whatsapp|waba|meta/.test(question)) {
     return albanian
