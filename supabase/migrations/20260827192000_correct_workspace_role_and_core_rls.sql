@@ -2,6 +2,25 @@
 -- This file must be reviewed and applied separately; it intentionally does not
 -- mutate Production as part of this PR.
 
+-- B/C. Remove existing core policies first because they depend on the old
+-- arbitrary-user has_workspace_role(uuid,uuid,text[]) signature.
+DROP POLICY IF EXISTS "workspace members can view business profiles" ON public.business_profiles;
+DROP POLICY IF EXISTS "workspace members can create business profiles" ON public.business_profiles;
+DROP POLICY IF EXISTS "workspace editors can update business profiles" ON public.business_profiles;
+DROP POLICY IF EXISTS "workspace editors can delete business profiles" ON public.business_profiles;
+DROP POLICY IF EXISTS "workspace members can view channels" ON public.channels;
+DROP POLICY IF EXISTS "workspace members can create channels" ON public.channels;
+DROP POLICY IF EXISTS "workspace editors can update channels" ON public.channels;
+DROP POLICY IF EXISTS "workspace editors can delete channels" ON public.channels;
+DROP POLICY IF EXISTS "workspace members can view leads" ON public.leads;
+DROP POLICY IF EXISTS "workspace members can create leads" ON public.leads;
+DROP POLICY IF EXISTS "workspace editors can update leads" ON public.leads;
+DROP POLICY IF EXISTS "workspace editors can delete leads" ON public.leads;
+DROP POLICY IF EXISTS "workspace members can view conversation threads" ON public.conversation_threads;
+DROP POLICY IF EXISTS "workspace members can create conversation threads" ON public.conversation_threads;
+DROP POLICY IF EXISTS "workspace editors can update conversation threads" ON public.conversation_threads;
+DROP POLICY IF EXISTS "workspace editors can delete conversation threads" ON public.conversation_threads;
+
 -- A. Replace the browser-callable arbitrary-user helper with a caller-bound helper.
 DROP FUNCTION IF EXISTS public.has_workspace_role(uuid, uuid, text[]);
 
@@ -69,13 +88,10 @@ GRANT EXECUTE ON FUNCTION public.has_workspace_role(uuid, text[]) TO authenticat
 REVOKE ALL ON FUNCTION public.has_workspace_role_for_user(uuid, uuid, text[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.has_workspace_role_for_user(uuid, uuid, text[]) TO service_role;
 
--- B/C. Remove global platform-admin private-data bypass and enforce the
--- conservative workspace role matrix on the four core resources.
-
-DROP POLICY IF EXISTS "workspace members can view business profiles" ON public.business_profiles;
-DROP POLICY IF EXISTS "workspace members can create business profiles" ON public.business_profiles;
-DROP POLICY IF EXISTS "workspace editors can update business profiles" ON public.business_profiles;
-DROP POLICY IF EXISTS "workspace editors can delete business profiles" ON public.business_profiles;
+-- B/C. Conservative workspace role matrix.
+-- SELECT: authorized workspace access; platform-admin status alone is not enough.
+-- business_profiles/channels: owner/admin write access.
+-- leads/conversation_threads: owner/admin/member create/update; owner/admin delete.
 
 CREATE POLICY "authorized workspace access can view business profiles"
 ON public.business_profiles FOR SELECT TO authenticated
@@ -94,11 +110,6 @@ CREATE POLICY "workspace owners and admins can delete business profiles"
 ON public.business_profiles FOR DELETE TO authenticated
 USING (public.has_workspace_role(workspace_id, ARRAY['owner','admin']));
 
-DROP POLICY IF EXISTS "workspace members can view channels" ON public.channels;
-DROP POLICY IF EXISTS "workspace members can create channels" ON public.channels;
-DROP POLICY IF EXISTS "workspace editors can update channels" ON public.channels;
-DROP POLICY IF EXISTS "workspace editors can delete channels" ON public.channels;
-
 CREATE POLICY "authorized workspace access can view channels"
 ON public.channels FOR SELECT TO authenticated
 USING (public.has_workspace_access(workspace_id));
@@ -115,11 +126,6 @@ WITH CHECK (public.has_workspace_role(workspace_id, ARRAY['owner','admin']));
 CREATE POLICY "workspace owners and admins can delete channels"
 ON public.channels FOR DELETE TO authenticated
 USING (public.has_workspace_role(workspace_id, ARRAY['owner','admin']));
-
-DROP POLICY IF EXISTS "workspace members can view leads" ON public.leads;
-DROP POLICY IF EXISTS "workspace members can create leads" ON public.leads;
-DROP POLICY IF EXISTS "workspace editors can update leads" ON public.leads;
-DROP POLICY IF EXISTS "workspace editors can delete leads" ON public.leads;
 
 CREATE POLICY "authorized workspace access can view leads"
 ON public.leads FOR SELECT TO authenticated
@@ -138,11 +144,6 @@ CREATE POLICY "workspace owners and admins can delete leads"
 ON public.leads FOR DELETE TO authenticated
 USING (public.has_workspace_role(workspace_id, ARRAY['owner','admin']));
 
-DROP POLICY IF EXISTS "workspace members can view conversation threads" ON public.conversation_threads;
-DROP POLICY IF EXISTS "workspace members can create conversation threads" ON public.conversation_threads;
-DROP POLICY IF EXISTS "workspace editors can update conversation threads" ON public.conversation_threads;
-DROP POLICY IF EXISTS "workspace editors can delete conversation threads" ON public.conversation_threads;
-
 CREATE POLICY "authorized workspace access can view conversation threads"
 ON public.conversation_threads FOR SELECT TO authenticated
 USING (public.has_workspace_access(workspace_id));
@@ -160,4 +161,4 @@ CREATE POLICY "workspace owners and admins can delete conversation threads"
 ON public.conversation_threads FOR DELETE TO authenticated
 USING (public.has_workspace_role(workspace_id, ARRAY['owner','admin']));
 
--- No platform-admin OR branch is intentionally present in any core SELECT policy.
+-- No platform-admin branch is present in any core SELECT policy.
