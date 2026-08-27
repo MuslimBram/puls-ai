@@ -36,11 +36,17 @@ describe("workspace access corrective migration contract", () => {
   });
 
   it("gives delete rights only to owner/admin on core resources", () => {
-    expect(migration).not.toContain("ARRAY['owner','admin','member']));\n\nCREATE POLICY \"workspace owners and admins can delete");
-    for (const table of ["business_profiles", "channels", "leads", "conversation_threads"]) {
-      expect(migration).toContain(`ON public.${table} FOR DELETE TO authenticated`);
-      expect(migration).toContain("ARRAY['owner','admin']"));
+    const deletePolicies = [
+      ["business_profiles", "workspace owners and admins can delete business profiles"],
+      ["channels", "workspace owners and admins can delete channels"],
+      ["leads", "workspace owners and admins can delete leads"],
+      ["conversation_threads", "workspace owners and admins can delete conversation threads"],
+    ];
+    for (const [table, name] of deletePolicies) {
+      const pattern = new RegExp(`CREATE POLICY \\"${name}\\"[\\s\\S]*?ON public\\.${table} FOR DELETE TO authenticated[\\s\\S]*?ARRAY\\['owner','admin'\\]`);
+      expect(migration).toMatch(pattern);
     }
+    expect(migration).not.toMatch(/FOR DELETE TO authenticated[\s\S]*?ARRAY\['owner','admin','member'\]/);
   });
 
   it("requires USING and WITH CHECK on every core UPDATE policy", () => {
