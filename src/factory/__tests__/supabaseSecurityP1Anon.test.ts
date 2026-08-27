@@ -45,7 +45,7 @@ describe("Supabase P1 anonymous SECURITY DEFINER closure", () => {
     }
   });
 
-  it("documents and preserves intentionally public and RLS-dependent helpers", () => {
+  it("records the contracts deferred by this historical batch", () => {
     for (const signature of [
       "get_legal_training_response(text, text)",
       "get_prohibited_rules(text)",
