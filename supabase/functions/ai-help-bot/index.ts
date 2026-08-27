@@ -125,6 +125,35 @@ function buildSystemPrompt(pricingRows: PricingRow[], pricingOk: boolean): strin
   ].join("\n");
 }
 
+function buildGroundedFallback(messages: ChatMessage[]): string {
+  const question = [...messages].reverse().find((msg) => msg.role === "user")?.content.toLowerCase() ?? "";
+  const albanian = /\b(si|çfarë|cfare|lidh|regjistr|ndihm|nuk|kam|është|eshte|mund)\b/.test(question);
+
+  if (/whatsapp|waba|meta/.test(question)) {
+    return albanian
+      ? "Për të lidhur WhatsApp Business: hap Channels → WhatsApp Business → Connect; vendos Phone Number ID, Permanent Access Token, Webhook Verify Token dhe WhatsApp Business Account ID; pastaj vazhdo me Verify dhe Save & Activate. Numri duhet të jetë i regjistruar dhe webhook-u messages i abonuar në Meta. Lexo më shumë: /help-center."
+      : "To connect WhatsApp Business, open Channels → WhatsApp Business → Connect; enter the Phone Number ID, Permanent Access Token, Webhook Verify Token, and WhatsApp Business Account ID; then Verify and Save & Activate. The number must be registered and the messages webhook subscribed in Meta. Read more: /help-center.";
+  }
+  if (/telegram|botfather|bot token/.test(question)) {
+    return albanian
+      ? "Për Telegram: krijo ose zgjidh botin te @BotFather, gjenero një token të ri, pastaj hap Channels → Telegram → Connect. Vendos një emër kanali dhe Bot Token, vazhdo me Verify dhe Save & Activate. Mos e dërgo token-in në chat. Lexo më shumë: /help-center."
+      : "For Telegram, create or select a bot in @BotFather, generate a fresh token, then open Channels → Telegram → Connect. Enter a channel name and Bot Token, then Verify and Save & Activate. Never paste the token into chat. Read more: /help-center.";
+  }
+  if (/regjistr|register|sign up|account|llogari/.test(question)) {
+    return albanian
+      ? "Zgjidh Get Started, mënyrën e regjistrimit dhe llojin e llogarisë; përfundo verifikimin e email-it dhe onboarding-un e biznesit. Pas hyrjes, kanalet lidhen te Channels. Nëse një hap dështon, shëno tekstin e gabimit dhe hap /help-center."
+      : "Choose Get Started, your sign-up method, and account type; complete email verification and business onboarding. After sign-in, connect providers under Channels. If a step fails, note the exact error and open /help-center.";
+  }
+  if (/price|pricing|plan|çmim|cmim|paket/.test(question)) {
+    return albanian
+      ? "Çmimet mund të ndryshojnë dhe merren nga konfigurimi aktual i platformës. Shiko /pricing për planet dhe kufijtë e sotëm; për faturim specifik kontakto suportin."
+      : "Pricing can change and is loaded from the platform’s current configuration. See /pricing for today’s plans and limits; contact support for account-specific billing.";
+  }
+  return albanian
+    ? "Mund të të udhëzoj për regjistrimin, kanalet, WhatsApp, Telegram, planet dhe përdorimin e Pulse AI. Shkruaj emrin e hapit ku ngece dhe mesazhin e saktë të gabimit. Lexo më shumë: /help-center."
+    : "I can guide you through sign-up, channels, WhatsApp, Telegram, plans, and Pulse AI usage. Tell me the step where you are stuck and the exact error message. Read more: /help-center.";
+}
+
 function shouldEscalate(messages: ChatMessage[], aiReply: string): boolean {
   const lastUserMessage = [...messages].reverse().find((msg) => msg.role === "user")?.content.toLowerCase() ?? "";
   const reply = aiReply.toLowerCase();
@@ -208,8 +237,9 @@ serve(async (req) => {
         });
       }
       if (routerResponse.status === 503) {
-        return new Response(JSON.stringify({ error: "AI help is temporarily unavailable. Please try again shortly." }), {
-          status: 503,
+        const reply = buildGroundedFallback(normalized.messages);
+        return new Response(JSON.stringify({ reply, needs_admin: false, degraded: true }), {
+          status: 200,
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
