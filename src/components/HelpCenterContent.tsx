@@ -3,6 +3,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
+import { CHANNEL_GUIDES, getGuideLocale } from "@/config/channelGuides";
 import {
   Plug,
   MessageSquare,
@@ -60,29 +62,6 @@ const STEPS = [
   },
 ];
 
-const CHANNEL_GUIDE = [
-  {
-    name: "Telegram",
-    how: "Create a bot via @BotFather, copy the token, paste it in Connections Hub → Telegram.",
-  },
-  {
-    name: "WhatsApp (Twilio)",
-    how: "Create a Twilio account, copy Account SID + Auth Token, add WhatsApp sender, then paste credentials in Connections Hub.",
-  },
-  {
-    name: "Instagram / Facebook",
-    how: "Click 'Connect with Meta' in Connections Hub. You'll be redirected to Meta to approve permissions.",
-  },
-  {
-    name: "Email",
-    how: "Add your sending domain in Branding → Email Domain, verify DNS records, then enable email channel.",
-  },
-  {
-    name: "Website Chat",
-    how: "Copy the snippet from Connections Hub → Website Chat and paste it before </body> on your site.",
-  },
-];
-
 const FAQS = [
   {
     q: "Can I edit or disconnect a channel later?",
@@ -107,6 +86,10 @@ const FAQS = [
 ];
 
 export const HelpCenterContent = () => {
+  const { i18n } = useTranslation();
+  const locale = getGuideLocale(i18n.language);
+  const isSq = locale === "sq";
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -147,16 +130,38 @@ export const HelpCenterContent = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>How to connect each channel</CardTitle>
-          <CardDescription>Step-by-step for every supported integration</CardDescription>
+          <CardTitle>{isSq ? "Si lidhet çdo kanal" : "How to connect each channel"}</CardTitle>
+          <CardDescription>{isSq ? "Hapat, shembujt, gabimet dhe zgjidhjet për çdo integrim" : "Steps, examples, errors and fixes for every integration"}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {CHANNEL_GUIDE.map((c) => (
-            <div key={c.name} className="flex flex-col gap-1 rounded-md border border-border p-3 md:flex-row md:items-center md:gap-4">
-              <Badge variant="outline" className="w-fit">{c.name}</Badge>
-              <p className="text-sm text-muted-foreground flex-1">{c.how}</p>
-            </div>
-          ))}
+          {CHANNEL_GUIDES.map((guide) => {
+            const copy = guide.copy[locale];
+            return (
+              <details id={`channel-${guide.id}`} key={guide.id} className="scroll-mt-24 rounded-md border border-border p-3">
+                <summary className="flex cursor-pointer items-center gap-3">
+                  <Badge variant="outline" className="w-fit">{guide.name}</Badge>
+                  <span className="flex-1 text-sm text-muted-foreground">{copy.summary}</span>
+                  <span className="text-xs font-medium text-primary">{isSq ? "Lexo më shumë" : "Read more"}</span>
+                </summary>
+                <div className="mt-4 grid gap-4 text-sm text-muted-foreground md:grid-cols-2">
+                  <section>
+                    <h3 className="font-semibold text-foreground">{isSq ? "Çfarë të duhet" : "What you need"}</h3>
+                    <ul className="ml-5 mt-1 list-disc space-y-1">{copy.requirements.map((item) => <li key={item}>{item}</li>)}</ul>
+                  </section>
+                  <section>
+                    <h3 className="font-semibold text-foreground">{isSq ? "Hapat" : "Steps"}</h3>
+                    <ol className="ml-5 mt-1 list-decimal space-y-1">{copy.steps.map((item) => <li key={item}>{item}</li>)}</ol>
+                  </section>
+                  <section className="md:col-span-2">
+                    <h3 className="font-semibold text-foreground">{isSq ? "Gabimet dhe zgjidhjet" : "Errors and fixes"}</h3>
+                    <ul className="mt-1 space-y-2">{copy.errors.map((item) => <li key={item.error}><strong>{item.error}:</strong> {item.fix}</li>)}</ul>
+                  </section>
+                  <p className="rounded-md bg-muted/50 p-3 md:col-span-2"><strong>{isSq ? "Siguri:" : "Security:"}</strong> {copy.security}</p>
+                  {guide.docsUrl && <a href={guide.docsUrl} target="_blank" rel="noopener noreferrer" className="w-fit text-primary underline">{isSq ? "Dokumentacioni zyrtar" : "Official documentation"}</a>}
+                </div>
+              </details>
+            );
+          })}
         </CardContent>
       </Card>
 
