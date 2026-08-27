@@ -78,7 +78,7 @@ serve(async (req) => {
       _workspace_id: workspace_id,
       _channel_type: "telegram",
       _contact_identifier: chat_id.toString(),
-      _contact_name: chat_id.toString(),
+      _contact_name: null,
       _message_preview: message,
       _direction: "outbound",
     });
