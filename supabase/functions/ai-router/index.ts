@@ -198,7 +198,7 @@ async function canUsePaidFallback(supabase: ReturnType<typeof createClient>): Pr
   startOfDay.setUTCHours(0, 0, 0, 0);
   const { data, error } = await supabase
     .from("ai_usage_requests")
-    .select("cost_usd")
+    .select("successful_provider_key,cost_usd")
     .eq("request_status", "succeeded")
     .gte("completed_at", startOfDay.toISOString());
 
@@ -208,7 +208,11 @@ async function canUsePaidFallback(supabase: ReturnType<typeof createClient>): Pr
     return { allowed: false, dailyBudgetUsd, spentTodayUsd: 0, reason: "SPEND_LEDGER_UNAVAILABLE" };
   }
 
-  const spentTodayUsd = (data ?? []).reduce((sum, row) => sum + Number(row.cost_usd ?? 0), 0);
+  const spentTodayUsd = (data ?? []).reduce((sum, row) => {
+    const providerKey = row.successful_provider_key as ProviderKey | null;
+    if (providerKey && FREE_ALLOWANCE_PROVIDERS.has(providerKey)) return sum;
+    return sum + Number(row.cost_usd ?? 0);
+  }, 0);
   return {
     allowed: spentTodayUsd < dailyBudgetUsd,
     dailyBudgetUsd,
