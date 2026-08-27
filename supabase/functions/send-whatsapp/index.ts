@@ -104,6 +104,7 @@ serve(async (req) => {
     const providerMessageId = waData.messages?.[0]?.id;
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: user.id,
+      _workspace_id: workspace_id,
       _channel_type: "whatsapp",
       _contact_identifier: to,
       _contact_name: to,
