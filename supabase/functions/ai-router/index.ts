@@ -169,6 +169,54 @@ function normalizeTaskType(taskType?: string): TaskType | null {
 // No provider appears twice in any chain.
 type ProviderKey = keyof typeof PROVIDERS;
 
+// Providers with a documented free allowance are always attempted before paid providers.
+// "free allowance" is intentionally not the same as zero cost: once an account is upgraded,
+// the provider may bill usage. The platform-wide paid budget below is therefore still enforced.
+const FREE_ALLOWANCE_PROVIDERS = new Set<ProviderKey>([
+  "LOVABLE_FLASH", "GROQ_LLAMA8B", "GROQ_LLAMA70B", "GEMINI_FLASH",
+]);
+
+function paidFallbackConfig() {
+  const enabled = (Deno.env.get("AI_PAID_FALLBACK_ENABLED") ?? "true").toLowerCase() === "true";
+  const parsedBudget = Number(Deno.env.get("AI_PAID_DAILY_BUDGET_USD") ?? "1.00");
+  const dailyBudgetUsd = Number.isFinite(parsedBudget) && parsedBudget > 0 ? parsedBudget : 0;
+  return { enabled, dailyBudgetUsd };
+}
+
+async function canUsePaidFallback(supabase: ReturnType<typeof createClient>): Promise<{
+  allowed: boolean;
+  dailyBudgetUsd: number;
+  spentTodayUsd: number;
+  reason?: string;
+}> {
+  const { enabled, dailyBudgetUsd } = paidFallbackConfig();
+  if (!enabled || dailyBudgetUsd <= 0) {
+    return { allowed: false, dailyBudgetUsd, spentTodayUsd: 0, reason: "PAID_FALLBACK_DISABLED" };
+  }
+
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const { data, error } = await supabase
+    .from("ai_usage_requests")
+    .select("cost_usd")
+    .eq("request_status", "succeeded")
+    .gte("completed_at", startOfDay.toISOString());
+
+  // Fail closed: paid calls must never run without an authoritative spend ledger.
+  if (error) {
+    console.warn("[ai-router] paid fallback blocked: usage ledger unavailable", error.code ?? "query_error");
+    return { allowed: false, dailyBudgetUsd, spentTodayUsd: 0, reason: "SPEND_LEDGER_UNAVAILABLE" };
+  }
+
+  const spentTodayUsd = (data ?? []).reduce((sum, row) => sum + Number(row.cost_usd ?? 0), 0);
+  return {
+    allowed: spentTodayUsd < dailyBudgetUsd,
+    dailyBudgetUsd,
+    spentTodayUsd,
+    ...(spentTodayUsd >= dailyBudgetUsd ? { reason: "DAILY_PAID_BUDGET_REACHED" } : {}),
+  };
+}
+
 const ROUTE_CHAINS: Record<TaskType, {
   chain: readonly ProviderKey[];
   tier: "cheap" | "mid" | "premium";
@@ -671,7 +719,14 @@ serve(async (req: Request): Promise<Response> => {
   });
 
   let providerAttemptIndex = 0;
+  let paidFallbackDecision: Awaited<ReturnType<typeof canUsePaidFallback>> | null = null;
   const governedProviderCall = async (providerKey: ProviderKey) => {
+    if (!FREE_ALLOWANCE_PROVIDERS.has(providerKey)) {
+      paidFallbackDecision ??= await canUsePaidFallback(supabase);
+      if (!paidFallbackDecision.allowed) {
+        throw new Error(`Paid fallback blocked: ${paidFallbackDecision.reason ?? "budget policy"}`);
+      }
+    }
     const attemptIndex = ++providerAttemptIndex;
     const attemptStart = Date.now();
     const providerDef = PROVIDERS[providerKey];
@@ -851,7 +906,12 @@ serve(async (req: Request): Promise<Response> => {
   // Cap chain to total provider budget, then skip providers that have an
   // authoritative future cooldown/quota window. If the health store is not
   // available yet, the helper returns an empty set and legacy routing remains.
-  const candidateChain = routeConfig.chain.slice(0, TOTAL_PROVIDER_BUDGET);
+  const configuredChain = routeConfig.chain.slice(0, TOTAL_PROVIDER_BUDGET);
+  // Preserve capability order within each class, but exhaust every free allowance first.
+  const candidateChain = [
+    ...configuredChain.filter((key) => FREE_ALLOWANCE_PROVIDERS.has(key)),
+    ...configuredChain.filter((key) => !FREE_ALLOWANCE_PROVIDERS.has(key)),
+  ];
   const unavailableProviders = await loadDurablyUnavailableProviders(supabase, candidateChain);
   const chain = candidateChain.filter((key) => !unavailableProviders.has(key));
   if (!chain.length) {
