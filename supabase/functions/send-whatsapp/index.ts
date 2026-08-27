@@ -107,7 +107,7 @@ serve(async (req) => {
       _workspace_id: workspace_id,
       _channel_type: "whatsapp",
       _contact_identifier: to,
-      _contact_name: to,
+      _contact_name: null,
       _message_preview: message || `[${type}]`,
       _direction: "outbound",
     });
