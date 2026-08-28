@@ -5,6 +5,7 @@ set -euo pipefail
 
 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
 alter table public.conversation_threads
+  alter column id set default gen_random_uuid(),
   add column user_id uuid not null,
   add column channel_type text not null,
   add column contact_identifier text not null,
