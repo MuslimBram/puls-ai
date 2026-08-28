@@ -73,7 +73,7 @@ insert into public.api_keys(id,user_id,workspace_id)
 values ('aaaaaaaa-0000-0000-0000-000000000002','11111111-1111-1111-1111-111111111111',null);
 SQL
 
-psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1   -f supabase/migrations/20260828080000_p0_2_inbox_api_key_workspace_isolation.sql
+psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1   -f supabase/migrations/20260828125705_p0_2_inbox_api_key_workspace_isolation.sql
 
 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
 do $$
