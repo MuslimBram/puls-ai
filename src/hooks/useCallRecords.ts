@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 import { useState, useCallback } from "react";
 
 export interface CallRecord {
   id: string;
-  workspace_id: string | null;
+  workspace_id: string;
   user_id: string;
   contact_name: string | null;
   contact_phone: string | null;
@@ -31,20 +32,21 @@ const PAGE_SIZE = 25;
 
 export const useCallRecords = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
   const [directionFilter, setDirectionFilter] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const query = useQuery({
-    queryKey: ["call-records", user?.id, page, directionFilter, statusFilter],
+    queryKey: ["call-records", workspace?.id, page, directionFilter, statusFilter],
     queryFn: async () => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
       let q = supabase
         .from("call_records")
         .select("*", { count: "exact" })
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("created_at", { ascending: false })
         .range(from, to);
 
@@ -55,7 +57,7 @@ export const useCallRecords = () => {
       if (error) throw error;
       return { data: (data ?? []) as unknown as CallRecord[], total: count ?? 0 };
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace,
   });
 
   const addCall = useMutation({
@@ -63,6 +65,7 @@ export const useCallRecords = () => {
       const { error } = await supabase.from("call_records").insert({
         ...call,
         user_id: user!.id,
+        workspace_id: workspace!.id,
       } as any);
       if (error) throw error;
     },
@@ -78,7 +81,8 @@ export const useCallRecords = () => {
       const { error } = await supabase
         .from("call_records")
         .update({ ...updates, updated_at: new Date().toISOString() } as any)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("workspace_id", workspace!.id);
       if (error) throw error;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["call-records"] }),
