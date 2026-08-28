@@ -19,7 +19,7 @@ const historical = {
   "20260827190129_add_workspace_assignment_expiry.sql": h("b2df216f","35c0be7a","3e7ef2ec","8af97198","d4780c1a","b170f083","13835b1d","cb962b83"),
   "20260827190233_harden_workspace_access_support_and_admin_workflows_v2.sql": h("3de7dc9e","45ab9a47","641e1ab6","d67dbb2f","c3b0ba49","ae270d49","84b03dfe","100a4fc7"),
   "20260827190330_add_audited_support_session_rpc.sql": h("d6dd6a44","8ffcd55b","df2c41db","b404ca35","e6370d48","fd2c0505","f3d2e371","a6efe2a5"),
-  "20260827190506_require_support_session_for_admin_private_data.sql": h("b20759e1","73ae1e1d","0d3ffa9d","a21e2c41","a0e2dfb4","6fb2df7d","7de9c46c","6f1f7419"),
+  "20260827190506_require_support_session_for_admin_private_data.sql": h("b20759e1","7374ae1e","1d0d3ffa","9da21e2c","41a0e2df","b46fb2df","7de9c46c","6f1f7419"),
   "20260827191457_least_privilege_admin_workflow_table_grants.sql": h("659fefc5","411473c6","b2e2cdde","8213e225","1dfa9ec7","81bd9625","1fd48272","64226165"),
 } as const;
 
