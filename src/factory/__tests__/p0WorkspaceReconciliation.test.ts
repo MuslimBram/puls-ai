@@ -12,7 +12,7 @@ const historical = {
   "20260827114248_p0_canonical_workspace_rls_core_resources.sql": h("fba5ea1f","e0463b51","cd94056e","30f213a3","90662456","cbf37c52","e9d27edd","0f642bf0"),
   "20260827152201_add_ai_learning_lessons_v2.sql": h("0cb11bbc","4bf0ffd3","ecefe0bd","760649a4","447effe5","335cb911","819eb01f","a16babde"),
   "20260827154758_add_partner_roles_ambassador_white_label.sql": h("36db1ce5","a7739d09","60b89e87","2b4ea944","68bba118","df7dd98c","456c03f1","7c3d06ac"),
-  "20260827154920_add_canonical_role_definitions.sql": h("f35b9358","396b10bb","7da33224","e8e98322","50b2d448","5e9ffbec","f8013d0d","777d7e5"),
+  "20260827154920_add_canonical_role_definitions.sql": h("f35b9358","396b10bb","7da33224","e8e98322","50b2d448","5e9fffbe","cf8013d0","d777d7e5"),
   "20260827160224_secure_admin_role_two_person_approval.sql": h("c6faecf6","26cf8bdd","596771c7","3a0894ed","b6ea4ea0","b2c47354","20650359","34c33f02"),
   "20260827160328_lock_ai_admin_review_to_service.sql": h("027d31ce","557f8772","5a8e10fe","43b08445","00f08ce7","9c0e84a4","b9ad19f0","a4f5db5e"),
   "20260827160728_canonical_partner_workspace_access.sql": h("7ce31905","912c18c1","7c879796","dd06075a","7f7587d5","3927c6d5","4342c7a0","9439082f"),
