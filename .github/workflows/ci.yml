@@ -100,7 +100,7 @@ jobs:
           SQL
 
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/p0_fixture.sql
-          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260827200000_harden_has_workspace_role_and_core_rls.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260828071542_harden_has_workspace_role_and_core_rls.sql
 
           psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
           do $$
@@ -176,7 +176,7 @@ jobs:
             if (version < lastVersion) { console.error('Migration order anomaly: ' + f); process.exit(1); }
             lastVersion = version;
           }
-          if ('20260827200000' <= '20260827191457') { console.error('Corrective migration order invalid'); process.exit(1); }
+          if ('20260828071542' <= '20260827191457') { console.error('Corrective migration order invalid'); process.exit(1); }
           console.log('Migration sequence valid; all versions are unique; corrective follows historical maximum.');
           "
 
