@@ -93,7 +93,7 @@ values
 SQL
 
 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
-  -f supabase/migrations/20260828131500_p0_3_inbox_ancillary_isolation.sql
+  -f supabase/migrations/20260828184249_p0_3_inbox_ancillary_isolation.sql
 
 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
 do $$
