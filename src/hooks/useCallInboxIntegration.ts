@@ -16,9 +16,20 @@ export const useCallInboxIntegration = () => {
       contactName?: string;
       direction: "inbound" | "outbound";
     }) => {
-      // Use the existing upsert function to create/update thread
-      const { data: threadId, error } = await supabase.rpc("upsert_conversation_thread", {
-        _user_id: user!.id,
+      const { data: callRecord, error: callRecordError } = await supabase
+        .from("call_records")
+        .select("workspace_id")
+        .eq("id", params.callRecordId)
+        .single();
+      if (callRecordError) throw callRecordError;
+
+      const workspaceId = (callRecord as { workspace_id: string | null }).workspace_id;
+      if (!workspaceId) throw new Error("Call record is not linked to a workspace.");
+
+      // The browser uses a caller-bound SECURITY INVOKER RPC. Service-side channel
+      // functions continue using the explicit-user, service-role-only RPC.
+      const { data: threadId, error } = await (supabase.rpc as any)("upsert_my_conversation_thread", {
+        _workspace_id: workspaceId,
         _channel_type: "voice",
         _contact_identifier: params.contactPhone,
         _contact_name: params.contactName || params.contactPhone,
@@ -27,12 +38,14 @@ export const useCallInboxIntegration = () => {
       });
       if (error) throw error;
 
-      // Link call record to thread
+      // Link only the call record from the same authoritative workspace.
       if (threadId) {
-        await supabase
+        const { error: linkError } = await supabase
           .from("call_records")
           .update({ thread_id: threadId } as any)
-          .eq("id", params.callRecordId);
+          .eq("id", params.callRecordId)
+          .eq("workspace_id", workspaceId);
+        if (linkError) throw linkError;
       }
 
       return threadId;
