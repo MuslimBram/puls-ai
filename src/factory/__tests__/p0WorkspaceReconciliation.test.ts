@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const migrationDir = resolve(process.cwd(), "supabase/migrations");
-const correctivePath = resolve(migrationDir, "20260827200000_harden_has_workspace_role_and_core_rls.sql");
+const correctivePath = resolve(migrationDir, "20260828071542_harden_has_workspace_role_and_core_rls.sql");
 const h = (...parts: string[]) => parts.join("");
 
 const historical = {
