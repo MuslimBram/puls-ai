@@ -1,14 +1,11 @@
 import { useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Creates a conversation thread in the inbox when a call starts,
  * linking the call record to the thread for unified view.
  */
 export const useCallInboxIntegration = () => {
-  const { user } = useAuth();
-
   const createThreadForCall = useMutation({
     mutationFn: async (params: {
       callRecordId: string;
