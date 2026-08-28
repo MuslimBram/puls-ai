@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
 
 export interface ApiKey {
@@ -29,37 +30,43 @@ export interface ApiRequestLog {
 
 export const usePublicApi = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const requireWorkspaceId = () => {
+    if (!workspace?.id) throw new Error("Select a workspace before managing API keys.");
+    return workspace.id;
+  };
+
   const keysQuery = useQuery({
-    queryKey: ["api-keys", user?.id],
+    queryKey: ["api-keys", user?.id, workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("manage-api-keys", {
-        body: { action: "list" },
+        body: { action: "list", workspace_id: requireWorkspaceId() },
       });
       if (error) throw error;
       return (data?.keys || []) as ApiKey[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const logsQuery = useQuery({
-    queryKey: ["api-logs", user?.id],
+    queryKey: ["api-logs", user?.id, workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("manage-api-keys", {
-        body: { action: "logs" },
+        body: { action: "logs", workspace_id: requireWorkspaceId() },
       });
       if (error) throw error;
       return (data?.logs || []) as ApiRequestLog[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const createKey = useMutation({
-    mutationFn: async (params: { label: string; permissions: string[]; workspace_id?: string }) => {
+    mutationFn: async (params: { label: string; permissions: string[] }) => {
       const { data, error } = await supabase.functions.invoke("manage-api-keys", {
-        body: { action: "create", ...params },
+        body: { action: "create", workspace_id: requireWorkspaceId(), ...params },
       });
       if (error) throw error;
       return data;
@@ -74,7 +81,7 @@ export const usePublicApi = () => {
   const revokeKey = useMutation({
     mutationFn: async (keyId: string) => {
       const { data, error } = await supabase.functions.invoke("manage-api-keys", {
-        body: { action: "revoke", key_id: keyId },
+        body: { action: "revoke", workspace_id: requireWorkspaceId(), key_id: keyId },
       });
       if (error) throw error;
       return data;
