@@ -16,7 +16,7 @@ with candidates as (
     and (waa.expires_at is null or waa.expires_at > pg_catalog.now())
 ),
 unique_workspace as (
-  select user_id, min(workspace_id) as workspace_id
+  select user_id, (array_agg(workspace_id order by workspace_id))[1] as workspace_id
   from candidates
   group by user_id
   having count(distinct workspace_id) = 1
@@ -40,7 +40,7 @@ with candidates as (
     and (waa.expires_at is null or waa.expires_at > pg_catalog.now())
 ),
 unique_workspace as (
-  select user_id, min(workspace_id) as workspace_id
+  select user_id, (array_agg(workspace_id order by workspace_id))[1] as workspace_id
   from candidates
   group by user_id
   having count(distinct workspace_id) = 1
@@ -185,20 +185,20 @@ begin
     _contact_identifier,
     _contact_name,
     pg_catalog.now(),
-    pg_catalog.left(pg_catalog.coalesce(_message_preview, ''), 200),
+    pg_catalog.left(coalesce(_message_preview, ''), 200),
     1,
     case when _direction = 'inbound' then 1 else 0 end
   )
   on conflict (user_id, workspace_id, channel_type, contact_identifier)
   do update set
     last_message_at = pg_catalog.now(),
-    last_message_preview = pg_catalog.left(pg_catalog.coalesce(_message_preview, ''), 200),
-    message_count = pg_catalog.coalesce(ct.message_count, 0) + 1,
+    last_message_preview = pg_catalog.left(coalesce(_message_preview, ''), 200),
+    message_count = coalesce(ct.message_count, 0) + 1,
     unread_count = case
-      when _direction = 'inbound' then pg_catalog.coalesce(ct.unread_count, 0) + 1
-      else pg_catalog.coalesce(ct.unread_count, 0)
+      when _direction = 'inbound' then coalesce(ct.unread_count, 0) + 1
+      else coalesce(ct.unread_count, 0)
     end,
-    contact_name = pg_catalog.coalesce(excluded.contact_name, ct.contact_name),
+    contact_name = coalesce(excluded.contact_name, ct.contact_name),
     updated_at = pg_catalog.now()
   returning id into v_thread_id;
 
