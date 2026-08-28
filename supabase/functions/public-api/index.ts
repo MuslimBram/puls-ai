@@ -26,13 +26,13 @@ async function authenticateApiKey(req: Request) {
   const keyHash = await hashKey(apiKey);
   const { data, error } = await supabase
     .from("api_keys")
-    .select("id, user_id, workspace_id, permissions, rate_limit_per_minute")
+    .select("id, user_id, workspace_id, permissions, rate_limit_per_minute, usage_count")
     .eq("key_hash", keyHash)
     .eq("is_active", true)
     .is("revoked_at", null)
     .maybeSingle();
 
-  if (error || !data) throw new Error("Invalid API key");
+  if (error || !data || !data.workspace_id) throw new Error("Invalid or unscoped API key");
 
   // Update usage
   await supabase.from("api_keys").update({
@@ -117,7 +117,7 @@ serve(async (req) => {
         if (req.method === "GET") {
           if (!hasPermission(permissions, "read")) throw new Error("Insufficient permissions");
           const limit = parseInt(url.searchParams.get("limit") || "50");
-          const { data } = await supabase.from("leads").select("*").eq("user_id", user_id).order("created_at", { ascending: false }).limit(Math.min(limit, 100));
+          const { data } = await supabase.from("leads").select("*").eq("workspace_id", workspace_id).order("created_at", { ascending: false }).limit(Math.min(limit, 100));
           result = { leads: data || [] };
         } else if (req.method === "POST") {
           if (!hasPermission(permissions, "write")) throw new Error("Insufficient permissions");
@@ -146,13 +146,15 @@ serve(async (req) => {
         if (req.method === "POST") {
           if (!hasPermission(permissions, "write")) throw new Error("Insufficient permissions");
           const body = await req.json();
+          if (typeof body.message !== "string" || !body.message.trim()) throw new Error("message is required");
           const { data, error } = await supabase.from("inbox_messages").insert({
             user_id,
             workspace_id,
             channel_type: body.channel || "api",
+            source_name: "Public API",
             sender_name: body.sender_name || "API",
             sender_identifier: body.sender_identifier,
-            message_body: body.message,
+            message_content: body.message,
             direction: body.direction || "inbound",
           }).select().single();
           if (error) throw error;
@@ -162,7 +164,7 @@ serve(async (req) => {
         } else if (req.method === "GET") {
           if (!hasPermission(permissions, "read")) throw new Error("Insufficient permissions");
           const limit = parseInt(url.searchParams.get("limit") || "50");
-          const { data } = await supabase.from("inbox_messages").select("*").eq("user_id", user_id).order("message_timestamp", { ascending: false }).limit(Math.min(limit, 100));
+          const { data } = await supabase.from("inbox_messages").select("*").eq("workspace_id", workspace_id).order("message_timestamp", { ascending: false }).limit(Math.min(limit, 100));
           result = { messages: data || [] };
         } else {
           throw new Error("Method not allowed");
@@ -173,7 +175,7 @@ serve(async (req) => {
       case "deals": {
         if (req.method === "GET") {
           if (!hasPermission(permissions, "read")) throw new Error("Insufficient permissions");
-          const { data } = await supabase.from("deals").select("*").eq("user_id", user_id).order("created_at", { ascending: false }).limit(50);
+          const { data } = await supabase.from("deals").select("*").eq("workspace_id", workspace_id).order("created_at", { ascending: false }).limit(50);
           result = { deals: data || [] };
         } else if (req.method === "PUT" || req.method === "PATCH") {
           if (!hasPermission(permissions, "write")) throw new Error("Insufficient permissions");
@@ -184,7 +186,7 @@ serve(async (req) => {
           if (body.value !== undefined) updateFields.value = body.value;
           if (body.stage_id) updateFields.stage_id = body.stage_id;
           if (body.title) updateFields.title = body.title;
-          const { data, error } = await supabase.from("deals").update(updateFields).eq("id", body.id).eq("user_id", user_id).select().single();
+          const { data, error } = await supabase.from("deals").update(updateFields).eq("id", body.id).eq("workspace_id", workspace_id).select().single();
           if (error) throw error;
           result = { deal: data };
           await fireZapierWebhooks(user_id, "deal.updated", data);
@@ -204,7 +206,7 @@ serve(async (req) => {
             .from("automation_workflows")
             .select("id, trigger_type, workspace_id, user_id")
             .eq("id", body.workflow_id)
-            .eq("user_id", user_id)
+            .eq("workspace_id", workspace_id)
             .maybeSingle();
           if (wfErr) throw wfErr;
           if (!wf) throw new Error("workflow not found");
@@ -239,9 +241,9 @@ serve(async (req) => {
           const since = new Date(Date.now() - days * 86400000).toISOString();
           
           const [leadsRes, msgsRes, dealsRes] = await Promise.all([
-            supabase.from("leads").select("id", { count: "exact" }).eq("user_id", user_id).gte("created_at", since),
-            supabase.from("inbox_messages").select("id", { count: "exact" }).eq("user_id", user_id).gte("message_timestamp", since),
-            supabase.from("deals").select("id, value, status").eq("user_id", user_id).gte("created_at", since),
+            supabase.from("leads").select("id", { count: "exact" }).eq("workspace_id", workspace_id).gte("created_at", since),
+            supabase.from("inbox_messages").select("id", { count: "exact" }).eq("workspace_id", workspace_id).gte("message_timestamp", since),
+            supabase.from("deals").select("id, value, status").eq("workspace_id", workspace_id).gte("created_at", since),
           ]);
 
           const deals = dealsRes.data || [];
