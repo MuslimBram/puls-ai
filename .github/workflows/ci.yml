@@ -131,6 +131,11 @@ jobs:
           end $$;
           SQL
 
+      - name: Apply and verify P0.2 tenant isolation migration
+        env:
+          PGPASSWORD: postgres
+        run: bash scripts/verify-p0-2-migration.sh
+
       - name: Generate P0 ledger hash report
         if: always()
         run: |
