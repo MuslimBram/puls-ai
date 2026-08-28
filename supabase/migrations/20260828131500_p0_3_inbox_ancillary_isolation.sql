@@ -100,7 +100,7 @@ with check (
   )
 );
 
-create policy "p0 workspace members can release own or expired conversation locks"
+create policy "p0 members can release own or expired conversation locks"
 on public.conversation_locks for delete to authenticated
 using (
   (locked_by = (select auth.uid()) or expires_at <= pg_catalog.now())
