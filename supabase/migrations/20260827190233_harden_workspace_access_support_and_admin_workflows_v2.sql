@@ -22,7 +22,8 @@ AS $$ SELECT _user IS NOT NULL AND (EXISTS(SELECT 1 FROM public.workspace_member
 
 CREATE TABLE IF NOT EXISTS public.workspace_support_sessions (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), workspace_id uuid NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
- support_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE, reason text NOT NULL CHECK(length(btrim(reason)) BETWEEN 10 AND 1000), scopes text[] NOT NULL CHECK(cardinality(scopes)>0),
+ support_user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+ reason text NOT NULL CHECK(length(btrim(reason)) BETWEEN 10 AND 1000), scopes text[] NOT NULL CHECK(cardinality(scopes)>0),
  expires_at timestamptz NOT NULL, revoked_at timestamptz, audit_log_id uuid REFERENCES public.audit_logs(id) ON DELETE SET NULL,
  created_at timestamptz NOT NULL DEFAULT now(), CHECK(expires_at>created_at), CHECK(revoked_at IS NULL OR revoked_at>=created_at)
 );
