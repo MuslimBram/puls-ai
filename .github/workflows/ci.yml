@@ -136,6 +136,11 @@ jobs:
           PGPASSWORD: postgres
         run: bash scripts/verify-p0-2-migration.sh
 
+      - name: Apply and verify P0.3 ancillary Inbox isolation migration
+        env:
+          PGPASSWORD: postgres
+        run: bash scripts/verify-p0-3-inbox-ancillary.sh
+
       - name: Generate P0 ledger hash report
         if: always()
         run: |
