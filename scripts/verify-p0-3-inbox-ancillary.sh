@@ -4,6 +4,30 @@ set -euo pipefail
 : "${PGPASSWORD:=postgres}"
 
 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+create or replace function public.has_workspace_access(_workspace uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.workspaces w
+    where w.id = _workspace and w.owner_id = (select auth.uid())
+  ) or exists (
+    select 1 from public.workspace_members wm
+    where wm.workspace_id = _workspace and wm.user_id = (select auth.uid())
+  ) or exists (
+    select 1 from public.workspace_access_assignments waa
+    where waa.workspace_id = _workspace
+      and waa.user_id = (select auth.uid())
+      and waa.is_active
+      and (waa.expires_at is null or waa.expires_at > pg_catalog.now())
+  );
+$$;
+revoke all on function public.has_workspace_access(uuid) from public, anon, authenticated;
+grant execute on function public.has_workspace_access(uuid) to authenticated, service_role;
+
 create table public.message_media (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null,
