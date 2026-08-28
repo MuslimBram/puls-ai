@@ -47,10 +47,11 @@ function hasPermission(permissions: string[], required: string): boolean {
   return permissions.includes("admin") || permissions.includes(required);
 }
 
-async function fireZapierWebhooks(userId: string, eventType: string, payload: Record<string, unknown>) {
+async function fireZapierWebhooks(userId: string, workspaceId: string, eventType: string, payload: Record<string, unknown>) {
   const { data: webhooks } = await supabase
     .from("zapier_webhooks")
-    .select("id, webhook_url")
+    .select("id, webhook_url, trigger_count")
+    .eq("workspace_id", workspaceId)
     .eq("user_id", userId)
     .eq("event_type", eventType)
     .eq("is_active", true);
@@ -135,7 +136,7 @@ serve(async (req) => {
           if (error) throw error;
           result = { lead: data };
           statusCode = 201;
-          await fireZapierWebhooks(user_id, "lead.created", data);
+          await fireZapierWebhooks(user_id, workspace_id, "lead.created", data);
         } else {
           throw new Error("Method not allowed");
         }
@@ -160,7 +161,7 @@ serve(async (req) => {
           if (error) throw error;
           result = { message: data };
           statusCode = 201;
-          await fireZapierWebhooks(user_id, "message.received", data);
+          await fireZapierWebhooks(user_id, workspace_id, "message.received", data);
         } else if (req.method === "GET") {
           if (!hasPermission(permissions, "read")) throw new Error("Insufficient permissions");
           const limit = parseInt(url.searchParams.get("limit") || "50");
@@ -189,7 +190,7 @@ serve(async (req) => {
           const { data, error } = await supabase.from("deals").update(updateFields).eq("id", body.id).eq("workspace_id", workspace_id).select().single();
           if (error) throw error;
           result = { deal: data };
-          await fireZapierWebhooks(user_id, "deal.updated", data);
+          await fireZapierWebhooks(user_id, workspace_id, "deal.updated", data);
         } else {
           throw new Error("Method not allowed");
         }
@@ -227,7 +228,7 @@ serve(async (req) => {
           const execData = await execResp.json();
           result = { automation_run: execData };
           statusCode = 201;
-          await fireZapierWebhooks(user_id, "automation.triggered", { workflow_id: wf.id, ...execData });
+          await fireZapierWebhooks(user_id, workspace_id, "automation.triggered", { workflow_id: wf.id, ...execData });
         } else {
           throw new Error("Method not allowed");
         }
