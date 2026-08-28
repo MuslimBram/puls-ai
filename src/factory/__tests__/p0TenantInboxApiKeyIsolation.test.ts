@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
 
-const migration = read("supabase/migrations/20260828080000_p0_2_inbox_api_key_workspace_isolation.sql");
+const migration = read("supabase/migrations/20260828125705_p0_2_inbox_api_key_workspace_isolation.sql");
 const voice = read("src/hooks/useCallInboxIntegration.ts");
 const apiKeyClient = read("src/hooks/usePublicApi.ts");
 const apiKeyManager = read("supabase/functions/manage-api-keys/index.ts");
@@ -98,7 +98,7 @@ describe("P0.2 Inbox and API-key workspace isolation", () => {
   });
 
   it("executes the migration against PostgreSQL and performs a caller-bound runtime check in CI", () => {
-    expect(ciContract).toContain("20260828080000_p0_2_inbox_api_key_workspace_isolation.sql");
+    expect(ciContract).toContain("20260828125705_p0_2_inbox_api_key_workspace_isolation.sql");
     expect(ciContract).toContain("Legacy workspace-less thread function remains");
     expect(ciContract).toContain("Caller-bound thread runtime test failed");
   });
