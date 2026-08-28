@@ -1,0 +1,2 @@
+alter table public.workspace_access_assignments add column if not exists expires_at timestamptz null;
+create index if not exists idx_workspace_access_assignments_expiry on public.workspace_access_assignments(workspace_id,user_id,expires_at) where is_active = true;
