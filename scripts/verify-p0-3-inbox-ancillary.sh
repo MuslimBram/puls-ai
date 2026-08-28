@@ -4,7 +4,7 @@ set -euo pipefail
 : "${PGPASSWORD:=postgres}"
 
 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-create or replace function public.has_workspace_access(_workspace uuid)
+create or replace function public.has_workspace_access(_workspace_id uuid)
 returns boolean
 language sql
 stable
@@ -13,13 +13,13 @@ set search_path = ''
 as $$
   select exists (
     select 1 from public.workspaces w
-    where w.id = _workspace and w.owner_id = (select auth.uid())
+    where w.id = _workspace_id and w.owner_id = (select auth.uid())
   ) or exists (
     select 1 from public.workspace_members wm
-    where wm.workspace_id = _workspace and wm.user_id = (select auth.uid())
+    where wm.workspace_id = _workspace_id and wm.user_id = (select auth.uid())
   ) or exists (
     select 1 from public.workspace_access_assignments waa
-    where waa.workspace_id = _workspace
+    where waa.workspace_id = _workspace_id
       and waa.user_id = (select auth.uid())
       and waa.is_active
       and (waa.expires_at is null or waa.expires_at > pg_catalog.now())
