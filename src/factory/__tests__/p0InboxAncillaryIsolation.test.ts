@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
 
-const migration = read("supabase/migrations/20260828131500_p0_3_inbox_ancillary_isolation.sql");
+const migration = read("supabase/migrations/20260828184249_p0_3_inbox_ancillary_isolation.sql");
 const verification = read("scripts/verify-p0-3-inbox-ancillary.sh");
 const conversationHook = read("src/hooks/useConversationEngine.ts");
 const helpdeskHook = read("src/hooks/useHelpdesk.ts");
@@ -49,7 +49,7 @@ describe("P0.3 ancillary Inbox tenant isolation", () => {
   });
 
   it("applies the migration and denies cross-workspace writes in PostgreSQL", () => {
-    expect(verification).toContain("20260828131500_p0_3_inbox_ancillary_isolation.sql");
+    expect(verification).toContain("20260828184249_p0_3_inbox_ancillary_isolation.sql");
     expect(verification).toContain("Cross-workspace media insert was allowed");
     expect(verification).toContain("Cross-workspace note insert was allowed");
     expect(verification).toContain("Cross-workspace lock insert was allowed");
