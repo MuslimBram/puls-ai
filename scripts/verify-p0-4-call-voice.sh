@@ -101,7 +101,7 @@ grant all on table public.active_calls, public.call_queues, public.call_queue_me
   public.call_notes, public.call_tags to public, anon, authenticated, service_role;
 
 insert into public.workspace_members(workspace_id,user_id,role)
-values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','22222222-2222-2222-2222-222222222222','member');
+values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','66666666-6666-6666-6666-666666666666','member');
 
 insert into public.call_records(id,workspace_id,user_id) values
   ('aaaaaaaa-1000-0000-0000-000000000001','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111'),
@@ -270,21 +270,21 @@ $$;
 reset role;
 
 set role authenticated;
-select set_config('request.jwt.claim.sub','22222222-2222-2222-2222-222222222222',false);
+select set_config('request.jwt.claim.sub','66666666-6666-6666-6666-666666666666',false);
 
 do $$
 declare
   member_record uuid;
 begin
   insert into public.call_records(workspace_id,user_id)
-  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','22222222-2222-2222-2222-222222222222')
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','66666666-6666-6666-6666-666666666666')
   returning id into member_record;
   insert into public.active_calls(workspace_id,agent_user_id,call_record_id)
-  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','22222222-2222-2222-2222-222222222222',member_record);
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','66666666-6666-6666-6666-666666666666',member_record);
   insert into public.call_scripts(workspace_id,user_id,name)
-  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','22222222-2222-2222-2222-222222222222','Member script');
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','66666666-6666-6666-6666-666666666666','Member script');
   insert into public.call_notes(workspace_id,user_id,call_record_id,note_text)
-  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','22222222-2222-2222-2222-222222222222',member_record,'Member note');
+  values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','66666666-6666-6666-6666-666666666666',member_record,'Member note');
 
   begin
     insert into public.call_queues(workspace_id,name)
