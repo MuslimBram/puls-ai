@@ -80,6 +80,17 @@ describe("P0.5-B2 integration credential boundary", () => {
     expect(edgeFunction).not.toContain("credentials_encrypted,");
   });
 
+  it("keeps unified secrets in credentials_encrypted rather than config_json", () => {
+    expect(unifiedHook).toContain("credentials?: Record<string, string>");
+    expect(unifiedHook).toContain("credentials: params.credentials");
+    expect(edgeFunction).toContain("credentials: credentialObject.optional()");
+    expect(edgeFunction).toContain("containsSensitiveConfigKey(configJson)");
+    expect(edgeFunction).toContain(
+      "Sensitive credentials must use the encrypted credentials field",
+    );
+    expect(edgeFunction).toContain("credentials_encrypted: encryptedCredentials");
+  });
+
   it("scopes every sensitive mutation by workspace_id", () => {
     const scopedMutations = [
       'action: z.literal("toggle_external")',
