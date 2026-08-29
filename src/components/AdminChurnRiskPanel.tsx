@@ -24,9 +24,11 @@ export const AdminChurnRiskPanel = () => {
   const queryClient = useQueryClient();
 
   const sendOutreach = useMutation({
-    mutationFn: async ({ userId, message, type }: { userId: string; message: string; type: string }) => {
+    mutationFn: async ({ userId, workspaceId, message, type }: { userId: string; workspaceId: string | null; message: string; type: string }) => {
+      if (!workspaceId) throw new Error("Target workspace is required");
       const { error } = await supabase.from("business_notifications").insert({
         user_id: userId,
+        workspace_id: workspaceId,
         title: type === "incentive" ? "🎁 Special Offer for You" : "💬 We Miss You!",
         message,
         notification_type: "system",
@@ -94,7 +96,7 @@ export const AdminChurnRiskPanel = () => {
           <p className="text-sm text-muted-foreground text-center py-4">No high-risk accounts detected</p>
         ) : (
           <div className="space-y-3">
-            {risks.map((risk) => (
+            {risks.map((risk: ChurnRiskScore) => (
               <div key={risk.id} className="rounded-lg border border-border p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
@@ -136,59 +138,35 @@ export const AdminChurnRiskPanel = () => {
                   </div>
                 )}
 
-                {/* Intervention Actions */}
                 <div className="flex items-center gap-2 pt-2 border-t border-border">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => setExpandedId(expandedId === risk.id ? null : risk.id)}
-                  >
-                    <MessageSquare className="h-3 w-3 mr-1" />
-                    Outreach
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setExpandedId(expandedId === risk.id ? null : risk.id)}>
+                    <MessageSquare className="h-3 w-3 mr-1" /> Outreach
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     className="h-7 text-xs"
-                    onClick={() =>
-                      sendOutreach.mutate({
-                        userId: risk.user_id,
-                        message: "We noticed you haven't been active recently. We'd love to help you get the most out of the platform — reply and let's connect!",
-                        type: "reengagement",
-                      })
-                    }
+                    onClick={() => sendOutreach.mutate({
+                      userId: risk.user_id,
+                      workspaceId: risk.workspace_id,
+                      message: "We noticed you haven't been active recently. We'd love to help you get the most out of the platform — reply and let's connect!",
+                      type: "reengagement",
+                    })}
                     disabled={sendOutreach.isPending}
                   >
-                    <Mail className="h-3 w-3 mr-1" />
-                    Quick Re-engage
+                    <Mail className="h-3 w-3 mr-1" /> Quick Re-engage
                   </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs"
-                    onClick={() => extendTrial.mutate(risk.user_id)}
-                    disabled={extendTrial.isPending}
-                  >
-                    <Gift className="h-3 w-3 mr-1" />
-                    Extend Trial +14d
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => extendTrial.mutate(risk.user_id)} disabled={extendTrial.isPending}>
+                    <Gift className="h-3 w-3 mr-1" /> Extend Trial +14d
                   </Button>
                 </div>
 
-                {/* Custom outreach message */}
                 {expandedId === risk.id && (
                   <div className="mt-2 space-y-2">
-                    <Textarea
-                      value={outreachMsg}
-                      onChange={(e) => setOutreachMsg(e.target.value)}
-                      placeholder="Write a custom outreach message..."
-                      className="text-sm min-h-[60px]"
-                    />
+                    <Textarea value={outreachMsg} onChange={(e) => setOutreachMsg(e.target.value)} placeholder="Write a custom outreach message..." className="text-sm min-h-[60px]" />
                     <Button
                       size="sm"
-                      onClick={() =>
-                        sendOutreach.mutate({ userId: risk.user_id, message: outreachMsg, type: "custom" })
-                      }
+                      onClick={() => sendOutreach.mutate({ userId: risk.user_id, workspaceId: risk.workspace_id, message: outreachMsg, type: "custom" })}
                       disabled={!outreachMsg.trim() || sendOutreach.isPending}
                     >
                       Send Notification
