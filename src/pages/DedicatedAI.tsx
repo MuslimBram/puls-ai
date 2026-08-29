@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { SafeRender } from "@/components/SafeRender";
@@ -15,22 +16,23 @@ import { format } from "date-fns";
 
 const DedicatedAI = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
   const [aiEnabled, setAiEnabled] = useState(true);
 
   const { data: conversations = [], isLoading } = useQuery({
-    queryKey: ["ai-conversations", user?.id],
+    queryKey: ["ai-conversations", workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ai_conversations")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return data;
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace,
   });
 
   const { data: feedback = [] } = useQuery({
@@ -49,10 +51,12 @@ const DedicatedAI = () => {
 
   const approveDraft = useMutation({
     mutationFn: async (id: string) => {
+      if (!workspace?.id) throw new Error("Workspace is required");
       const { error } = await supabase
         .from("ai_conversations")
         .update({ status: "sent", is_draft: false })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("workspace_id", workspace.id);
       if (error) throw error;
     },
     onSuccess: () => {
