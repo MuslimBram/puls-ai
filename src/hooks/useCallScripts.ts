@@ -93,12 +93,13 @@ export const useCallScripts = () => {
 
   const trackUsage = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.rpc("increment_usage_count" as any, { script_id: id }).maybeSingle();
-      // Fallback: manual increment
+      const { error } = await supabase.rpc("increment_usage_count" as any, { _script_id: id }).maybeSingle();
+      // Fallback remains workspace-bound and relies on canonical call_scripts RLS.
       if (error) {
         await supabase.from("call_scripts")
           .update({ usage_count: ((scriptsQuery.data?.find(s => s.id === id)?.usage_count ?? 0) + 1) } as any)
-          .eq("id", id);
+          .eq("id", id)
+          .eq("workspace_id", workspace!.id);
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["call-scripts"] }),
