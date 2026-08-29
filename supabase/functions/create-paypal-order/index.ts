@@ -150,6 +150,18 @@ serve(async (req) => {
         : "Pulse AI Donation";
     }
 
+    // Resolve tenant ownership BEFORE creating an external payable order. Plan purchases
+    // without a canonical workspace are rejected before the user can pay.
+    const { data: sub, error: subError } = await supabase
+      .from("subscriptions")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (subError) throw subError;
+    if (paymentType === "one_time" && !sub?.workspace_id) {
+      throw new Error("A workspace subscription record is required before PayPal plan checkout");
+    }
+
     const { token: ppToken, base } = await getPayPalAccessToken(clientId, clientSecret, sandbox);
     const origin = req.headers.get("origin") || Deno.env.get("PUBLIC_SITE_URL") || "https://pulse-bos.com";
 
@@ -190,12 +202,6 @@ serve(async (req) => {
     const order = await orderRes.json();
     const approveUrl = order.links?.find((l: any) => l.rel === "approve")?.href;
     if (!order?.id || !approveUrl) throw new Error("PayPal did not return a valid order");
-
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("workspace_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
 
     const { error: txnError } = await supabase.from("paypal_transactions").insert({
       user_id: user.id,
