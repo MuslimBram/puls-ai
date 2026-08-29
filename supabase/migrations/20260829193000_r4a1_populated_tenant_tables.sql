@@ -71,7 +71,6 @@ ALTER TABLE public.demand_forecasts ALTER COLUMN workspace_id SET NOT NULL;
 ALTER TABLE public.resource_planning_items ALTER COLUMN workspace_id SET NOT NULL;
 ALTER TABLE public.personalization_rules ALTER COLUMN workspace_id SET NOT NULL;
 
--- Parent equality guard for knowledge_sources -> business_profiles.
 CREATE OR REPLACE FUNCTION public.enforce_r4a1_knowledge_parent_workspace()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -96,30 +95,23 @@ CREATE TRIGGER trg_r4a1_knowledge_parent_workspace
 BEFORE INSERT OR UPDATE OF business_id, workspace_id ON public.knowledge_sources
 FOR EACH ROW EXECUTE FUNCTION public.enforce_r4a1_knowledge_parent_workspace();
 
--- Remove legacy user-id-only policies.
 DROP POLICY IF EXISTS "Users can delete own market_trends" ON public.market_trends;
 DROP POLICY IF EXISTS "Users can insert own market_trends" ON public.market_trends;
 DROP POLICY IF EXISTS "Users can update own market_trends" ON public.market_trends;
 DROP POLICY IF EXISTS "Users can view own market_trends" ON public.market_trends;
-
 DROP POLICY IF EXISTS "Service role can insert snapshots" ON public.analytics_daily_snapshots;
 DROP POLICY IF EXISTS "Users can view own snapshots" ON public.analytics_daily_snapshots;
-
 DROP POLICY IF EXISTS "Users can manage own automation_workflows" ON public.automation_workflows;
-
 DROP POLICY IF EXISTS "Users can delete own knowledge_sources" ON public.knowledge_sources;
 DROP POLICY IF EXISTS "Users can insert own knowledge_sources" ON public.knowledge_sources;
 DROP POLICY IF EXISTS "Users can update own knowledge_sources" ON public.knowledge_sources;
 DROP POLICY IF EXISTS "Users can view own knowledge_sources" ON public.knowledge_sources;
-
 DROP POLICY IF EXISTS "Users manage own marketing campaigns" ON public.marketing_campaigns;
 DROP POLICY IF EXISTS "Users can manage own business_notifications" ON public.business_notifications;
 DROP POLICY IF EXISTS "Users manage own demand forecasts" ON public.demand_forecasts;
 DROP POLICY IF EXISTS "Users manage own resource planning" ON public.resource_planning_items;
 DROP POLICY IF EXISTS "Users manage own personalization rules" ON public.personalization_rules;
 
--- Canonical workspace policies. analytics_daily_snapshots intentionally keeps
--- only SELECT + INSERT because that is its current product surface.
 CREATE POLICY "Workspace members can view analytics snapshots"
 ON public.analytics_daily_snapshots FOR SELECT TO authenticated
 USING (public.has_workspace_access(workspace_id));
@@ -135,14 +127,8 @@ DECLARE
   _table text;
 BEGIN
   FOREACH _table IN ARRAY ARRAY[
-    'market_trends',
-    'automation_workflows',
-    'knowledge_sources',
-    'marketing_campaigns',
-    'business_notifications',
-    'demand_forecasts',
-    'resource_planning_items',
-    'personalization_rules'
+    'market_trends','automation_workflows','knowledge_sources','marketing_campaigns',
+    'business_notifications','demand_forecasts','resource_planning_items','personalization_rules'
   ] LOOP
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.has_workspace_access(workspace_id))',
@@ -153,8 +139,8 @@ BEGIN
       'Workspace members can insert ' || _table, _table
     );
     EXECUTE format(
-      'CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.has_workspace_role(workspace_id, ARRAY[''owner'',''admin'',''member''])) WITH CHECK (user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id, ARRAY[''owner'',''admin'',''member'']))',
-      'Workspace members can update ' || _table, _table
+      'CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.has_workspace_role(workspace_id, ARRAY[''owner'',''admin'']) OR (user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id, ARRAY[''member'']))) WITH CHECK (public.has_workspace_role(workspace_id, ARRAY[''owner'',''admin'']) OR (user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id, ARRAY[''member''])))',
+      'Workspace authors or admins can update ' || _table, _table
     );
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.has_workspace_role(workspace_id, ARRAY[''owner'',''admin'']))',
