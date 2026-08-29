@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 const migration = read(
-  "supabase/migrations/20260829113000_p0_5_b2_integration_secret_boundary.sql",
+  "supabase/migrations/20260829102908_p0_5_b2_integration_secret_boundary.sql",
 );
 const edgeFunction = read("supabase/functions/manage-integration-connections/index.ts");
 const externalHook = read("src/hooks/useExternalIntegrations.ts");
