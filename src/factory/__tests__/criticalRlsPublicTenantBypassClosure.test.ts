@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
-const migration = read("supabase/migrations/20260829150000_critical_rls_public_tenant_bypass_closure.sql");
+const migration = read("supabase/migrations/20260829150435_critical_rls_public_tenant_bypass_closure.sql");
 
 describe("critical public/self-correlated RLS bypass closure", () => {
   it("drops every confirmed public auth.uid-null bypass", () => {
