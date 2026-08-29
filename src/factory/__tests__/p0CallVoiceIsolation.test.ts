@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const read = (path: string) => readFileSync(resolve(root, path), "utf8");
 
-const migration = read("supabase/migrations/20260828200000_p0_4_call_voice_workspace_isolation.sql");
+const migration = read("supabase/migrations/20260828190149_p0_4_call_voice_workspace_isolation.sql");
 const verification = read("scripts/verify-p0-4-call-voice.sh");
 const callRecordsHook = read("src/hooks/useCallRecords.ts");
 const callActions = read("src/hooks/telephony/useCallActions.ts");
@@ -61,7 +61,7 @@ describe("P0.4 CALL and Voice workspace isolation", () => {
   });
 
   it("executes same-tenant positives and cross-tenant negatives in PostgreSQL", () => {
-    expect(verification).toContain("20260828200000_p0_4_call_voice_workspace_isolation.sql");
+    expect(verification).toContain("20260828190149_p0_4_call_voice_workspace_isolation.sql");
     expect(verification).toContain("Cross-workspace call record insert was allowed");
     expect(verification).toContain("Cross-workspace linked note insert was allowed");
     expect(verification).toContain("Member queue administration was allowed");
