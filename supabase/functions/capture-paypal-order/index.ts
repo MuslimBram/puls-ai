@@ -65,7 +65,7 @@ function packageWindow(packageType: string, anchorIso: string) {
   if (Number.isNaN(start.getTime())) throw new Error("Stored PayPal package start is invalid");
   const end = new Date(start);
   end.setUTCMonth(end.getUTCMonth() + months);
-  return { start: start.toISOString(), end: end.toISOString(), months };
+  return { start: start.toISOString(), end: end.toISOString() };
 }
 
 async function fulfillPlanPurchase(
@@ -153,9 +153,9 @@ serve(async (req) => {
       throw new Error("Stored PayPal transaction is invalid");
     }
 
-    // Completed retries use the original transaction timestamp as the deterministic package anchor.
+    // New-code completed rows have already passed fulfillment + billing because local
+    // completion is the final side effect in persistCompleted().
     if (txn.status === "completed" && txn.paypal_capture_id) {
-      await fulfillPlanPurchase(supabase, txn, user.id, txn.created_at);
       return json(req, {
         status: "COMPLETED",
         captureId: txn.paypal_capture_id,
@@ -197,21 +197,9 @@ serve(async (req) => {
       const payer = verified.payer;
       const completedAt = typeof capture?.create_time === "string" ? capture.create_time : txn.created_at;
 
-      // Fulfill BEFORE marking the local transaction completed. If fulfillment fails,
-      // retry sees PayPal COMPLETED and safely resumes this deterministic path.
+      // Deterministic fulfillment first. If anything below fails, the local transaction
+      // remains pending and a retry resumes from PayPal's already-COMPLETED order.
       await fulfillPlanPurchase(supabase, txn, user.id, completedAt);
-
-      const { error: completeError } = await updateOwnedTxn({
-        status: "completed",
-        paypal_capture_id: captureId,
-        paypal_payer_id: payer?.payer_id ?? null,
-        payer_email: payer?.email_address ?? null,
-        payer_name: payer?.name
-          ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
-          : null,
-        updated_at: new Date().toISOString(),
-      });
-      if (completeError) throw completeError;
 
       const { data: existingBill, error: billLookupError } = await supabase
         .from("billing_history")
@@ -238,6 +226,20 @@ serve(async (req) => {
         });
         if (billError) throw billError;
       }
+
+      // Completion is intentionally LAST: it is the idempotency marker that means
+      // entitlement + billing side effects have already succeeded.
+      const { error: completeError } = await updateOwnedTxn({
+        status: "completed",
+        paypal_capture_id: captureId,
+        paypal_payer_id: payer?.payer_id ?? null,
+        payer_email: payer?.email_address ?? null,
+        payer_name: payer?.name
+          ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
+          : null,
+        updated_at: new Date().toISOString(),
+      });
+      if (completeError) throw completeError;
 
       return json(req, { status: "COMPLETED", captureId, alreadyCaptured });
     };
