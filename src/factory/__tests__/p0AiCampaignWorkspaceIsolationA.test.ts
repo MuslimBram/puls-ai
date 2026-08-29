@@ -24,8 +24,8 @@ describe("P0.5-A AI and campaign workspace isolation", () => {
     expect(migration).toContain("array['owner','admin','member']");
     expect(migration).toContain("array['owner','admin']");
     expect(migration).toContain("and user_id = (select auth.uid())");
-    expect(migration).not.toContain("platform admin");
-    expect(migration).not.toContain("super_admin')");
+    expect(migration).not.toContain("public.has_role");
+    expect(migration).not.toContain("'super_admin' =");
   });
 
   it("validates child parents without depending on parent browser RLS", () => {
