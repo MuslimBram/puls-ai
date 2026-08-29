@@ -128,6 +128,10 @@ CREATE TABLE public.conversation_threads (
   status text NOT NULL DEFAULT 'new'
 );
 
+-- The fixture grants only the reads needed for post-call assertions. Mutation
+-- authorization is still exercised exclusively through the SECURITY DEFINER RPCs.
+GRANT SELECT ON public.call_scripts, public.conversation_threads TO authenticated, service_role;
+
 -- Production-shaped vulnerable function identities. The migration must harden
 -- these exact signatures rather than silently creating different overloads.
 CREATE FUNCTION public.ensure_media_daily_usage(uuid,uuid,integer,integer)
