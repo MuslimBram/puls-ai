@@ -4,6 +4,7 @@ import { z } from "npm:zod@3.25.76";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { encryptForStorage } from "../_shared/token-utils.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req);
 const admin = createClient(
@@ -15,7 +16,7 @@ const admin = createClient(
 const workspaceId = z.string().uuid();
 const id = z.string().uuid();
 const safeObject = z.record(z.unknown());
-const credentialObject = z.record(z.string().max(500));
+const credentialObject = z.record(z.string().max(5000));
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("list_external"), workspace_id: workspaceId }),
@@ -58,6 +59,15 @@ const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("delete_unified"), workspace_id: workspaceId, id }),
 ]);
 
+async function encryptCredentials(credentials: Record<string, string>): Promise<Record<string, string>> {
+  const encrypted: Record<string, string> = {};
+  for (const [key, value] of Object.entries(credentials)) {
+    if (!value) continue;
+    encrypted[key] = await encryptForStorage(value);
+  }
+  return encrypted;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
   if (req.method !== "POST") return json(req, { error: "POST required" }, 405);
@@ -88,11 +98,15 @@ serve(async (req) => {
       case "list_external": {
         const { data, error } = await admin
           .from("external_integrations")
-          .select("id,user_id,workspace_id,integration_key,integration_name,category,description,status,is_enabled,config,usage_count,last_used_at,rate_limit_per_hour,min_scan_interval_minutes,last_scan_at,keyword_match_threshold,created_at,updated_at")
+          .select("id,user_id,workspace_id,integration_key,integration_name,category,description,status,is_enabled,credentials,config,usage_count,last_used_at,rate_limit_per_hour,min_scan_interval_minutes,last_scan_at,keyword_match_threshold,created_at,updated_at")
           .eq("workspace_id", input.workspace_id)
           .order("category");
         if (error) throw error;
-        return json(req, { integrations: data ?? [] });
+        const integrations = (data ?? []).map(({ credentials, ...row }) => ({
+          ...row,
+          has_credentials: Boolean(credentials && Object.keys(credentials as Record<string, unknown>).length > 0),
+        }));
+        return json(req, { integrations });
       }
 
       case "upsert_external": {
@@ -117,7 +131,9 @@ serve(async (req) => {
           keyword_match_threshold: input.keyword_match_threshold ?? 0.6,
           updated_at: new Date().toISOString(),
         };
-        if (input.credentials !== undefined) payload.credentials = input.credentials;
+        if (input.credentials !== undefined) {
+          payload.credentials = await encryptCredentials(input.credentials);
+        }
 
         if (existing) {
           const { error } = await admin
@@ -131,7 +147,7 @@ serve(async (req) => {
             ...payload,
             user_id: authData.user.id,
             workspace_id: input.workspace_id,
-            credentials: input.credentials ?? {},
+            credentials: input.credentials ? await encryptCredentials(input.credentials) : {},
           });
           if (error) throw error;
         }
