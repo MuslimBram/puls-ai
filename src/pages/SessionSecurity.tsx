@@ -11,6 +11,7 @@ import { useTOTP } from "@/hooks/useTOTP";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuditLogViewer } from "@/components/AuditLogViewer";
 import { SecurityPosturePanel } from "@/components/SecurityPosturePanel";
+import { PasskeySecurityCard } from "@/components/auth/PasskeySecurityCard";
 import {
   Shield, Smartphone, Monitor, Loader2, LogOut, Clock, Globe,
   ShieldCheck, ShieldOff, KeyRound, QrCode, Copy, Check, ScrollText,
@@ -68,7 +69,6 @@ const SessionSecurity = () => {
             <TabsTrigger value="security">Settings</TabsTrigger>
           </TabsList>
 
-          {/* 2FA Tab */}
           <TabsContent value="2fa" className="space-y-4">
             <Card>
               <CardHeader>
@@ -86,7 +86,6 @@ const SessionSecurity = () => {
                     <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                   </div>
                 ) : totp.status?.verified ? (
-                  /* 2FA is enabled */
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
                       <ShieldCheck className="h-8 w-8 text-primary" />
@@ -124,13 +123,11 @@ const SessionSecurity = () => {
                     </div>
                   </div>
                 ) : totp.enrollData ? (
-                  /* Enrollment in progress */
                   <div className="space-y-4">
                     <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-center">
                       <QrCode className="h-6 w-6 text-primary mx-auto mb-2" />
                       <p className="text-sm font-medium text-foreground mb-2">Scan this QR code</p>
                       <div className="mx-auto w-fit rounded-lg bg-background p-3 border border-border">
-                        {/* QR code as URI for manual entry */}
                         <img
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(totp.enrollData.otpauthUrl)}`}
                           alt="TOTP QR Code"
@@ -172,7 +169,6 @@ const SessionSecurity = () => {
                     </div>
                   </div>
                 ) : (
-                  /* Not enrolled */
                   <div className="space-y-4">
                     <div className="flex items-center gap-3 rounded-lg border border-border p-4">
                       <ShieldOff className="h-8 w-8 text-muted-foreground" />
@@ -192,9 +188,10 @@ const SessionSecurity = () => {
                 )}
               </CardContent>
             </Card>
+
+            {totp.status?.verified && <PasskeySecurityCard />}
           </TabsContent>
 
-          {/* Sessions Tab */}
           <TabsContent value="sessions" className="space-y-4">
             {isLoading ? (
               <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
@@ -241,12 +238,10 @@ const SessionSecurity = () => {
             )}
           </TabsContent>
 
-          {/* Audit Log Tab */}
           <TabsContent value="audit" className="space-y-4">
             <AuditLogViewer />
           </TabsContent>
 
-          {/* Security Settings Tab */}
           <TabsContent value="security" className="space-y-4">
             <SecurityPosturePanel
               twoFactorEnabled={!!totp.status?.verified}

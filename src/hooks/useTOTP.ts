@@ -3,18 +3,31 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 
+interface TotpStatus {
+  enrolled: boolean;
+  verified: boolean;
+  enrolledAt: string | null;
+}
+
+interface EnrollData {
+  factorId: string;
+  qrCode: string;
+  secret: string;
+  otpauthUrl: string;
+}
+
 export const useTOTP = () => {
   const queryClient = useQueryClient();
-  const [enrollData, setEnrollData] = useState<{ secret: string; otpauthUrl: string } | null>(null);
+  const [enrollData, setEnrollData] = useState<EnrollData | null>(null);
 
-  const { data: status, isLoading } = useQuery({
+  const { data: status, isLoading } = useQuery<TotpStatus>({
     queryKey: ["totp-status"],
     queryFn: async () => {
       const { data, error } = await supabase.functions.invoke("totp-manage", {
         body: { action: "status" },
       });
       if (error) throw error;
-      return data as { enrolled: boolean; verified: boolean; enrolledAt: string | null };
+      return data as TotpStatus;
     },
   });
 
@@ -25,19 +38,25 @@ export const useTOTP = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { secret: string; otpauthUrl: string };
+      return data as EnrollData;
     },
     onSuccess: (data) => {
       setEnrollData(data);
       toast.success("Scan the QR code with your authenticator app");
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const verify = useMutation({
     mutationFn: async (token: string) => {
+      if (!enrollData?.factorId) {
+        throw new Error("No pending authenticator enrollment");
+      }
+
+      // Enrollment creates an unverified factor. It must be verified with
+      // verify_enroll; the login-time verify_totp action is for verified factors.
       const { data, error } = await supabase.functions.invoke("totp-manage", {
-        body: { action: "verify", token },
+        body: { action: "verify_enroll", token },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -48,7 +67,7 @@ export const useTOTP = () => {
       setEnrollData(null);
       queryClient.invalidateQueries({ queryKey: ["totp-status"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const disable = useMutation({
@@ -64,7 +83,7 @@ export const useTOTP = () => {
       toast.success("2FA disabled");
       queryClient.invalidateQueries({ queryKey: ["totp-status"] });
     },
-    onError: (e: any) => toast.error(e.message),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return {

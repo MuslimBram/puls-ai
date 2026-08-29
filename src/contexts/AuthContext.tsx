@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useEffect, useContext, useState, ReactNode } from "react";
 import { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -47,7 +47,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, nextSession) => {
         if (_event === "PASSWORD_RECOVERY") {
-          // Redirect to reset password page on recovery event
           window.location.href = "/reset-password";
           return;
         }
