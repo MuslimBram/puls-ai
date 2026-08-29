@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 import { triggerAutomation } from "@/lib/triggerAutomation";
 
@@ -10,6 +11,7 @@ export interface PipelineStage {
   sort_order: number;
   color: string;
   is_default: boolean;
+  workspace_id: string;
 }
 
 export interface Deal {
@@ -33,7 +35,7 @@ export interface Deal {
   won_at: string | null;
   lost_at: string | null;
   user_id: string;
-  workspace_id: string | null;
+  workspace_id: string;
 }
 
 export interface DealNote {
@@ -77,26 +79,29 @@ const DEFAULT_STAGES = [
 
 export const usePipelineStages = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["pipeline-stages", user?.id],
+    queryKey: ["pipeline-stages", workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pipeline_stages")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("sort_order");
       if (error) throw error;
       return (data || []) as unknown as PipelineStage[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace,
   });
 
   const initStages = useMutation({
     mutationFn: async () => {
+      if (!workspace) throw new Error("No active workspace selected");
       const rows = DEFAULT_STAGES.map((s) => ({
         ...s,
+        workspace_id: workspace.id,
         user_id: user!.id,
         is_default: true,
       }));
@@ -111,26 +116,29 @@ export const usePipelineStages = () => {
 
 export const useDeals = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["deals", user?.id],
+    queryKey: ["deals", workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("deals")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return (data || []) as unknown as Deal[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace,
   });
 
   const addDeal = useMutation({
     mutationFn: async (deal: Partial<Deal>) => {
+      if (!workspace) throw new Error("No active workspace selected");
       const { data, error } = await supabase.from("deals").insert({
         ...deal,
+        workspace_id: workspace.id,
         user_id: user!.id,
       } as any).select().single();
       if (error) throw error;
