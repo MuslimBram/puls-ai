@@ -114,25 +114,23 @@ DELETE FROM public.workspaces WHERE id IN (
   '22222222-2222-4222-8222-222222222222'
 );
 
-WITH ws_a AS (
-  INSERT INTO public.workspaces (id, owner_id, name)
-  VALUES ('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '__p0_5_b2_ws_a__')
-  ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-  RETURNING id
-), ws_b AS (
-  INSERT INTO public.workspaces (id, owner_id, name)
-  VALUES ('22222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '__p0_5_b2_ws_b__')
-  ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
-  RETURNING id
-), business AS (
-  INSERT INTO public.business_profiles (id, workspace_id)
-  VALUES (
-    '33333333-3333-4333-8333-333333333333',
-    '22222222-2222-4222-8222-222222222222'
-  )
-  ON CONFLICT (id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id
-  RETURNING id
+-- Build the negative fixture in separate statements. This avoids data-modifying
+-- CTE snapshot/order semantics from making the verifier depend on execution order.
+INSERT INTO public.workspaces (id, owner_id, name)
+VALUES
+  ('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '__p0_5_b2_ws_a__'),
+  ('22222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '__p0_5_b2_ws_b__')
+ON CONFLICT (id) DO UPDATE SET
+  owner_id = EXCLUDED.owner_id,
+  name = EXCLUDED.name;
+
+INSERT INTO public.business_profiles (id, workspace_id)
+VALUES (
+  '33333333-3333-4333-8333-333333333333',
+  '22222222-2222-4222-8222-222222222222'
 )
+ON CONFLICT (id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id;
+
 INSERT INTO public.unified_connections (
   id, user_id, workspace_id, business_id, provider, category, connection_type
 ) VALUES (
@@ -148,6 +146,19 @@ ON CONFLICT (id) DO UPDATE SET
   workspace_id = EXCLUDED.workspace_id,
   business_id = EXCLUDED.business_id,
   provider = EXCLUDED.provider;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.unified_connections uc
+    JOIN public.business_profiles bp ON bp.id = uc.business_id
+    WHERE uc.id = '44444444-4444-4444-8444-444444444444'
+      AND bp.workspace_id <> uc.workspace_id
+  ) THEN
+    RAISE EXCEPTION 'verifier setup did not create the intended cross-workspace business reference';
+  END IF;
+END $$;
 SQL
 
 # The migration must fail closed while a connection points to a business in another workspace.
