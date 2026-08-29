@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Bot, X, Send, CheckCircle2, Star } from "lucide-react";
+import { Bot, X, Send, CheckCircle2, Star, Minus, Plus, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 
@@ -25,6 +25,12 @@ export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: 
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
+
+  useEffect(() => {
+    const openFromContext = () => setOpen(true);
+    window.addEventListener("pulse-ai:open-chat", openFromContext);
+    return () => window.removeEventListener("pulse-ai:open-chat", openFromContext);
+  }, []);
 
   const handleSend = async () => {
     if (!message.trim()) return;
@@ -79,25 +85,39 @@ export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: 
   if (!open) {
     return (
       <Button
+        aria-label="Open Pulse AI assistant"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg"
+        className="fixed bottom-5 left-1/2 z-50 h-14 w-14 -translate-x-1/2 rounded-full border border-primary/40 shadow-lg shadow-primary/20"
         size="icon"
       >
-        <Bot className="h-6 w-6" />
+        <span className="relative flex items-center justify-center">
+          <Radio className="h-7 w-7" />
+          <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-background text-primary shadow-sm">
+            <Plus className="h-3.5 w-3.5" />
+          </span>
+        </span>
       </Button>
     );
   }
 
   return (
-    <Card className="fixed bottom-6 right-6 z-50 w-80 shadow-xl max-h-[80vh] overflow-y-auto">
+    <Card className="fixed bottom-5 left-1/2 z-50 w-[min(22rem,calc(100vw-2rem))] -translate-x-1/2 overflow-hidden shadow-xl max-h-[80vh] overflow-y-auto">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
-        <CardTitle className="text-sm flex items-center gap-1.5">
-          <Bot className="h-4 w-4 text-primary" />
-          {businessName || "AI Assistant"}
+        <CardTitle className="text-sm flex items-center gap-2">
+          <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Radio className="h-4 w-4" />
+            <Plus className="absolute -right-1 -top-1 h-3 w-3 rounded-full bg-background" />
+          </span>
+          {businessName || "Pulse AI Assistant"}
         </CardTitle>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Minimize AI assistant" onClick={() => setOpen(false)}>
+            <Minus className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Close AI assistant" onClick={() => { resetChat(); setOpen(false); }}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {feedbackSent ? (
@@ -105,9 +125,7 @@ export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: 
             <CheckCircle2 className="h-8 w-8 text-primary mb-2" />
             <p className="text-sm font-medium text-foreground">Thank you!</p>
             <p className="text-xs text-muted-foreground">Your feedback has been recorded.</p>
-            <Button size="sm" variant="outline" className="mt-3" onClick={resetChat}>
-              New Question
-            </Button>
+            <Button size="sm" variant="outline" className="mt-3" onClick={resetChat}>New Question</Button>
           </div>
         ) : reply ? (
           <div className="space-y-3">
@@ -125,39 +143,21 @@ export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: 
               <p className="text-xs font-medium text-foreground mb-2">How satisfied are you with this reply?</p>
               <div className="flex gap-1 mb-2">
                 {[1, 2, 3, 4, 5].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setRating(n)}
-                    className="p-1 transition-colors"
-                  >
-                    <Star
-                      className={`h-5 w-5 ${n <= rating ? "fill-primary text-primary" : "text-muted-foreground"}`}
-                    />
+                  <button key={n} onClick={() => setRating(n)} className="p-1 transition-colors" aria-label={`Rate ${n} out of 5`}>
+                    <Star className={`h-5 w-5 ${n <= rating ? "fill-primary text-primary" : "text-muted-foreground"}`} />
                   </button>
                 ))}
               </div>
-              <Textarea
-                placeholder="Write your comment (optional)..."
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows={2}
-                className="text-sm"
-              />
+              <Textarea placeholder="Write your comment (optional)..." value={comment} onChange={(e) => setComment(e.target.value)} rows={2} className="text-sm" />
               <div className="flex gap-2 mt-2">
-                <Button size="sm" onClick={handleFeedback} disabled={!rating}>
-                  Send Feedback
-                </Button>
-                <Button size="sm" variant="outline" onClick={resetChat}>
-                  New Question
-                </Button>
+                <Button size="sm" onClick={handleFeedback} disabled={!rating}>Send Feedback</Button>
+                <Button size="sm" variant="outline" onClick={resetChat}>New Question</Button>
               </div>
             </div>
           </div>
         ) : (
           <>
-            <p className="text-xs text-muted-foreground">
-              Hello! I'm your dedicated AI Assistant. Ask me about products, services, or anything else.
-            </p>
+            <p className="text-xs text-muted-foreground">Hello! I'm your dedicated AI Assistant. Ask me about products, services, plans, or anything else.</p>
             <Input placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
             <Input placeholder="Your email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <Textarea placeholder="Write your question..." value={message} onChange={(e) => setMessage(e.target.value)} rows={3} />
