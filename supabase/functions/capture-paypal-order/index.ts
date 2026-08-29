@@ -13,6 +13,13 @@ const json = (req: Request, body: unknown, status = 200) =>
     headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
+const PACKAGE_MONTHS: Record<string, number> = {
+  monthly: 1,
+  "3-month": 3,
+  "6-month": 6,
+  yearly: 12,
+};
+
 const roundMoney = (value: unknown) => Math.round(Number(value) * 100) / 100;
 const sameMoney = (actual: unknown, expected: unknown) =>
   Number.isFinite(Number(actual)) && Number.isFinite(Number(expected)) &&
@@ -51,6 +58,63 @@ function assertCaptureMoney(capture: any, expectedAmount: number, expectedCurren
   }
 }
 
+function packageWindow(packageType: string, anchorIso: string) {
+  const months = PACKAGE_MONTHS[packageType];
+  if (!months) throw new Error("Stored PayPal package type is invalid");
+  const start = new Date(anchorIso);
+  if (Number.isNaN(start.getTime())) throw new Error("Stored PayPal package start is invalid");
+  const end = new Date(start);
+  end.setUTCMonth(end.getUTCMonth() + months);
+  return { start: start.toISOString(), end: end.toISOString(), months };
+}
+
+async function fulfillPlanPurchase(
+  supabase: ReturnType<typeof createClient>,
+  txn: any,
+  userId: string,
+  completedAt: string,
+) {
+  if (txn.payment_type === "donation") return;
+  if (typeof txn.plan_key !== "string" || !txn.plan_key) {
+    throw new Error("Verified PayPal plan payment is missing plan identity");
+  }
+  if (!txn.workspace_id) {
+    throw new Error("Verified PayPal plan payment is missing workspace identity");
+  }
+
+  const packageType = typeof txn.metadata?.package_type === "string"
+    ? txn.metadata.package_type
+    : "";
+  const window = packageWindow(packageType, completedAt);
+
+  const { data: existing, error: existingError } = await supabase
+    .from("subscriptions")
+    .select("workspace_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing?.workspace_id && existing.workspace_id !== txn.workspace_id) {
+    throw new Error("PayPal transaction workspace does not match the user's subscription workspace");
+  }
+
+  const { error: fulfillError } = await supabase
+    .from("subscriptions")
+    .upsert({
+      user_id: userId,
+      workspace_id: txn.workspace_id,
+      plan: txn.plan_key,
+      subscription_status: "active",
+      package_type: packageType,
+      qualifying_package_type: ["3-month", "6-month"].includes(packageType) ? packageType : null,
+      package_start_at: window.start,
+      package_end_at: window.end,
+      billing_cycle_start: window.start,
+      grace_period_end: null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "user_id" });
+  if (fulfillError) throw fulfillError;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
@@ -73,10 +137,9 @@ serve(async (req) => {
     const orderId = typeof body?.orderId === "string" ? body.orderId : "";
     if (!orderId) throw new Error("orderId is required");
 
-    // Ownership is established from our own pending transaction record, never from PayPal/browser metadata.
     const { data: txn, error: txnError } = await supabase
       .from("paypal_transactions")
-      .select("user_id, workspace_id, amount, currency, payment_type, plan_key, status, paypal_capture_id")
+      .select("user_id, workspace_id, amount, currency, payment_type, plan_key, status, paypal_capture_id, metadata, created_at")
       .eq("paypal_order_id", orderId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -90,7 +153,9 @@ serve(async (req) => {
       throw new Error("Stored PayPal transaction is invalid");
     }
 
+    // Completed retries use the original transaction timestamp as the deterministic package anchor.
     if (txn.status === "completed" && txn.paypal_capture_id) {
+      await fulfillPlanPurchase(supabase, txn, user.id, txn.created_at);
       return json(req, {
         status: "COMPLETED",
         captureId: txn.paypal_capture_id,
@@ -124,13 +189,21 @@ serve(async (req) => {
         .eq("paypal_order_id", orderId)
         .eq("user_id", user.id);
 
-    if (orderCheck.status === "COMPLETED") {
-      assertCaptureMoney(orderCheck, expectedAmount, expectedCurrency);
-      const captureId = orderCheck.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-      const payer = orderCheck.payer;
-      await updateOwnedTxn({
+    const persistCompleted = async (verified: any, alreadyCaptured: boolean) => {
+      assertCaptureMoney(verified, expectedAmount, expectedCurrency);
+      const capture = verified.purchase_units?.[0]?.payments?.captures?.[0];
+      const captureId = capture?.id;
+      if (!captureId) throw new Error("Verified PayPal completion is missing capture id");
+      const payer = verified.payer;
+      const completedAt = typeof capture?.create_time === "string" ? capture.create_time : txn.created_at;
+
+      // Fulfill BEFORE marking the local transaction completed. If fulfillment fails,
+      // retry sees PayPal COMPLETED and safely resumes this deterministic path.
+      await fulfillPlanPurchase(supabase, txn, user.id, completedAt);
+
+      const { error: completeError } = await updateOwnedTxn({
         status: "completed",
-        paypal_capture_id: captureId ?? null,
+        paypal_capture_id: captureId,
         paypal_payer_id: payer?.payer_id ?? null,
         payer_email: payer?.email_address ?? null,
         payer_name: payer?.name
@@ -138,7 +211,39 @@ serve(async (req) => {
           : null,
         updated_at: new Date().toISOString(),
       });
-      return json(req, { status: "COMPLETED", captureId, alreadyCaptured: true });
+      if (completeError) throw completeError;
+
+      const { data: existingBill, error: billLookupError } = await supabase
+        .from("billing_history")
+        .select("id")
+        .eq("stripe_invoice_id", `paypal_${captureId}`)
+        .maybeSingle();
+      if (billLookupError) throw billLookupError;
+
+      if (!existingBill) {
+        const { error: billError } = await supabase.from("billing_history").insert({
+          user_id: user.id,
+          workspace_id: txn.workspace_id ?? null,
+          amount: expectedAmount,
+          currency: expectedCurrency,
+          charged_amount: expectedAmount,
+          charged_currency: expectedCurrency,
+          status: "paid",
+          payment_method: "paypal",
+          description: txn.payment_type === "donation"
+            ? "PayPal Donation"
+            : `PayPal Payment${txn.plan_key ? ` - ${txn.plan_key}` : ""}`,
+          plan_name: txn.plan_key ?? null,
+          stripe_invoice_id: `paypal_${captureId}`,
+        });
+        if (billError) throw billError;
+      }
+
+      return json(req, { status: "COMPLETED", captureId, alreadyCaptured });
+    };
+
+    if (orderCheck.status === "COMPLETED") {
+      return await persistCompleted(orderCheck, true);
     }
 
     if (orderCheck.status !== "APPROVED") {
@@ -165,14 +270,7 @@ serve(async (req) => {
           const recheckData = await recheck.json();
           assertOrderMoney(recheckData, expectedAmount, expectedCurrency);
           if (recheckData.status === "COMPLETED") {
-            assertCaptureMoney(recheckData, expectedAmount, expectedCurrency);
-            const cId = recheckData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-            await updateOwnedTxn({
-              status: "completed",
-              paypal_capture_id: cId ?? null,
-              updated_at: new Date().toISOString(),
-            });
-            return json(req, { status: "COMPLETED", captureId: cId, alreadyCaptured: true });
+            return await persistCompleted(recheckData, true);
           }
         }
       }
@@ -183,53 +281,12 @@ serve(async (req) => {
     }
 
     const capture = await captureRes.json();
-    assertCaptureMoney(capture, expectedAmount, expectedCurrency);
-    const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-    const payer = capture.payer;
-    const finalStatus = capture.status === "COMPLETED" ? "completed" : "failed";
-
-    await updateOwnedTxn({
-      status: finalStatus,
-      paypal_capture_id: captureId ?? null,
-      paypal_payer_id: payer?.payer_id ?? null,
-      payer_email: payer?.email_address ?? null,
-      payer_name: payer?.name
-        ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
-        : null,
-      updated_at: new Date().toISOString(),
-    });
-
-    if (capture.status === "COMPLETED" && captureId) {
-      const { data: existingBill } = await supabase
-        .from("billing_history")
-        .select("id")
-        .eq("stripe_invoice_id", `paypal_${captureId}`)
-        .maybeSingle();
-
-      if (!existingBill) {
-        await supabase.from("billing_history").insert({
-          user_id: user.id,
-          workspace_id: txn.workspace_id ?? null,
-          amount: expectedAmount,
-          currency: expectedCurrency,
-          charged_amount: expectedAmount,
-          charged_currency: expectedCurrency,
-          status: "paid",
-          payment_method: "paypal",
-          description: txn.payment_type === "donation"
-            ? "PayPal Donation"
-            : `PayPal Payment${txn.plan_key ? ` - ${txn.plan_key}` : ""}`,
-          plan_name: txn.plan_key ?? null,
-          stripe_invoice_id: `paypal_${captureId}`,
-        });
-      }
+    if (capture.status !== "COMPLETED") {
+      await updateOwnedTxn({ status: "failed", updated_at: new Date().toISOString() });
+      throw new Error(`PayPal capture did not complete (status: ${capture.status})`);
     }
 
-    return json(req, {
-      status: capture.status,
-      captureId,
-      payerEmail: payer?.email_address,
-    });
+    return await persistCompleted(capture, false);
   } catch (error) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("[capture-paypal] Error:", msg);
