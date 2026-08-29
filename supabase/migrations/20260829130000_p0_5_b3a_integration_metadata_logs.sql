@@ -88,6 +88,111 @@ begin
 end
 $$;
 
+-- Rollout compatibility: the currently deployed Telegram writer already includes
+-- workspace_id in metadata, but not yet as a top-level column. These invoker
+-- triggers materialize and validate workspace identity before NOT NULL enforcement,
+-- so inbound events remain safe during the short function-deploy transition.
+create or replace function public.resolve_integration_event_log_workspace()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+declare
+  integration_workspace uuid;
+  connection_workspace uuid;
+  metadata_workspace uuid;
+  resolved_workspace uuid;
+begin
+  if new.integration_id is not null then
+    select workspace_id into integration_workspace
+    from public.external_integrations
+    where id = new.integration_id;
+  end if;
+
+  if new.connection_id is not null then
+    select workspace_id into connection_workspace
+    from public.unified_connections
+    where id = new.connection_id;
+  end if;
+
+  if coalesce(new.metadata->>'workspace_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+    metadata_workspace := (new.metadata->>'workspace_id')::uuid;
+  end if;
+
+  resolved_workspace := coalesce(new.workspace_id, integration_workspace, connection_workspace, metadata_workspace);
+  if resolved_workspace is null then
+    raise exception 'integration_event_logs workspace_id is required';
+  end if;
+  if integration_workspace is not null and integration_workspace <> resolved_workspace then
+    raise exception 'integration_event_logs external integration workspace mismatch';
+  end if;
+  if connection_workspace is not null and connection_workspace <> resolved_workspace then
+    raise exception 'integration_event_logs connection workspace mismatch';
+  end if;
+  if metadata_workspace is not null and metadata_workspace <> resolved_workspace then
+    raise exception 'integration_event_logs metadata workspace mismatch';
+  end if;
+
+  new.workspace_id := resolved_workspace;
+  return new;
+end
+$$;
+
+create or replace function public.resolve_connection_log_workspace()
+returns trigger
+language plpgsql
+security invoker
+set search_path = pg_catalog, public
+as $$
+declare
+  connection_workspace uuid;
+  metadata_workspace uuid;
+  resolved_workspace uuid;
+begin
+  if new.connection_id is not null then
+    select workspace_id into connection_workspace
+    from public.unified_connections
+    where id = new.connection_id;
+  end if;
+
+  if coalesce(new.metadata->>'workspace_id', '') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' then
+    metadata_workspace := (new.metadata->>'workspace_id')::uuid;
+  end if;
+
+  resolved_workspace := coalesce(new.workspace_id, connection_workspace, metadata_workspace);
+  if resolved_workspace is null then
+    raise exception 'connection_logs workspace_id is required';
+  end if;
+  if connection_workspace is not null and connection_workspace <> resolved_workspace then
+    raise exception 'connection_logs connection workspace mismatch';
+  end if;
+  if metadata_workspace is not null and metadata_workspace <> resolved_workspace then
+    raise exception 'connection_logs metadata workspace mismatch';
+  end if;
+
+  new.workspace_id := resolved_workspace;
+  return new;
+end
+$$;
+
+drop trigger if exists trg_resolve_integration_event_log_workspace on public.integration_event_logs;
+create trigger trg_resolve_integration_event_log_workspace
+before insert or update of workspace_id, integration_id, connection_id, metadata
+on public.integration_event_logs
+for each row execute function public.resolve_integration_event_log_workspace();
+
+drop trigger if exists trg_resolve_connection_log_workspace on public.connection_logs;
+create trigger trg_resolve_connection_log_workspace
+before insert or update of workspace_id, connection_id, metadata
+on public.connection_logs
+for each row execute function public.resolve_connection_log_workspace();
+
+revoke all on function public.resolve_integration_event_log_workspace() from public, anon, authenticated;
+revoke all on function public.resolve_connection_log_workspace() from public, anon, authenticated;
+grant execute on function public.resolve_integration_event_log_workspace() to service_role;
+grant execute on function public.resolve_connection_log_workspace() to service_role;
+
 alter table public.integration_event_logs alter column workspace_id set not null;
 alter table public.connection_logs alter column workspace_id set not null;
 
