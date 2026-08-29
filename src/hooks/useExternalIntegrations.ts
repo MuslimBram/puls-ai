@@ -124,19 +124,18 @@ export const useExternalIntegrations = () => {
 
 export const useIntegrationEventLogs = (integrationId: string | null) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
 
   return useQuery({
-    queryKey: ["integration-event-logs", integrationId],
+    queryKey: ["integration-event-logs", workspace?.id, integrationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("integration_event_logs" as any)
-        .select("*")
-        .eq("integration_id", integrationId!)
-        .order("created_at", { ascending: false })
-        .limit(50);
-      if (error) throw error;
-      return (data || []) as unknown as IntegrationEventLog[];
+      const data = await invokeIntegrationBoundary<{ logs: IntegrationEventLog[] }>({
+        action: "list_integration_logs",
+        workspace_id: workspace!.id,
+        integration_id: integrationId!,
+      });
+      return data.logs ?? [];
     },
-    enabled: !!user && !!integrationId,
+    enabled: !!user && !!workspace?.id && !!integrationId,
   });
 };
