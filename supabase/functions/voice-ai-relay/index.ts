@@ -221,7 +221,13 @@ RULES:
           token: "Of course! Connecting you with a human agent right away. Please hold.",
           last: true,
         }));
-        socket.send(JSON.stringify({ type: "handoff", reason: "human_requested" }));
+        socket.send(JSON.stringify({
+          type: "end",
+          handoffData: JSON.stringify({
+            reasonCode: "live-agent-handoff",
+            reason: "caller_requested",
+          }),
+        }));
         return;
       }
 
