@@ -26,12 +26,12 @@ export const useConversionTracking = () => {
     async (event: ConversionEvent, metadata?: Record<string, unknown>) => {
       if (!user) return;
       try {
-        await supabase.from("audit_logs").insert({
-          actor_id: user.id,
-          action: `conversion.${event}`,
-          target_type: "conversion",
-          metadata: metadata ?? {},
-        } as any);
+        await (supabase as any).rpc("record_client_audit_event", {
+          _action: `conversion.${event}`,
+          _target_type: "conversion",
+          _target_id: null,
+          _metadata: metadata ?? {},
+        });
       } catch {
         // silent — analytics should never block UX
       }
