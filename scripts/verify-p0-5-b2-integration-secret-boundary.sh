@@ -26,8 +26,6 @@ CREATE TABLE IF NOT EXISTS public.workspaces (
 
 CREATE TABLE IF NOT EXISTS public.business_profiles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL DEFAULT gen_random_uuid(),
-  business_name text NOT NULL DEFAULT 'Verifier Business',
   workspace_id uuid NOT NULL REFERENCES public.workspaces(id)
 );
 
@@ -109,9 +107,12 @@ GRANT SELECT, INSERT ON TABLE public.external_integrations TO sandbox_exec;
 GRANT ALL PRIVILEGES ON TABLE public.unified_connections TO anon, authenticated, service_role;
 GRANT SELECT, INSERT ON TABLE public.unified_connections TO sandbox_exec;
 
-DELETE FROM public.unified_connections WHERE provider = '__p0_5_b2_cross_tenant__';
-DELETE FROM public.business_profiles WHERE business_name = '__p0_5_b2_business__';
-DELETE FROM public.workspaces WHERE name IN ('__p0_5_b2_ws_a__', '__p0_5_b2_ws_b__');
+DELETE FROM public.unified_connections WHERE id = '44444444-4444-4444-8444-444444444444';
+DELETE FROM public.business_profiles WHERE id = '33333333-3333-4333-8333-333333333333';
+DELETE FROM public.workspaces WHERE id IN (
+  '11111111-1111-4111-8111-111111111111',
+  '22222222-2222-4222-8222-222222222222'
+);
 
 WITH ws_a AS (
   INSERT INTO public.workspaces (id, owner_id, name)
@@ -124,14 +125,12 @@ WITH ws_a AS (
   ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
   RETURNING id
 ), business AS (
-  INSERT INTO public.business_profiles (id, user_id, business_name, workspace_id)
+  INSERT INTO public.business_profiles (id, workspace_id)
   VALUES (
     '33333333-3333-4333-8333-333333333333',
-    'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-    '__p0_5_b2_business__',
     '22222222-2222-4222-8222-222222222222'
   )
-  ON CONFLICT (id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id, business_name = EXCLUDED.business_name
+  ON CONFLICT (id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id
   RETURNING id
 )
 INSERT INTO public.unified_connections (
