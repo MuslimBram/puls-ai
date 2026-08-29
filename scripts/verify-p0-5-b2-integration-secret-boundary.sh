@@ -5,31 +5,50 @@ set -euo pipefail
 export PGPASSWORD
 DB_HOST="${PGHOST:-127.0.0.1}"
 DB_PORT="${PGPORT:-5432}"
-DB_NAME="${PGDATABASE:-postgres}"
+ADMIN_DB="${PGDATABASE:-postgres}"
 DB_USER="${PGUSER:-postgres}"
 MIGRATION="supabase/migrations/20260829113000_p0_5_b2_integration_secret_boundary.sql"
+TEST_DB="p0_5_b2_${GITHUB_RUN_ID:-local}_$$_${RANDOM}"
+GUARD_LOG="/tmp/p0_5_b2_guard_$$.log"
 
-psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+cleanup() {
+  rm -f "$GUARD_LOG"
+  psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$ADMIN_DB" -v ON_ERROR_STOP=1 \
+    -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$TEST_DB' AND pid <> pg_backend_pid();" \
+    >/dev/null 2>&1 || true
+  dropdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" --if-exists "$TEST_DB" >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
+
+# Roles are cluster-wide. Bootstrap them against the admin database, then keep all
+# table/schema mutations inside a verifier-specific database so parallel Vitest
+# workers cannot change the schema underneath this certification.
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$ADMIN_DB" -v ON_ERROR_STOP=1 <<'SQL'
 DO $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN CREATE ROLE anon NOLOGIN; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN CREATE ROLE authenticated NOLOGIN; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN CREATE ROLE service_role NOLOGIN; END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sandbox_exec') THEN CREATE ROLE sandbox_exec NOLOGIN; END IF;
+  BEGIN CREATE ROLE anon NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN CREATE ROLE authenticated NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN CREATE ROLE service_role NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END;
+  BEGIN CREATE ROLE sandbox_exec NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END;
 END $$;
+SQL
 
-CREATE TABLE IF NOT EXISTS public.workspaces (
+createdb -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" "$TEST_DB"
+DB_NAME="$TEST_DB"
+
+psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+CREATE TABLE public.workspaces (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   owner_id uuid NOT NULL DEFAULT gen_random_uuid(),
   name text NOT NULL DEFAULT 'Verifier Workspace'
 );
 
-CREATE TABLE IF NOT EXISTS public.business_profiles (
+CREATE TABLE public.business_profiles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id uuid NOT NULL REFERENCES public.workspaces(id)
 );
 
-CREATE TABLE IF NOT EXISTS public.external_integrations (
+CREATE TABLE public.external_integrations (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   workspace_id uuid REFERENCES public.workspaces(id),
@@ -51,7 +70,7 @@ CREATE TABLE IF NOT EXISTS public.external_integrations (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS public.unified_connections (
+CREATE TABLE public.unified_connections (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   workspace_id uuid REFERENCES public.workspaces(id) ON DELETE CASCADE,
@@ -73,32 +92,15 @@ CREATE TABLE IF NOT EXISTS public.unified_connections (
 ALTER TABLE public.external_integrations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.unified_connections ENABLE ROW LEVEL SECURITY;
 
-ALTER TABLE public.external_integrations DROP CONSTRAINT IF EXISTS external_integrations_workspace_id_integration_key_key;
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = 'public.external_integrations'::regclass
-      AND conname = 'external_integrations_user_id_integration_key_key'
-  ) THEN
-    ALTER TABLE public.external_integrations
-      ADD CONSTRAINT external_integrations_user_id_integration_key_key UNIQUE (user_id, integration_key);
-  END IF;
-END $$;
+ALTER TABLE public.external_integrations
+  ADD CONSTRAINT external_integrations_user_id_integration_key_key UNIQUE (user_id, integration_key);
 
-DROP POLICY IF EXISTS "Admins can view all external_integrations" ON public.external_integrations;
-DROP POLICY IF EXISTS "Users can delete own external_integrations" ON public.external_integrations;
-DROP POLICY IF EXISTS "Users can insert own external_integrations" ON public.external_integrations;
-DROP POLICY IF EXISTS "Users can update own external_integrations" ON public.external_integrations;
-DROP POLICY IF EXISTS "Users can view own external_integrations" ON public.external_integrations;
 CREATE POLICY "Admins can view all external_integrations" ON public.external_integrations FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Users can delete own external_integrations" ON public.external_integrations FOR DELETE TO authenticated USING (true);
 CREATE POLICY "Users can insert own external_integrations" ON public.external_integrations FOR INSERT TO authenticated WITH CHECK (true);
 CREATE POLICY "Users can update own external_integrations" ON public.external_integrations FOR UPDATE TO authenticated USING (true);
 CREATE POLICY "Users can view own external_integrations" ON public.external_integrations FOR SELECT TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "Admins view all connections" ON public.unified_connections;
-DROP POLICY IF EXISTS "Users manage own connections" ON public.unified_connections;
 CREATE POLICY "Admins view all connections" ON public.unified_connections FOR SELECT TO authenticated USING (true);
 CREATE POLICY "Users manage own connections" ON public.unified_connections FOR ALL TO public USING (true) WITH CHECK (true);
 
@@ -107,35 +109,18 @@ GRANT SELECT, INSERT ON TABLE public.external_integrations TO sandbox_exec;
 GRANT ALL PRIVILEGES ON TABLE public.unified_connections TO anon, authenticated, service_role;
 GRANT SELECT, INSERT ON TABLE public.unified_connections TO sandbox_exec;
 
-DELETE FROM public.unified_connections WHERE id = '44444444-4444-4444-8444-444444444444';
-DELETE FROM public.business_profiles WHERE id = '33333333-3333-4333-8333-333333333333';
-DELETE FROM public.workspaces WHERE id IN (
-  '11111111-1111-4111-8111-111111111111',
-  '22222222-2222-4222-8222-222222222222'
-);
-
--- Build the negative fixture as legacy bad data. Existing schema may have USER
--- triggers that normalize workspace ownership during INSERT/UPDATE, so disable
--- only USER triggers in this ephemeral verifier while injecting the mismatch.
--- Constraint triggers/FKs remain enabled, and all USER triggers are restored
--- before the migration under test is executed.
+-- Inject the exact legacy inconsistency the migration must reject. This dedicated
+-- database has no application normalizer triggers, so the fixture is deterministic.
 INSERT INTO public.workspaces (id, owner_id, name)
 VALUES
   ('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '__p0_5_b2_ws_a__'),
-  ('22222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '__p0_5_b2_ws_b__')
-ON CONFLICT (id) DO UPDATE SET
-  owner_id = EXCLUDED.owner_id,
-  name = EXCLUDED.name;
-
-ALTER TABLE public.business_profiles DISABLE TRIGGER USER;
-ALTER TABLE public.unified_connections DISABLE TRIGGER USER;
+  ('22222222-2222-4222-8222-222222222222', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '__p0_5_b2_ws_b__');
 
 INSERT INTO public.business_profiles (id, workspace_id)
 VALUES (
   '33333333-3333-4333-8333-333333333333',
   '22222222-2222-4222-8222-222222222222'
-)
-ON CONFLICT (id) DO UPDATE SET workspace_id = EXCLUDED.workspace_id;
+);
 
 INSERT INTO public.unified_connections (
   id, user_id, workspace_id, business_id, provider, category, connection_type
@@ -147,14 +132,7 @@ INSERT INTO public.unified_connections (
   '__p0_5_b2_cross_tenant__',
   'verifier',
   'oauth'
-)
-ON CONFLICT (id) DO UPDATE SET
-  workspace_id = EXCLUDED.workspace_id,
-  business_id = EXCLUDED.business_id,
-  provider = EXCLUDED.provider;
-
-ALTER TABLE public.unified_connections ENABLE TRIGGER USER;
-ALTER TABLE public.business_profiles ENABLE TRIGGER USER;
+);
 
 DO $$
 BEGIN
@@ -171,14 +149,14 @@ END $$;
 SQL
 
 # The migration must fail closed while a connection points to a business in another workspace.
-if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION" >/tmp/p0_5_b2_guard.log 2>&1; then
+if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION" >"$GUARD_LOG" 2>&1; then
   echo "ERROR: migration accepted a cross-workspace business link"
-  cat /tmp/p0_5_b2_guard.log
+  cat "$GUARD_LOG"
   exit 1
 fi
-if ! grep -q "cross-workspace business link exists" /tmp/p0_5_b2_guard.log; then
+if ! grep -q "cross-workspace business link exists" "$GUARD_LOG"; then
   echo "ERROR: migration failed for an unexpected reason"
-  cat /tmp/p0_5_b2_guard.log
+  cat "$GUARD_LOG"
   exit 1
 fi
 
@@ -258,15 +236,13 @@ END $$;
 INSERT INTO public.workspaces (id, owner_id, name)
 VALUES
   ('55555555-5555-4555-8555-555555555555', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '__p0_5_b2_unique_a__'),
-  ('66666666-6666-4666-8666-666666666666', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '__p0_5_b2_unique_b__')
-ON CONFLICT (id) DO NOTHING;
+  ('66666666-6666-4666-8666-666666666666', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '__p0_5_b2_unique_b__');
 
 INSERT INTO public.external_integrations (
   id, user_id, workspace_id, integration_key, integration_name, category
 ) VALUES
   ('77777777-7777-4777-8777-777777777777', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '55555555-5555-4555-8555-555555555555', '__same_key__', 'Verifier', 'verifier'),
-  ('88888888-8888-4888-8888-888888888888', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '66666666-6666-4666-8666-666666666666', '__same_key__', 'Verifier', 'verifier')
-ON CONFLICT (id) DO NOTHING;
+  ('88888888-8888-4888-8888-888888888888', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '66666666-6666-4666-8666-666666666666', '__same_key__', 'Verifier', 'verifier');
 
 DELETE FROM public.external_integrations WHERE id IN (
   '77777777-7777-4777-8777-777777777777',
