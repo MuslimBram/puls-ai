@@ -8,15 +8,15 @@ export const useAuditLog = () => {
   const log = useCallback(
     async (action: string, targetType?: string, targetId?: string, metadata?: Record<string, unknown>) => {
       if (!user) return;
-      await supabase.from("audit_logs").insert({
-        actor_id: user.id,
-        action,
-        target_type: targetType,
-        target_id: targetId,
-        metadata: metadata ?? {},
-      } as any);
+      const { error } = await (supabase as any).rpc("record_client_audit_event", {
+        _action: action,
+        _target_type: targetType ?? null,
+        _target_id: targetId ?? null,
+        _metadata: metadata ?? {},
+      });
+      if (error) console.warn("[Audit] Client audit event rejected:", error.message);
     },
-    [user]
+    [user],
   );
 
   return { log };
