@@ -130,7 +130,7 @@ insert into public.call_tags(id,workspace_id,user_id,call_record_id,tag) values
 SQL
 
 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 \
-  -f supabase/migrations/20260828200000_p0_4_call_voice_workspace_isolation.sql
+  -f supabase/migrations/20260828190149_p0_4_call_voice_workspace_isolation.sql
 
 psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
 do $$
