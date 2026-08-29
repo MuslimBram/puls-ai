@@ -96,17 +96,18 @@ serve(async (req) => {
 
     const idempotencyKey = `tg:${channel.id}:${chatId}:${senderId}:${String(msg.message_id)}`;
 
-    const { data: integrationRow } = await supabase
+    const { data: integrationRow, error: integrationError } = await supabase
       .from("external_integrations")
       .select("id")
-      .eq("user_id", channel.user_id)
+      .eq("workspace_id", workspaceId)
       .eq("integration_key", "telegram")
-      .limit(1)
       .maybeSingle();
+    if (integrationError) throw integrationError;
 
     const { error: claimErr } = await supabase.from("integration_event_logs").insert({
       integration_id: integrationRow?.id,
       user_id: channel.user_id,
+      workspace_id: workspaceId,
       event_type: "message",
       event_message: "Telegram inbound message",
       adapter_key: "telegram",
@@ -128,6 +129,7 @@ serve(async (req) => {
         const { data: existingClaim } = await supabase
           .from("integration_event_logs")
           .select("id, status")
+          .eq("workspace_id", workspaceId)
           .eq("idempotency_key", idempotencyKey)
           .maybeSingle();
 
@@ -136,6 +138,7 @@ serve(async (req) => {
             .from("integration_event_logs")
             .update({ status: "processing" })
             .eq("id", existingClaim.id)
+            .eq("workspace_id", workspaceId)
             .eq("status", "failed")
             .select("id")
             .maybeSingle();
@@ -181,6 +184,7 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       await supabase
         .from("integration_event_logs")
         .update({ status: "failed", event_message: "Telegram AI parse failure" })
+        .eq("workspace_id", workspaceId)
         .eq("idempotency_key", idempotencyKey);
       return new Response(JSON.stringify({ ok: false, error: "invalid_ai_response" }), {
         status: 502,
@@ -231,6 +235,7 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       await supabase
         .from("integration_event_logs")
         .update({ status: "failed", event_message: "Telegram thread persistence failure" })
+        .eq("workspace_id", workspaceId)
         .eq("idempotency_key", idempotencyKey);
       throw new Error(threadError?.message || "Conversation thread persistence failed");
     }
@@ -258,6 +263,7 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
     await supabase
       .from("integration_event_logs")
       .update({ status: "processed", metadata: { lead_id: leadId, workspace_id: workspaceId, channel_id: channel.id } })
+      .eq("workspace_id", workspaceId)
       .eq("idempotency_key", idempotencyKey);
 
     return new Response(
