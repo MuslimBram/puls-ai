@@ -103,8 +103,11 @@ Deno.serve(async (req) => {
       }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
+    // Enrollment verification must target the newly-created unverified factor.
+    // Passing false here previously selected only an already-verified factor,
+    // causing mandatory registration MFA to fail with a non-2xx response.
     if (action === "verify_enroll") {
-      return await verifyTotpFactor(req, supabaseClient, token, false);
+      return await verifyTotpFactor(req, supabaseClient, token, true);
     }
 
     if (action === "send_code") {
@@ -154,9 +157,6 @@ Deno.serve(async (req) => {
     }
 
     if (action === "verify_totp" || action === "verify") {
-      // Backward-compatible behavior: current settings UI calls `verify` after
-      // enrollment, while login calls `verify_totp`. Unverified factors therefore
-      // complete enrollment; verified factors perform login MFA verification.
       return await verifyTotpFactor(req, supabaseClient, token, true);
     }
 
@@ -184,7 +184,7 @@ Deno.serve(async (req) => {
     if (action === "status") {
       const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
       const verified = factorsData?.totp?.some((f) => f.status === "verified") ?? false;
-      return new Response(JSON.stringify({ enrolled: verified, verified, enrolledAt: verified ? null : null, totp_enrolled: verified }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ enrolled: verified, verified, enrolledAt: null, totp_enrolled: verified }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: { ...getCors(req), "Content-Type": "application/json" } });
@@ -198,7 +198,7 @@ async function verifyTotpFactor(
   req: Request,
   supabaseClient: ReturnType<typeof createClient>,
   token: string | undefined,
-  allowLoginOrEnroll: boolean,
+  allowUnverified: boolean,
 ): Promise<Response> {
   const headers = { ...getCors(req), "Content-Type": "application/json" };
   if (!token || token.length !== 6) return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), { status: 400, headers });
@@ -208,7 +208,7 @@ async function verifyTotpFactor(
 
   const unverified = factorsData?.totp?.find((f) => f.status === "unverified");
   const verified = factorsData?.totp?.find((f) => f.status === "verified");
-  const factor = allowLoginOrEnroll && unverified ? unverified : verified;
+  const factor = allowUnverified && unverified ? unverified : verified;
 
   if (!factor) return new Response(JSON.stringify({ error: "TOTP nuk është konfiguruar.", not_enrolled: true }), { status: 400, headers });
 
@@ -222,5 +222,5 @@ async function verifyTotpFactor(
   });
   if (verifyError) return new Response(JSON.stringify({ error: "Kodi i gabuar ose i skaduar" }), { status: 400, headers });
 
-  return new Response(JSON.stringify({ verified: true, enrolled: factor.status === "unverified" || factor.status === "verified" }), { headers });
+  return new Response(JSON.stringify({ verified: true, enrolled: true }), { headers });
 }
