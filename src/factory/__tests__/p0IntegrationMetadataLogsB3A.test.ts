@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
-const migration = read("supabase/migrations/20260829130000_p0_5_b3a_integration_metadata_logs.sql");
+const migration = read("supabase/migrations/20260829112718_p0_5_b3a_integration_metadata_logs.sql");
 const integrationBoundary = read("supabase/functions/manage-integration-connections/index.ts");
 const mediaBoundary = read("supabase/functions/manage-media-provider-credentials/index.ts");
 const telegramWebhook = read("supabase/functions/telegram-webhook/index.ts");
