@@ -26,6 +26,14 @@ $$;
 alter table public.external_integrations alter column workspace_id set not null;
 alter table public.unified_connections alter column workspace_id set not null;
 
+-- Integration identity is tenant-scoped, not user-scoped. A user may configure
+-- the same provider independently in multiple workspaces.
+alter table public.external_integrations
+  drop constraint if exists external_integrations_user_id_integration_key_key;
+alter table public.external_integrations
+  add constraint external_integrations_workspace_id_integration_key_key
+  unique (workspace_id, integration_key);
+
 -- Browser policies are removed because both tables contain credential-bearing columns.
 drop policy if exists "Admins can view all external_integrations" on public.external_integrations;
 drop policy if exists "Users can delete own external_integrations" on public.external_integrations;
