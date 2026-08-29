@@ -7,7 +7,7 @@ DB_HOST="${PGHOST:-127.0.0.1}"
 DB_PORT="${PGPORT:-5432}"
 DB_NAME="${PGDATABASE:-postgres}"
 DB_USER="${PGUSER:-postgres}"
-MIGRATION="supabase/migrations/20260829103000_p0_5_b1_media_provider_credentials_backend_only.sql"
+MIGRATION="supabase/migrations/20260829081527_p0_5_b1_media_provider_credentials_backend_only.sql"
 
 psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
 DO $$
