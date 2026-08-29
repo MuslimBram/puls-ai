@@ -39,12 +39,28 @@ END $$;
 
 CREATE POLICY "Workspace members can view competitors" ON public.competitors FOR SELECT TO authenticated USING(public.has_workspace_access(workspace_id));
 CREATE POLICY "Workspace members can insert own competitors" ON public.competitors FOR INSERT TO authenticated WITH CHECK(user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id,ARRAY['owner','admin','member']));
-CREATE POLICY "Workspace members can update competitors" ON public.competitors FOR UPDATE TO authenticated USING(public.has_workspace_role(workspace_id,ARRAY['owner','admin','member'])) WITH CHECK(public.has_workspace_role(workspace_id,ARRAY['owner','admin','member']));
+CREATE POLICY "Workspace authors or admins can update competitors" ON public.competitors FOR UPDATE TO authenticated
+USING(
+  public.has_workspace_role(workspace_id,ARRAY['owner','admin'])
+  OR (user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id,ARRAY['member']))
+)
+WITH CHECK(
+  public.has_workspace_role(workspace_id,ARRAY['owner','admin'])
+  OR (user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id,ARRAY['member']))
+);
 CREATE POLICY "Workspace admins can delete competitors" ON public.competitors FOR DELETE TO authenticated USING(public.has_workspace_role(workspace_id,ARRAY['owner','admin']));
 
 CREATE POLICY "Workspace members can view competitor alerts" ON public.competitor_alerts FOR SELECT TO authenticated USING(public.has_workspace_access(workspace_id));
 CREATE POLICY "Workspace members can insert own competitor alerts" ON public.competitor_alerts FOR INSERT TO authenticated WITH CHECK(user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id,ARRAY['owner','admin','member']));
-CREATE POLICY "Workspace members can update competitor alerts" ON public.competitor_alerts FOR UPDATE TO authenticated USING(public.has_workspace_role(workspace_id,ARRAY['owner','admin','member'])) WITH CHECK(public.has_workspace_role(workspace_id,ARRAY['owner','admin','member']));
+CREATE POLICY "Workspace authors or admins can update competitor alerts" ON public.competitor_alerts FOR UPDATE TO authenticated
+USING(
+  public.has_workspace_role(workspace_id,ARRAY['owner','admin'])
+  OR (user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id,ARRAY['member']))
+)
+WITH CHECK(
+  public.has_workspace_role(workspace_id,ARRAY['owner','admin'])
+  OR (user_id=(SELECT auth.uid()) AND public.has_workspace_role(workspace_id,ARRAY['member']))
+);
 CREATE POLICY "Workspace admins can delete competitor alerts" ON public.competitor_alerts FOR DELETE TO authenticated USING(public.has_workspace_role(workspace_id,ARRAY['owner','admin']));
 
 CREATE OR REPLACE FUNCTION public.enforce_r4a2_competitor_alert_workspace()
