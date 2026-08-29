@@ -45,9 +45,13 @@ export function classifyProviderFailure(
   status: number,
   message: string,
 ): ProviderFailureCategory {
-  // Explicit permanent failures
+  // Bad user/provider payload — do not spray malformed requests across providers.
   if (status === 400) return "UNSUPPORTED_REQUEST";
-  if (status === 401 || status === 403) return "AUTH_OR_CONFIG_FAILURE";
+
+  // Provider auth/config failures are eligible for next-provider failover.
+  // A provider 404 commonly means the configured model or endpoint is unavailable,
+  // not that the user's logical request is malformed.
+  if (status === 401 || status === 403 || status === 404) return "AUTH_OR_CONFIG_FAILURE";
 
   // Provider quota / billing (402 or explicit quota signal)
   if (status === 402) return "PROVIDER_QUOTA_EXHAUSTED";
