@@ -42,6 +42,12 @@ describe("P0.5-B1 media provider credential boundary", () => {
     expect(edgeFunction).not.toContain('.select("encrypted_secret")');
   });
 
+  it("restricts global secret management to platform admins", () => {
+    expect(edgeFunction).toContain('.in("role", ["admin", "super_admin"])');
+    expect(edgeFunction).not.toContain('"business_owner"');
+    expect(edgeFunction).toContain("Platform admin access required");
+  });
+
   it("keeps response CORS request-scoped", () => {
     expect(edgeFunction).toContain("function json(req: Request, body: unknown");
     expect(edgeFunction).toContain("...getCors(req)");
