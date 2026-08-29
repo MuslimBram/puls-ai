@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -69,5 +70,14 @@ describe("P0.5-B CRM tenant isolation source contract", () => {
     expect(dealsHook).toContain("workspace_id: workspace.id");
     expect(pipelineHook).not.toContain('.eq("user_id", user!.id)');
     expect(dealsHook).not.toContain('.eq("user_id", user!.id)');
+  });
+
+  it("executes the PostgreSQL adversarial verifier in CI", () => {
+    if (process.env.CI !== "true") return;
+    execFileSync("bash", ["scripts/verify-p0-5-b-crm-deals-pipeline-workspace-isolation.sh"], {
+      cwd: process.cwd(),
+      stdio: "inherit",
+      env: { ...process.env, PGPASSWORD: process.env.PGPASSWORD || "postgres" },
+    });
   });
 });
