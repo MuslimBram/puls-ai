@@ -58,7 +58,15 @@ CREATE TABLE demand_forecasts(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user
 CREATE TABLE resource_planning_items(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid NOT NULL,workspace_id uuid REFERENCES workspaces(id),payload text);
 CREATE TABLE personalization_rules(id uuid PRIMARY KEY DEFAULT gen_random_uuid(),user_id uuid NOT NULL,workspace_id uuid REFERENCES workspaces(id),payload text);
 
-ALTER TABLE market_trends,analytics_daily_snapshots,automation_workflows,knowledge_sources,marketing_campaigns,business_notifications,demand_forecasts,resource_planning_items,personalization_rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE market_trends ENABLE ROW LEVEL SECURITY;
+ALTER TABLE analytics_daily_snapshots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE automation_workflows ENABLE ROW LEVEL SECURITY;
+ALTER TABLE knowledge_sources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE marketing_campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE business_notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE demand_forecasts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE resource_planning_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE personalization_rules ENABLE ROW LEVEL SECURITY;
 GRANT ALL ON market_trends,analytics_daily_snapshots,automation_workflows,knowledge_sources,marketing_campaigns,business_notifications,demand_forecasts,resource_planning_items,personalization_rules TO anon,authenticated,service_role;
 
 CREATE POLICY "Users can delete own market_trends" ON market_trends FOR DELETE TO authenticated USING(auth.uid()=user_id);
@@ -97,7 +105,6 @@ SET ROLE authenticated;
 SELECT set_config('request.jwt.claim.sub','cccccccc-cccc-4ccc-8ccc-cccccccccccc',false);
 INSERT INTO market_trends(user_id,workspace_id,payload) VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','11111111-1111-4111-8111-111111111111','member-own');
 UPDATE market_trends SET payload='member-own-updated' WHERE user_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
-
 DO $$ BEGIN
  BEGIN
   INSERT INTO market_trends(user_id,workspace_id,payload) VALUES('cccccccc-cccc-4ccc-8ccc-cccccccccccc','22222222-2222-4222-8222-222222222222','foreign');
@@ -108,8 +115,6 @@ DO $$ BEGIN
   RAISE EXCEPTION 'expected workspace-moving update denial';
  EXCEPTION WHEN insufficient_privilege THEN NULL; END;
 END $$;
-
--- Member must not update/delete the owner's row.
 UPDATE market_trends SET payload='tampered' WHERE user_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 DELETE FROM market_trends WHERE user_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 RESET ROLE;
