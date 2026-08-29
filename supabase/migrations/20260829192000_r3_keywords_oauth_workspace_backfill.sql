@@ -10,6 +10,12 @@ BEGIN
       SELECT w.id AS workspace_id FROM public.workspaces w WHERE w.owner_id=k.user_id
       UNION
       SELECT wm.workspace_id FROM public.workspace_members wm WHERE wm.user_id=k.user_id
+      UNION
+      SELECT waa.workspace_id
+      FROM public.workspace_access_assignments waa
+      WHERE waa.user_id=k.user_id
+        AND waa.is_active
+        AND (waa.expires_at IS NULL OR waa.expires_at > pg_catalog.now())
     ) c ON true
     WHERE k.workspace_id IS NULL
     GROUP BY k.id
@@ -25,6 +31,12 @@ BEGIN
       SELECT w.id AS workspace_id FROM public.workspaces w WHERE w.owner_id=o.user_id
       UNION
       SELECT wm.workspace_id FROM public.workspace_members wm WHERE wm.user_id=o.user_id
+      UNION
+      SELECT waa.workspace_id
+      FROM public.workspace_access_assignments waa
+      WHERE waa.user_id=o.user_id
+        AND waa.is_active
+        AND (waa.expires_at IS NULL OR waa.expires_at > pg_catalog.now())
     ) c ON true
     WHERE o.workspace_id IS NULL
     GROUP BY o.id
@@ -41,6 +53,12 @@ SET workspace_id = (
     SELECT w.id AS workspace_id FROM public.workspaces w WHERE w.owner_id=k.user_id
     UNION
     SELECT wm.workspace_id FROM public.workspace_members wm WHERE wm.user_id=k.user_id
+    UNION
+    SELECT waa.workspace_id
+    FROM public.workspace_access_assignments waa
+    WHERE waa.user_id=k.user_id
+      AND waa.is_active
+      AND (waa.expires_at IS NULL OR waa.expires_at > pg_catalog.now())
   ) c
   LIMIT 1
 )
@@ -53,6 +71,12 @@ SET workspace_id = (
     SELECT w.id AS workspace_id FROM public.workspaces w WHERE w.owner_id=o.user_id
     UNION
     SELECT wm.workspace_id FROM public.workspace_members wm WHERE wm.user_id=o.user_id
+    UNION
+    SELECT waa.workspace_id
+    FROM public.workspace_access_assignments waa
+    WHERE waa.user_id=o.user_id
+      AND waa.is_active
+      AND (waa.expires_at IS NULL OR waa.expires_at > pg_catalog.now())
   ) c
   LIMIT 1
 )
@@ -103,7 +127,7 @@ CREATE POLICY "Workspace users can delete own keywords"
 ON public.keywords FOR DELETE TO authenticated
 USING (
   user_id = (SELECT auth.uid())
-  AND public.has_workspace_role(workspace_id, ARRAY['owner','admin','member'])
+  AND public.has_workspace_role(workspace_id, ARRAY['owner','admin'])
 );
 
 REVOKE ALL ON TABLE public.keywords FROM PUBLIC, anon, authenticated, service_role;
