@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useMemo } from "react";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 
@@ -10,48 +11,49 @@ const rangeDays = (r: AnalyticsRange) => ({ "7d": 7, "14d": 14, "30d": 30, "90d"
 
 export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const days = rangeDays(dateRange);
   const rangeStart = subDays(new Date(), days);
   const prevStart = subDays(rangeStart, days);
 
   const leadsQuery = useQuery({
-    queryKey: ["deep-analytics-leads", user?.id, dateRange],
+    queryKey: ["deep-analytics-leads", workspace?.id, dateRange],
     queryFn: async () => {
       const { data } = await supabase
         .from("leads")
         .select("id, source_name, message_date, intent_score, status, detected_keyword")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .gte("message_date", prevStart.toISOString())
         .order("message_date", { ascending: false });
       return data ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const inboxQuery = useQuery({
-    queryKey: ["deep-analytics-inbox", user?.id, dateRange],
+    queryKey: ["deep-analytics-inbox", workspace?.id, dateRange],
     queryFn: async () => {
       const { data } = await supabase
         .from("inbox_messages")
         .select("created_at, first_response_at, status, channel_type")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .gte("created_at", rangeStart.toISOString());
       return data ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const dealsQuery = useQuery({
-    queryKey: ["deep-analytics-deals", user?.id, dateRange],
+    queryKey: ["deep-analytics-deals", workspace?.id, dateRange],
     queryFn: async () => {
       const { data } = await supabase
         .from("deals")
         .select("deal_value, created_at, won_at, lost_at, source_channel")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .gte("created_at", prevStart.toISOString());
       return data ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const broadcastsQuery = useQuery({
@@ -109,17 +111,18 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
   });
 
   const leadScoresQuery = useQuery({
-    queryKey: ["deep-analytics-lead-scores", user?.id, dateRange],
+    queryKey: ["deep-analytics-lead-scores", workspace?.id, dateRange],
     queryFn: async () => {
       const { data } = await supabase
         .from("lead_scores")
-        .select("lead_id, score, churn_risk, predicted_value, last_scored_at, leads!inner(id, user_id, message_date, source_name, status)")
-        .eq("leads.user_id", user!.id)
+        .select("lead_id, score, churn_risk, predicted_value, last_scored_at, leads!inner(id, workspace_id, message_date, source_name, status)")
+        .eq("workspace_id", workspace!.id)
+        .eq("leads.workspace_id", workspace!.id)
         .gte("leads.message_date", rangeStart.toISOString())
         .order("last_scored_at", { ascending: false });
       return data ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const metrics = useMemo(() => {
