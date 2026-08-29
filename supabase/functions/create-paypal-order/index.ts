@@ -63,7 +63,7 @@ async function resolvePlanPurchase(
 
   const { data: plan, error } = await supabase
     .from("pricing_settings")
-    .select("plan_key, plan_label, monthly_price_eur, monthly_price_usd, is_public, is_donation")
+    .select("plan_key, plan_label, monthly_price_eur, monthly_price_usd, monthly_price_all, monthly_price, is_public, is_donation")
     .eq("plan_key", planKey)
     .eq("is_public", true)
     .eq("is_donation", false)
@@ -72,26 +72,31 @@ async function resolvePlanPurchase(
   if (error) throw error;
   if (!plan) throw new Error("Plan is not available for checkout");
 
-  const baseMonthly = Number(currency === "EUR" ? plan.monthly_price_eur : plan.monthly_price_usd);
-  if (!Number.isFinite(baseMonthly) || baseMonthly <= 0) {
+  const settlementMonthly = Number(currency === "EUR" ? plan.monthly_price_eur : plan.monthly_price_usd);
+  const displayMonthlyAll = Number(plan.monthly_price_all ?? plan.monthly_price);
+  if (!Number.isFinite(settlementMonthly) || settlementMonthly <= 0) {
     throw new Error(`Plan price is not configured for ${currency}`);
   }
 
-  const candidates = PACKAGE_VARIANTS.map((variant) => ({
-    ...variant,
-    total: roundMoney(baseMonthly * (1 - variant.discount / 100) * variant.months),
-  }));
-  const matched = candidates.find((candidate) => moneyMatches(candidate.total, requestedAmount));
+  const matched = PACKAGE_VARIANTS.find((variant) => {
+    const settlementCandidate = roundMoney(settlementMonthly * (1 - variant.discount / 100) * variant.months);
+    const allDisplayCandidate = Number.isFinite(displayMonthlyAll) && displayMonthlyAll > 0
+      ? roundMoney(displayMonthlyAll * (1 - variant.discount / 100) * variant.months)
+      : Number.NaN;
+    return moneyMatches(settlementCandidate, requestedAmount) || moneyMatches(allDisplayCandidate, requestedAmount);
+  });
 
   if (!matched) {
-    throw new Error("Requested PayPal amount does not match the canonical pricing catalog");
+    throw new Error("Requested PayPal package does not match the canonical pricing catalog");
   }
+
+  const settlementAmount = roundMoney(settlementMonthly * (1 - matched.discount / 100) * matched.months);
 
   return {
     planKey: plan.plan_key as string,
     planLabel: (plan.plan_label as string | null) || (plan.plan_key as string),
     packageType: matched.type,
-    amount: matched.total,
+    amount: settlementAmount,
   };
 }
 
