@@ -7,7 +7,7 @@ DB_HOST="${PGHOST:-127.0.0.1}"
 DB_PORT="${PGPORT:-5432}"
 ADMIN_DB="${PGDATABASE:-postgres}"
 DB_USER="${PGUSER:-postgres}"
-MIGRATION="supabase/migrations/20260829124500_p0_5_a_ai_campaign_workspace_isolation.sql"
+MIGRATION="supabase/migrations/20260829120626_p0_5_a_ai_campaign_workspace_isolation.sql"
 TEST_DB="p0_5_a_${GITHUB_RUN_ID:-local}_$$_${RANDOM}"
 GUARD_LOG="/tmp/p0_5_a_guard_$$.log"
 

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
-const migration = read("supabase/migrations/20260829124500_p0_5_a_ai_campaign_workspace_isolation.sql");
+const migration = read("supabase/migrations/20260829120626_p0_5_a_ai_campaign_workspace_isolation.sql");
 const dedicatedAi = read("src/pages/DedicatedAI.tsx");
 const marketing = read("src/hooks/useMarketingAutomation.ts");
 const analytics = read("src/hooks/useDeepAnalytics.ts");
