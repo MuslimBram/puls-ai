@@ -47,11 +47,11 @@ serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", authData.user.id)
-      .in("role", ["admin", "super_admin", "business_owner"]);
+      .in("role", ["admin", "super_admin"]);
 
     if (roleError) throw roleError;
     if (!roleRows || roleRows.length === 0) {
-      return json({ error: "Admin access required" }, { status: 403 });
+      return json(req, { error: "Platform admin access required" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -64,7 +64,7 @@ serve(async (req) => {
 
       if (error) throw error;
 
-      return json({
+      return json(req, {
         credentials: (data ?? []).map((item) => ({
           providerKey: item.provider_key,
           credentialType: item.credential_type,
@@ -86,12 +86,12 @@ serve(async (req) => {
         .eq("provider_key", parsedDelete.data.providerKey);
 
       if (error) throw error;
-      return json({ success: true });
+      return json(req, { success: true });
     }
 
     const parsedUpsert = upsertSchema.safeParse(body);
     if (!parsedUpsert.success) {
-      return json({ error: parsedUpsert.error.issues[0]?.message || "Invalid request" }, { status: 400 });
+      return json(req, { error: parsedUpsert.error.issues[0]?.message || "Invalid request" }, { status: 400 });
     }
 
     const providerKey = parsedUpsert.data.providerKey;
@@ -103,7 +103,7 @@ serve(async (req) => {
 
     if (providerError) throw providerError;
     if (!provider) {
-      return json({ error: `Provider ${providerKey} does not exist` }, { status: 404 });
+      return json(req, { error: `Provider ${providerKey} does not exist` }, { status: 404 });
     }
 
     const validation = await validateCredential(provider, parsedUpsert.data.secret);
@@ -130,7 +130,7 @@ serve(async (req) => {
 
     if (saveError) throw saveError;
 
-    return json({
+    return json(req, {
       success: true,
       validationMessage: validation.message,
       credential: {
@@ -145,11 +145,11 @@ serve(async (req) => {
       },
     });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 400 });
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, { status: 400 });
   }
 });
 
-function json(body: unknown, init?: ResponseInit) {
+function json(req: Request, body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
     headers: {
