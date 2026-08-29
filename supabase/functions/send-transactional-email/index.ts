@@ -28,7 +28,8 @@ function generateToken(): string {
 
 async function sendViaResendWithRetry(
   apiKey: string,
-  payload: { from: string; to: string[]; subject: string; html: string; text: string }
+  payload: { from: string; to: string[]; subject: string; html: string; text: string },
+  idempotencyKey: string,
 ): Promise<{ ok: boolean; status: number; text: string }> {
   const maxAttempts = 3
   let delayMs = 500
@@ -40,6 +41,7 @@ async function sendViaResendWithRetry(
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
+          'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify(payload),
       })
@@ -309,13 +311,14 @@ Deno.serve(async (req) => {
           continue
         }
 
+        const providerIdempotencyKey = `broadcast/${item.id}`
         const resResult = await sendViaResendWithRetry(resendApiKey, {
           from: `${SITE_NAME} <noreply@${FROM_DOMAIN}>`,
           to: [normEmail],
           subject,
           html: contentHtml,
           text: contentText,
-        })
+        }, providerIdempotencyKey)
 
         // N3 Retry Logic: On transient failure, set status = 'pending' and next_retry_at = future backoff if attempts + 1 < maxAttempts
         const newAttempts = attempts + 1
@@ -364,6 +367,13 @@ Deno.serve(async (req) => {
     )
   }
 
+  if (idempotencyKey.length > 256) {
+    return new Response(
+      JSON.stringify({ error: 'idempotencyKey must be 256 characters or fewer' }),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+  }
+
   if (!templateName) {
     return new Response(
       JSON.stringify({ error: 'templateName is required' }),
@@ -389,15 +399,30 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Idempotency Check: Prevent duplicate sends
+  // Idempotency preflight: historical data can contain more than one log row for
+  // the same message_id, so never use maybeSingle() here. The provider-level
+  // Idempotency-Key below is the authoritative concurrency boundary.
   if (idempotencyKey) {
-    const { data: existingLog } = await supabase
+    const { data: existingLogs, error: existingLogErr } = await supabase
       .from('email_send_log')
       .select('message_id, status')
       .eq('message_id', idempotencyKey)
-      .maybeSingle()
+      .in('status', ['pending', 'sent'])
+      .limit(1)
 
-    if (existingLog && (existingLog.status === 'sent' || existingLog.status === 'pending')) {
+    if (existingLogErr) {
+      console.error('Database failure during idempotency lookup', existingLogErr)
+      return new Response(
+        JSON.stringify({ success: false, sent: false, error: 'Database failure during idempotency lookup' }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      )
+    }
+
+    const existingLog = existingLogs?.[0]
+    if (existingLog) {
       console.log('Duplicate email dispatch blocked by idempotency check', { idempotencyKey })
       return new Response(
         JSON.stringify({ success: true, sent: false, duplicate: true, messageId: existingLog.message_id }),
@@ -678,7 +703,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    deliveryResult = await sendViaResendWithRetry(resendApiKey, payload)
+    deliveryResult = await sendViaResendWithRetry(resendApiKey, payload, idempotencyKey)
   }
 
   // H1: Write-site 2 & 3 - Update status and check error
