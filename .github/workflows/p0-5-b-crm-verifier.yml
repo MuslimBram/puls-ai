@@ -1,0 +1,49 @@
+name: P0.5-B CRM Deals + Pipeline Security Verifier
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'supabase/migrations/20260829160000_p0_5_b_crm_deals_pipeline_workspace_isolation.sql'
+      - 'scripts/verify-p0-5-b-crm-deals-pipeline-workspace-isolation.sh'
+      - 'src/hooks/useCRM.ts'
+      - 'src/factory/__tests__/p0CrmDealsPipelineWorkspaceIsolation.test.ts'
+
+jobs:
+  verify:
+    name: CRM tenant isolation verifier
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run focused CRM source contract
+        run: npx vitest run src/factory/__tests__/p0CrmDealsPipelineWorkspaceIsolation.test.ts
+
+      - name: Run PostgreSQL migration and RLS verifier
+        env:
+          PGPASSWORD: postgres
+        run: bash scripts/verify-p0-5-b-crm-deals-pipeline-workspace-isolation.sh
