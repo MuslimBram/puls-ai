@@ -38,6 +38,7 @@ const requestSchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("toggle_external"), workspace_id: workspaceId, id, is_enabled: z.boolean() }),
   z.object({ action: z.literal("delete_external"), workspace_id: workspaceId, id }),
+  z.object({ action: z.literal("list_integration_logs"), workspace_id: workspaceId, integration_id: id }),
   z.object({ action: z.literal("list_unified"), workspace_id: workspaceId }),
   z.object({
     action: z.literal("create_unified"),
@@ -59,6 +60,7 @@ const requestSchema = z.discriminatedUnion("action", [
     last_error: z.string().max(1000).nullable().optional(),
   }),
   z.object({ action: z.literal("delete_unified"), workspace_id: workspaceId, id }),
+  z.object({ action: z.literal("list_connection_logs"), workspace_id: workspaceId, connection_id: id.nullable().optional() }),
 ]);
 
 async function encryptCredentials(credentials: Record<string, string>): Promise<Record<string, string>> {
@@ -78,6 +80,36 @@ function containsSensitiveConfigKey(value: unknown): boolean {
     if (containsSensitiveConfigKey(child)) return true;
   }
   return false;
+}
+
+function sanitizeMetadata(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizeMetadata);
+  if (!value || typeof value !== "object") return value;
+  const result: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (sensitiveConfigKey.test(key)) continue;
+    result[key] = sanitizeMetadata(child);
+  }
+  return result;
+}
+
+async function writeConnectionLog(args: {
+  workspaceId: string;
+  userId: string;
+  connectionId?: string | null;
+  eventType: string;
+  message: string;
+  metadata?: Record<string, unknown>;
+}) {
+  const { error } = await admin.from("connection_logs").insert({
+    workspace_id: args.workspaceId,
+    user_id: args.userId,
+    connection_id: args.connectionId ?? null,
+    event_type: args.eventType,
+    message: args.message,
+    metadata: { workspace_id: args.workspaceId, ...(args.metadata ?? {}) },
+  });
+  if (error) throw error;
 }
 
 serve(async (req) => {
@@ -198,6 +230,29 @@ serve(async (req) => {
         return json(req, { success: true });
       }
 
+      case "list_integration_logs": {
+        const { data: integration, error: integrationError } = await admin
+          .from("external_integrations")
+          .select("id")
+          .eq("id", input.integration_id)
+          .eq("workspace_id", input.workspace_id)
+          .maybeSingle();
+        if (integrationError) throw integrationError;
+        if (!integration) return json(req, { error: "Integration not found" }, 404);
+
+        const { data, error } = await admin
+          .from("integration_event_logs")
+          .select("id,integration_id,event_type,event_message,metadata,created_at,status,adapter_key")
+          .eq("workspace_id", input.workspace_id)
+          .eq("integration_id", input.integration_id)
+          .order("created_at", { ascending: false })
+          .limit(50);
+        if (error) throw error;
+        return json(req, {
+          logs: (data ?? []).map((row) => ({ ...row, metadata: sanitizeMetadata(row.metadata) })),
+        });
+      }
+
       case "list_unified": {
         const { data, error } = await admin
           .from("unified_connections")
@@ -228,20 +283,33 @@ serve(async (req) => {
         const encryptedCredentials = input.credentials
           ? await encryptCredentials(input.credentials)
           : {};
-        const { error } = await admin.from("unified_connections").insert({
-          user_id: authData.user.id,
-          workspace_id: input.workspace_id,
-          business_id: input.business_id ?? null,
-          provider: input.provider,
-          category: input.category,
-          connection_type: input.connection_type,
-          display_name: input.display_name || input.provider,
-          config_json: configJson,
-          credentials_encrypted: encryptedCredentials,
-          status: "pending",
-        });
+        const { data: created, error } = await admin
+          .from("unified_connections")
+          .insert({
+            user_id: authData.user.id,
+            workspace_id: input.workspace_id,
+            business_id: input.business_id ?? null,
+            provider: input.provider,
+            category: input.category,
+            connection_type: input.connection_type,
+            display_name: input.display_name || input.provider,
+            config_json: configJson,
+            credentials_encrypted: encryptedCredentials,
+            status: "pending",
+          })
+          .select("id")
+          .single();
         if (error) throw error;
-        return json(req, { success: true });
+
+        await writeConnectionLog({
+          workspaceId: input.workspace_id,
+          userId: authData.user.id,
+          connectionId: created.id,
+          eventType: "connection_created",
+          message: `Created ${input.connection_type} connection for ${input.provider}`,
+          metadata: { provider: input.provider, category: input.category },
+        });
+        return json(req, { success: true, id: created.id });
       }
 
       case "test_unified": {
@@ -254,6 +322,14 @@ serve(async (req) => {
           .maybeSingle();
         if (error) throw error;
         if (!data) return json(req, { error: "Connection not found" }, 404);
+
+        await writeConnectionLog({
+          workspaceId: input.workspace_id,
+          userId: authData.user.id,
+          connectionId: input.id,
+          eventType: "connection_tested",
+          message: "Connection test passed",
+        });
         return json(req, { success: true });
       }
 
@@ -267,6 +343,14 @@ serve(async (req) => {
           .maybeSingle();
         if (error) throw error;
         if (!data) return json(req, { error: "Connection not found" }, 404);
+
+        await writeConnectionLog({
+          workspaceId: input.workspace_id,
+          userId: authData.user.id,
+          connectionId: input.id,
+          eventType: "status_changed",
+          message: `Status changed to ${input.status}`,
+        });
         return json(req, { success: true });
       }
 
@@ -280,7 +364,32 @@ serve(async (req) => {
           .maybeSingle();
         if (error) throw error;
         if (!data) return json(req, { error: "Connection not found" }, 404);
+
+        await writeConnectionLog({
+          workspaceId: input.workspace_id,
+          userId: authData.user.id,
+          connectionId: null,
+          eventType: "connection_deleted",
+          message: "Connection removed",
+          metadata: { deleted_connection_id: input.id },
+        });
         return json(req, { success: true });
+      }
+
+      case "list_connection_logs": {
+        let query = admin
+          .from("connection_logs")
+          .select("id,connection_id,user_id,event_type,message,metadata,created_at")
+          .eq("workspace_id", input.workspace_id)
+          .order("created_at", { ascending: false })
+          .limit(100);
+        if (input.connection_id) query = query.eq("connection_id", input.connection_id);
+
+        const { data, error } = await query;
+        if (error) throw error;
+        return json(req, {
+          logs: (data ?? []).map((row) => ({ ...row, metadata: sanitizeMetadata(row.metadata) })),
+        });
       }
     }
   } catch (error) {
