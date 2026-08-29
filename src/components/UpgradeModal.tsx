@@ -60,10 +60,12 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
   };
 
   const handleLearnWithAI = () => {
-    setMinimized(false);
-    window.dispatchEvent(new CustomEvent("pulse-ai:open-chat", {
-      detail: { context: `Explain the ${plan?.name || target} plan and what it unlocks compared with my current plan.` },
-    }));
+    onOpenChange(false);
+    window.setTimeout(() => {
+      window.dispatchEvent(new CustomEvent("pulse-ai:open-chat", {
+        detail: { context: `Explain the ${plan?.name || target} plan and what it unlocks compared with my current plan.` },
+      }));
+    }, 120);
   };
 
   const upgrades = comparisonSections
@@ -85,13 +87,8 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
           aria-describedby="upgrade-dialog-description"
         >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Zap className="h-5 w-5 text-primary" />
-              Upgrade to {plan.name}
-            </DialogTitle>
-            <p id="upgrade-dialog-description" className="text-sm text-muted-foreground">
-              Review what changes, choose your payment path, or ask Pulse AI to explain the plan.
-            </p>
+            <DialogTitle className="flex items-center gap-2"><Zap className="h-5 w-5 text-primary" />Upgrade to {plan.name}</DialogTitle>
+            <p id="upgrade-dialog-description" className="text-sm text-muted-foreground">Review what changes, choose your payment path, or ask Pulse AI to explain the plan.</p>
           </DialogHeader>
           <div className="space-y-4">
             <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
@@ -100,9 +97,7 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
                 <span className="text-sm text-muted-foreground">/month</span>
               </div>
               <p className="text-sm text-muted-foreground">{plan.description}</p>
-              {targetIdx > currentIdx && (
-                <p className="mt-2 text-xs text-muted-foreground">Next available upgrade from your current tier.</p>
-              )}
+              {targetIdx > currentIdx && <p className="mt-2 text-xs text-muted-foreground">Next available upgrade from your current tier.</p>}
             </div>
 
             {upgrades.length > 0 && (
@@ -112,31 +107,20 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
                   <div key={feature.id} className="flex items-center gap-2 text-sm">
                     <Check className="h-4 w-4 shrink-0 text-primary" />
                     <span className="text-foreground">{feature.featureName}</span>
-                    {typeof feature.values[target] === "string" && (
-                      <Badge variant="secondary" className="ml-auto text-xs">{feature.values[target] as string}</Badge>
-                    )}
+                    {typeof feature.values[target] === "string" && <Badge variant="secondary" className="ml-auto text-xs">{feature.values[target] as string}</Badge>}
                   </div>
                 ))}
               </div>
             )}
 
             <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={handleUpgrade} disabled={loading}>
-                {loading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Zap className="mr-1 h-4 w-4" />}
-                Continue
-              </Button>
-              <Button variant="outline" onClick={handleViewPlans}>
-                Payment options <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
+              <Button onClick={handleUpgrade} disabled={loading}>{loading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Zap className="mr-1 h-4 w-4" />}Continue</Button>
+              <Button variant="outline" onClick={handleViewPlans}>Payment options <ArrowRight className="ml-1 h-4 w-4" /></Button>
             </div>
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-3">
-              <Button size="sm" variant="ghost" onClick={handleLearnWithAI}>
-                <MessageCircle className="mr-2 h-4 w-4" /> Learn more with AI
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setMinimized(true)}>
-                <Minus className="mr-2 h-4 w-4" /> Minimize
-              </Button>
+              <Button size="sm" variant="ghost" onClick={handleLearnWithAI}><MessageCircle className="mr-2 h-4 w-4" />Learn more with AI</Button>
+              <Button size="sm" variant="ghost" onClick={() => setMinimized(true)}><Minus className="mr-2 h-4 w-4" />Minimize</Button>
             </div>
           </div>
         </DialogContent>
@@ -145,12 +129,8 @@ export const UpgradeModal = ({ open, onOpenChange, targetPlan }: UpgradeModalPro
       {open && minimized ? (
         <div className="fixed bottom-5 left-1/2 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full border border-border bg-background/95 px-3 py-2 shadow-xl backdrop-blur">
           <span className="text-sm font-medium text-foreground">Upgrade to {plan.name}</span>
-          <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Restore upgrade dialog" onClick={() => setMinimized(false)}>
-            <Maximize2 className="h-4 w-4" />
-          </Button>
-          <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Close upgrade dialog" onClick={() => onOpenChange(false)}>
-            <span aria-hidden="true">×</span>
-          </Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Restore upgrade dialog" onClick={() => setMinimized(false)}><Maximize2 className="h-4 w-4" /></Button>
+          <Button size="icon" variant="ghost" className="h-7 w-7" aria-label="Close upgrade dialog" onClick={() => onOpenChange(false)}><span aria-hidden="true">×</span></Button>
         </div>
       ) : null}
     </>
