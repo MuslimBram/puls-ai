@@ -36,10 +36,18 @@ CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS $$
 $$;
 CREATE TABLE public.workspaces(id uuid PRIMARY KEY, owner_id uuid NOT NULL);
 CREATE TABLE public.workspace_members(workspace_id uuid NOT NULL,user_id uuid NOT NULL,role text NOT NULL,PRIMARY KEY(workspace_id,user_id));
+CREATE TABLE public.workspace_access_assignments(
+  workspace_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  access_role text NOT NULL,
+  is_active boolean NOT NULL DEFAULT true,
+  expires_at timestamptz
+);
 CREATE FUNCTION public.has_workspace_access(_workspace uuid)
 RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
-  SELECT auth.uid() IS NOT NULL AND EXISTS(
-    SELECT 1 FROM public.workspace_members wm WHERE wm.workspace_id=_workspace AND wm.user_id=auth.uid()
+  SELECT auth.uid() IS NOT NULL AND (
+    EXISTS(SELECT 1 FROM public.workspace_members wm WHERE wm.workspace_id=_workspace AND wm.user_id=auth.uid())
+    OR EXISTS(SELECT 1 FROM public.workspace_access_assignments waa WHERE waa.workspace_id=_workspace AND waa.user_id=auth.uid() AND waa.is_active AND (waa.expires_at IS NULL OR waa.expires_at>now()))
   )
 $$;
 CREATE FUNCTION public.has_workspace_role(_workspace_id uuid,_roles text[])
@@ -47,6 +55,17 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path='' AS $$
   SELECT auth.uid() IS NOT NULL AND (
     EXISTS(SELECT 1 FROM public.workspaces w WHERE w.id=_workspace_id AND w.owner_id=auth.uid() AND 'owner'=ANY(_roles))
     OR EXISTS(SELECT 1 FROM public.workspace_members wm WHERE wm.workspace_id=_workspace_id AND wm.user_id=auth.uid() AND wm.role=ANY(_roles))
+    OR EXISTS(
+      SELECT 1 FROM public.workspace_access_assignments waa
+      WHERE waa.workspace_id=_workspace_id AND waa.user_id=auth.uid() AND waa.is_active
+        AND (waa.expires_at IS NULL OR waa.expires_at>now())
+        AND (CASE waa.access_role
+          WHEN 'business_admin' THEN 'admin'
+          WHEN 'manager' THEN 'member'
+          WHEN 'employee' THEN 'member'
+          WHEN 'freelancer' THEN 'member'
+        END)=ANY(_roles)
+    )
   )
 $$;
 
@@ -87,6 +106,9 @@ INSERT INTO public.workspaces(id,owner_id) VALUES
 INSERT INTO public.workspace_members(workspace_id,user_id,role) VALUES
  ('11111111-1111-4111-8111-111111111111','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','owner'),
  ('22222222-2222-4222-8222-222222222222','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','owner');
+-- Duplicate assignment to the same workspace must not make attribution ambiguous.
+INSERT INTO public.workspace_access_assignments(workspace_id,user_id,access_role,is_active,expires_at) VALUES
+ ('11111111-1111-4111-8111-111111111111','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','manager',true,now()+interval '1 day');
 INSERT INTO public.keywords(id,user_id,keyword,workspace_id) VALUES
  ('31111111-1111-4111-8111-111111111111','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','alpha',NULL),
  ('32222222-2222-4222-8222-222222222222','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','beta','22222222-2222-4222-8222-222222222222');
@@ -120,8 +142,12 @@ SELECT set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
 SELECT * FROM public.keywords WHERE workspace_id='11111111-1111-4111-8111-111111111111';
 INSERT INTO public.keywords(user_id,keyword,workspace_id) VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','gamma','11111111-1111-4111-8111-111111111111');
 UPDATE public.keywords SET is_active=false WHERE keyword='gamma' AND workspace_id='11111111-1111-4111-8111-111111111111';
-DELETE FROM public.keywords WHERE keyword='gamma' AND workspace_id='11111111-1111-4111-8111-111111111111';
 DO $$ BEGIN
+  BEGIN
+    DELETE FROM public.keywords WHERE keyword='gamma' AND workspace_id='11111111-1111-4111-8111-111111111111';
+    RAISE EXCEPTION 'expected member delete denial';
+  EXCEPTION WHEN insufficient_privilege THEN NULL;
+  END;
   BEGIN
     INSERT INTO public.keywords(user_id,keyword,workspace_id) VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','forbidden','22222222-2222-4222-8222-222222222222');
     RAISE EXCEPTION 'expected foreign workspace keyword denial';
