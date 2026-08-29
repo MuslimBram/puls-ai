@@ -99,19 +99,21 @@ export const useRefreshMemory = () => {
 
 export const useLeadScore = (leadId?: string) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
 
   return useQuery({
-    queryKey: ["lead-score", leadId],
+    queryKey: ["lead-score", workspace?.id, leadId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lead_scores")
         .select("*")
+        .eq("workspace_id", workspace!.id)
         .eq("lead_id", leadId!)
         .maybeSingle();
       if (error) throw error;
       return data;
     },
-    enabled: !!user && !!leadId,
+    enabled: !!user && !!workspace?.id && !!leadId,
   });
 };
 
