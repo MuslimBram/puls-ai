@@ -50,6 +50,13 @@ describe("Voice AI relay workspace boundary", () => {
     expect(workspaceMatches.length).toBeGreaterThanOrEqual(5);
   });
 
+  it("uses the current ConversationRelay end-session protocol for human handoff", () => {
+    expect(relay).toContain('type: "end"');
+    expect(relay).toContain("handoffData: JSON.stringify");
+    expect(relay).toContain('reasonCode: "live-agent-handoff"');
+    expect(relay).not.toContain('type: "handoff"');
+  });
+
   it("confirms fresh Voice E2E still needs explicit ConversationRelay wiring", () => {
     expect(inbound).not.toContain("ConversationRelay");
     expect(inbound).not.toContain("voice-ai-relay");
