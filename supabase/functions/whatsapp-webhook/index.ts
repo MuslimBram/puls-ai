@@ -139,7 +139,8 @@ serve(async (req) => {
         for (const st of statuses) {
           const { error: statusError } = await sb.from("inbox_messages")
             .update({ delivery_status: st.status, updated_at: new Date().toISOString() })
-            .eq("provider_message_id", st.id);
+            .eq("provider_message_id", st.id)
+            .eq("workspace_id", workspaceId);
           if (statusError) console.warn("[WA] Delivery status update failed:", statusError.message);
         }
 
