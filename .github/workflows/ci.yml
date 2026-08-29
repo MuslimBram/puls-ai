@@ -146,6 +146,11 @@ jobs:
           PGPASSWORD: postgres
         run: bash scripts/verify-p0-4-call-voice.sh
 
+      - name: Apply and verify P0.5 CRM-A workspace isolation migration
+        env:
+          PGPASSWORD: postgres
+        run: bash scripts/verify-p0-5-crm-a.sh
+
       - name: Generate P0 ledger hash report
         if: always()
         run: |
