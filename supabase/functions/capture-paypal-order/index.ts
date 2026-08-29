@@ -13,6 +13,11 @@ const json = (req: Request, body: unknown, status = 200) =>
     headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
+const roundMoney = (value: unknown) => Math.round(Number(value) * 100) / 100;
+const sameMoney = (actual: unknown, expected: unknown) =>
+  Number.isFinite(Number(actual)) && Number.isFinite(Number(expected)) &&
+  Math.abs(roundMoney(actual) - roundMoney(expected)) < 0.005;
+
 async function getPayPalAccessToken(clientId: string, secret: string, sandbox: boolean) {
   const base = sandbox
     ? "https://api-m.sandbox.paypal.com"
@@ -32,6 +37,20 @@ async function getPayPalAccessToken(clientId: string, secret: string, sandbox: b
   return { token: data.access_token as string, base };
 }
 
+function assertOrderMoney(order: any, expectedAmount: number, expectedCurrency: string) {
+  const amount = order?.purchase_units?.[0]?.amount;
+  if (!amount || amount.currency_code !== expectedCurrency || !sameMoney(amount.value, expectedAmount)) {
+    throw new Error("PayPal order amount/currency does not match the stored transaction");
+  }
+}
+
+function assertCaptureMoney(capture: any, expectedAmount: number, expectedCurrency: string) {
+  const amount = capture?.purchase_units?.[0]?.payments?.captures?.[0]?.amount;
+  if (!amount || amount.currency_code !== expectedCurrency || !sameMoney(amount.value, expectedAmount)) {
+    throw new Error("PayPal captured amount/currency does not match the stored transaction");
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
@@ -46,91 +65,90 @@ serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData } = await supabase.auth.getUser(token);
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
     const user = userData.user;
-    if (!user) throw new Error("Unauthorized");
+    if (userError || !user) throw new Error("Unauthorized");
+
+    const body = await req.json();
+    const orderId = typeof body?.orderId === "string" ? body.orderId : "";
+    if (!orderId) throw new Error("orderId is required");
+
+    // Ownership is established from our own pending transaction record, never from PayPal/browser metadata.
+    const { data: txn, error: txnError } = await supabase
+      .from("paypal_transactions")
+      .select("user_id, workspace_id, amount, currency, payment_type, plan_key, status, paypal_capture_id")
+      .eq("paypal_order_id", orderId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (txnError) throw txnError;
+    if (!txn) return json(req, { error: "PayPal order does not belong to the authenticated user" }, 403);
+
+    const expectedAmount = Number(txn.amount);
+    const expectedCurrency = String(txn.currency);
+    if (!Number.isFinite(expectedAmount) || expectedAmount <= 0 || !expectedCurrency) {
+      throw new Error("Stored PayPal transaction is invalid");
+    }
+
+    if (txn.status === "completed" && txn.paypal_capture_id) {
+      return json(req, {
+        status: "COMPLETED",
+        captureId: txn.paypal_capture_id,
+        alreadyCaptured: true,
+      });
+    }
 
     const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
     const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
     if (!clientId || !clientSecret) throw new Error("PayPal credentials not configured");
 
     const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
-    const body = await req.json();
-    const { orderId } = body;
-
-    if (!orderId) throw new Error("orderId is required");
-
-    console.log(`[capture-paypal] Starting capture for order: ${orderId}, user: ${user.id}`);
-
-    // IDEMPOTENCY: Check if already captured
-    const { data: existingTxn } = await supabase
-      .from("paypal_transactions")
-      .select("status, paypal_capture_id")
-      .eq("paypal_order_id", orderId)
-      .maybeSingle();
-
-    if (existingTxn?.status === "completed" && existingTxn?.paypal_capture_id) {
-      console.log(`[capture-paypal] Order ${orderId} already captured, returning existing`);
-      return json(req, {
-        status: "COMPLETED",
-        captureId: existingTxn.paypal_capture_id,
-        alreadyCaptured: true,
-      });
-    }
-
     const { token: ppToken, base } = await getPayPalAccessToken(clientId, clientSecret, sandbox);
 
-    // SERVER-SIDE VERIFICATION: Check order status before capture
-    const orderCheckRes = await fetch(`${base}/v2/checkout/orders/${orderId}`, {
+    const orderCheckRes = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
       headers: { Authorization: `Bearer ${ppToken}` },
     });
-
-    if (!orderCheckRes.ok) {
-      const errText = await orderCheckRes.text();
-      console.error(`[capture-paypal] Order check failed: ${errText}`);
-      throw new Error("Failed to verify order with PayPal");
-    }
+    if (!orderCheckRes.ok) throw new Error("Failed to verify order with PayPal");
 
     const orderCheck = await orderCheckRes.json();
-    console.log(`[capture-paypal] Order ${orderId} status: ${orderCheck.status}`);
+    assertOrderMoney(orderCheck, expectedAmount, expectedCurrency);
 
-    // If already captured, sync the status
+    const customId = orderCheck?.purchase_units?.[0]?.custom_id;
+    if (customId && customId !== user.id) {
+      throw new Error("PayPal order ownership metadata does not match the authenticated user");
+    }
+
+    const updateOwnedTxn = (payload: Record<string, unknown>) =>
+      supabase.from("paypal_transactions")
+        .update(payload)
+        .eq("paypal_order_id", orderId)
+        .eq("user_id", user.id);
+
     if (orderCheck.status === "COMPLETED") {
+      assertCaptureMoney(orderCheck, expectedAmount, expectedCurrency);
       const captureId = orderCheck.purchase_units?.[0]?.payments?.captures?.[0]?.id;
       const payer = orderCheck.payer;
-
-      await supabase.from("paypal_transactions")
-        .update({
-          status: "completed",
-          paypal_capture_id: captureId ?? null,
-          paypal_payer_id: payer?.payer_id ?? null,
-          payer_email: payer?.email_address ?? null,
-          payer_name: payer?.name
-            ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
-            : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("paypal_order_id", orderId);
-
+      await updateOwnedTxn({
+        status: "completed",
+        paypal_capture_id: captureId ?? null,
+        paypal_payer_id: payer?.payer_id ?? null,
+        payer_email: payer?.email_address ?? null,
+        payer_name: payer?.name
+          ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
+          : null,
+        updated_at: new Date().toISOString(),
+      });
       return json(req, { status: "COMPLETED", captureId, alreadyCaptured: true });
     }
 
     if (orderCheck.status !== "APPROVED") {
-      console.error(`[capture-paypal] Order not in APPROVED state: ${orderCheck.status}`);
-
-      // Mark as failed if not approved
       if (orderCheck.status === "VOIDED" || orderCheck.status === "EXPIRED") {
-        await supabase.from("paypal_transactions")
-          .update({ status: "failed", updated_at: new Date().toISOString() })
-          .eq("paypal_order_id", orderId);
+        await updateOwnedTxn({ status: "failed", updated_at: new Date().toISOString() });
       }
-
       throw new Error(`Order not approved (status: ${orderCheck.status})`);
     }
 
-    // Capture the order
-    console.log(`[capture-paypal] Capturing order ${orderId}...`);
-    const captureRes = await fetch(`${base}/v2/checkout/orders/${orderId}/capture`, {
+    const captureRes = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${ppToken}`,
@@ -139,74 +157,49 @@ serve(async (req) => {
     });
 
     if (!captureRes.ok) {
-      const errText = await captureRes.text();
-      console.error(`[capture-paypal] Capture failed: ${errText}`);
-
-      // Handle "already captured" 422 error
       if (captureRes.status === 422) {
-        console.log("[capture-paypal] Order already captured (422), verifying...");
-        // Re-fetch order to get capture details
-        const recheck = await fetch(`${base}/v2/checkout/orders/${orderId}`, {
+        const recheck = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
           headers: { Authorization: `Bearer ${ppToken}` },
         });
         if (recheck.ok) {
           const recheckData = await recheck.json();
+          assertOrderMoney(recheckData, expectedAmount, expectedCurrency);
           if (recheckData.status === "COMPLETED") {
+            assertCaptureMoney(recheckData, expectedAmount, expectedCurrency);
             const cId = recheckData.purchase_units?.[0]?.payments?.captures?.[0]?.id;
-            await supabase.from("paypal_transactions")
-              .update({
-                status: "completed",
-                paypal_capture_id: cId ?? null,
-                updated_at: new Date().toISOString(),
-              })
-              .eq("paypal_order_id", orderId);
+            await updateOwnedTxn({
+              status: "completed",
+              paypal_capture_id: cId ?? null,
+              updated_at: new Date().toISOString(),
+            });
             return json(req, { status: "COMPLETED", captureId: cId, alreadyCaptured: true });
           }
         }
       }
 
-      // Mark as failed
-      await supabase.from("paypal_transactions")
-        .update({ status: "failed", updated_at: new Date().toISOString() })
-        .eq("paypal_order_id", orderId);
-
+      await updateOwnedTxn({ status: "failed", updated_at: new Date().toISOString() });
+      const errText = await captureRes.text();
       throw new Error(`PayPal capture failed: ${errText}`);
     }
 
     const capture = await captureRes.json();
+    assertCaptureMoney(capture, expectedAmount, expectedCurrency);
     const captureId = capture.purchase_units?.[0]?.payments?.captures?.[0]?.id;
     const payer = capture.payer;
     const finalStatus = capture.status === "COMPLETED" ? "completed" : "failed";
 
-    console.log(`[capture-paypal] Capture result: ${capture.status}, captureId: ${captureId}`);
+    await updateOwnedTxn({
+      status: finalStatus,
+      paypal_capture_id: captureId ?? null,
+      paypal_payer_id: payer?.payer_id ?? null,
+      payer_email: payer?.email_address ?? null,
+      payer_name: payer?.name
+        ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
+        : null,
+      updated_at: new Date().toISOString(),
+    });
 
-    // Update transaction
-    await supabase
-      .from("paypal_transactions")
-      .update({
-        status: finalStatus,
-        paypal_capture_id: captureId ?? null,
-        paypal_payer_id: payer?.payer_id ?? null,
-        payer_email: payer?.email_address ?? null,
-        payer_name: payer?.name
-          ? `${payer.name.given_name ?? ""} ${payer.name.surname ?? ""}`.trim()
-          : null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("paypal_order_id", orderId);
-
-    // Log in billing_history (with idempotency check)
     if (capture.status === "COMPLETED" && captureId) {
-      const pu = capture.purchase_units?.[0];
-      const amt = Number(pu?.payments?.captures?.[0]?.amount?.value ?? 0);
-
-      const { data: txn } = await supabase
-        .from("paypal_transactions")
-        .select("payment_type, plan_key")
-        .eq("paypal_order_id", orderId)
-        .maybeSingle();
-
-      // Check billing_history doesn't already have this
       const { data: existingBill } = await supabase
         .from("billing_history")
         .select("id")
@@ -216,18 +209,20 @@ serve(async (req) => {
       if (!existingBill) {
         await supabase.from("billing_history").insert({
           user_id: user.id,
-          amount: amt,
-          currency: pu?.payments?.captures?.[0]?.amount?.currency_code ?? "USD",
+          workspace_id: txn.workspace_id ?? null,
+          amount: expectedAmount,
+          currency: expectedCurrency,
+          charged_amount: expectedAmount,
+          charged_currency: expectedCurrency,
           status: "paid",
-          description: txn?.payment_type === "donation"
+          payment_method: "paypal",
+          description: txn.payment_type === "donation"
             ? "PayPal Donation"
-            : `PayPal Payment${txn?.plan_key ? ` - ${txn.plan_key}` : ""}`,
-          plan_name: txn?.plan_key ?? null,
+            : `PayPal Payment${txn.plan_key ? ` - ${txn.plan_key}` : ""}`,
+          plan_name: txn.plan_key ?? null,
           stripe_invoice_id: `paypal_${captureId}`,
         });
       }
-
-      console.log(`[capture-paypal] Billing record created for ${captureId}`);
     }
 
     return json(req, {
