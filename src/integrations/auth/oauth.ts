@@ -30,6 +30,14 @@ export const oauth = {
   auth: {
     signInWithOAuth: async (provider: "google" | "facebook" | "apple", opts?: SignInOptions) => {
       const redirectTo = normalizeRedirectUri(opts?.redirect_uri);
+
+      // Register flows must complete MFA after the provider callback. The flag is
+      // browser-local and is only written while the user is on /register, so a
+      // normal login is never upgraded into a mandatory enrollment flow.
+      if (window.location.pathname === "/register") {
+        localStorage.setItem("registration_mfa_required", "1");
+      }
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
