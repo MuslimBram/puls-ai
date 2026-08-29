@@ -16,6 +16,8 @@ interface FactorState {
   secret: string | null;
 }
 
+const SOCIAL_ACCOUNT_TYPES = new Set(["business", "freelancer", "ambassador", "white_label"]);
+
 export default function AuthCallback() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -36,6 +38,47 @@ export default function AuthCallback() {
     let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
     let unsubscribe: (() => void) | null = null;
 
+    const applyPendingSocialRegistration = async (currentMetadata: Record<string, unknown> | null | undefined) => {
+      const raw = localStorage.getItem("pending_social_registration");
+      if (!raw) return;
+
+      let pending: Record<string, unknown>;
+      try {
+        pending = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        throw new Error("Invalid social registration state. Please restart registration.");
+      }
+
+      const accountType = typeof pending.account_type === "string" ? pending.account_type : "";
+      if (!SOCIAL_ACCOUNT_TYPES.has(accountType)) {
+        throw new Error("Account type is missing. Please restart registration.");
+      }
+
+      const existing = currentMetadata ?? {};
+      const additions: Record<string, unknown> = {};
+      const fillIfMissing = (key: string, value: unknown) => {
+        if ((existing[key] === undefined || existing[key] === null || existing[key] === "") && value !== undefined && value !== null && value !== "") {
+          additions[key] = value;
+        }
+      };
+
+      fillIfMissing("account_type", accountType);
+      fillIfMissing("billing_plan", "standard");
+      fillIfMissing("billing_duration", "trial");
+      fillIfMissing("referral_code", pending.referral_code);
+      fillIfMissing("signup_source", pending.signup_source);
+
+      if (Object.keys(additions).length > 0) {
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { ...existing, ...additions },
+        });
+        if (updateError) throw updateError;
+      }
+
+      localStorage.removeItem("pending_social_registration");
+      sessionStorage.removeItem("registration_account_type");
+    };
+
     const prepareRegistrationMfa = async () => {
       setError(null);
       try {
@@ -51,9 +94,8 @@ export default function AuthCallback() {
 
         const pending = data?.totp?.find((item) => item.status === "unverified");
         if (pending) {
-          setFactor({ factorId: pending.id, verified: false, qrCode: null, secret: null });
-          setPhase("setup");
-          return;
+          const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: pending.id });
+          if (unenrollError) throw unenrollError;
         }
 
         const { data: enrolled, error: enrollError } = await supabase.auth.mfa.enroll({
@@ -75,6 +117,15 @@ export default function AuthCallback() {
       }
     };
 
+    const completeRegistrationRouting = async (userMetadata: Record<string, unknown> | null | undefined) => {
+      if (registrationMfaRequired) {
+        await applyPendingSocialRegistration(userMetadata);
+        await prepareRegistrationMfa();
+      } else {
+        window.location.replace(safeNext);
+      }
+    };
+
     const routeSession = async () => {
       const { data, error: sessionError } = await supabase.auth.getSession();
       if (cancelled) return;
@@ -86,10 +137,11 @@ export default function AuthCallback() {
 
       const session = data.session;
       if (session) {
-        if (registrationMfaRequired) {
-          await prepareRegistrationMfa();
-        } else {
-          window.location.replace(safeNext);
+        try {
+          await completeRegistrationRouting(session.user.user_metadata as Record<string, unknown> | undefined);
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "Could not complete registration");
+          setPhase("setup");
         }
         return;
       }
@@ -99,10 +151,11 @@ export default function AuthCallback() {
         sub.data.subscription.unsubscribe();
         unsubscribe = null;
         if (fallbackTimer) clearTimeout(fallbackTimer);
-        if (registrationMfaRequired) {
-          await prepareRegistrationMfa();
-        } else {
-          window.location.replace(safeNext);
+        try {
+          await completeRegistrationRouting(nextSession.user.user_metadata as Record<string, unknown> | undefined);
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : "Could not complete registration");
+          setPhase("setup");
         }
       });
       unsubscribe = () => sub.data.subscription.unsubscribe();
@@ -148,7 +201,9 @@ export default function AuthCallback() {
       await supabase.auth.refreshSession();
       localStorage.removeItem("registration_mfa_required");
       localStorage.removeItem("pending_security_code");
+      localStorage.removeItem("pending_social_registration");
       localStorage.removeItem("registration_source");
+      sessionStorage.removeItem("registration_account_type");
       toast.success("Two-factor authentication is enabled.");
       setPhase("done");
       window.location.replace(safeNext);
@@ -223,7 +278,7 @@ export default function AuthCallback() {
 
             {error && <p className="text-sm text-destructive">{error}</p>}
 
-            <Button className="w-full" onClick={() => void verifyEnrollmentOrFactor()} disabled={code.length !== 6 || busy}>
+            <Button className="w-full" onClick={() => void verifyEnrollmentOrFactor()} disabled={code.length !== 6 || busy || !factor?.factorId}>
               {busy ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Verifying...</> : "Finish registration securely"}
             </Button>
           </CardContent>
