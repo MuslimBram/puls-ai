@@ -104,6 +104,7 @@ serve(async (req) => {
         if (error) throw error;
         const integrations = (data ?? []).map(({ credentials, ...row }) => ({
           ...row,
+          credentials: {},
           has_credentials: Boolean(credentials && Object.keys(credentials as Record<string, unknown>).length > 0),
         }));
         return json(req, { integrations });
@@ -118,6 +119,13 @@ serve(async (req) => {
           .maybeSingle();
         if (findError) throw findError;
 
+        const hasNewCredentials = Boolean(
+          input.credentials && Object.values(input.credentials).some((value) => value.length > 0),
+        );
+        const encryptedCredentials = hasNewCredentials
+          ? await encryptCredentials(input.credentials ?? {})
+          : undefined;
+
         const payload: Record<string, unknown> = {
           integration_key: input.integration_key,
           integration_name: input.integration_name,
@@ -131,9 +139,7 @@ serve(async (req) => {
           keyword_match_threshold: input.keyword_match_threshold ?? 0.6,
           updated_at: new Date().toISOString(),
         };
-        if (input.credentials !== undefined) {
-          payload.credentials = await encryptCredentials(input.credentials);
-        }
+        if (encryptedCredentials) payload.credentials = encryptedCredentials;
 
         if (existing) {
           const { error } = await admin
@@ -147,7 +153,7 @@ serve(async (req) => {
             ...payload,
             user_id: authData.user.id,
             workspace_id: input.workspace_id,
-            credentials: input.credentials ? await encryptCredentials(input.credentials) : {},
+            credentials: encryptedCredentials ?? {},
           });
           if (error) throw error;
         }
