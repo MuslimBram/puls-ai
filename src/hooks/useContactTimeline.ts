@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 
 export interface ContactTag {
   id: string;
   user_id: string;
-  workspace_id: string | null;
+  workspace_id: string;
   contact_identifier: string;
   contact_name: string | null;
   tag_type: string;
@@ -26,15 +27,16 @@ export interface TimelineEvent {
 
 export const useContactTags = (contactIdentifier?: string) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["contact-tags", user?.id, contactIdentifier],
+    queryKey: ["contact-tags", workspace?.id, contactIdentifier],
     queryFn: async () => {
       let q = supabase
         .from("contact_tags")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("created_at", { ascending: false });
 
       if (contactIdentifier) q = q.eq("contact_identifier", contactIdentifier);
@@ -43,14 +45,16 @@ export const useContactTags = (contactIdentifier?: string) => {
       if (error) throw error;
       return (data ?? []) as unknown as ContactTag[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const addTag = useMutation({
     mutationFn: async (tag: { contact_identifier: string; contact_name?: string; tag_type: string; tag_value: string }) => {
+      if (!workspace?.id) throw new Error("Select a workspace before tagging a contact.");
       const { error } = await supabase.from("contact_tags").insert({
         ...tag,
         user_id: user!.id,
+        workspace_id: workspace.id,
       } as any);
       if (error) throw error;
     },
@@ -63,7 +67,7 @@ export const useContactTags = (contactIdentifier?: string) => {
 
   const removeTag = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("contact_tags").delete().eq("id", id);
+      const { error } = await supabase.from("contact_tags").delete().eq("id", id).eq("workspace_id", workspace!.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -77,9 +81,10 @@ export const useContactTags = (contactIdentifier?: string) => {
 
 export const useContactTimeline = (contactIdentifier: string | null) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
 
   return useQuery({
-    queryKey: ["contact-timeline", user?.id, contactIdentifier],
+    queryKey: ["contact-timeline", workspace?.id, contactIdentifier],
     queryFn: async () => {
       if (!contactIdentifier) return [];
 
@@ -89,7 +94,7 @@ export const useContactTimeline = (contactIdentifier: string | null) => {
       const { data: messages } = await supabase
         .from("inbox_messages")
         .select("id, message_content, source_name, channel_type, created_at")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .eq("sender_identifier", contactIdentifier)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -109,7 +114,7 @@ export const useContactTimeline = (contactIdentifier: string | null) => {
       const leadsQ = supabase
         .from("leads")
         .select("id, source_name, message_content, detected_keyword, message_date")
-        .eq("user_id", user!.id);
+        .eq("workspace_id", workspace!.id);
       const { data: leads } = await (leadsQ as any)
         .eq("author_username", contactIdentifier)
         .order("message_date", { ascending: false })
@@ -130,7 +135,7 @@ export const useContactTimeline = (contactIdentifier: string | null) => {
       const { data: calls } = await supabase
         .from("call_records" as any)
         .select("id, call_direction, call_status, call_outcome, call_duration, created_at")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .or(`contact_phone.eq.${contactIdentifier},contact_email.eq.${contactIdentifier}`)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -149,7 +154,7 @@ export const useContactTimeline = (contactIdentifier: string | null) => {
       const { data: deals } = await supabase
         .from("deals")
         .select("id, title, deal_value, currency, created_at")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .or(`contact_email.eq.${contactIdentifier},contact_phone.eq.${contactIdentifier}`)
         .order("created_at", { ascending: false })
         .limit(10);
@@ -166,6 +171,6 @@ export const useContactTimeline = (contactIdentifier: string | null) => {
 
       return events.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     },
-    enabled: !!user && !!contactIdentifier,
+    enabled: !!user && !!workspace?.id && !!contactIdentifier,
   });
 };
