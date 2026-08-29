@@ -17,6 +17,7 @@ const workspaceId = z.string().uuid();
 const id = z.string().uuid();
 const safeObject = z.record(z.unknown());
 const credentialObject = z.record(z.string().max(5000));
+const sensitiveConfigKey = /(token|secret|password|api[_-]?key|private[_-]?key|credential)/i;
 
 const requestSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("list_external"), workspace_id: workspaceId }),
@@ -46,6 +47,7 @@ const requestSchema = z.discriminatedUnion("action", [
     connection_type: z.string().trim().min(1).max(50),
     display_name: z.string().trim().max(160).optional(),
     config_json: safeObject.optional(),
+    credentials: credentialObject.optional(),
     business_id: z.string().uuid().nullable().optional(),
   }),
   z.object({ action: z.literal("test_unified"), workspace_id: workspaceId, id }),
@@ -66,6 +68,16 @@ async function encryptCredentials(credentials: Record<string, string>): Promise<
     encrypted[key] = await encryptForStorage(value);
   }
   return encrypted;
+}
+
+function containsSensitiveConfigKey(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(containsSensitiveConfigKey);
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (sensitiveConfigKey.test(key)) return true;
+    if (containsSensitiveConfigKey(child)) return true;
+  }
+  return false;
 }
 
 serve(async (req) => {
@@ -197,6 +209,11 @@ serve(async (req) => {
       }
 
       case "create_unified": {
+        const configJson = input.config_json ?? {};
+        if (containsSensitiveConfigKey(configJson)) {
+          return json(req, { error: "Sensitive credentials must use the encrypted credentials field" }, 400);
+        }
+
         if (input.business_id) {
           const { data: business, error: businessError } = await admin
             .from("business_profiles")
@@ -208,6 +225,9 @@ serve(async (req) => {
           if (!business) return json(req, { error: "Business does not belong to this workspace" }, 400);
         }
 
+        const encryptedCredentials = input.credentials
+          ? await encryptCredentials(input.credentials)
+          : {};
         const { error } = await admin.from("unified_connections").insert({
           user_id: authData.user.id,
           workspace_id: input.workspace_id,
@@ -216,8 +236,8 @@ serve(async (req) => {
           category: input.category,
           connection_type: input.connection_type,
           display_name: input.display_name || input.provider,
-          config_json: input.config_json ?? {},
-          credentials_encrypted: {},
+          config_json: configJson,
+          credentials_encrypted: encryptedCredentials,
           status: "pending",
         });
         if (error) throw error;
