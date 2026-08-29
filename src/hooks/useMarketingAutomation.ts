@@ -76,19 +76,20 @@ export const useCreateMarketingCampaign = () => {
 
 export const useContentLibrary = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   return useQuery({
-    queryKey: ["content-library", user?.id],
+    queryKey: ["content-library", workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("ai_content_library")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
       return (data || []) as unknown as ContentItem[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace,
   });
 };
 
@@ -99,11 +100,12 @@ export const useGenerateContent = () => {
 
   return useMutation({
     mutationFn: async (config: { content_type: string; tone: string; channel: string; body: string }) => {
+      if (!workspace?.id) throw new Error("Workspace is required");
       const { error } = await supabase
         .from("ai_content_library")
         .insert({
           user_id: user!.id,
-          workspace_id: workspace?.id,
+          workspace_id: workspace.id,
           ...config,
         } as any);
       if (error) throw error;

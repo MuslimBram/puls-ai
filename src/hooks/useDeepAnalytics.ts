@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useMemo } from "react";
 import { subDays, format, parseISO, isAfter } from "date-fns";
 
@@ -10,6 +11,7 @@ const rangeDays = (r: AnalyticsRange) => ({ "7d": 7, "14d": 14, "30d": 30, "90d"
 
 export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const days = rangeDays(dateRange);
   const rangeStart = subDays(new Date(), days);
   const prevStart = subDays(rangeStart, days);
@@ -81,16 +83,16 @@ export const useDeepAnalytics = (dateRange: AnalyticsRange) => {
   });
 
   const aiQuery = useQuery({
-    queryKey: ["deep-analytics-ai", user?.id, dateRange],
+    queryKey: ["deep-analytics-ai", workspace?.id, dateRange],
     queryFn: async () => {
       const { data } = await supabase
         .from("ai_conversations")
         .select("is_auto_reply, status, complexity, created_at")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .gte("created_at", rangeStart.toISOString());
       return data ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace,
   });
 
   const churnQuery = useQuery({
