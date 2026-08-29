@@ -47,14 +47,13 @@ export const useMediaProviderSettings = () => {
   return useQuery({
     queryKey: ["admin-media-provider-settings"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("media_provider_settings")
-        .select("*")
-        .order("priority", { ascending: true })
-        .order("provider_name", { ascending: true });
+      const { data, error } = await supabase.functions.invoke("manage-media-provider-credentials", {
+        body: { action: "list_settings" },
+      });
 
-      if (error) throw error;
-      return (data ?? []) as MediaProviderSetting[];
+      if (error) throw new Error(error.message || "Failed to load media provider settings");
+      if (data?.error) throw new Error(String(data.error));
+      return (data?.settings ?? []) as MediaProviderSetting[];
     },
     enabled: isAdmin,
   });
@@ -111,7 +110,6 @@ export const useMediaUsagePolicies = () => {
 
 export const useUpsertMediaProviderSetting = () => {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
 
   return useMutation({
     mutationFn: async (payload: {
@@ -124,15 +122,15 @@ export const useUpsertMediaProviderSetting = () => {
       priority: number;
       config: Record<string, unknown>;
     }) => {
-      const { error } = await supabase.from("media_provider_settings").upsert(
-        {
+      const { data, error } = await supabase.functions.invoke("manage-media-provider-credentials", {
+        body: {
+          action: "upsert_setting",
           ...payload,
-          updated_by: user?.id ?? null,
-        } as any,
-        { onConflict: "provider_key" },
-      );
+        },
+      });
 
-      if (error) throw error;
+      if (error) throw new Error(error.message || "Failed to save media provider setting");
+      if (data?.error) throw new Error(String(data.error));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-media-provider-settings"] });
