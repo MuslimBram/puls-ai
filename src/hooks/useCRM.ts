@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 import { triggerAutomation } from "@/lib/triggerAutomation";
 
@@ -10,6 +11,7 @@ export interface PipelineStage {
   sort_order: number;
   color: string;
   is_default: boolean;
+  workspace_id: string;
 }
 
 export interface Deal {
@@ -33,7 +35,7 @@ export interface Deal {
   won_at: string | null;
   lost_at: string | null;
   user_id: string;
-  workspace_id: string | null;
+  workspace_id: string;
 }
 
 export interface DealNote {
@@ -77,27 +79,30 @@ const DEFAULT_STAGES = [
 
 export const usePipelineStages = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["pipeline-stages", user?.id],
+    queryKey: ["pipeline-stages", workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("pipeline_stages")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("sort_order");
       if (error) throw error;
       return (data || []) as unknown as PipelineStage[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const initStages = useMutation({
     mutationFn: async () => {
+      if (!workspace?.id) throw new Error("Select a workspace before creating pipeline stages.");
       const rows = DEFAULT_STAGES.map((s) => ({
         ...s,
         user_id: user!.id,
+        workspace_id: workspace.id,
         is_default: true,
       }));
       const { error } = await supabase.from("pipeline_stages").insert(rows as any);
@@ -111,27 +116,30 @@ export const usePipelineStages = () => {
 
 export const useDeals = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["deals", user?.id],
+    queryKey: ["deals", workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("deals")
         .select("*")
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return (data || []) as unknown as Deal[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const addDeal = useMutation({
     mutationFn: async (deal: Partial<Deal>) => {
+      if (!workspace?.id) throw new Error("Select a workspace before creating a deal.");
       const { data, error } = await supabase.from("deals").insert({
         ...deal,
         user_id: user!.id,
+        workspace_id: workspace.id,
       } as any).select().single();
       if (error) throw error;
       return data;
@@ -154,11 +162,12 @@ export const useDeals = () => {
   const updateDeal = useMutation({
     mutationFn: async ({ id, ...updates }: Partial<Deal> & { id: string }) => {
       // Capture previous stage to detect transitions
-      const { data: prev } = await supabase.from("deals").select("stage_id").eq("id", id).maybeSingle();
+      const { data: prev } = await supabase.from("deals").select("stage_id").eq("id", id).eq("workspace_id", workspace!.id).maybeSingle();
       const { error } = await supabase
         .from("deals")
         .update({ ...updates, updated_at: new Date().toISOString() } as any)
-        .eq("id", id);
+        .eq("id", id)
+        .eq("workspace_id", workspace!.id);
       if (error) throw error;
       return { id, prevStageId: prev?.stage_id ?? null, newStageId: (updates as any).stage_id ?? null };
     },
@@ -182,7 +191,7 @@ export const useDeals = () => {
 
   const deleteDeal = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("deals").delete().eq("id", id);
+      const { error } = await supabase.from("deals").delete().eq("id", id).eq("workspace_id", workspace!.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -302,21 +311,22 @@ export const useDealActivities = (dealId: string | null) => {
 
 export const useAllTasks = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
 
   return useQuery({
-    queryKey: ["all-deal-tasks", user?.id],
+    queryKey: ["all-deal-tasks", workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("deal_tasks")
-        .select("*, deals(title)")
-        .eq("user_id", user!.id)
+        .select("*, deals!inner(title, workspace_id)")
+        .eq("deals.workspace_id", workspace!.id)
         .eq("is_completed", false)
         .order("due_date", { ascending: true })
         .limit(20);
       if (error) throw error;
       return data as any[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 };
 
