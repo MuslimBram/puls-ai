@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useUserQuery, useInsertMutation, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useUserQuery, useUpdateFieldMutation } from "@/hooks/useSupabaseQuery";
 import { useToast } from "@/hooks/use-toast";
 
 export interface CompetitorTheme { theme: string; description: string; }
@@ -10,7 +11,7 @@ export interface PricingSnapshot { has_pricing?: boolean; pricing_summary?: stri
 export interface PreviousScanData { summary?: string; pricing?: PricingSnapshot; themes?: string[]; scanned_at?: string; }
 
 export interface Competitor {
-  id: string; user_id: string; workspace_id: string | null; name: string; category: string;
+  id: string; user_id: string; workspace_id: string; name: string; category: string;
   website_url: string | null; social_urls: Record<string, string>; is_active: boolean;
   last_scanned_at: string | null; scan_frequency: string; ai_summary: string | null;
   ai_positioning: string | null; ai_content_themes: CompetitorTheme[];
@@ -26,7 +27,7 @@ export interface CompetitorScan {
 }
 
 export interface CompetitorAlert {
-  id: string; user_id: string; competitor_id: string; alert_type: string; title: string;
+  id: string; user_id: string; workspace_id: string; competitor_id: string; alert_type: string; title: string;
   description: string | null; severity: string; is_read: boolean;
   metadata: Record<string, unknown>; created_at: string;
 }
@@ -43,8 +44,12 @@ const invalidateCompetitorQueries = (qc: ReturnType<typeof useQueryClient>) => {
   qc.invalidateQueries({ queryKey: ["market-trends"] });
 };
 
-export const useCompetitors = () =>
-  useUserQuery<Competitor>("competitors", "competitors");
+export const useCompetitors = () => {
+  const { workspace } = useWorkspace();
+  return useUserQuery<Competitor>("competitors", "competitors", {
+    filters: { workspace_id: workspace?.id },
+  });
+};
 
 export const useCompetitorScans = (competitorId: string | null) => {
   const { user } = useAuth();
@@ -65,14 +70,38 @@ export const useCompetitorScans = (competitorId: string | null) => {
 export const useMarketTrends = () =>
   useUserQuery<MarketTrend>("market_trends", "market-trends", { orderBy: "frequency", limit: 50 });
 
-export const useCompetitorAlerts = () =>
-  useUserQuery<CompetitorAlert>("competitor_alerts", "competitor-alerts", { limit: 50 });
+export const useCompetitorAlerts = () => {
+  const { workspace } = useWorkspace();
+  return useUserQuery<CompetitorAlert>("competitor_alerts", "competitor-alerts", {
+    limit: 50,
+    filters: { workspace_id: workspace?.id },
+  });
+};
 
 export const useMarkAlertRead = () =>
   useUpdateFieldMutation("competitor_alerts", "competitor-alerts");
 
-export const useAddCompetitor = () =>
-  useInsertMutation("competitors", "competitors", "Competitor added");
+export const useAddCompetitor = () => {
+  const qc = useQueryClient();
+  const { user } = useAuth();
+  const { workspace } = useWorkspace();
+  const { toast } = useToast();
+  return useMutation({
+    mutationFn: async (data: { name: string; website_url?: string; category?: string }) => {
+      if (!user?.id || !workspace?.id) throw new Error("Workspace is required");
+      const { error } = await supabase.from("competitors").insert({
+        ...data,
+        user_id: user.id,
+        workspace_id: workspace.id,
+      } as any);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateCompetitorQueries(qc);
+      toast({ title: "Competitor added" });
+    },
+  });
+};
 
 export const useUpdateCompetitorFrequency = () =>
   useUpdateFieldMutation("competitors", "competitors", "Frequency updated");
@@ -143,9 +172,11 @@ export const useScheduledCompetitorScan = () => {
 export const useDeleteCompetitor = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { workspace } = useWorkspace();
   return useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("competitors").delete().eq("id", id);
+      if (!workspace?.id) throw new Error("Workspace is required");
+      const { error } = await supabase.from("competitors").delete().eq("id", id).eq("workspace_id", workspace.id);
       if (error) throw error;
     },
     onSuccess: () => {
