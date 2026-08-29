@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
 const migration = read(
-  "supabase/migrations/20260829103000_p0_5_b1_media_provider_credentials_backend_only.sql",
+  "supabase/migrations/20260829081527_p0_5_b1_media_provider_credentials_backend_only.sql",
 );
 const edgeFunction = read("supabase/functions/manage-media-provider-credentials/index.ts");
 const mediaHook = read("src/hooks/useMediaAdmin.ts");
