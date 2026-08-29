@@ -16,12 +16,17 @@ const ACCOUNT_TYPES: OrbitSelectorItem<AccountTypeValue>[] = [
 ];
 
 export function AccountTypeOrbitSelector({ value, onChange }: AccountTypeOrbitSelectorProps) {
+  const handleSelect = (next: AccountTypeValue) => {
+    sessionStorage.setItem("registration_account_type", next);
+    onChange(next);
+  };
+
   return (
     <OrbitSelector
       ariaLabel="Choose your account type"
       items={ACCOUNT_TYPES}
       selectedValue={value ?? undefined}
-      onSelect={onChange}
+      onSelect={handleSelect}
       rotationInterval={2500}
       centralContent={() => (
         <div className="flex flex-col items-center gap-1 text-center text-primary">
