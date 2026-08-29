@@ -47,11 +47,11 @@ serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", authData.user.id)
-      .in("role", ["admin", "super_admin", "business_owner"]);
+      .in("role", ["admin", "super_admin"]);
 
     if (roleError) throw roleError;
     if (!roleRows || roleRows.length === 0) {
-      return json(req, { error: "Admin access required" }, { status: 403 });
+      return json(req, { error: "Platform admin access required" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
