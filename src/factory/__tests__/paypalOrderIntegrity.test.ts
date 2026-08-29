@@ -40,9 +40,19 @@ describe("PayPal order integrity", () => {
 
   it("verifies amount and currency both before and after capture", () => {
     expect(captureOrder).toContain("assertOrderMoney(orderCheck, expectedAmount, expectedCurrency)");
-    expect(captureOrder).toContain("assertCaptureMoney(capture, expectedAmount, expectedCurrency)");
+    expect(captureOrder).toContain("assertCaptureMoney(verified, expectedAmount, expectedCurrency)");
     expect(captureOrder).toContain("PayPal order amount/currency does not match the stored transaction");
     expect(captureOrder).toContain("PayPal captured amount/currency does not match the stored transaction");
+  });
+
+  it("fulfills plan access only from a verified completed transaction", () => {
+    expect(captureOrder).toContain("async function fulfillPlanPurchase");
+    expect(captureOrder).toContain('subscription_status: "active"');
+    expect(captureOrder).toContain("package_start_at: window.start");
+    expect(captureOrder).toContain("package_end_at: window.end");
+    expect(captureOrder).toContain("await fulfillPlanPurchase(supabase, txn, user.id, completedAt)");
+    expect(captureOrder.indexOf("await fulfillPlanPurchase(supabase, txn, user.id, completedAt)"))
+      .toBeLessThan(captureOrder.indexOf('status: "completed"'));
   });
 
   it("writes billing history from trusted stored transaction values", () => {
