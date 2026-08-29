@@ -63,6 +63,7 @@ export const useUnifiedConnections = () => {
       connection_type: string;
       display_name?: string;
       config_json?: Record<string, unknown>;
+      credentials?: Record<string, string>;
       business_id?: string;
     }) => {
       if (!workspace?.id) throw new Error("Select a workspace first");
@@ -74,6 +75,7 @@ export const useUnifiedConnections = () => {
         connection_type: params.connection_type,
         display_name: params.display_name,
         config_json: params.config_json ?? {},
+        credentials: params.credentials,
         business_id: params.business_id ?? null,
       });
 
