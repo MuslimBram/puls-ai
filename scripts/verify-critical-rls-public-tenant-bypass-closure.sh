@@ -7,7 +7,7 @@ DB_HOST="${PGHOST:-127.0.0.1}"
 DB_PORT="${PGPORT:-5432}"
 ADMIN_DB="${PGDATABASE:-postgres}"
 DB_USER="${PGUSER:-postgres}"
-MIGRATION="supabase/migrations/20260829150000_critical_rls_public_tenant_bypass_closure.sql"
+MIGRATION="supabase/migrations/20260829150435_critical_rls_public_tenant_bypass_closure.sql"
 TEST_DB="critical_rls_${GITHUB_RUN_ID:-local}_$$_${RANDOM}"
 
 cleanup() {
