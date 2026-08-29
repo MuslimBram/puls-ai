@@ -54,7 +54,8 @@ describe("P0.5-B3A integration metadata/log boundary", () => {
     expect(integrationBoundary).toContain('action: z.literal("list_connection_logs")');
     expect(integrationBoundary).toContain('admin.from("connection_logs").insert');
     expect(integrationBoundary).not.toContain('select("*")');
-    expect(integrationBoundary).not.toContain("payload,");
+    expect(integrationBoundary).toContain('.select("id,integration_id,event_type,event_message,metadata,created_at,status,adapter_key")');
+    expect(integrationBoundary).not.toContain('.select("id,integration_id,event_type,event_message,metadata,payload');
   });
 
   it("makes the Telegram runtime writer workspace-authoritative", () => {
