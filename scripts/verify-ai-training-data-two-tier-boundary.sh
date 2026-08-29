@@ -7,7 +7,7 @@ DB_HOST="${PGHOST:-127.0.0.1}"
 DB_PORT="${PGPORT:-5432}"
 ADMIN_DB="${PGDATABASE:-postgres}"
 DB_USER="${PGUSER:-postgres}"
-MIGRATION="supabase/migrations/20260829154500_ai_training_data_two_tier_boundary.sql"
+MIGRATION="supabase/migrations/20260829152146_ai_training_data_two_tier_boundary.sql"
 TEST_DB="ai_training_two_tier_${GITHUB_RUN_ID:-local}_$$_${RANDOM}"
 
 cleanup() {

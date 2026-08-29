@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
-const migration = read("supabase/migrations/20260829154500_ai_training_data_two_tier_boundary.sql");
+const migration = read("supabase/migrations/20260829152146_ai_training_data_two_tier_boundary.sql");
 const rpcBoundary = read("supabase/migrations/20260827194000_public_rpc_service_boundary.sql");
 
 describe("ai_training_data two-tier boundary", () => {
