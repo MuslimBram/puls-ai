@@ -14,6 +14,7 @@ export interface ExternalIntegration {
   description: string | null;
   status: string;
   is_enabled: boolean;
+  credentials: Record<string, string>;
   has_credentials: boolean;
   config: Record<string, unknown>;
   usage_count: number;
