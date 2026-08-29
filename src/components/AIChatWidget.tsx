@@ -14,6 +14,10 @@ interface AIChatWidgetProps {
   businessName?: string;
 }
 
+interface AIChatOpenDetail {
+  context?: string;
+}
+
 export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: AIChatWidgetProps = {}) => {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -27,7 +31,11 @@ export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: 
   const [comment, setComment] = useState("");
 
   useEffect(() => {
-    const openFromContext = () => setOpen(true);
+    const openFromContext = (event: Event) => {
+      const detail = (event as CustomEvent<AIChatOpenDetail>).detail;
+      if (detail?.context) setMessage(detail.context);
+      setOpen(true);
+    };
     window.addEventListener("pulse-ai:open-chat", openFromContext);
     return () => window.removeEventListener("pulse-ai:open-chat", openFromContext);
   }, []);
@@ -129,14 +137,9 @@ export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: 
           </div>
         ) : reply ? (
           <div className="space-y-3">
-            <div className="rounded bg-muted p-2">
-              <p className="text-xs text-muted-foreground mb-0.5">You:</p>
-              <p className="text-sm text-foreground">{message}</p>
-            </div>
+            <div className="rounded bg-muted p-2"><p className="text-xs text-muted-foreground mb-0.5">You:</p><p className="text-sm text-foreground">{message}</p></div>
             <div className="rounded bg-primary/5 p-2">
-              <p className="text-xs text-primary mb-0.5 flex items-center gap-1">
-                <Bot className="h-3 w-3" /> AI Assistant:
-              </p>
+              <p className="text-xs text-primary mb-0.5 flex items-center gap-1"><Bot className="h-3 w-3" /> AI Assistant:</p>
               <p className="text-sm text-foreground">{reply}</p>
             </div>
             <div className="border-t border-border pt-3">
@@ -161,10 +164,7 @@ export const AIChatWidget = ({ userId, businessId, workspaceId, businessName }: 
             <Input placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} />
             <Input placeholder="Your email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             <Textarea placeholder="Write your question..." value={message} onChange={(e) => setMessage(e.target.value)} rows={3} />
-            <Button onClick={handleSend} disabled={sending || !message.trim()} className="w-full">
-              <Send className="h-4 w-4 mr-2" />
-              {sending ? "Sending..." : "Send"}
-            </Button>
+            <Button onClick={handleSend} disabled={sending || !message.trim()} className="w-full"><Send className="h-4 w-4 mr-2" />{sending ? "Sending..." : "Send"}</Button>
           </>
         )}
       </CardContent>
