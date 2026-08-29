@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 
 export interface CustomerIntelligenceProfileData {
   displayName: string;
@@ -52,16 +53,17 @@ const pickEarliest = (values: Array<string | null | undefined>) =>
 
 export const useCustomerIntelligence = (contactIdentifier?: string | null, contactName?: string | null) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
 
   return useQuery({
-    queryKey: ["customer-intelligence", user?.id, contactIdentifier, contactName],
+    queryKey: ["customer-intelligence", workspace?.id, contactIdentifier, contactName],
     queryFn: async (): Promise<CustomerIntelligenceProfileData | null> => {
-      if (!user || !contactIdentifier) return null;
+      if (!user || !workspace?.id || !contactIdentifier) return null;
 
       const inboxByIdentifier = await supabase
         .from("inbox_messages")
         .select("id, sender_name, sender_identifier, channel_type, source_name, message_timestamp, message_content")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspace.id)
         .eq("sender_identifier", contactIdentifier)
         .order("message_timestamp", { ascending: false })
         .limit(50);
@@ -70,7 +72,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
         ? await supabase
             .from("inbox_messages")
             .select("id, sender_name, sender_identifier, channel_type, source_name, message_timestamp, message_content")
-            .eq("user_id", user.id)
+            .eq("workspace_id", workspace.id)
             .eq("sender_name", contactName)
             .order("message_timestamp", { ascending: false })
             .limit(20)
@@ -78,7 +80,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
 
       const leadsByIdentifier = await (supabase.from("leads" as any) as any)
         .select("id, source_name, source_type, message_content, detected_keyword, message_date, intent_score, status, author_username")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspace.id)
         .eq("author_username", contactIdentifier)
         .order("message_date", { ascending: false })
         .limit(50);
@@ -86,7 +88,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
       const callsByPhone = await supabase
         .from("call_records" as any)
         .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspace.id)
         .eq("contact_phone", contactIdentifier)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -94,7 +96,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
       const callsByEmail = await supabase
         .from("call_records" as any)
         .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspace.id)
         .eq("contact_email", contactIdentifier)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -103,7 +105,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
         ? await supabase
             .from("call_records" as any)
             .select("id, contact_name, contact_phone, contact_email, call_direction, call_outcome, call_duration, created_at")
-            .eq("user_id", user.id)
+            .eq("workspace_id", workspace.id)
             .eq("contact_name", contactName)
             .order("created_at", { ascending: false })
             .limit(20)
@@ -112,7 +114,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
       const dealsByPhone = await supabase
         .from("deals")
         .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspace.id)
         .eq("contact_phone", contactIdentifier)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -120,7 +122,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
       const dealsByEmail = await supabase
         .from("deals")
         .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspace.id)
         .eq("contact_email", contactIdentifier)
         .order("created_at", { ascending: false })
         .limit(20);
@@ -129,7 +131,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
         ? await supabase
             .from("deals")
             .select("id, title, contact_name, contact_phone, contact_email, source_channel, deal_value, currency, created_at, won_at, lost_at")
-            .eq("user_id", user.id)
+            .eq("workspace_id", workspace.id)
             .eq("contact_name", contactName)
             .order("created_at", { ascending: false })
             .limit(20)
@@ -138,13 +140,14 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
       const tagsQuery = await supabase
         .from("contact_tags")
         .select("id, contact_name, tag_value")
-        .eq("user_id", user.id)
+        .eq("workspace_id", workspace.id)
         .eq("contact_identifier", contactIdentifier)
         .order("created_at", { ascending: false });
 
       const memoryByIdentifier = await supabase
         .from("ai_conversation_memory")
         .select("summary, sentiment_trend, interaction_count, key_facts, contact_name, updated_at")
+        .eq("workspace_id", workspace.id)
         .eq("contact_identifier", contactIdentifier)
         .maybeSingle();
 
@@ -152,6 +155,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
         ? await supabase
             .from("ai_conversation_memory")
             .select("summary, sentiment_trend, interaction_count, key_facts, contact_name, updated_at")
+            .eq("workspace_id", workspace.id)
             .eq("contact_name", contactName)
             .maybeSingle()
         : { data: null as any };
@@ -173,7 +177,7 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
 
       const leadIds = leads.map((lead: any) => lead.id).filter(Boolean);
       const leadScoresQuery = leadIds.length
-        ? await supabase.from("lead_scores").select("lead_id, score, churn_risk, predicted_value").in("lead_id", leadIds)
+        ? await supabase.from("lead_scores").select("lead_id, score, churn_risk, predicted_value").eq("workspace_id", workspace.id).in("lead_id", leadIds)
         : { data: [] as any[] };
       const leadScores = (leadScoresQuery.data ?? []) as any[];
 
@@ -272,6 +276,6 @@ export const useCustomerIntelligence = (contactIdentifier?: string | null, conta
         nextBestActions,
       };
     },
-    enabled: !!user && !!contactIdentifier,
+    enabled: !!user && !!workspace?.id && !!contactIdentifier,
   });
 };
