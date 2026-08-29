@@ -23,6 +23,17 @@ describe("P0.5-B3A integration metadata/log boundary", () => {
     expect(migration).toContain("grant select, insert, update, delete on table public.connection_logs to service_role");
   });
 
+  it("keeps legacy runtime writers safe during the B3A rollout", () => {
+    expect(migration).toContain("create or replace function public.resolve_integration_event_log_workspace()");
+    expect(migration).toContain("create or replace function public.resolve_connection_log_workspace()");
+    expect(migration).toContain("security invoker");
+    expect(migration).toContain("set search_path = pg_catalog, public");
+    expect(migration).toContain("before insert or update of workspace_id, integration_id, connection_id, metadata");
+    expect(migration).toContain("before insert or update of workspace_id, connection_id, metadata");
+    expect(migration).toContain("grant execute on function public.resolve_integration_event_log_workspace() to service_role");
+    expect(migration).toContain("grant execute on function public.resolve_connection_log_workspace() to service_role");
+  });
+
   it("moves media provider metadata behind the existing platform-admin boundary", () => {
     expect(migration).toContain("revoke all privileges on table public.media_provider_settings from public, anon, authenticated, sandbox_exec");
     expect(mediaBoundary).toContain('action: z.literal("list_settings")');
