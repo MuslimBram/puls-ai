@@ -83,6 +83,52 @@ $$;
 revoke all on function public.enforce_p0_5_a_identity_immutability() from public, anon;
 grant execute on function public.enforce_p0_5_a_identity_immutability() to authenticated, service_role;
 
+-- Parent validation is SECURITY DEFINER only so it can validate workspace equality
+-- without inheriting legacy RLS from an out-of-scope parent such as content_posts.
+-- It returns no parent data and all referenced relations are schema-qualified.
+create or replace function public.enforce_p0_5_a_parent_workspace()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if tg_table_name = 'ai_conversations' then
+    if new.business_id is not null and not exists (
+      select 1
+      from public.business_profiles b
+      where b.id = new.business_id
+        and b.workspace_id = new.workspace_id
+    ) then
+      raise exception 'ai_conversations business workspace mismatch';
+    end if;
+  elsif tg_table_name = 'campaign_content' then
+    if not exists (
+      select 1
+      from public.campaigns c
+      where c.id = new.campaign_id
+        and c.workspace_id = new.workspace_id
+    ) then
+      raise exception 'campaign_content campaign workspace mismatch';
+    end if;
+
+    if new.content_post_id is not null and not exists (
+      select 1
+      from public.content_posts cp
+      where cp.id = new.content_post_id
+        and cp.workspace_id = new.workspace_id
+    ) then
+      raise exception 'campaign_content content post workspace mismatch';
+    end if;
+  end if;
+
+  return new;
+end
+$$;
+
+revoke all on function public.enforce_p0_5_a_parent_workspace() from public, anon;
+grant execute on function public.enforce_p0_5_a_parent_workspace() to authenticated, service_role;
+
 drop trigger if exists trg_p0_5_a_ai_conversations_identity on public.ai_conversations;
 create trigger trg_p0_5_a_ai_conversations_identity
 before update of workspace_id, user_id on public.ai_conversations
@@ -102,6 +148,16 @@ drop trigger if exists trg_p0_5_a_campaign_content_identity on public.campaign_c
 create trigger trg_p0_5_a_campaign_content_identity
 before update of workspace_id, user_id on public.campaign_content
 for each row execute function public.enforce_p0_5_a_identity_immutability();
+
+drop trigger if exists trg_p0_5_a_ai_conversations_parent on public.ai_conversations;
+create trigger trg_p0_5_a_ai_conversations_parent
+before insert or update of business_id, workspace_id on public.ai_conversations
+for each row execute function public.enforce_p0_5_a_parent_workspace();
+
+drop trigger if exists trg_p0_5_a_campaign_content_parent on public.campaign_content;
+create trigger trg_p0_5_a_campaign_content_parent
+before insert or update of campaign_id, content_post_id, workspace_id on public.campaign_content
+for each row execute function public.enforce_p0_5_a_parent_workspace();
 
 -- Remove legacy user_id-only RLS.
 drop policy if exists "Users can delete own ai_conversations" on public.ai_conversations;
@@ -144,28 +200,12 @@ on public.ai_conversations for insert to authenticated
 with check (
   public.has_workspace_role(workspace_id, array['owner','admin','member'])
   and user_id = (select auth.uid())
-  and (
-    business_id is null
-    or exists (
-      select 1 from public.business_profiles b
-      where b.id = business_id and b.workspace_id = workspace_id
-    )
-  )
 );
 
 create policy "p0_5_a members can update ai_conversations"
 on public.ai_conversations for update to authenticated
 using (public.has_workspace_role(workspace_id, array['owner','admin','member']))
-with check (
-  public.has_workspace_role(workspace_id, array['owner','admin','member'])
-  and (
-    business_id is null
-    or exists (
-      select 1 from public.business_profiles b
-      where b.id = business_id and b.workspace_id = workspace_id
-    )
-  )
-);
+with check (public.has_workspace_role(workspace_id, array['owner','admin','member']));
 
 create policy "p0_5_a owners admins delete ai_conversations"
 on public.ai_conversations for delete to authenticated
@@ -220,36 +260,12 @@ on public.campaign_content for insert to authenticated
 with check (
   public.has_workspace_role(workspace_id, array['owner','admin','member'])
   and user_id = (select auth.uid())
-  and exists (
-    select 1 from public.campaigns c
-    where c.id = campaign_id and c.workspace_id = workspace_id
-  )
-  and (
-    content_post_id is null
-    or exists (
-      select 1 from public.content_posts cp
-      where cp.id = content_post_id and cp.workspace_id = workspace_id
-    )
-  )
 );
 
 create policy "p0_5_a members can update campaign_content"
 on public.campaign_content for update to authenticated
 using (public.has_workspace_role(workspace_id, array['owner','admin','member']))
-with check (
-  public.has_workspace_role(workspace_id, array['owner','admin','member'])
-  and exists (
-    select 1 from public.campaigns c
-    where c.id = campaign_id and c.workspace_id = workspace_id
-  )
-  and (
-    content_post_id is null
-    or exists (
-      select 1 from public.content_posts cp
-      where cp.id = content_post_id and cp.workspace_id = workspace_id
-    )
-  )
-);
+with check (public.has_workspace_role(workspace_id, array['owner','admin','member']));
 
 create policy "p0_5_a owners admins delete campaign_content"
 on public.campaign_content for delete to authenticated
