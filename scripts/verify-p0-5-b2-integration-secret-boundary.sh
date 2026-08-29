@@ -114,8 +114,11 @@ DELETE FROM public.workspaces WHERE id IN (
   '22222222-2222-4222-8222-222222222222'
 );
 
--- Build the negative fixture in separate statements. This avoids data-modifying
--- CTE snapshot/order semantics from making the verifier depend on execution order.
+-- Build the negative fixture as legacy bad data. Existing schema may have USER
+-- triggers that normalize workspace ownership during INSERT/UPDATE, so disable
+-- only USER triggers in this ephemeral verifier while injecting the mismatch.
+-- Constraint triggers/FKs remain enabled, and all USER triggers are restored
+-- before the migration under test is executed.
 INSERT INTO public.workspaces (id, owner_id, name)
 VALUES
   ('11111111-1111-4111-8111-111111111111', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '__p0_5_b2_ws_a__'),
@@ -123,6 +126,9 @@ VALUES
 ON CONFLICT (id) DO UPDATE SET
   owner_id = EXCLUDED.owner_id,
   name = EXCLUDED.name;
+
+ALTER TABLE public.business_profiles DISABLE TRIGGER USER;
+ALTER TABLE public.unified_connections DISABLE TRIGGER USER;
 
 INSERT INTO public.business_profiles (id, workspace_id)
 VALUES (
@@ -146,6 +152,9 @@ ON CONFLICT (id) DO UPDATE SET
   workspace_id = EXCLUDED.workspace_id,
   business_id = EXCLUDED.business_id,
   provider = EXCLUDED.provider;
+
+ALTER TABLE public.unified_connections ENABLE TRIGGER USER;
+ALTER TABLE public.business_profiles ENABLE TRIGGER USER;
 
 DO $$
 BEGIN
