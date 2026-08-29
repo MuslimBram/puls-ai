@@ -5,21 +5,13 @@ type SignInOptions = {
   extraParams?: Record<string, string>;
 };
 
-/**
- * Keep browser OAuth callbacks on the current origin and canonical callback path.
- * A root redirect is normalized to /auth/callback; malformed/cross-origin targets
- * fail closed to the same canonical callback.
- */
 export function normalizeRedirectUri(raw?: string) {
   const fallback = `${window.location.origin}/auth/callback`;
   if (!raw) return fallback;
-
   try {
     const parsed = new URL(raw, window.location.origin);
     if (parsed.origin !== window.location.origin) return fallback;
-
-    const isRoot = parsed.pathname === "/" || parsed.pathname === "";
-    if (isRoot) parsed.pathname = "/auth/callback";
+    if (parsed.pathname === "/" || parsed.pathname === "") parsed.pathname = "/auth/callback";
     return parsed.toString();
   } catch {
     return fallback;
@@ -30,12 +22,23 @@ export const oauth = {
   auth: {
     signInWithOAuth: async (provider: "google" | "facebook" | "apple", opts?: SignInOptions) => {
       const redirectTo = normalizeRedirectUri(opts?.redirect_uri);
+      const isRegistration = window.location.pathname === "/register";
 
-      // Register flows must complete MFA after the provider callback. The flag is
-      // browser-local and is only written while the user is on /register, so a
-      // normal login is never upgraded into a mandatory enrollment flow.
-      if (window.location.pathname === "/register") {
+      if (isRegistration) {
+        const accountType = sessionStorage.getItem("registration_account_type");
+        const params = new URLSearchParams(window.location.search);
         localStorage.setItem("registration_mfa_required", "1");
+        localStorage.setItem("pending_social_registration", JSON.stringify({
+          ...(accountType ? { account_type: accountType } : {}),
+          billing_plan: "standard",
+          billing_duration: "trial",
+          ...(params.get("ref") ? { referral_code: params.get("ref") } : {}),
+          ...(params.get("source") ? { signup_source: params.get("source") } : {}),
+        }));
+      } else {
+        localStorage.removeItem("registration_mfa_required");
+        localStorage.removeItem("pending_social_registration");
+        sessionStorage.removeItem("registration_account_type");
       }
 
       const { data, error } = await supabase.auth.signInWithOAuth({
