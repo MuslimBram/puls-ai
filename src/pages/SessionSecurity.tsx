@@ -189,7 +189,7 @@ const SessionSecurity = () => {
               </CardContent>
             </Card>
 
-            <PasskeySecurityCard />
+            {totp.status?.verified && <PasskeySecurityCard />}
           </TabsContent>
 
           <TabsContent value="sessions" className="space-y-4">
