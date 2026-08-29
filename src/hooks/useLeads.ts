@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 import { useState, useCallback, useRef } from "react";
 
@@ -16,19 +17,20 @@ const PAGE_SIZE = 25;
 
 export const useLeads = (filters: LeadFilters = {}) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const queryClient = useQueryClient();
   const [page, setPage] = useState(0);
   const cursorStack = useRef<(string | null)[]>([null]);
 
   const query = useQuery({
-    queryKey: ["leads", user?.id, filters, page],
+    queryKey: ["leads", workspace?.id, filters, page],
     queryFn: async () => {
       const cursor = cursorStack.current[page] ?? null;
 
       let q = supabase
         .from("leads")
         .select("*", { count: "exact" })
-        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("message_date", { ascending: false })
         .limit(PAGE_SIZE + 1);
 
@@ -67,6 +69,7 @@ export const useLeads = (filters: LeadFilters = {}) => {
         const { data: scoreRows, error: scoreError } = await supabase
           .from("lead_scores")
           .select("lead_id, score, churn_risk, predicted_value, score_factors, last_scored_at")
+          .eq("workspace_id", workspace!.id)
           .in("lead_id", leadIds);
 
         if (scoreError) throw scoreError;
@@ -98,12 +101,12 @@ export const useLeads = (filters: LeadFilters = {}) => {
 
       return { data: enrichedData, total: count ?? 0, hasMore };
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const { error } = await supabase.from("leads").update({ status }).eq("id", id);
+      const { error } = await supabase.from("leads").update({ status }).eq("id", id).eq("workspace_id", workspace!.id);
       if (error) throw error;
     },
     onSuccess: () => {
