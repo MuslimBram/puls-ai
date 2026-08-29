@@ -7,7 +7,7 @@ DB_HOST="${PGHOST:-127.0.0.1}"
 DB_PORT="${PGPORT:-5432}"
 ADMIN_DB="${PGDATABASE:-postgres}"
 DB_USER="${PGUSER:-postgres}"
-MIGRATION="supabase/migrations/20260829143000_p0_5_b3b_n8n_metadata_boundary.sql"
+MIGRATION="supabase/migrations/20260829143530_p0_5_b3b_n8n_metadata_boundary.sql"
 TEST_DB="p0_5_b3b_${GITHUB_RUN_ID:-local}_$$_${RANDOM}"
 GUARD_LOG="/tmp/p0_5_b3b_guard_$$.log"
 

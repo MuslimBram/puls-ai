@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
-const migration = read("supabase/migrations/20260829143000_p0_5_b3b_n8n_metadata_boundary.sql");
+const migration = read("supabase/migrations/20260829143530_p0_5_b3b_n8n_metadata_boundary.sql");
 
 describe("P0.5-B3B n8n metadata tenant boundary", () => {
   it("keeps tenant and creator identity authoritative", () => {
