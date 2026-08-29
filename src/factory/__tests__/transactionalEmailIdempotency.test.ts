@@ -11,8 +11,9 @@ describe("transactional email idempotency", () => {
   it("passes a stable Idempotency-Key to Resend on every retry", () => {
     expect(source).toContain("idempotencyKey: string");
     expect(source).toContain("'Idempotency-Key': idempotencyKey");
-    expect(source).toContain("sendViaResendWithRetry(resendApiKey, {");
-    expect(source).toContain("}, idempotencyKey)");
+    expect(source).toContain(
+      "sendViaResendWithRetry(resendApiKey, payload, idempotencyKey)",
+    );
   });
 
   it("uses a stable broadcast item id as the provider idempotency key", () => {
