@@ -374,6 +374,7 @@ Deno.serve(async (req) => {
   const source = body.source;
   const eventId = body.event_id;
   const urls = normalizedUrls.urls;
+  const contentHash = await sha256Hex(JSON.stringify({ content, urls, attachment }));
   const admin = createAdminClient();
 
   const { data: workspace, error: workspaceError } = await admin
@@ -400,6 +401,21 @@ Deno.serve(async (req) => {
 
   if (!claim.allowed) {
     if (claim.status === "completed") {
+      if (typeof claim.content_sha256 !== "string" || !SHA256_RE.test(claim.content_sha256)) {
+        return json({
+          error: "Completed security event is missing its payload fingerprint",
+          code: "SECURITY_EVENT_FINGERPRINT_MISSING",
+          event_id: eventId,
+        }, 409);
+      }
+      if (claim.content_sha256 !== contentHash) {
+        return json({
+          error: "event_id is already bound to a different payload",
+          code: "EVENT_ID_PAYLOAD_MISMATCH",
+          event_id: eventId,
+        }, 409);
+      }
+
       return json({
         success: true,
         reused: true,
@@ -425,8 +441,43 @@ Deno.serve(async (req) => {
     return json({ error: "Invalid security claim", code: "SECURITY_CLAIM_INVALID" }, 500);
   }
 
+  // Bind the exact payload fingerprint to the claim before any semantic/AI call.
+  // Reclaimed failed/expired requests keep their original fingerprint, so an
+  // event id can never be rebound to a different payload later.
+  const { data: fingerprintBinding, error: fingerprintError } = await admin.rpc(
+    "bind_content_security_event_fingerprint",
+    {
+      p_workspace_id: workspaceId,
+      p_source: source,
+      p_event_id: eventId,
+      p_claim_token: claimToken,
+      p_content_sha256: contentHash,
+    },
+  );
+
+  if (fingerprintError || !fingerprintBinding) {
+    await failClaim(admin, workspaceId, source, eventId, claimToken, "CONTENT_SECURITY_FINGERPRINT_BIND_FAILED");
+    return json({ error: "Security fingerprint binding failed", code: "SECURITY_FINGERPRINT_BIND_FAILED" }, 503);
+  }
+
+  if (!fingerprintBinding.bound) {
+    if (fingerprintBinding.code === "EVENT_ID_PAYLOAD_MISMATCH") {
+      await failClaim(admin, workspaceId, source, eventId, claimToken, "EVENT_ID_PAYLOAD_MISMATCH");
+      return json({
+        error: "event_id is already bound to a different payload",
+        code: "EVENT_ID_PAYLOAD_MISMATCH",
+        event_id: eventId,
+      }, 409);
+    }
+
+    return json({
+      error: "Security claim is no longer owned by this request",
+      code: "SECURITY_CLAIM_NOT_OWNED",
+      event_id: eventId,
+    }, 409);
+  }
+
   try {
-    const contentHash = await sha256Hex(JSON.stringify({ content, urls, attachment }));
     let decision = deterministicDecision(content, urls, attachment);
     if (!decision) {
       decision = await runSemanticClassifier(workspaceId, content, urls);
@@ -442,7 +493,7 @@ Deno.serve(async (req) => {
     }
 
     const scannerVersions = {
-      deterministic: "2026-08-30.2",
+      deterministic: "2026-08-30.3",
       semantic: decision.semanticUsed ? "ai-router:text_classification" : "not_used_or_unavailable",
       malware: attachment ? "required_not_integrated" : "not_applicable",
     };
