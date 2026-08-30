@@ -35,18 +35,20 @@ export interface ContentItem {
 
 export const useMarketingCampaigns = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   return useQuery({
-    queryKey: ["marketing-campaigns", user?.id],
+    queryKey: ["marketing-campaigns", user?.id, workspace?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("marketing_campaigns")
         .select("*")
         .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data || []) as unknown as MarketingCampaign[];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 };
 
@@ -57,11 +59,12 @@ export const useCreateMarketingCampaign = () => {
 
   return useMutation({
     mutationFn: async (campaign: { name: string; channels: string[]; scheduled_at?: string }) => {
+      if (!user?.id || !workspace?.id) throw new Error("Workspace is required");
       const { error } = await supabase
         .from("marketing_campaigns")
         .insert({
-          user_id: user!.id,
-          workspace_id: workspace?.id,
+          user_id: user.id,
+          workspace_id: workspace.id,
           ...campaign,
         } as any);
       if (error) throw error;
@@ -120,13 +123,15 @@ export const useGenerateContent = () => {
 
 export const useMarketingAnalytics = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   return useQuery({
-    queryKey: ["marketing-analytics", user?.id],
+    queryKey: ["marketing-analytics", user?.id, workspace?.id],
     queryFn: async () => {
       const { data: campaigns } = await supabase
         .from("marketing_campaigns")
         .select("status, channels, performance")
-        .eq("user_id", user!.id);
+        .eq("user_id", user!.id)
+        .eq("workspace_id", workspace!.id);
 
       const total = (campaigns || []).length;
       const active = (campaigns || []).filter((c: any) => c.status === "active").length;
@@ -141,6 +146,6 @@ export const useMarketingAnalytics = () => {
 
       return { total, active, completed, channelReach };
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 };
