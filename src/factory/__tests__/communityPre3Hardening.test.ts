@@ -49,6 +49,23 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
     expect(chatUi).toContain("event_id: eventId");
   });
 
+  it("validates comment parent integrity before service-role insertion", () => {
+    expect(commentCreate).toContain('.select("id, post_id")');
+    expect(commentCreate).toContain("parentComment.post_id !== post_id");
+    expect(commentCreate).toContain("INVALID_PARENT_COMMENT");
+    expect(commentCreate.indexOf("INVALID_PARENT_COMMENT")).toBeLessThan(commentCreate.indexOf('.from("community_comments")\n      .insert'));
+  });
+
+  it("does not propagate blocked phone/email values into moderation audit metadata", () => {
+    const moderationBlock = helpers.slice(
+      helpers.indexOf("export function moderateCommunityText"),
+      helpers.indexOf("export function detectContactInformation"),
+    );
+    expect(moderationBlock).not.toContain("match: detection.match");
+    expect(commentCreate).not.toContain("moderation.detection.match");
+    expect(messageCreate).not.toContain("moderation.detection.match");
+  });
+
   it("persists and reuses the real image classifier verdict instead of fabricating clean", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS result_json jsonb");
     expect(scanImage).toContain("function parseRouterScanResult");
