@@ -45,7 +45,7 @@ export function OrbitSelector<T extends string = string>({
   useEffect(() => {
     if (!items.length || !autoRotate || reducedMotion) return;
     const id = window.setInterval(() => {
-      if (Date.now() >= pausedUntil) setFocusedIndex((index) => (index - 1 + items.length) % items.length);
+      if (Date.now() >= pausedUntil) setFocusedIndex((index) => (index + 1) % items.length);
     }, rotationInterval);
     return () => window.clearInterval(id);
   }, [autoRotate, items.length, pausedUntil, reducedMotion, rotationInterval]);
