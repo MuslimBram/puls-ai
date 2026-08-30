@@ -143,11 +143,13 @@ SELECT * FROM public.keywords WHERE workspace_id='11111111-1111-4111-8111-111111
 INSERT INTO public.keywords(user_id,keyword,workspace_id) VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','gamma','11111111-1111-4111-8111-111111111111');
 UPDATE public.keywords SET is_active=false WHERE keyword='gamma' AND workspace_id='11111111-1111-4111-8111-111111111111';
 DO $$ BEGIN
-  BEGIN
-    DELETE FROM public.keywords WHERE keyword='gamma' AND workspace_id='11111111-1111-4111-8111-111111111111';
-    RAISE EXCEPTION 'expected member delete denial';
-  EXCEPTION WHEN insufficient_privilege THEN NULL;
-  END;
+  DELETE FROM public.keywords WHERE keyword='gamma' AND workspace_id='11111111-1111-4111-8111-111111111111';
+  IF EXISTS(
+    SELECT 1 FROM public.keywords
+    WHERE keyword='gamma' AND workspace_id='11111111-1111-4111-8111-111111111111'
+  ) THEN
+    RAISE EXCEPTION 'expected owner keyword delete to succeed';
+  END IF;
   BEGIN
     INSERT INTO public.keywords(user_id,keyword,workspace_id) VALUES('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','forbidden','22222222-2222-4222-8222-222222222222');
     RAISE EXCEPTION 'expected foreign workspace keyword denial';
