@@ -5,6 +5,11 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { callAIRouter } from "../_shared/ai-router-helper.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
+import {
   resolveAuthenticatedTelegramChannel,
   type TelegramChannelCandidate,
 } from "../_shared/telegram-workspace-resolver.ts";
@@ -98,6 +103,32 @@ serve(async (req) => {
 
     const idempotencyKey = `tg:${channel.id}:${chatId}:${senderId}:${String(msg.message_id)}`;
 
+    // Content security runs after Telegram webhook authentication + tenant
+    // resolution, but before integration-event claims, AI analysis, lead/thread,
+    // or normal Inbox persistence.
+    const security = await scanInboundContent({
+      workspace_id: workspaceId,
+      source: "telegram",
+      event_id: idempotencyKey,
+      content: msg.text,
+      urls: extractSecurityUrls(msg.text),
+      attachment: null,
+    });
+
+    if (!security.ok) {
+      console.error(`[TELEGRAM-WEBHOOK] Content-security unavailable: ${security.code}`);
+      return new Response(JSON.stringify({ ok: false, error: "content_security_unavailable" }), {
+        status: 500,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    if (blocksNormalIngress(security.decision)) {
+      return new Response(JSON.stringify({ ok: true, quarantined: true }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
     const { data: integrationRow, error: integrationError } = await supabase
       .from("external_integrations")
       .select("id")
@@ -121,6 +152,12 @@ serve(async (req) => {
         chat_id: chatId,
         sender_id: senderId,
         message_id: String(msg.message_id),
+        content_security: {
+          event_id: idempotencyKey,
+          category: security.decision.category,
+          risk_score: security.decision.risk_score,
+          action: security.decision.action,
+        },
       },
       payload,
     });
@@ -263,14 +300,36 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       delivery_status: "delivered",
       provider_message_id: String(msg.message_id),
       thread_id: threadId,
-      metadata: { chat_id: chatId, telegram_user_id: senderId },
+      metadata: {
+        chat_id: chatId,
+        telegram_user_id: senderId,
+        content_security: {
+          event_id: idempotencyKey,
+          category: security.decision.category,
+          risk_score: security.decision.risk_score,
+          action: security.decision.action,
+        },
+      },
       intent_score: intentScore,
     } as never);
     if (inboxError) throw inboxError;
 
     await supabase
       .from("integration_event_logs")
-      .update({ status: "processed", metadata: { lead_id: leadId, workspace_id: workspaceId, channel_id: channel.id } })
+      .update({
+        status: "processed",
+        metadata: {
+          lead_id: leadId,
+          workspace_id: workspaceId,
+          channel_id: channel.id,
+          content_security: {
+            event_id: idempotencyKey,
+            category: security.decision.category,
+            risk_score: security.decision.risk_score,
+            action: security.decision.action,
+          },
+        },
+      })
       .eq("workspace_id", workspaceId)
       .eq("idempotency_key", idempotencyKey);
 
