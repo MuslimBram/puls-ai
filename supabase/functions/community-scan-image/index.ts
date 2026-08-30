@@ -210,7 +210,7 @@ serve(async (req) => {
         scanResult = parseRouterScanResult(routerData);
       }
 
-      const { error: completeError } = await adminClient
+      const { data: completedUsage, error: completeError } = await adminClient
         .from("community_ai_usage")
         .update({
           status: "completed",
@@ -218,10 +218,16 @@ serve(async (req) => {
           completed_at: new Date().toISOString(),
         })
         .eq("id", usageId)
-        .eq("status", "reserved");
+        .eq("status", "reserved")
+        .select("id")
+        .maybeSingle();
 
-      if (completeError) {
-        throw new Error(`Failed to persist image scan verdict: ${completeError.message}`);
+      if (completeError || !completedUsage) {
+        throw new Error(
+          completeError
+            ? `Failed to persist image scan verdict: ${completeError.message}`
+            : "Failed to persist image scan verdict: reservation was no longer writable",
+        );
       }
 
       return jsonResponse({
