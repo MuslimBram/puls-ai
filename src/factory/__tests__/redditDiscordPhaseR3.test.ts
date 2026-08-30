@@ -6,9 +6,9 @@ describe("Phase R3.1: Discord Production Repair & Security Contracts", () => {
   const WORKSPACE_B = "ws-beta-222";
 
   it("1. Discord inbound idempotency key format is provider-neutral and unique per message", () => {
-    const messageId = "109876543210987654";
+    const messageId = "msg_109876";
     const idempotencyKey = `inbound:discord:${messageId}`;
-    expect(idempotencyKey).toBe("inbound:discord:109876543210987654");
+    expect(idempotencyKey).toBe("inbound:discord:msg_109876");
   });
 
   it("2. Discord event payload maps to Unified Inbox thread and message fields", () => {

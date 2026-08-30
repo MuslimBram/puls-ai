@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlayCircle, X } from "lucide-react";
 
-const STORAGE_KEY = "walkthrough-dismissed-v1";
+const DISMISSED_STORAGE_FLAG = "walkthrough-dismissed-v1";
 const VIDEO_URL = "https://www.youtube.com/embed/dQw4w9WgXcQ"; // replace with real product walkthrough
 
 export const WalkthroughVideo = () => {
@@ -11,7 +11,7 @@ export const WalkthroughVideo = () => {
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    setDismissed(!!localStorage.getItem(STORAGE_KEY));
+    setDismissed(!!localStorage.getItem(DISMISSED_STORAGE_FLAG));
   }, []);
 
   if (dismissed) return null;
@@ -24,7 +24,7 @@ export const WalkthroughVideo = () => {
           2-minute walkthrough
         </CardTitle>
         <button
-          onClick={() => { localStorage.setItem(STORAGE_KEY, "1"); setDismissed(true); }}
+          onClick={() => { localStorage.setItem(DISMISSED_STORAGE_FLAG, "1"); setDismissed(true); }}
           className="text-muted-foreground hover:text-foreground"
           aria-label="Dismiss walkthrough"
         >
