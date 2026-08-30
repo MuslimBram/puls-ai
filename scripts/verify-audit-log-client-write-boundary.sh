@@ -117,7 +117,7 @@ commit;
 SQL
 
 # Ordinary user cannot read audit rows; super_admin can.
-ordinary_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atc "set role authenticated; set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; select count(*) from public.audit_logs;")"; [[ "$ordinary_count" == "0" ]] || { echo "ordinary audit SELECT leaked: $ordinary_count"; exit 1; }
-super_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atc "set role authenticated; set request.jwt.claim.sub='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'; select count(*) from public.audit_logs;")"; [[ "$super_count" =~ ^[1-9][0-9]*$ ]] || { echo "super_admin audit SELECT failed: $super_count"; exit 1; }
+ordinary_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atqc "set role authenticated; set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; select count(*) from public.audit_logs;")"; [[ "$ordinary_count" == "0" ]] || { echo "ordinary audit SELECT leaked: $ordinary_count"; exit 1; }
+super_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atqc "set role authenticated; set request.jwt.claim.sub='eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee'; select count(*) from public.audit_logs;")"; [[ "$super_count" =~ ^[1-9][0-9]*$ ]] || { echo "super_admin audit SELECT failed: $super_count"; exit 1; }
 
 echo "Audit log client write boundary verification: PASS"
