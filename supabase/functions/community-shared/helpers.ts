@@ -57,17 +57,18 @@ export async function getAuthUser(req: Request, userClient: ReturnType<typeof cr
 
 /**
  * Canonical event/idempotency key for Community user-generated writes.
- * The client should create the key once per intended write and reuse it on retry.
- * Older callers still receive a server-generated canonical key.
+ * The caller MUST create the key once per intended write and reuse it on retry.
+ * Missing keys are rejected because a server-generated UUID cannot identify a
+ * retry of the same logical write.
  */
 export function parseCommunityEventId(value: unknown):
-  | { ok: true; eventId: string; generated: boolean }
+  | { ok: true; eventId: string }
   | { ok: false; message: string } {
   if (value === undefined || value === null || value === "") {
-    return { ok: true, eventId: crypto.randomUUID(), generated: true };
+    return { ok: false, message: "event_id is required for idempotent community writes" };
   }
   if (typeof value !== "string") {
-    return { ok: false, message: "event_id must be a string when provided" };
+    return { ok: false, message: "event_id must be a string" };
   }
 
   const eventId = value.trim();
@@ -79,7 +80,7 @@ export function parseCommunityEventId(value: unknown):
     return { ok: false, message: "event_id contains unsupported characters" };
   }
 
-  return { ok: true, eventId, generated: false };
+  return { ok: true, eventId };
 }
 
 export type CommunityModerationDecision =
