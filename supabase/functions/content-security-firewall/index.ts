@@ -131,17 +131,8 @@ async function sha256Hex(value: string): Promise<string> {
   return Array.from(digest).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function deterministicDecision(content: string, urls: string[], attachment: AttachmentInput | null): Decision | null {
-  if (attachment) {
-    return {
-      category: "unknown",
-      riskScore: 100,
-      action: "quarantine",
-      reasonCode: "MALWARE_SCANNER_REQUIRED",
-      semanticUsed: false,
-    };
-  }
-
+/** Deterministic text/URL policy only. Attachment malware policy is layered later. */
+function deterministicDecision(content: string, urls: string[]): Decision | null {
   if (!content.trim() && urls.length === 0) {
     return { category: "safe", riskScore: 0, action: "allow", reasonCode: "EMPTY_PAYLOAD", semanticUsed: false };
   }
@@ -246,7 +237,7 @@ async function runSemanticClassifier(workspaceId: string, content: string, urls:
     "reason_code must be an uppercase machine code with no copied user text.",
     `Content: ${classifierText}`,
     `URLs: ${JSON.stringify(classifierUrls)}`,
-    'Shape: {"category":"safe","risk_score":0,"action":"allow","reason_code":"BENIGN"}',
+    '{"category":"safe","risk_score":0,"action":"allow","reason_code":"BENIGN"}',
   ].join("\n");
 
   try {
@@ -478,7 +469,10 @@ Deno.serve(async (req) => {
   }
 
   try {
-    let decision = deterministicDecision(content, urls, attachment);
+    // Text/URL policy is always evaluated independently of the malware layer.
+    // A malware-clean attachment must never erase phishing/threat/etc. in its
+    // caption/body. This machine-only verdict is persisted in metadata.
+    let decision = deterministicDecision(content, urls);
     if (!decision) {
       decision = await runSemanticClassifier(workspaceId, content, urls);
     }
@@ -491,11 +485,25 @@ Deno.serve(async (req) => {
         semanticUsed: false,
       };
     }
+    const textPolicy = decision;
+
+    // An unscanned attachment always keeps the parent quarantined, independent
+    // of the text verdict. The external ClamAV layer later decides file health;
+    // release-readiness still requires textPolicy.action to be allow/tag.
+    if (attachment) {
+      decision = {
+        category: textPolicy.action === "allow" || textPolicy.action === "tag" ? "unknown" : textPolicy.category,
+        riskScore: 100,
+        action: "quarantine",
+        reasonCode: "MALWARE_SCANNER_REQUIRED",
+        semanticUsed: textPolicy.semanticUsed,
+      };
+    }
 
     const scannerVersions = {
-      deterministic: "2026-08-30.3",
-      semantic: decision.semanticUsed ? "ai-router:text_classification" : "not_used_or_unavailable",
-      malware: attachment ? "required_not_integrated" : "not_applicable",
+      deterministic: "2026-08-31.1",
+      semantic: textPolicy.semanticUsed ? "ai-router:text_classification" : "not_used_or_unavailable",
+      malware: attachment ? "required_external_clamav" : "not_applicable",
     };
 
     const metadata = {
@@ -504,7 +512,13 @@ Deno.serve(async (req) => {
       has_attachment: Boolean(attachment),
       attachment_mime_type: attachment?.mime_type ?? null,
       attachment_size_bytes: attachment?.size_bytes ?? null,
-      semantic_classifier_used: decision.semanticUsed,
+      semantic_classifier_used: textPolicy.semanticUsed,
+      text_policy: {
+        category: textPolicy.category,
+        risk_score: textPolicy.riskScore,
+        action: textPolicy.action,
+        reason_code: textPolicy.reasonCode,
+      },
     };
 
     const encrypted = decision.action === "quarantine"
