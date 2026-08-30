@@ -19,7 +19,9 @@ const json = (req: Request, body: unknown, status = 200) => new Response(JSON.st
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 120;
 const RATE_WINDOW = 60_000;
+const SIGNATURE_WINDOW_SECONDS = 300;
 const EVENT_ID_PATTERN = /^[A-Za-z0-9:_-]{8,200}$/;
+const SIGNATURE_PATTERN = /^v1=([0-9a-f]{64})$/i;
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
@@ -44,17 +46,24 @@ function boundedString(value: unknown, max: number, fallback = ""): string {
   return text.slice(0, max);
 }
 
-async function secureEqual(a: string, b: string): Promise<boolean> {
-  const encoder = new TextEncoder();
-  const [aHash, bHash] = await Promise.all([
-    crypto.subtle.digest("SHA-256", encoder.encode(a)),
-    crypto.subtle.digest("SHA-256", encoder.encode(b)),
-  ]);
-  const left = new Uint8Array(aHash);
-  const right = new Uint8Array(bHash);
+function secureEqualHex(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
   let diff = 0;
-  for (let i = 0; i < left.length; i++) diff |= left[i] ^ right[i];
+  for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(payload)));
+  return Array.from(signature, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 serve(async (req) => {
@@ -64,16 +73,56 @@ serve(async (req) => {
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
 
   try {
-    const body = asRecord(await req.json());
+    // Channel routing is outside the signed body so the service can locate the
+    // per-channel signing key before trusting any caller-supplied payload field.
     const url = new URL(req.url);
-    const channelId = boundedString(url.searchParams.get("channel_id") || body.channel_id, 64);
-    const eventId = boundedString(req.headers.get("x-webhook-event-id") || body.event_id, 200);
-    const presentedSecret = boundedString(req.headers.get("x-webhook-secret"), 256);
-    const messageContent = typeof body.message_content === "string" ? body.message_content : "";
+    const channelId = boundedString(url.searchParams.get("channel_id"), 64);
+    if (!channelId) return json(req, { error: "channel_id query parameter required" }, 400);
 
-    if (!channelId) return json(req, { error: "channel_id required" }, 400);
-    if (!EVENT_ID_PATTERN.test(eventId)) return json(req, { error: "valid event_id required" }, 400);
-    if (!presentedSecret) return json(req, { error: "X-Webhook-Secret required" }, 401);
+    if (!checkRateLimit(`${channelId}:${clientIp}`)) {
+      return json(req, { error: "Too many requests" }, 429);
+    }
+
+    const eventId = boundedString(req.headers.get("x-webhook-event-id"), 200);
+    const timestampHeader = boundedString(req.headers.get("x-webhook-timestamp"), 32);
+    const signatureHeader = boundedString(req.headers.get("x-webhook-signature"), 80);
+
+    if (!EVENT_ID_PATTERN.test(eventId)) {
+      return json(req, { error: "valid X-Webhook-Event-Id required" }, 400);
+    }
+
+    const timestampSeconds = Number(timestampHeader);
+    if (!Number.isInteger(timestampSeconds) || timestampSeconds <= 0) {
+      return json(req, { error: "valid X-Webhook-Timestamp required" }, 400);
+    }
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    if (Math.abs(nowSeconds - timestampSeconds) > SIGNATURE_WINDOW_SECONDS) {
+      return json(req, { error: "Webhook timestamp outside replay window" }, 401);
+    }
+
+    const signatureMatch = signatureHeader.match(SIGNATURE_PATTERN);
+    if (!signatureMatch) {
+      return json(req, { error: "valid X-Webhook-Signature required" }, 401);
+    }
+
+    const rawBody = await req.text();
+    if (!rawBody || rawBody.length > 32_768) {
+      return json(req, { error: "Invalid request body" }, 400);
+    }
+
+    let body: Record<string, unknown>;
+    try {
+      body = asRecord(JSON.parse(rawBody));
+    } catch {
+      return json(req, { error: "Invalid JSON" }, 400);
+    }
+
+    const bodyEventId = boundedString(body.event_id, 200);
+    if (bodyEventId !== eventId) {
+      return json(req, { error: "Body event_id must match X-Webhook-Event-Id" }, 400);
+    }
+
+    const messageContent = typeof body.message_content === "string" ? body.message_content : "";
     if (!messageContent) return json(req, { error: "message_content required" }, 400);
     if (messageContent.length > 10_000) return json(req, { error: "Message too long" }, 400);
 
@@ -90,18 +139,12 @@ serve(async (req) => {
       ? new Date(rawTimestamp).toISOString()
       : new Date().toISOString();
 
-    if (!checkRateLimit(`${channelId}:${clientIp}`)) {
-      return json(req, { error: "Too many requests" }, 429);
-    }
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       getServiceKey()!,
       { auth: { persistSession: false } },
     );
 
-    // Tenant and user identity are resolved exclusively from the canonical
-    // channel row. External callers never choose a user_id/workspace_id.
     const { data: channel, error: channelError } = await supabase
       .from("channels")
       .select("id,user_id,workspace_id,channel_type,is_enabled,credentials_encrypted")
@@ -121,15 +164,19 @@ serve(async (req) => {
     if (!storedCiphertext) return json(req, { error: "Unauthorized webhook" }, 401);
 
     const storedSecret = await decryptIfNeeded(storedCiphertext);
-    if (!await secureEqual(storedSecret, presentedSecret)) {
+    if (!storedSecret) return json(req, { error: "Unauthorized webhook" }, 401);
+
+    const signingPayload = `${timestampHeader}.${eventId}.${rawBody}`;
+    const expectedSignature = await hmacSha256Hex(storedSecret, signingPayload);
+    if (!secureEqualHex(expectedSignature, signatureMatch[1].toLowerCase())) {
       return json(req, { error: "Unauthorized webhook" }, 401);
     }
 
     const workspaceId = String(channel.workspace_id);
     const userId = String(channel.user_id);
 
-    // Authenticated shared-secret webhook + canonical tenant + caller-stable
-    // event id are established before the universal content-security boundary.
+    // HMAC authentication, replay-window validation and canonical tenant
+    // resolution are complete before Content Security sees the message.
     const security = await scanInboundContent({
       workspace_id: workspaceId,
       source: "custom_webhook",
@@ -140,15 +187,19 @@ serve(async (req) => {
     });
 
     if (!security.ok) {
-      return json(req, { error: "Content security unavailable", code: security.code }, security.status >= 500 ? 503 : security.status);
+      return json(
+        req,
+        { error: "Content security unavailable", code: security.code },
+        security.status >= 500 ? 503 : security.status,
+      );
     }
 
     if (blocksNormalIngress(security.decision)) {
-      // Do not expose the security classification to an external integration.
+      // Do not disclose the machine security category to the external source.
       return json(req, { ok: true, accepted: true, duplicate: security.reused });
     }
 
-    // Friendly fast-path only after the payload-bound firewall decision. The
+    // Friendly retry fast-path only after payload-bound Content Security. The
     // unique partial index remains the authoritative race-safe Inbox boundary.
     const { data: existing, error: existingError } = await supabase
       .from("inbox_messages")
@@ -202,6 +253,8 @@ serve(async (req) => {
           ...metadata,
           external_event_id: eventId,
           ingress: "custom_webhook",
+          signature_version: "v1",
+          signature_timestamp: timestampSeconds,
           content_security: {
             event_id: eventId,
             category: security.decision.category,
