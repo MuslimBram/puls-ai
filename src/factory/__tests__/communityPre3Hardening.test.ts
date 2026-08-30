@@ -19,8 +19,18 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
     expect(migration).toContain("idx_community_comments_author_event");
     expect(migration).toContain("idx_community_interest_messages_sender_event");
     expect(migration).toContain("idx_community_violations_user_event");
+    expect(migration).toContain("idx_community_notifications_user_type_event");
     expect(migration).toContain("REVOKE INSERT, UPDATE ON TABLE public.community_comments FROM anon, authenticated");
     expect(migration).toContain("REVOKE INSERT, UPDATE ON TABLE public.community_interest_messages FROM anon, authenticated");
+  });
+
+  it("requires caller-generated event ids so retries preserve the same idempotency key", () => {
+    expect(helpers).toContain('return { ok: false, message: "event_id is required for idempotent community writes" }');
+    expect(helpers).not.toContain("crypto.randomUUID()");
+    expect(commentCreate).toContain("parseCommunityEventId(event_id)");
+    expect(messageCreate).toContain("parseCommunityEventId(event_id)");
+    expect(commentUi).toContain("community_comment_${crypto.randomUUID()}");
+    expect(chatUi).toContain("community_msg_${crypto.randomUUID()}");
   });
 
   it("uses one deterministic pre-insert moderation helper for comments and chat messages", () => {
@@ -47,6 +57,26 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
     expect(chatUi).toContain("pendingEventId.current");
     expect(chatUi).toContain("community_msg_${crypto.randomUUID()}");
     expect(chatUi).toContain("event_id: eventId");
+  });
+
+  it("makes new-message notification creation exactly-once and retry-repairable", () => {
+    expect(messageCreate).toContain("async function ensureMessageNotification");
+    expect(messageCreate).toContain('onConflict: "user_id,type,event_id"');
+    expect(messageCreate).toContain("ignoreDuplicates: true");
+    expect(messageCreate).toContain("event_id: eventId");
+    expect(messageCreate).toContain("NOTIFICATION_PERSIST_FAILED");
+
+    const existingPath = messageCreate.slice(
+      messageCreate.indexOf("if (existingMessage)"),
+      messageCreate.indexOf("if (!interest.tax_paid"),
+    );
+    expect(existingPath).toContain("ensureMessageNotification");
+
+    const racedPath = messageCreate.slice(
+      messageCreate.indexOf('if (msgError.code === "23505")'),
+      messageCreate.indexOf("return errorResponse(msgError.message"),
+    );
+    expect(racedPath).toContain("ensureMessageNotification");
   });
 
   it("validates comment parent integrity before service-role insertion", () => {
