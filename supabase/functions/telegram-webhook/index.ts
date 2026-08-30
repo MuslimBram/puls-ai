@@ -4,11 +4,13 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { callAIRouter } from "../_shared/ai-router-helper.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 import {
   blocksNormalIngress,
   extractSecurityUrls,
   scanInboundContent,
 } from "../_shared/content-security-client.ts";
+import { stageInboundAttachment } from "../_shared/content-security-attachment-client.ts";
 import {
   resolveAuthenticatedTelegramChannel,
   type TelegramChannelCandidate,
@@ -16,6 +18,22 @@ import {
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+
+type TelegramAttachment = {
+  mime_type: string;
+  file_id: string;
+};
+
+type TelegramChannelWithCredentials = TelegramChannelCandidate & {
+  credentials_encrypted?: Record<string, unknown> | null;
+};
+
+type DownloadedTelegramFile = {
+  bytes: Uint8Array;
+  mime_type: string;
+  sha256: string;
+};
 
 async function resolveWorkspaceFromChannel(
   supabase: ReturnType<typeof createClient>,
@@ -45,21 +63,85 @@ async function resolveWorkspaceFromChannel(
   return { workspaceId };
 }
 
-function telegramAttachment(msg: Record<string, any>): { mime_type: string } | null {
-  if (Array.isArray(msg.photo) && msg.photo.length) return { mime_type: "image/jpeg" };
-  if (msg.document) return { mime_type: String(msg.document.mime_type || "application/octet-stream") };
-  if (msg.video) return { mime_type: String(msg.video.mime_type || "video/mp4") };
-  if (msg.animation) return { mime_type: String(msg.animation.mime_type || "video/mp4") };
-  if (msg.audio) return { mime_type: String(msg.audio.mime_type || "audio/mpeg") };
-  if (msg.voice) return { mime_type: String(msg.voice.mime_type || "audio/ogg") };
-  if (msg.sticker) return { mime_type: "image/webp" };
+function telegramAttachment(msg: Record<string, any>): TelegramAttachment | null {
+  if (Array.isArray(msg.photo) && msg.photo.length) {
+    const photo = msg.photo[msg.photo.length - 1] ?? {};
+    return { mime_type: "image/jpeg", file_id: String(photo.file_id || "") };
+  }
+  if (msg.document) return { mime_type: String(msg.document.mime_type || "application/octet-stream"), file_id: String(msg.document.file_id || "") };
+  if (msg.video) return { mime_type: String(msg.video.mime_type || "video/mp4"), file_id: String(msg.video.file_id || "") };
+  if (msg.animation) return { mime_type: String(msg.animation.mime_type || "video/mp4"), file_id: String(msg.animation.file_id || "") };
+  if (msg.audio) return { mime_type: String(msg.audio.mime_type || "audio/mpeg"), file_id: String(msg.audio.file_id || "") };
+  if (msg.voice) return { mime_type: String(msg.voice.mime_type || "audio/ogg"), file_id: String(msg.voice.file_id || "") };
+  if (msg.sticker) return { mime_type: "image/webp", file_id: String(msg.sticker.file_id || "") };
   return null;
 }
 
-function telegramContent(msg: Record<string, any>, attachment: { mime_type: string } | null): string {
+function telegramContent(msg: Record<string, any>, attachment: TelegramAttachment | null): string {
   if (typeof msg.text === "string" && msg.text.trim()) return msg.text;
   if (typeof msg.caption === "string" && msg.caption.trim()) return msg.caption;
   return attachment ? `[telegram_attachment:${attachment.mime_type}]` : "";
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function validTelegramFilePath(path: string): boolean {
+  return path.length > 0
+    && path.length <= 1024
+    && !path.startsWith("/")
+    && !path.includes("..")
+    && !path.includes(":")
+    && /^[A-Za-z0-9_./-]+$/.test(path);
+}
+
+async function downloadTelegramFile(
+  botToken: string,
+  attachment: TelegramAttachment,
+): Promise<DownloadedTelegramFile> {
+  if (!attachment.file_id) throw new Error("TELEGRAM_FILE_ID_MISSING");
+
+  const getFileResponse = await fetch(
+    `https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(attachment.file_id)}`,
+    { redirect: "error" },
+  );
+  const getFile = await getFileResponse.json().catch(() => ({})) as Record<string, any>;
+  if (!getFileResponse.ok || getFile.ok !== true || typeof getFile.result?.file_path !== "string") {
+    throw new Error("TELEGRAM_GET_FILE_FAILED");
+  }
+
+  const filePath = String(getFile.result.file_path);
+  if (!validTelegramFilePath(filePath)) throw new Error("TELEGRAM_FILE_PATH_REJECTED");
+  const declaredSize = Number(getFile.result.file_size ?? 0);
+  if (Number.isFinite(declaredSize) && declaredSize > MAX_MEDIA_BYTES) {
+    throw new Error("TELEGRAM_FILE_TOO_LARGE");
+  }
+
+  const downloadResponse = await fetch(
+    `https://api.telegram.org/file/bot${botToken}/${filePath}`,
+    { redirect: "error" },
+  );
+  if (!downloadResponse.ok) throw new Error("TELEGRAM_FILE_DOWNLOAD_FAILED");
+
+  const contentLength = Number(downloadResponse.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_MEDIA_BYTES) {
+    throw new Error("TELEGRAM_FILE_TOO_LARGE");
+  }
+
+  const bytes = new Uint8Array(await downloadResponse.arrayBuffer());
+  if (bytes.byteLength > MAX_MEDIA_BYTES) throw new Error("TELEGRAM_FILE_TOO_LARGE");
+  if (Number.isFinite(declaredSize) && declaredSize > 0 && declaredSize !== bytes.byteLength) {
+    throw new Error("TELEGRAM_FILE_SIZE_MISMATCH");
+  }
+
+  const responseMime = (downloadResponse.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  return {
+    bytes,
+    mime_type: responseMime || attachment.mime_type || "application/octet-stream",
+    sha256: await sha256Hex(bytes),
+  };
 }
 
 serve(async (req) => {
@@ -86,8 +168,6 @@ serve(async (req) => {
 
     const updateId = payload?.update_id;
     if (!Number.isInteger(updateId) || updateId < 0) {
-      // Telegram update_id is the provider-native stable retry identity. Without
-      // it we cannot safely dedupe or bind the content-security decision.
       return new Response(JSON.stringify({ ok: true, quarantined: true, reason: "missing_update_id" }), {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
@@ -110,14 +190,14 @@ serve(async (req) => {
 
     const { data: channels, error: channelsError } = await supabase
       .from("channels")
-      .select("id, workspace_id, user_id, settings")
+      .select("id, workspace_id, user_id, settings, credentials_encrypted")
       .eq("channel_type", "telegram")
       .eq("is_enabled", true);
     if (channelsError) throw channelsError;
 
     const requestedChannelId = new URL(req.url).searchParams.get("channel_id") || payload?.channel_id || null;
     const authResult = resolveAuthenticatedTelegramChannel({
-      channels: (channels || []) as TelegramChannelCandidate[],
+      channels: (channels || []) as TelegramChannelWithCredentials[],
       secretHeader: req.headers.get("x-telegram-bot-api-secret-token"),
       configuredGlobalSecret: Deno.env.get("TELEGRAM_WEBHOOK_SECRET"),
       requestedChannelId: requestedChannelId ? String(requestedChannelId) : null,
@@ -131,7 +211,7 @@ serve(async (req) => {
       });
     }
 
-    const channel = authResult.channel;
+    const channel = authResult.channel as TelegramChannelWithCredentials;
     if (!channel.user_id) {
       return new Response(JSON.stringify({ ok: false, error: "Channel configuration error" }), {
         status: 409,
@@ -153,16 +233,37 @@ serve(async (req) => {
       || msg.from.username || "Telegram User";
     const idempotencyKey = `tg:${channel.id}:update:${String(updateId)}`;
 
-    // Provider authentication + canonical tenant + stable update_id are resolved
-    // before the universal security boundary. Media is never skipped: until the
-    // real malware worker is integrated, attachment metadata forces quarantine.
+    let downloaded: DownloadedTelegramFile | null = null;
+    if (attachment) {
+      const credentials = (channel.credentials_encrypted || {}) as Record<string, unknown>;
+      const encryptedToken = typeof credentials.bot_token === "string" ? credentials.bot_token : "";
+      let botToken = "";
+      try {
+        botToken = encryptedToken ? await decryptIfNeeded(encryptedToken) : (Deno.env.get("TELEGRAM_BOT_TOKEN") || "");
+        if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN_MISSING");
+        downloaded = await downloadTelegramFile(botToken, attachment);
+      } catch (error) {
+        console.error("[TELEGRAM-WEBHOOK] attachment preparation failed", error instanceof Error ? error.message : "unknown");
+        return new Response(JSON.stringify({ ok: false, error: "telegram_attachment_preparation_failed" }), {
+          status: 503,
+          headers: { ...getCors(req), "Content-Type": "application/json" },
+        });
+      }
+    }
+
     const security = await scanInboundContent({
       workspace_id: workspaceId,
       source: "telegram",
       event_id: idempotencyKey,
       content,
       urls: extractSecurityUrls(content),
-      attachment,
+      attachment: attachment
+        ? {
+            mime_type: downloaded?.mime_type ?? attachment.mime_type,
+            size_bytes: downloaded?.bytes.byteLength,
+            sha256: downloaded?.sha256,
+          }
+        : null,
     });
 
     if (!security.ok) {
@@ -174,7 +275,32 @@ serve(async (req) => {
     }
 
     if (blocksNormalIngress(security.decision)) {
+      if (downloaded && attachment && security.decision.action === "quarantine") {
+        const staged = await stageInboundAttachment({
+          workspace_id: workspaceId,
+          source: "telegram",
+          event_id: idempotencyKey,
+          attachment_key: "tg_media_0",
+          expected_attachment_count: 1,
+          bytes: downloaded.bytes,
+          mime_type: downloaded.mime_type,
+        });
+        if (!staged.ok) {
+          console.error("[TELEGRAM-WEBHOOK] attachment staging failed", staged.code);
+          return new Response(JSON.stringify({ ok: false, error: "telegram_attachment_staging_failed" }), {
+            status: staged.retryable ? 503 : 400,
+            headers: { ...getCors(req), "Content-Type": "application/json" },
+          });
+        }
+      }
       return new Response(JSON.stringify({ ok: true, quarantined: true, event_id: idempotencyKey }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    if (downloaded || attachment) {
+      return new Response(JSON.stringify({ ok: false, error: "attachment_security_contract_violation" }), {
+        status: 500,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
@@ -259,9 +385,7 @@ serve(async (req) => {
     let suggestedReply = "";
     const aiRaw = await callAIRouter(
       [{ role: "user", content }],
-      `Analyze buying intent for this Telegram message. Reply JSON only:
-{"intent_score": 0-1, "is_lead": boolean, "suggested_reply": string}
-Keep suggested_reply under 200 chars. Language: detect from message.`,
+      `Analyze buying intent for this Telegram message. Reply JSON only:\n{"intent_score": 0-1, "is_lead": boolean, "suggested_reply": string}\nKeep suggested_reply under 200 chars. Language: detect from message.`,
       { taskType: "text_classification", workspaceId },
     );
 
