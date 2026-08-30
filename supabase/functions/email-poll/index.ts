@@ -6,17 +6,17 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
+import { connectTlsToPublicHostname } from "../_shared/public-network-guard.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-// ─── IMAP Helpers ───
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
 async function readFromConn(conn: Deno.TlsConn | Deno.TcpConn, timeoutMs = 10_000): Promise<string> {
   const buf = new Uint8Array(16384);
-  const timer = setTimeout(() => { try { conn.close(); } catch { /* */ } }, timeoutMs);
+  const timer = setTimeout(() => { try { conn.close(); } catch { /* noop */ } }, timeoutMs);
   try {
     const n = await conn.read(buf);
     clearTimeout(timer);
@@ -80,7 +80,8 @@ async function sha256Hex(input: string): Promise<string> {
 
 async function canonicalEmailEventId(params: {
   channelId: string;
-  imapSequenceId: string;
+  uidValidity: string | null;
+  imapUid: string | null;
   fromEmail: string;
   dateStr: string | null;
   subject: string;
@@ -90,7 +91,8 @@ async function canonicalEmailEventId(params: {
   if (params.messageId) return params.messageId;
   const hash = await sha256Hex([
     params.channelId,
-    params.imapSequenceId,
+    params.uidValidity ?? "",
+    params.imapUid ?? "",
     params.fromEmail,
     params.dateStr ?? "",
     params.subject,
@@ -107,7 +109,7 @@ serve(async (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     getServiceKey() ?? "",
-    { auth: { persistSession: false } }
+    { auth: { persistSession: false } },
   );
 
   try {
@@ -172,7 +174,9 @@ serve(async (req) => {
         let conn: Deno.TlsConn | null = null;
 
         try {
-          conn = await Deno.connectTls({ hostname: host, port: 993, alpnProtocols: [] });
+          // Re-resolve and pin a public IP on every cron connection before any
+          // credential is sent. This closes the stored-host SSRF/DNS-rebinding path.
+          conn = await connectTlsToPublicHostname(host, 993);
 
           const greeting = await readFromConn(conn);
           if (!greeting.includes("OK")) {
@@ -189,12 +193,13 @@ serve(async (req) => {
             }
             conn.close();
             conn = null;
-            await new Promise(r => setTimeout(r, 2000 * attempt));
+            await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
             continue;
           }
 
           const selectResp = await imapCommand(conn, "A002", "SELECT INBOX");
           if (!selectResp.includes("A002 OK")) throw new Error("Failed to SELECT INBOX");
+          const uidValidity = selectResp.match(/UIDVALIDITY\s+(\d+)/i)?.[1] ?? null;
 
           const searchResp = await imapCommand(conn, "A003", "SEARCH UNSEEN");
           const searchMatch = searchResp.match(/\* SEARCH (.+)/);
@@ -215,11 +220,12 @@ serve(async (req) => {
               const fetchResp = await imapCommand(
                 conn,
                 `F${msgId}`,
-                `FETCH ${msgId} (BODY[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID IN-REPLY-TO CONTENT-TYPE)] BODY[TEXT])`,
-                20_000
+                `FETCH ${msgId} (UID BODY[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID IN-REPLY-TO CONTENT-TYPE)] BODY[TEXT])`,
+                20_000,
               );
 
               const headers = parseEmailHeaders(fetchResp);
+              const imapUid = fetchResp.match(/\bUID\s+(\d+)\b/i)?.[1] ?? null;
               let bodyText = extractTextBody(fetchResp);
               if (!bodyText) bodyText = headers.subject;
               const messageContent = headers.subject !== "(No Subject)"
@@ -227,7 +233,8 @@ serve(async (req) => {
                 : bodyText.substring(0, 2000);
               const eventId = await canonicalEmailEventId({
                 channelId: channel.id,
-                imapSequenceId: msgId,
+                uidValidity,
+                imapUid,
                 fromEmail: headers.fromEmail,
                 dateStr: headers.dateStr,
                 subject: headers.subject,
@@ -263,8 +270,8 @@ serve(async (req) => {
 
               const textLower = messageContent.toLowerCase();
               const matched = (keywords || [])
-                .filter((k: { keyword: string }) => textLower.includes(k.keyword.toLowerCase()))
-                .map((k: { keyword: string }) => k.keyword);
+                .filter((keyword: { keyword: string }) => textLower.includes(keyword.keyword.toLowerCase()))
+                .map((keyword: { keyword: string }) => keyword.keyword);
 
               let aiScore = matched.length > 0 ? 0.5 : 0.1;
               let suggestedReply = "";
@@ -314,8 +321,8 @@ serve(async (req) => {
                       suggestedReply = parsed.suggested_reply;
                     }
                   }
-                } catch (e) {
-                  console.error("[EMAIL-POLL] AI analysis error:", e);
+                } catch (error) {
+                  console.error("[EMAIL-POLL] AI analysis error:", error);
                 }
               }
 
@@ -356,6 +363,8 @@ serve(async (req) => {
 
               const metadata: Record<string, unknown> = { external_event_id: eventId };
               if (headers.messageId) metadata.external_message_id = headers.messageId;
+              if (imapUid) metadata.imap_uid = imapUid;
+              if (uidValidity) metadata.imap_uidvalidity = uidValidity;
               if (headers.inReplyTo) metadata.in_reply_to = headers.inReplyTo;
               if (headers.hasAttachment) metadata.has_attachment = true;
 
@@ -437,11 +446,11 @@ serve(async (req) => {
           success = true;
         } catch (channelErr) {
           console.error(`[EMAIL-POLL] Error for channel ${channel.id} (attempt ${attempt}):`, channelErr);
-          if (conn) { try { conn.close(); } catch { /* */ } }
+          if (conn) { try { conn.close(); } catch { /* noop */ } }
           if (attempt === maxAttempts) {
             await supabase.from("channels").update({ connection_status: "error" }).eq("id", channel.id);
           } else {
-            await new Promise(r => setTimeout(r, 2000 * attempt));
+            await new Promise((resolve) => setTimeout(resolve, 2000 * attempt));
           }
         }
       }
