@@ -5,8 +5,7 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireInternalSecret } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
-const ALLOW_ANY_ORIGIN = true;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 60;
@@ -26,6 +25,12 @@ function checkRateLimit(ip: string): boolean {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "POST required" }), {
+      status: 405,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
+  }
 
   const unauth = requireInternalSecret(req);
   if (unauth) {
@@ -48,9 +53,17 @@ serve(async (req) => {
   try {
     const body = await req.json();
     const { visitor_name, visitor_email, message, page_url, channel_id } = body;
+    const eventId = typeof body.event_id === "string" ? body.event_id.trim() : "";
 
-    if (!channel_id || !message) {
-      return new Response(JSON.stringify({ error: "channel_id and message are required" }), {
+    if (!channel_id || !message || !eventId) {
+      return new Response(JSON.stringify({ error: "channel_id, event_id and message are required" }), {
+        status: 400,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    if (eventId.length > 200) {
+      return new Response(JSON.stringify({ error: "event_id too long" }), {
         status: 400,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
@@ -79,7 +92,7 @@ serve(async (req) => {
     }
 
     const channel = channels[0];
-    if (!channel.workspace_id) {
+    if (!channel.workspace_id || !channel.user_id) {
       return new Response(JSON.stringify({ error: "Channel configuration error" }), {
         status: 403,
         headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -89,11 +102,27 @@ serve(async (req) => {
     const userId = channel.user_id;
     const workspaceId = channel.workspace_id;
 
-    const { data: keywords } = await supabase
+    const { data: existing, error: existingError } = await supabase
+      .from("inbox_messages")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .eq("channel_id", channel_id)
+      .eq("provider_message_id", eventId)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existing) {
+      return new Response(JSON.stringify({ ok: true, duplicate: true, event_id: eventId, matched: 0, lead_id: null }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: keywords, error: keywordsError } = await supabase
       .from("keywords")
       .select("keyword")
       .eq("workspace_id", workspaceId)
       .eq("is_active", true);
+    if (keywordsError) throw keywordsError;
 
     const textLower = String(message).toLowerCase();
     const matched = (keywords || [])
@@ -102,35 +131,55 @@ serve(async (req) => {
 
     const intentScore = matched.length > 0 ? 0.6 : 0.2;
     const priority = matched.length > 0 ? "medium" : "normal";
-    const sourceName = page_url ? `Website (${new URL(page_url).pathname})` : "Website Chat";
+    let sourceName = "Website Chat";
+    if (page_url) {
+      try {
+        sourceName = `Website (${new URL(page_url).pathname})`;
+      } catch {
+        sourceName = "Website Chat";
+      }
+    }
 
-    const { error: inboxErr } = await supabase.from("inbox_messages").insert({
-      user_id: userId,
-      workspace_id: workspaceId,
-      channel_id,
-      channel_type: "website_chat",
-      source_name: sourceName,
-      sender_name: visitor_name || "Website Visitor",
-      sender_identifier: visitor_email || "",
-      message_content: message,
-      message_timestamp: new Date().toISOString(),
-      intent_score: intentScore,
-      matched_keywords: matched,
-      is_unread: true,
-      priority,
-      status: "new",
-      metadata: { page_url, visitor_email },
-    });
+    const { data: inboxMessage, error: inboxErr } = await supabase
+      .from("inbox_messages")
+      .insert({
+        user_id: userId,
+        workspace_id: workspaceId,
+        channel_id,
+        channel_type: "website_chat",
+        provider_message_id: eventId,
+        source_name: sourceName,
+        sender_name: visitor_name || "Website Visitor",
+        sender_identifier: visitor_email || "",
+        message_content: message,
+        message_timestamp: new Date().toISOString(),
+        intent_score: intentScore,
+        matched_keywords: matched,
+        is_unread: true,
+        priority,
+        status: "new",
+        metadata: { page_url, visitor_email, external_event_id: eventId },
+      })
+      .select("id")
+      .single();
 
-    if (inboxErr) throw inboxErr;
+    if (inboxErr) {
+      if (inboxErr.code === "23505") {
+        return new Response(JSON.stringify({ ok: true, duplicate: true, event_id: eventId, matched: 0, lead_id: null }), {
+          headers: { ...getCors(req), "Content-Type": "application/json" },
+        });
+      }
+      throw inboxErr;
+    }
 
-    let leadId = null;
+    let leadId: string | null = null;
     if (matched.length > 0) {
       const { data: lead, error: leadErr } = await supabase
         .from("leads")
         .insert({
           user_id: userId,
           workspace_id: workspaceId,
+          inbox_message_id: inboxMessage.id,
           message_content: message,
           source_name: sourceName,
           source_type: "website_chat",
@@ -141,16 +190,30 @@ serve(async (req) => {
         })
         .select("id")
         .single();
-      if (leadErr) throw leadErr;
-      leadId = lead?.id;
+
+      if (leadErr) {
+        console.error("webchat-ingest lead creation failed", {
+          inbox_message_id: inboxMessage.id,
+          workspace_id: workspaceId,
+          code: leadErr.code,
+        });
+      } else {
+        leadId = lead?.id ?? null;
+      }
     }
 
-    return new Response(JSON.stringify({ ok: true, matched: matched.length, lead_id: leadId }), {
+    return new Response(JSON.stringify({
+      ok: true,
+      duplicate: false,
+      event_id: eventId,
+      matched: matched.length,
+      lead_id: leadId,
+    }), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
-  } catch (e) {
-    console.error("webchat-ingest error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
+  } catch (error) {
+    console.error("webchat-ingest error:", error instanceof Error ? error.message : "Unknown error");
+    return new Response(JSON.stringify({ error: "Webchat processing failed" }), {
       status: 500,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
