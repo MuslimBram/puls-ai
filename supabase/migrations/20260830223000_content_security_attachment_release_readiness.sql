@@ -44,15 +44,9 @@ BEGIN
     );
   END IF;
 
-  -- Never infer completeness from the scans that happen to exist. The parent
-  -- event must state how many attachments were expected at ingress time; this
-  -- prevents a clean subset from masking an unstaged second/third attachment.
-  BEGIN
-    v_expected_attachment_count := (v_event.metadata ->> 'expected_attachment_count')::integer;
-  EXCEPTION WHEN invalid_text_representation THEN
-    v_expected_attachment_count := NULL;
-  END;
-
+  -- Completeness is bound server-side by the enqueue RPC. Never infer the
+  -- expected number of files from the rows that happen to exist.
+  v_expected_attachment_count := v_event.expected_attachment_count;
   IF v_expected_attachment_count IS NULL OR v_expected_attachment_count < 1 THEN
     RETURN jsonb_build_object(
       'ready', false,
@@ -156,4 +150,4 @@ GRANT EXECUTE ON FUNCTION public.get_content_security_attachment_release_readine
   TO service_role;
 
 COMMENT ON FUNCTION public.get_content_security_attachment_release_readiness(uuid) IS
-  'Read-only release readiness. Every expected attachment must be malware-clean; clean scans never override text-policy quarantine/reject and never release content themselves.';
+  'Read-only release readiness. Every server-bound expected attachment must be malware-clean; clean scans never override text-policy quarantine/reject and never release content themselves.';
