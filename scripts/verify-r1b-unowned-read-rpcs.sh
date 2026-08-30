@@ -75,7 +75,12 @@ BEGIN
       RAISE EXCEPTION 'service_role lost %', identity;
     END IF;
     proc_oid := to_regprocedure(identity);
-    IF NOT ('search_path=pg_catalog, public' = ANY((SELECT proconfig FROM pg_proc WHERE oid=proc_oid))) THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_proc
+      WHERE oid = proc_oid
+        AND proconfig @> ARRAY['search_path=pg_catalog, public']
+    ) THEN
       RAISE EXCEPTION 'unsafe search_path remains on %', identity;
     END IF;
   END LOOP;
