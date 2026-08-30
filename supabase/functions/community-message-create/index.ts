@@ -10,6 +10,28 @@ import {
   moderateCommunityText,
 } from "../community-shared/helpers.ts";
 
+async function ensureMessageNotification(
+  adminClient: ReturnType<typeof createSupabaseClients>["adminClient"],
+  recipientId: string,
+  interestId: string,
+  messageId: string,
+  eventId: string,
+): Promise<string | null> {
+  const { error } = await adminClient.from("community_notifications").upsert({
+    user_id: recipientId,
+    type: "new_message",
+    title: "New Community Message",
+    message: "You received a new message in your interest chat.",
+    event_id: eventId,
+    payload: { interest_id: interestId, message_id: messageId, event_id: eventId },
+  }, {
+    onConflict: "user_id,type,event_id",
+    ignoreDuplicates: true,
+  });
+
+  return error?.message ?? null;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: CORS_HEADERS });
@@ -46,6 +68,8 @@ serve(async (req) => {
       return errorResponse("Caller is not a participant in this interest thread", 403, "UNAUTHORIZED_PARTICIPANT");
     }
 
+    const recipientId = interest.buyer_user_id === user.id ? interest.seller_user_id : interest.buyer_user_id;
+
     const { data: existingMessage } = await adminClient
       .from("community_interest_messages")
       .select("*")
@@ -55,6 +79,16 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingMessage) {
+      const notificationError = await ensureMessageNotification(
+        adminClient,
+        recipientId,
+        interest_id,
+        existingMessage.id,
+        eventId,
+      );
+      if (notificationError) {
+        return errorResponse(notificationError, 503, "NOTIFICATION_PERSIST_FAILED");
+      }
       return jsonResponse({ success: true, reused: true, event_id: eventId, message: existingMessage });
     }
 
@@ -107,20 +141,32 @@ serve(async (req) => {
           .maybeSingle();
 
         if (racedMessage) {
+          const notificationError = await ensureMessageNotification(
+            adminClient,
+            recipientId,
+            interest_id,
+            racedMessage.id,
+            eventId,
+          );
+          if (notificationError) {
+            return errorResponse(notificationError, 503, "NOTIFICATION_PERSIST_FAILED");
+          }
           return jsonResponse({ success: true, reused: true, event_id: eventId, message: racedMessage });
         }
       }
       return errorResponse(msgError.message, 400, "MESSAGE_CREATE_FAILED");
     }
 
-    const recipientId = interest.buyer_user_id === user.id ? interest.seller_user_id : interest.buyer_user_id;
-    await adminClient.from("community_notifications").insert({
-      user_id: recipientId,
-      type: "new_message",
-      title: "New Community Message",
-      message: "You received a new message in your interest chat.",
-      payload: { interest_id, message_id: msgRecord.id, event_id: eventId },
-    });
+    const notificationError = await ensureMessageNotification(
+      adminClient,
+      recipientId,
+      interest_id,
+      msgRecord.id,
+      eventId,
+    );
+    if (notificationError) {
+      return errorResponse(notificationError, 503, "NOTIFICATION_PERSIST_FAILED");
+    }
 
     return jsonResponse({ success: true, reused: false, event_id: eventId, message: msgRecord });
   } catch (err: unknown) {
