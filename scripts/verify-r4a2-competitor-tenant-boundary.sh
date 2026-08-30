@@ -26,9 +26,13 @@ DO $$ BEGIN
  BEGIN DELETE FROM competitors WHERE id='33333333-3333-4333-8333-333333333333'; IF FOUND THEN RAISE EXCEPTION 'member delete accepted'; END IF; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN INSERT INTO competitor_alerts VALUES('42222222-2222-4222-8222-222222222222','cccccccc-cccc-4ccc-8ccc-cccccccccccc','11111111-1111-4111-8111-111111111111','32222222-2222-4222-8222-222222222222','foreign parent'); RAISE EXCEPTION 'foreign parent accepted'; EXCEPTION WHEN check_violation OR foreign_key_violation THEN NULL; END;
 END $$;
-UPDATE competitors SET name='member-tampered-owner-row' WHERE id='31111111-1111-4111-8111-111111111111';
+DO $$ BEGIN
+ BEGIN UPDATE competitors SET name='member-tampered-owner-row' WHERE id='31111111-1111-4111-8111-111111111111'; IF FOUND THEN RAISE EXCEPTION 'member updated another author row'; END IF; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+END $$;
 RESET ROLE;
 DO $$ BEGIN IF (SELECT name FROM competitors WHERE id='31111111-1111-4111-8111-111111111111')<>'A' THEN RAISE EXCEPTION 'member updated another author row'; END IF; END $$;
-SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false); DELETE FROM competitors WHERE id='31111111-1111-4111-8111-111111111111'; RESET ROLE;
+SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',false);
+DO $$ BEGIN DELETE FROM competitors WHERE id='31111111-1111-4111-8111-111111111111'; IF NOT FOUND THEN RAISE EXCEPTION 'owner delete failed'; END IF; END $$;
+RESET ROLE;
 SQL
 echo "R4a2 competitor tenant verifier: PASS"
