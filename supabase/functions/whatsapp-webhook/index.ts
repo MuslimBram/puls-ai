@@ -11,6 +11,11 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyMetaSignature } from "../_shared/webhook-signatures.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 const rlMap = new Map<string, { n: number; t: number }>();
@@ -135,7 +140,7 @@ serve(async (req) => {
         const workspaceId = ch.workspace_id;
         const channelId   = ch.id;
 
-        // Delivery status updates (lightweight — no idempotency claim needed)
+        // Delivery status updates (lightweight — no content-security scan needed)
         for (const st of statuses) {
           const { error: statusError } = await sb.from("inbox_messages")
             .update({ delivery_status: st.status, updated_at: new Date().toISOString() })
@@ -146,16 +151,52 @@ serve(async (req) => {
 
         // Inbound messages
         for (const msg of msgs) {
-          const waId = msg?.id ?? `wa:${Date.now()}`;
-
-          // ATOMIC idempotency claim BEFORE any side effect
-          const claim = await claimEvent(sb, "whatsapp", waId, workspaceId);
-          if (claim === "duplicate") continue;
-          if (claim === "error") { quarantined++; continue; }
+          const waId = msg?.id ?? "";
+          if (!waId) {
+            // A provider-native stable event ID is mandatory for security and
+            // ingress idempotency. Do not invent a Date.now() key.
+            quarantined++;
+            continue;
+          }
 
           const contact    = contacts.find((c: any) => c.wa_id === msg.from);
           const senderName = contact?.profile?.name ?? msg.from;
           const msgContent = msg.text?.body ?? msg.caption ?? `[${msg.type ?? "media"}]`;
+          const securityEventId = `wa:${waId}`;
+          const hasAttachment = Boolean(msg.type && msg.type !== "text");
+
+          // Universal Content Security boundary:
+          // verified provider + canonical tenant + stable provider event ID,
+          // BEFORE webhook claim/thread/inbox/lead/AI side effects.
+          const security = await scanInboundContent({
+            workspace_id: workspaceId,
+            source: "whatsapp",
+            event_id: securityEventId,
+            content: msgContent,
+            urls: extractSecurityUrls(msgContent),
+            attachment: hasAttachment ? { mime_type: "application/octet-stream" } : null,
+          });
+
+          if (!security.ok) {
+            console.error(`[WA] Content-security unavailable for event ${waId}: ${security.code}`);
+            return new Response(JSON.stringify({ error: "content_security_unavailable" }), {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+
+          if (blocksNormalIngress(security.decision)) {
+            quarantined++;
+            processed++;
+            continue;
+          }
+
+          // Atomic provider idempotency claim only after the security decision
+          // allows/tag normal ingress. This preserves retry repair without ever
+          // letting a provider duplicate bypass content security.
+          const claim = await claimEvent(sb, "whatsapp", waId, workspaceId);
+          if (claim === "duplicate") continue;
+          if (claim === "error") { quarantined++; continue; }
 
           const { data: threadId, error: threadError } = await sb.rpc("upsert_conversation_thread", {
             _user_id: ch.user_id,
@@ -188,7 +229,17 @@ serve(async (req) => {
             provider_message_id: waId,
             thread_id:           threadId,
             is_unread:          true,
-            metadata:           { waba_phone: wabaPhone, wa_id: msg.from, type: msg.type },
+            metadata: {
+              waba_phone: wabaPhone,
+              wa_id: msg.from,
+              type: msg.type,
+              content_security: {
+                event_id: securityEventId,
+                category: security.decision.category,
+                risk_score: security.decision.risk_score,
+                action: security.decision.action,
+              },
+            },
           });
           if (inboxError) {
             await releaseEventClaim(sb, "whatsapp", waId, workspaceId);
