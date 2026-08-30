@@ -154,16 +154,29 @@ Deno.serve(async (req) => {
   });
 
   if (enqueueError || !enqueued?.enqueued) {
-    // Resolve a concurrent winner before failing. The random object path is not
-    // part of logical payload identity, so same key/hash/size/mime is a safe retry.
-    const { data: winner } = await admin
-      .from("content_security_attachment_scans")
-      .select("id,content_sha256,byte_size,mime_type,status")
-      .eq("security_event_id", securityEventId)
-      .eq("attachment_key", attachmentKey)
-      .maybeSingle();
+    // Resolve a concurrent winner before failing. Count binding is checked first:
+    // same file bytes can never make a retry with a different declared total valid.
+    const [{ data: winner }, { data: reboundParent }] = await Promise.all([
+      admin
+        .from("content_security_attachment_scans")
+        .select("id,content_sha256,byte_size,mime_type,status")
+        .eq("security_event_id", securityEventId)
+        .eq("attachment_key", attachmentKey)
+        .maybeSingle(),
+      admin
+        .from("content_security_events")
+        .select("expected_attachment_count")
+        .eq("id", securityEventId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle(),
+    ]);
 
     await removeUploadedObject();
+
+    if (reboundParent?.expected_attachment_count !== null
+        && Number(reboundParent?.expected_attachment_count) !== expectedCount) {
+      return json({ error: "MALWARE_EXPECTED_ATTACHMENT_COUNT_MISMATCH" }, 409);
+    }
 
     const sameWinner = winner
       && winner.content_sha256 === contentSha256
@@ -179,17 +192,6 @@ Deno.serve(async (req) => {
         content_sha256: contentSha256,
         byte_size: bytes.byteLength,
       });
-    }
-
-    const { data: reboundParent } = await admin
-      .from("content_security_events")
-      .select("expected_attachment_count")
-      .eq("id", securityEventId)
-      .eq("workspace_id", workspaceId)
-      .maybeSingle();
-    if (reboundParent?.expected_attachment_count !== null
-        && Number(reboundParent?.expected_attachment_count) !== expectedCount) {
-      return json({ error: "MALWARE_EXPECTED_ATTACHMENT_COUNT_MISMATCH" }, 409);
     }
 
     return json({ error: "ATTACHMENT_SCAN_ENQUEUE_FAILED" }, 503);
