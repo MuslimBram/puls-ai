@@ -103,6 +103,10 @@ function normalizeAttachment(value: unknown): AttachmentInput | null | "invalid"
 
 function scrubForSemanticClassifier(text: string): string {
   return text
+    .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/gi, "[REDACTED_PRIVATE_KEY]")
+    .replace(/\b(?:seed phrase|recovery phrase|mnemonic)\s*(?::|=|\bis\b)\s+[A-Za-z]+(?:\s+[A-Za-z]+){5,23}/gi, "[REDACTED_RECOVERY_PHRASE]")
+    .replace(/\b(?:password|passcode|pin|otp|one[- ]time(?: password| code)?|verification code)\s*(?::|=|\bis\b)\s*[^\s,;]+/gi, "[REDACTED_CREDENTIAL]")
+    .replace(/\b(?:api[_ -]?key|client[_ -]?secret|access[_ -]?token|refresh[_ -]?token|secret)\s*[:=]\s*[^\s,;]+/gi, "[REDACTED_SECRET_ASSIGNMENT]")
     .replace(/\bBearer\s+[A-Za-z0-9._~+/=-]{12,}\b/gi, "[REDACTED_BEARER]")
     .replace(/\b(?:sk|rk|pk|sb_secret)_[A-Za-z0-9_-]{12,}\b/g, "[REDACTED_SECRET]")
     .replace(/\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g, "[REDACTED_JWT]")
@@ -309,6 +313,23 @@ async function encryptQuarantinePayload(payload: unknown): Promise<{
   }
 }
 
+async function failClaim(
+  admin: ReturnType<typeof createAdminClient>,
+  workspaceId: string,
+  source: string,
+  eventId: string,
+  claimToken: string,
+  reason: string,
+): Promise<void> {
+  await admin.rpc("fail_content_security_event", {
+    p_workspace_id: workspaceId,
+    p_source: source,
+    p_event_id: eventId,
+    p_claim_token: claimToken,
+    p_reason: reason,
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method !== "POST") {
     return json({ error: "Forbidden", code: "INTERNAL_SERVICE_ONLY" }, 403);
@@ -355,31 +376,6 @@ Deno.serve(async (req) => {
   const urls = normalizedUrls.urls;
   const admin = createAdminClient();
 
-  const { data: existingEvent, error: existingError } = await admin
-    .from("content_security_events")
-    .select("id,category,risk_score,action,decision_reason")
-    .eq("workspace_id", workspaceId)
-    .eq("source", source)
-    .eq("event_id", eventId)
-    .maybeSingle();
-
-  if (existingError) {
-    return json({ error: "Security ledger unavailable", code: "SECURITY_LEDGER_UNAVAILABLE" }, 503);
-  }
-  if (existingEvent) {
-    return json({
-      success: true,
-      reused: true,
-      event_id: eventId,
-      decision: {
-        category: existingEvent.category,
-        risk_score: existingEvent.risk_score,
-        action: existingEvent.action,
-        reason_code: existingEvent.decision_reason,
-      },
-    });
-  }
-
   const { data: workspace, error: workspaceError } = await admin
     .from("workspaces")
     .select("id")
@@ -390,84 +386,139 @@ Deno.serve(async (req) => {
     return json({ error: "Workspace not found", code: "WORKSPACE_NOT_FOUND" }, 403);
   }
 
-  const contentHash = await sha256Hex(JSON.stringify({ content, urls, attachment }));
-  let decision = deterministicDecision(content, urls, attachment);
-  if (!decision) {
-    decision = await runSemanticClassifier(workspaceId, content, urls);
-  }
-  if (!decision) {
-    decision = {
-      category: "unknown",
-      riskScore: 85,
-      action: "quarantine",
-      reasonCode: "SEMANTIC_CLASSIFIER_UNAVAILABLE",
-      semanticUsed: false,
-    };
-  }
-
-  const scannerVersions = {
-    deterministic: "2026-08-30.1",
-    semantic: decision.semanticUsed ? "ai-router:text_classification" : "not_used_or_unavailable",
-    malware: attachment ? "required_not_integrated" : "not_applicable",
-  };
-
-  const metadata = {
-    content_length: content.length,
-    url_count: urls.length,
-    has_attachment: Boolean(attachment),
-    attachment_mime_type: attachment?.mime_type ?? null,
-    attachment_size_bytes: attachment?.size_bytes ?? null,
-    semantic_classifier_used: decision.semanticUsed,
-  };
-
-  const encrypted = decision.action === "quarantine"
-    ? await encryptQuarantinePayload({
-        content,
-        urls,
-        attachment: attachment ? {
-          mime_type: attachment.mime_type ?? null,
-          size_bytes: attachment.size_bytes ?? null,
-          sha256: attachment.sha256 ?? null,
-        } : null,
-      })
-    : { ciphertext: null, iv: null, alg: null, stored: false } as const;
-
-  const { data: recorded, error: recordError } = await admin.rpc("record_content_security_event", {
+  // Claim before any classifier/provider call. A concurrent request receives the
+  // existing completed decision or 409 while the winning claim is in progress.
+  const { data: claim, error: claimError } = await admin.rpc("claim_content_security_event", {
     p_workspace_id: workspaceId,
     p_source: source,
     p_event_id: eventId,
-    p_category: decision.category,
-    p_risk_score: decision.riskScore,
-    p_action: decision.action,
-    p_decision_reason: decision.reasonCode,
-    p_content_sha256: contentHash,
-    p_scanner_versions: scannerVersions,
-    p_metadata: metadata,
-    p_quarantine_ciphertext: encrypted.ciphertext,
-    p_quarantine_iv: encrypted.iv,
-    p_quarantine_alg: encrypted.alg,
-    p_quarantine_metadata: {
-      payload_stored: encrypted.stored,
-      encryption_required: decision.action === "quarantine",
-    },
   });
 
-  if (recordError || !recorded) {
-    return json({ error: "Failed to record security decision", code: "SECURITY_RECORD_FAILED" }, 500);
+  if (claimError || !claim) {
+    return json({ error: "Security claim unavailable", code: "SECURITY_CLAIM_UNAVAILABLE" }, 503);
   }
 
-  return json({
-    success: true,
-    reused: Boolean(recorded.reused),
-    event_id: eventId,
-    decision: {
-      category: recorded.category,
-      risk_score: recorded.risk_score,
-      action: recorded.action,
-      reason_code: recorded.decision_reason,
-    },
-    quarantine: recorded.action === "quarantine"
-      ? { payload_stored: encrypted.stored, encrypted: encrypted.stored }
-      : null,
-  });
+  if (!claim.allowed) {
+    if (claim.status === "completed") {
+      return json({
+        success: true,
+        reused: true,
+        event_id: eventId,
+        decision: {
+          category: claim.category,
+          risk_score: claim.risk_score,
+          action: claim.action,
+          reason_code: claim.decision_reason,
+        },
+      });
+    }
+
+    return json({
+      error: "Security event is already being processed",
+      code: "SECURITY_EVENT_IN_PROGRESS",
+      event_id: eventId,
+    }, 409);
+  }
+
+  const claimToken = claim.claim_token;
+  if (typeof claimToken !== "string" || !UUID_RE.test(claimToken)) {
+    return json({ error: "Invalid security claim", code: "SECURITY_CLAIM_INVALID" }, 500);
+  }
+
+  try {
+    const contentHash = await sha256Hex(JSON.stringify({ content, urls, attachment }));
+    let decision = deterministicDecision(content, urls, attachment);
+    if (!decision) {
+      decision = await runSemanticClassifier(workspaceId, content, urls);
+    }
+    if (!decision) {
+      decision = {
+        category: "unknown",
+        riskScore: 85,
+        action: "quarantine",
+        reasonCode: "SEMANTIC_CLASSIFIER_UNAVAILABLE",
+        semanticUsed: false,
+      };
+    }
+
+    const scannerVersions = {
+      deterministic: "2026-08-30.2",
+      semantic: decision.semanticUsed ? "ai-router:text_classification" : "not_used_or_unavailable",
+      malware: attachment ? "required_not_integrated" : "not_applicable",
+    };
+
+    const metadata = {
+      content_length: content.length,
+      url_count: urls.length,
+      has_attachment: Boolean(attachment),
+      attachment_mime_type: attachment?.mime_type ?? null,
+      attachment_size_bytes: attachment?.size_bytes ?? null,
+      semantic_classifier_used: decision.semanticUsed,
+    };
+
+    const encrypted = decision.action === "quarantine"
+      ? await encryptQuarantinePayload({
+          content,
+          urls,
+          attachment: attachment ? {
+            mime_type: attachment.mime_type ?? null,
+            size_bytes: attachment.size_bytes ?? null,
+            sha256: attachment.sha256 ?? null,
+          } : null,
+        })
+      : { ciphertext: null, iv: null, alg: null, stored: false } as const;
+
+    if (decision.action === "quarantine" && !encrypted.stored) {
+      await failClaim(admin, workspaceId, source, eventId, claimToken, "QUARANTINE_ENCRYPTION_UNAVAILABLE");
+      return json({
+        error: "Quarantine storage unavailable",
+        code: "QUARANTINE_STORAGE_UNAVAILABLE",
+        event_id: eventId,
+      }, 503);
+    }
+
+    const { data: recorded, error: recordError } = await admin.rpc("finalize_content_security_event", {
+      p_workspace_id: workspaceId,
+      p_source: source,
+      p_event_id: eventId,
+      p_claim_token: claimToken,
+      p_category: decision.category,
+      p_risk_score: decision.riskScore,
+      p_action: decision.action,
+      p_decision_reason: decision.reasonCode,
+      p_content_sha256: contentHash,
+      p_scanner_versions: scannerVersions,
+      p_metadata: metadata,
+      p_quarantine_ciphertext: encrypted.ciphertext,
+      p_quarantine_iv: encrypted.iv,
+      p_quarantine_alg: encrypted.alg,
+      p_quarantine_metadata: {
+        payload_stored: encrypted.stored,
+        encryption_required: decision.action === "quarantine",
+      },
+    });
+
+    if (recordError || !recorded) {
+      await failClaim(admin, workspaceId, source, eventId, claimToken, "SECURITY_FINALIZE_FAILED");
+      return json({ error: "Failed to finalize security decision", code: "SECURITY_FINALIZE_FAILED" }, 500);
+    }
+
+    return json({
+      success: true,
+      reused: false,
+      event_id: eventId,
+      decision: {
+        category: recorded.category,
+        risk_score: recorded.risk_score,
+        action: recorded.action,
+        reason_code: recorded.decision_reason,
+      },
+      quarantine: recorded.action === "quarantine"
+        ? { payload_stored: true, encrypted: true }
+        : null,
+    });
+  } catch {
+    await failClaim(admin, workspaceId, source, eventId, claimToken, "CONTENT_SECURITY_PROCESSING_FAILED");
+    return json({ error: "Content security processing failed", code: "CONTENT_SECURITY_PROCESSING_FAILED" }, 500);
+  }
 });
