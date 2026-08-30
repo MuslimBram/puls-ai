@@ -13,8 +13,6 @@ psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
 create schema auth;
 create type public.app_role as enum ('user','business_owner','admin','super_admin','controller','worker','moderator','support_agent','staff','accountant');
 create or replace function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
--- Mirror the Supabase platform grants so SECURITY INVOKER trigger functions
--- can call auth.uid() when running under the authenticated role.
 grant usage on schema auth to anon, authenticated, service_role;
 grant execute on function auth.uid() to anon, authenticated, service_role;
 
@@ -80,8 +78,19 @@ create policy "Users can update own profile" on public.profiles for update to au
 using (auth.uid()=user_id) with check (auth.uid()=user_id);
 create policy "Users can view own profile" on public.profiles for select to authenticated
 using (auth.uid()=user_id);
+create policy "Owners can view their workspaces" on public.workspaces for select to authenticated
+using (owner_id=auth.uid() or public.is_platform_operator());
 create policy "Owners can update their workspaces" on public.workspaces for update to authenticated
 using (owner_id=auth.uid()) with check (owner_id=auth.uid());
+
+-- Canonical admin elevation RPC is an earlier migration dependency. The
+-- isolated fixture only needs its signature; admin grant behavior is exercised
+-- independently through test_grant_admin below.
+create or replace function public.request_admin_role(_target_user_id uuid)
+returns uuid language sql security definer set search_path='' as $$
+  select gen_random_uuid()
+$$;
+grant execute on function public.request_admin_role(uuid) to authenticated;
 
 create or replace function public.test_grant_admin(_target uuid)
 returns void language plpgsql security definer set search_path='' as $$
@@ -114,11 +123,15 @@ psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 -f "$M" >/dev/null
 
 psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
 do $$ begin
-  if exists(select 1 from pg_policies where schemaname='public' and tablename='user_roles' and cmd in ('INSERT','UPDATE')) then raise exception 'direct role-write policy remains'; end if;
-  if has_table_privilege('authenticated','public.user_roles','INSERT') or has_table_privilege('authenticated','public.user_roles','UPDATE') then raise exception 'authenticated direct role write grant remains'; end if;
+  if exists(select 1 from pg_policies where schemaname='public' and tablename='user_roles' and cmd in ('INSERT','UPDATE')) then raise exception 'direct role-grant/update policy remains'; end if;
+  if not exists(select 1 from pg_policies where schemaname='public' and tablename='user_roles' and policyname='Admins can delete operational roles' and cmd='DELETE') then raise exception 'bounded authenticated role-revoke policy missing'; end if;
+  if has_table_privilege('authenticated','public.user_roles','INSERT') or has_table_privilege('authenticated','public.user_roles','UPDATE') then raise exception 'authenticated direct role grant/update remains'; end if;
   if not has_table_privilege('authenticated','public.user_roles','SELECT') or not has_table_privilege('authenticated','public.user_roles','DELETE') then raise exception 'authenticated role read/revoke contract broken'; end if;
   if has_table_privilege('anon','public.user_roles','SELECT') or has_table_privilege('sandbox_exec','public.user_roles','SELECT') then raise exception 'browser/sandbox excess role grant remains'; end if;
   if not has_table_privilege('service_role','public.user_roles','SELECT') or not has_table_privilege('service_role','public.user_roles','INSERT') or not has_table_privilege('service_role','public.user_roles','UPDATE') or not has_table_privilege('service_role','public.user_roles','DELETE') then raise exception 'service_role DML contract broken'; end if;
+  if not exists(select 1 from pg_proc where pronamespace='public'::regnamespace and proname='grant_platform_operational_role' and prosecdef=true and proconfig::text like '%search_path=%') then raise exception 'bounded operational role RPC missing or unsafe'; end if;
+  if not has_function_privilege('authenticated','public.grant_platform_operational_role(uuid,public.app_role)','EXECUTE') then raise exception 'authenticated operational role RPC grant missing'; end if;
+  if has_function_privilege('anon','public.grant_platform_operational_role(uuid,public.app_role)','EXECUTE') then raise exception 'anon can execute operational role RPC'; end if;
   if not exists(select 1 from pg_trigger where tgrelid='public.profiles'::regclass and tgname='trg_enforce_platform_admin_profile_identity' and not tgisinternal) then raise exception 'admin identity guard missing'; end if;
   if not exists(select 1 from pg_proc where pronamespace='public'::regnamespace and proname='enforce_platform_admin_profile_identity' and prosecdef=false and proconfig::text like '%search_path=%') then raise exception 'admin identity guard must be SECURITY INVOKER with fixed search_path'; end if;
   if not exists(select 1 from pg_trigger where tgrelid='public.workspaces'::regclass and tgname='trg_enforce_workspace_platform_managed_fields' and not tgisinternal) then raise exception 'workspace commercial guard missing'; end if;
@@ -126,13 +139,31 @@ do $$ begin
 end $$;
 SQL
 
-expect_fail(){ if psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 -c "$1" >/dev/null 2>&1; then echo "unexpected success: $2"; exit 1; fi; }
+expect_error(){
+  local sql="$1" label="$2" output
+  if output=$(psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 -c "$sql" 2>&1); then
+    echo "unexpected success: $label"
+    echo "$output"
+    exit 1
+  fi
+}
 
-expect_fail "set role authenticated; set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; insert into public.user_roles(user_id,role) values('dddddddd-dddd-4ddd-8ddd-dddddddddddd','admin');" direct_admin_insert
-expect_fail "set role authenticated; set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; update public.user_roles set role='controller' where user_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';" direct_admin_update
-expect_fail "set role authenticated; set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; update public.profiles set full_name='Changed Admin' where user_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';" admin_self_identity
+expect_error "set role authenticated; set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; insert into public.user_roles(user_id,role) values('dddddddd-dddd-4ddd-8ddd-dddddddddddd','admin');" direct_admin_insert
+expect_error "set role authenticated; set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; update public.user_roles set role='controller' where user_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';" direct_admin_update
+expect_error "set role authenticated; set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; update public.profiles set full_name='Changed Admin' where user_id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';" admin_self_identity
+expect_error "set role authenticated; set request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'; select public.grant_platform_operational_role('cccccccc-cccc-4ccc-8ccc-cccccccccccc','admin');" operational_rpc_cannot_grant_admin
 
-# SECURITY DEFINER admin grant path remains functional.
+# Bounded operational role grant remains functional for platform admins.
+psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
+begin;
+set local role authenticated;
+set local request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+select public.grant_platform_operational_role('cccccccc-cccc-4ccc-8ccc-cccccccccccc','controller');
+commit;
+do $$ begin if not exists(select 1 from public.user_roles where user_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' and role='controller') then raise exception 'operational role RPC broken'; end if; end $$;
+SQL
+
+# Existing SECURITY DEFINER admin grant path remains functional.
 psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
 set local role authenticated;
@@ -177,18 +208,34 @@ update public.profiles set full_name='Admin Corrected' where user_id='aaaaaaaa-a
 commit;
 SQL
 
-# Current tenant controls, including payment_mode, remain usable.
+# Current tenant controls, including payment_mode, remain usable and hit the row.
 psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
 set local role authenticated;
 set local request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 update public.workspaces set name='Renamed', require_2fa=true, payment_mode='external' where id='11111111-1111-4111-8111-111111111111';
 commit;
+do $$ begin
+  if not exists(select 1 from public.workspaces where id='11111111-1111-4111-8111-111111111111' and name='Renamed' and require_2fa=true and payment_mode='external') then
+    raise exception 'owner workspace update did not hit the fixture row';
+  end if;
+end $$;
 SQL
 
-expect_fail "set role authenticated; set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; update public.workspaces set billing_mode='partner_billed' where id='11111111-1111-4111-8111-111111111111';" owner_billing_mode
-expect_fail "set role authenticated; set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; update public.workspaces set is_demo=true where id='11111111-1111-4111-8111-111111111111';" owner_demo
-expect_fail "set role authenticated; set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; update public.workspaces set owner_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' where id='11111111-1111-4111-8111-111111111111';" owner_transfer
+expect_error "set role authenticated; set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; update public.workspaces set billing_mode='partner_billed' where id='11111111-1111-4111-8111-111111111111';" owner_billing_mode
+expect_error "set role authenticated; set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; update public.workspaces set is_demo=true where id='11111111-1111-4111-8111-111111111111';" owner_demo
+expect_error "set role authenticated; set request.jwt.claim.sub='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'; update public.workspaces set owner_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc' where id='11111111-1111-4111-8111-111111111111';" owner_transfer
+
+psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
+do $$ begin
+  if not exists(
+    select 1 from public.workspaces
+    where id='11111111-1111-4111-8111-111111111111'
+      and billing_mode='direct' and is_demo=false
+      and owner_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+  ) then raise exception 'protected workspace field changed despite denial'; end if;
+end $$;
+SQL
 
 # Platform operator authorized by the row policy is not blocked.
 psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
@@ -197,6 +244,7 @@ set local role authenticated;
 set local request.jwt.claim.sub='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 update public.workspaces set billing_mode='partner_billed' where id='22222222-2222-4222-8222-222222222222';
 commit;
+do $$ begin if not exists(select 1 from public.workspaces where id='22222222-2222-4222-8222-222222222222' and billing_mode='partner_billed') then raise exception 'platform operator workspace update failed'; end if; end $$;
 SQL
 
 # Trusted backend remains able to manage platform-owned fields.
@@ -205,6 +253,7 @@ begin;
 set local role service_role;
 update public.workspaces set billing_mode='backend-managed' where id='11111111-1111-4111-8111-111111111111';
 commit;
+do $$ begin if not exists(select 1 from public.workspaces where id='11111111-1111-4111-8111-111111111111' and billing_mode='backend-managed') then raise exception 'service role workspace update failed'; end if; end $$;
 SQL
 
 echo "Platform governance C1/C3 verification: PASS"
