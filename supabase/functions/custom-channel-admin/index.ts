@@ -135,6 +135,7 @@ serve(async (req) => {
         const { data, error } = await admin
           .from("integration_event_logs")
           .select("*")
+          .eq("workspace_id", workspace_id)
           .order("created_at", { ascending: false })
           .limit(50);
         if (error) throw error;
