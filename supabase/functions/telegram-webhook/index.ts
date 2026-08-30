@@ -46,6 +46,10 @@ serve(async (req) => {
     return new Response(null, { headers: getCors(req) });
   }
 
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
+  let claimedWorkspaceId: string | null = null;
+  let claimedIdempotencyKey: string | null = null;
+
   try {
     const payload = await req.json();
     const msg = payload?.message || payload?.edited_message;
@@ -54,8 +58,6 @@ serve(async (req) => {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
-
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
 
     const { data: channels, error: channelsError } = await supabase
       .from("channels")
@@ -163,6 +165,11 @@ serve(async (req) => {
       }
     }
 
+    // From this point on we own a processing claim. Any thrown error must move
+    // it to failed so a provider retry can reclaim the same idempotency key.
+    claimedWorkspaceId = workspaceId;
+    claimedIdempotencyKey = idempotencyKey;
+
     let intentScore = 0.3;
     let suggestedReply = "";
     const aiRaw = await callAIRouter(
@@ -240,7 +247,7 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       throw new Error(threadError?.message || "Conversation thread persistence failed");
     }
 
-    await supabase.from("inbox_messages").insert({
+    const { error: inboxError } = await supabase.from("inbox_messages").insert({
       user_id: channel.user_id,
       workspace_id: workspaceId,
       channel_id: channel.id,
@@ -259,6 +266,7 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       metadata: { chat_id: chatId, telegram_user_id: senderId },
       intent_score: intentScore,
     } as never);
+    if (inboxError) throw inboxError;
 
     await supabase
       .from("integration_event_logs")
@@ -276,6 +284,18 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       { headers: { ...getCors(req), "Content-Type": "application/json" } },
     );
   } catch (e) {
+    if (claimedWorkspaceId && claimedIdempotencyKey) {
+      const { error: failureUpdateError } = await supabase
+        .from("integration_event_logs")
+        .update({ status: "failed", event_message: "Telegram processing failure" })
+        .eq("workspace_id", claimedWorkspaceId)
+        .eq("idempotency_key", claimedIdempotencyKey)
+        .eq("status", "processing");
+      if (failureUpdateError) {
+        console.error("[TELEGRAM-WEBHOOK] Failed to release processing claim:", failureUpdateError);
+      }
+    }
+
     console.error("[TELEGRAM-WEBHOOK] Error:", e);
     return new Response(
       JSON.stringify({ ok: false, error: e instanceof Error ? e.message : "Unknown" }),
