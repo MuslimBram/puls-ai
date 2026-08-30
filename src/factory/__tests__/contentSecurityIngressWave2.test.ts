@@ -12,6 +12,7 @@ const webchat = read("supabase/functions/webchat-ingest/index.ts");
 const webchatProxy = read("supabase/functions/webchat-proxy/index.ts");
 const webchatValidator = read("supabase/functions/_shared/webchat-channel-validator.ts");
 const customWebhook = read("supabase/functions/webhook-ingest/index.ts");
+const webhookSetup = read("src/components/WebhookSetup.tsx");
 const sms = read("supabase/functions/sms-webhook/index.ts");
 const config = read("supabase/config.toml");
 const emailMigration = read("supabase/migrations/20260830194000_email_ingress_idempotency.sql");
@@ -89,21 +90,39 @@ describe("P0.6 content-security ingress wave 2", () => {
     expect(webchat).toContain('source: "webchat"');
   });
 
-  it("gates authenticated Custom Webhook after tenant+secret verification and before dedupe/keywords/Inbox", () => {
+  it("requires timestamped HMAC-SHA256 before Custom Webhook reaches Content Security", () => {
+    expect(customWebhook).toContain("const SIGNATURE_WINDOW_SECONDS = 300");
+    expect(customWebhook).toContain('req.headers.get("x-webhook-event-id")');
+    expect(customWebhook).toContain('req.headers.get("x-webhook-timestamp")');
+    expect(customWebhook).toContain('req.headers.get("x-webhook-signature")');
+    expect(customWebhook).toContain('const signingPayload = `${timestampHeader}.${eventId}.${rawBody}`');
+    expect(customWebhook).toContain("{ name: \"HMAC\", hash: \"SHA-256\" }");
+    expect(customWebhook).toContain("if (bodyEventId !== eventId)");
+    expect(customWebhook).not.toContain('req.headers.get("x-webhook-secret")');
+
     const tenant = customWebhook.indexOf("const workspaceId = String(channel.workspace_id)");
-    const secret = customWebhook.indexOf("secureEqual(storedSecret, presentedSecret)");
+    const hmac = customWebhook.indexOf("secureEqualHex(expectedSignature, signatureMatch[1].toLowerCase())");
     const scan = customWebhook.indexOf("const security = await scanInboundContent({");
     const duplicate = customWebhook.indexOf("const { data: existing");
     const keywords = customWebhook.indexOf("const { data: keywords");
     const inbox = customWebhook.indexOf('.from("inbox_messages")\n      .insert');
-    expect(secret).toBeGreaterThan(-1);
-    expect(secret).toBeLessThan(tenant);
+
+    for (const position of [hmac, tenant, scan, duplicate, keywords, inbox]) expect(position).toBeGreaterThan(-1);
+    expect(hmac).toBeLessThan(tenant);
     expect(tenant).toBeLessThan(scan);
     expect(scan).toBeLessThan(duplicate);
     expect(scan).toBeLessThan(keywords);
     expect(scan).toBeLessThan(inbox);
-    expect(customWebhook).toContain("EVENT_ID_PATTERN");
     expect(customWebhook).toContain('source: "custom_webhook"');
+  });
+
+  it("keeps Custom Webhook UI aligned with HMAC v1 instead of bearer-secret auth", () => {
+    expect(webhookSetup).toContain("async function hmacSha256Hex");
+    expect(webhookSetup).toContain('"X-Webhook-Timestamp": timestamp');
+    expect(webhookSetup).toContain('"X-Webhook-Event-Id": eventId');
+    expect(webhookSetup).toContain('"X-Webhook-Signature": `v1=${signature}`');
+    expect(webhookSetup).toContain('const signingPayload = `${timestamp}.${eventId}.${rawBody}`');
+    expect(webhookSetup).not.toContain('"X-Webhook-Secret": sessionSecret');
   });
 
   it("gates signed Twilio SMS/MMS before provider claim, thread, keywords and Inbox", () => {
