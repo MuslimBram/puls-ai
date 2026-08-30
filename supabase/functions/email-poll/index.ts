@@ -7,6 +7,11 @@ import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
 import { connectTlsToPublicHostname } from "../_shared/public-network-guard.ts";
+import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -78,6 +83,10 @@ async function sha256Hex(input: string): Promise<string> {
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
+async function canonicalMessageIdToken(messageId: string): Promise<string> {
+  return `email_mid:${await sha256Hex(messageId.trim())}`;
+}
+
 async function canonicalEmailEventId(params: {
   channelId: string;
   uidValidity: string | null;
@@ -88,7 +97,7 @@ async function canonicalEmailEventId(params: {
   messageContent: string;
   messageId: string | null;
 }): Promise<string> {
-  if (params.messageId) return params.messageId;
+  if (params.messageId) return canonicalMessageIdToken(params.messageId);
   const hash = await sha256Hex([
     params.channelId,
     params.uidValidity ?? "",
@@ -175,7 +184,7 @@ serve(async (req) => {
 
         try {
           // Re-resolve and pin a public IP on every cron connection before any
-          // credential is sent. This closes the stored-host SSRF/DNS-rebinding path.
+          // credential is sent. This closes stored-host SSRF/DNS-rebinding.
           conn = await connectTlsToPublicHostname(host, 993);
 
           const greeting = await readFromConn(conn);
@@ -242,6 +251,36 @@ serve(async (req) => {
                 messageId: headers.messageId,
               });
 
+              // Cron auth + canonical channel tenant + stable canonical event ID
+              // are established before any keyword/AI/thread/Inbox side effect.
+              const security = await scanInboundContent({
+                workspace_id: channel.workspace_id,
+                source: "email",
+                event_id: eventId,
+                content: messageContent,
+                urls: extractSecurityUrls(messageContent),
+                attachment: headers.hasAttachment
+                  ? { mime_type: headers.contentType || "application/octet-stream" }
+                  : null,
+              });
+
+              if (!security.ok) {
+                throw new Error(`EMAIL_CONTENT_SECURITY_${security.code}`);
+              }
+
+              if (blocksNormalIngress(security.decision)) {
+                totalSkipped++;
+                // Text-only quarantine/reject has durable encrypted content in the
+                // security quarantine and can safely leave the IMAP unseen queue.
+                // Attachment-bearing mail stays UNSEEN until attachment staging is
+                // wired to the real malware scanner; do not silently lose the file.
+                if (!headers.hasAttachment) {
+                  await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+                }
+                continue;
+              }
+
+              // Friendly fast-path only after payload-bound content security.
               const { data: existingMsg, error: existingError } = await supabase
                 .from("inbox_messages")
                 .select("id")
@@ -328,12 +367,13 @@ serve(async (req) => {
 
               let threadId: string | null = null;
               if (headers.inReplyTo) {
+                const canonicalReplyId = await canonicalMessageIdToken(headers.inReplyTo);
                 const { data: replyThread } = await supabase
                   .from("inbox_messages")
                   .select("thread_id")
                   .eq("workspace_id", channel.workspace_id)
                   .eq("channel_id", channel.id)
-                  .eq("provider_message_id", headers.inReplyTo)
+                  .in("provider_message_id", [canonicalReplyId, headers.inReplyTo])
                   .not("thread_id", "is", null)
                   .limit(1)
                   .maybeSingle();
@@ -361,7 +401,15 @@ serve(async (req) => {
                 }).eq("id", threadId).eq("workspace_id", channel.workspace_id);
               }
 
-              const metadata: Record<string, unknown> = { external_event_id: eventId };
+              const metadata: Record<string, unknown> = {
+                external_event_id: eventId,
+                content_security: {
+                  event_id: eventId,
+                  category: security.decision.category,
+                  risk_score: security.decision.risk_score,
+                  action: security.decision.action,
+                },
+              };
               if (headers.messageId) metadata.external_message_id = headers.messageId;
               if (imapUid) metadata.imap_uid = imapUid;
               if (uidValidity) metadata.imap_uidvalidity = uidValidity;
