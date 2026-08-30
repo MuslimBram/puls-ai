@@ -2,23 +2,24 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
-import { requireInternalSecret } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
-const ALLOW_ANY_ORIGIN = true;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
+const json = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...getCors(req), "Content-Type": "application/json" },
+});
 
-
-// Rate limiter
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 120;
 const RATE_WINDOW = 60_000;
 
-function checkRateLimit(ip: string): boolean {
+function checkRateLimit(key: string): boolean {
   const now = Date.now();
-  const entry = rateLimitMap.get(ip);
+  const entry = rateLimitMap.get(key);
   if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + RATE_WINDOW });
+    rateLimitMap.set(key, { count: 1, resetAt: now + RATE_WINDOW });
     return true;
   }
   if (entry.count >= RATE_LIMIT) return false;
@@ -26,103 +27,207 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function boundedString(value: unknown, max: number, fallback = ""): string {
+  const text = typeof value === "string" ? value.trim() : fallback;
+  return text.slice(0, max);
+}
+
+async function secureEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [aHash, bHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(a)),
+    crypto.subtle.digest("SHA-256", encoder.encode(b)),
+  ]);
+  const left = new Uint8Array(aHash);
+  const right = new Uint8Array(bHash);
+  let diff = 0;
+  for (let i = 0; i < left.length; i++) diff |= left[i] ^ right[i];
+  return diff === 0;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
-
-  // SECURITY: require internal shared secret — this endpoint writes on
-  // behalf of any user_id and must never be publicly callable.
-  const unauth = requireInternalSecret(req);
-  if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...getCors(req), "Content-Type": "application/json" } });
+  if (req.method !== "POST") return json(req, { error: "POST required" }, 405);
 
   const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!checkRateLimit(clientIp)) {
-    return new Response(JSON.stringify({ error: "Too many requests" }), {
-      status: 429, headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  }
-
-
-  const supabase = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    getServiceKey()!,
-  );
 
   try {
-    const body = await req.json();
-    const { user_id, channel_type, source_name, sender_name, sender_identifier, message_content, timestamp, channel_id, metadata } = body;
+    const body = asRecord(await req.json());
+    const url = new URL(req.url);
+    const channelId = boundedString(url.searchParams.get("channel_id") || body.channel_id, 64);
+    const eventId = boundedString(req.headers.get("x-webhook-event-id") || body.event_id, 200);
+    const presentedSecret = boundedString(req.headers.get("x-webhook-secret"), 256);
+    const messageContent = typeof body.message_content === "string" ? body.message_content : "";
 
-    if (!user_id || !message_content) {
-      return new Response(JSON.stringify({ error: "user_id and message_content are required" }), {
-        status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+    if (!channelId) return json(req, { error: "channel_id required" }, 400);
+    if (!eventId) return json(req, { error: "event_id required" }, 400);
+    if (!presentedSecret) return json(req, { error: "X-Webhook-Secret required" }, 401);
+    if (!messageContent) return json(req, { error: "message_content required" }, 400);
+    if (messageContent.length > 10_000) return json(req, { error: "Message too long" }, 400);
+
+    const metadata = asRecord(body.metadata);
+    if (JSON.stringify(metadata).length > 16_384) {
+      return json(req, { error: "metadata too large" }, 400);
     }
 
-    if (message_content.length > 10000) {
-      return new Response(JSON.stringify({ error: "Message too long" }), {
-        status: 400, headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+    const rawTimestamp = boundedString(body.timestamp, 64);
+    if (rawTimestamp && Number.isNaN(Date.parse(rawTimestamp))) {
+      return json(req, { error: "Invalid timestamp" }, 400);
+    }
+    const messageTimestamp = rawTimestamp
+      ? new Date(rawTimestamp).toISOString()
+      : new Date().toISOString();
+
+    if (!checkRateLimit(`${channelId}:${clientIp}`)) {
+      return json(req, { error: "Too many requests" }, 429);
     }
 
-    // Keyword matching
-    const { data: keywords } = await supabase
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      getServiceKey()!,
+      { auth: { persistSession: false } },
+    );
+
+    // Tenant and user identity are resolved exclusively from the canonical
+    // channel row. External callers never choose a user_id/workspace_id.
+    const { data: channel, error: channelError } = await supabase
+      .from("channels")
+      .select("id,user_id,workspace_id,channel_type,is_enabled,credentials_encrypted")
+      .eq("id", channelId)
+      .eq("channel_type", "custom_webhook")
+      .maybeSingle();
+
+    if (channelError) throw channelError;
+    if (!channel || !channel.is_enabled || !channel.user_id || !channel.workspace_id) {
+      return json(req, { error: "Unauthorized webhook" }, 401);
+    }
+
+    const encryptedCredentials = asRecord(channel.credentials_encrypted);
+    const storedCiphertext = typeof encryptedCredentials.webhook_secret === "string"
+      ? encryptedCredentials.webhook_secret
+      : "";
+    if (!storedCiphertext) return json(req, { error: "Unauthorized webhook" }, 401);
+
+    const storedSecret = await decryptIfNeeded(storedCiphertext);
+    if (!await secureEqual(storedSecret, presentedSecret)) {
+      return json(req, { error: "Unauthorized webhook" }, 401);
+    }
+
+    const workspaceId = String(channel.workspace_id);
+    const userId = String(channel.user_id);
+
+    // Friendly fast-path for retries. The unique partial index added by the
+    // companion migration is the authoritative race-safe dedupe boundary.
+    const { data: existing, error: existingError } = await supabase
+      .from("inbox_messages")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .eq("channel_id", channelId)
+      .eq("provider_message_id", eventId)
+      .limit(1)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existing) {
+      return json(req, { ok: true, duplicate: true, matched: 0, lead_id: null });
+    }
+
+    const { data: keywords, error: keywordsError } = await supabase
       .from("keywords")
       .select("keyword")
-      .eq("user_id", user_id)
+      .eq("workspace_id", workspaceId)
       .eq("is_active", true);
+    if (keywordsError) throw keywordsError;
 
-    const textLower = message_content.toLowerCase();
+    const textLower = messageContent.toLowerCase();
     const matched = (keywords || [])
-      .filter((k: any) => textLower.includes(k.keyword.toLowerCase()))
-      .map((k: any) => k.keyword);
+      .map((item: { keyword?: unknown }) => typeof item.keyword === "string" ? item.keyword : "")
+      .filter((keyword: string) => keyword && textLower.includes(keyword.toLowerCase()));
 
     const intentScore = matched.length > 0 ? 0.5 : 0.1;
-    const msgTimestamp = timestamp || new Date().toISOString();
+    const sourceName = boundedString(body.source_name, 160, "Webhook") || "Webhook";
+    const senderName = boundedString(body.sender_name, 160, "External Source") || "External Source";
+    const senderIdentifier = boundedString(body.sender_identifier, 320);
 
-    const { error: inboxErr } = await supabase.from("inbox_messages").insert({
-      user_id,
-      channel_id: channel_id || null,
-      channel_type: channel_type || "custom_webhook",
-      source_name: source_name || "Webhook",
-      sender_name: sender_name || "External Source",
-      sender_identifier: sender_identifier || "",
-      message_content,
-      message_timestamp: msgTimestamp,
-      intent_score: intentScore,
-      matched_keywords: matched,
-      is_unread: true,
-      priority: matched.length > 0 ? "medium" : "normal",
-      status: "new",
-      metadata: metadata || {},
-    });
+    const { data: inboxMessage, error: inboxError } = await supabase
+      .from("inbox_messages")
+      .insert({
+        user_id: userId,
+        workspace_id: workspaceId,
+        channel_id: channelId,
+        channel_type: "custom_webhook",
+        provider_message_id: eventId,
+        source_name: sourceName,
+        sender_name: senderName,
+        sender_identifier: senderIdentifier,
+        message_content: messageContent,
+        message_timestamp: messageTimestamp,
+        intent_score: intentScore,
+        matched_keywords: matched,
+        is_unread: true,
+        priority: matched.length > 0 ? "medium" : "normal",
+        status: "new",
+        metadata: {
+          ...metadata,
+          external_event_id: eventId,
+          ingress: "custom_webhook",
+        },
+      })
+      .select("id")
+      .single();
 
-    if (inboxErr) console.error("Inbox insert error:", inboxErr);
+    if (inboxError) {
+      if (inboxError.code === "23505") {
+        return json(req, { ok: true, duplicate: true, matched: 0, lead_id: null });
+      }
+      throw inboxError;
+    }
 
-    let leadId = null;
+    let leadId: string | null = null;
     if (matched.length > 0 && intentScore >= 0.3) {
-      const { data: lead } = await supabase
+      const { data: lead, error: leadError } = await supabase
         .from("leads")
         .insert({
-          user_id,
-          message_content,
-          source_name: source_name || "Webhook",
-          source_type: channel_type || "custom_webhook",
-          message_date: msgTimestamp,
+          user_id: userId,
+          workspace_id: workspaceId,
+          message_content: messageContent,
+          source_name: sourceName,
+          source_type: "custom_webhook",
+          message_date: messageTimestamp,
           detected_keyword: matched[0],
           intent_score: intentScore,
           status: "new",
         })
         .select("id")
         .single();
-      leadId = lead?.id;
+
+      if (leadError) {
+        // Preserve the accepted inbox message and expose only a generic retryable
+        // signal; never log the webhook secret or raw credentials.
+        console.error("webhook-ingest lead creation failed", {
+          inbox_message_id: inboxMessage.id,
+          workspace_id: workspaceId,
+          code: leadError.code,
+        });
+      } else {
+        leadId = lead?.id ?? null;
+      }
     }
 
-    return new Response(JSON.stringify({ ok: true, matched: matched.length, lead_id: leadId }), {
-      headers: { ...getCors(req), "Content-Type": "application/json" },
+    return json(req, {
+      ok: true,
+      duplicate: false,
+      inbox_message_id: inboxMessage.id,
+      matched: matched.length,
+      lead_id: leadId,
     });
-  } catch (e) {
-    console.error("webhook-ingest error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+  } catch (error) {
+    console.error("webhook-ingest error", error instanceof Error ? error.message : "Unknown error");
+    return json(req, { error: "Webhook processing failed" }, 500);
   }
 });

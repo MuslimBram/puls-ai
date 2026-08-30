@@ -25,15 +25,40 @@ function checkRateLimit(key: string): boolean {
   return true;
 }
 
+async function claimInboundEvent(
+  supabase: ReturnType<typeof createClient>,
+  workspaceId: string,
+  messageSid: string,
+): Promise<"claimed" | "duplicate" | "error"> {
+  const { error } = await supabase.from("processed_webhook_events").insert({
+    provider: "twilio_sms",
+    event_id: `twilio_sms:${messageSid}`,
+    workspace_id: workspaceId,
+  });
+  if (!error) return "claimed";
+  if (error.code === "23505") return "duplicate";
+  console.error("[SMS] provider event claim failed", error.code ?? "unknown");
+  return "error";
+}
+
+async function releaseInboundEvent(
+  supabase: ReturnType<typeof createClient>,
+  workspaceId: string,
+  messageSid: string,
+): Promise<void> {
+  const { error } = await supabase.from("processed_webhook_events")
+    .delete()
+    .eq("provider", "twilio_sms")
+    .eq("event_id", `twilio_sms:${messageSid}`)
+    .eq("workspace_id", workspaceId);
+  if (error) console.error("[SMS] failed to release provider claim", error.code ?? "unknown");
+}
+
 /**
- * SMS Webhook — Twilio inbound + status callbacks
- * 
- * Handles:
- * - Inbound SMS (From, To, Body, Media)
- * - Status callbacks (MessageSid, MessageStatus, ErrorCode)
- * - Conversation threading
- * - Media attachment extraction
- * - Delivery state tracking
+ * SMS Webhook — Twilio inbound + status callbacks.
+ * Tenant identity is derived only from the signed provider-owned phone number.
+ * Inbound messages require the provider-native MessageSid/SmsSid as the stable
+ * idempotency key before any normal business side effect.
  */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
@@ -48,14 +73,13 @@ serve(async (req) => {
     getServiceKey()!,
     { auth: { persistSession: false } },
   );
+  let claimedWorkspaceId: string | null = null;
+  let claimedMessageSid: string | null = null;
 
   try {
     const contentType = req.headers.get("content-type") || "";
     const rawBody = await req.text();
 
-    // SECURITY: resolve the tenant credential from the provider-owned phone
-    // number before accepting the request. For inbound SMS, To is our number;
-    // for outbound delivery callbacks, From is our Twilio number.
     let routingTo = "", routingFrom = "", routingBody = "", routingSid = "", routingStatus = "", routingCalled = "";
     if (contentType.includes("application/x-www-form-urlencoded")) {
       const routingParams = new URLSearchParams(rawBody);
@@ -75,8 +99,7 @@ serve(async (req) => {
         routingStatus = routingJson.MessageStatus || routingJson.status || "";
         routingCalled = routingJson.Called || "";
       } catch {
-        // Signature verification below will fail closed if no tenant credential
-        // can be resolved from the malformed payload.
+        // Signature verification fails closed if a tenant credential cannot be resolved.
       }
     }
 
@@ -85,20 +108,25 @@ serve(async (req) => {
       ? (routingFrom || routingCalled || routingTo)
       : (routingTo || routingCalled || extractCalledNumber(rawBody, contentType));
 
-    const wsCreds = await resolveWorkspaceFromCalledNumber(providerOwnedNumber, ["sms","voip"], supabase);
-
-    const sigCheck = await verifyTwilioSignature(
-      req, rawBody, contentType,
-      wsCreds?.decrypted_auth_token
-    );
+    const wsCreds = await resolveWorkspaceFromCalledNumber(providerOwnedNumber, ["sms", "voip"], supabase);
+    const sigCheck = await verifyTwilioSignature(req, rawBody, contentType, wsCreds?.decrypted_auth_token);
     if (!sigCheck.ok) {
-      console.warn(`[SMS] Twilio signature rejected: ${sigCheck.reason} (routing=${providerOwnedNumber})`);
+      console.warn(`[SMS] Twilio signature rejected: ${sigCheck.reason}`);
       return new Response("<Response></Response>", {
-        status: 403, headers: { ...getCors(req), "Content-Type": "text/xml" },
+        status: 403,
+        headers: { ...getCors(req), "Content-Type": "text/xml" },
       });
     }
-    // Workspace is authoritative from the signed provider-owned number, NOT query params.
-    const resolvedWorkspaceId = wsCreds?.workspace_id;
+    if (!wsCreds?.workspace_id || !wsCreds.channel_id || !wsCreds.user_id) {
+      return new Response("<Response></Response>", {
+        status: 403,
+        headers: { ...getCors(req), "Content-Type": "text/xml" },
+      });
+    }
+
+    const workspaceId = wsCreds.workspace_id;
+    const userId = wsCreds.user_id;
+    const channelId = wsCreds.channel_id;
 
     let from = "", to = "", body = "", messageSid = "", numMedia = 0;
     let messageStatus = "", errorCode = "", errorMessage = "";
@@ -130,7 +158,7 @@ serve(async (req) => {
       errorCode = jsonBody.ErrorCode || "";
     }
 
-    // ── STATUS CALLBACK (delivery reconciliation) ──
+    // Delivery callbacks reconcile only the already-resolved tenant.
     if (messageStatus && messageSid && !body) {
       const statusMap: Record<string, string> = {
         queued: "queued", sending: "queued", sent: "sent",
@@ -139,111 +167,68 @@ serve(async (req) => {
       };
       const normalizedStatus = statusMap[messageStatus.toLowerCase()] || messageStatus.toLowerCase();
 
-      // The workspace/channel was already resolved from the signed provider-owned
-      // number before signature verification. Do not perform a second global
-      // first-match channel search here.
-      const matchedChannel = wsCreds && resolvedWorkspaceId
-        ? {
-            id: wsCreds.channel_id,
-            user_id: wsCreds.user_id,
-            workspace_id: resolvedWorkspaceId,
-          }
-        : null;
+      await supabase.from("message_delivery_states").insert({
+        user_id: userId,
+        workspace_id: workspaceId,
+        channel_type: "sms",
+        direction: "outbound",
+        provider_message_id: messageSid,
+        delivery_status: normalizedStatus,
+        failure_reason: errorMessage || null,
+        failure_code: errorCode || null,
+        status_updated_at: new Date().toISOString(),
+        metadata: { message_status: messageStatus },
+      } as any);
 
-      if (matchedChannel) {
-        // Record delivery state
-        await supabase.from("message_delivery_states").insert({
-          user_id: matchedChannel.user_id,
-          workspace_id: matchedChannel.workspace_id,
-          channel_type: "sms",
-          direction: "outbound",
-          provider_message_id: messageSid,
-          delivery_status: normalizedStatus,
-          failure_reason: errorMessage || null,
-          failure_code: errorCode || null,
-          status_updated_at: new Date().toISOString(),
-          metadata: { message_status: messageStatus },
-        } as any);
+      await supabase.from("inbox_messages")
+        .update({ delivery_status: normalizedStatus, updated_at: new Date().toISOString() } as any)
+        .eq("provider_message_id", messageSid)
+        .eq("workspace_id", workspaceId);
 
-        // Update only the resolved tenant's inbox row.
-        await supabase
-          .from("inbox_messages")
-          .update({ delivery_status: normalizedStatus, updated_at: new Date().toISOString() } as any)
-          .eq("provider_message_id", messageSid)
-          .eq("workspace_id", matchedChannel.workspace_id);
-
-        // Bounce → suppression
-        if (["failed", "undelivered"].includes(normalizedStatus)) {
-          const recipientPhone = from === to ? "" : (from || to);
-          if (recipientPhone && ["30003", "30005", "30006", "21610", "21614"].includes(errorCode)) {
-            await supabase.from("global_suppression_list").upsert({
-              user_id: matchedChannel.user_id,
-              contact_identifier: recipientPhone,
-              channel_type: "sms",
-              suppression_type: "bounce",
-              reason: errorMessage || `Twilio error ${errorCode}`,
-              source: "webhook",
-              source_id: messageSid,
-            }, { onConflict: "user_id,contact_identifier,channel_type,suppression_type" });
-          }
+      if (["failed", "undelivered"].includes(normalizedStatus)) {
+        const recipientPhone = from === to ? "" : (from || to);
+        if (recipientPhone && ["30003", "30005", "30006", "21610", "21614"].includes(errorCode)) {
+          await supabase.from("global_suppression_list").upsert({
+            user_id: userId,
+            contact_identifier: recipientPhone,
+            channel_type: "sms",
+            suppression_type: "bounce",
+            reason: errorMessage || `Twilio error ${errorCode}`,
+            source: "webhook",
+            source_id: messageSid,
+          }, { onConflict: "user_id,contact_identifier,channel_type,suppression_type" });
         }
       }
 
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
 
-    // ── INBOUND MESSAGE ──
     if (!from || !body) {
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
-
-    // Deduplicate
-    if (messageSid) {
-      const { data: existing } = await supabase
-        .from("inbox_messages")
-        .select("id")
-        .eq("provider_message_id", messageSid)
-        .limit(1);
-      if (existing && existing.length > 0) {
-        return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
-      }
+    if (!messageSid) {
+      console.error("[SMS] inbound message missing provider MessageSid");
+      return new Response("<Response></Response>", { status: 400, headers: { "Content-Type": "text/xml" } });
     }
 
-    // Find channel
-    const { data: channels } = await supabase
-      .from("channels")
-      .select("id, user_id, workspace_id, settings")
-      .eq("channel_type", "sms")
-      .eq("is_enabled", true)
-      .limit(100);
-
-    const matchedChannel = (channels || []).find((ch: any) => {
-      const s = ch.settings as Record<string, any> | null;
-      return s?.phone_number === to || s?.twilio_phone === to;
-    });
-
-    if (!matchedChannel) {
+    // Provider-native idempotency claim happens before thread/Inbox/lead/media side effects.
+    const claim = await claimInboundEvent(supabase, workspaceId, messageSid);
+    if (claim === "duplicate") {
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
-
-    const userId = matchedChannel.user_id;
-    const workspaceId = matchedChannel.workspace_id;
-    if (!workspaceId) {
-      throw new Error("SMS channel is not linked to a workspace");
+    if (claim === "error") {
+      return new Response("<Response></Response>", { status: 500, headers: { "Content-Type": "text/xml" } });
     }
-    if (resolvedWorkspaceId && resolvedWorkspaceId !== workspaceId) {
-      throw new Error("Signed Twilio destination does not match the resolved workspace");
-    }
+    claimedWorkspaceId = workspaceId;
+    claimedMessageSid = messageSid;
 
-    // Build media attachments
-    const mediaAttachments = mediaItems.map(m => ({
-      type: m.contentType.startsWith("image") ? "image" : m.contentType.startsWith("video") ? "video" : "document",
-      provider_url: m.url,
-      mime_type: m.contentType,
+    const mediaAttachments = mediaItems.map((media) => ({
+      type: media.contentType.startsWith("image") ? "image" : media.contentType.startsWith("video") ? "video" : "document",
+      provider_url: media.url,
+      mime_type: media.contentType,
     }));
 
-    // Thread
-    const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
+    const { data: threadId, error: threadError } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: userId,
       _workspace_id: workspaceId,
       _channel_type: "sms",
@@ -252,13 +237,14 @@ serve(async (req) => {
       _message_preview: body,
       _direction: "inbound",
     });
+    if (threadError || !threadId) throw new Error("SMS_THREAD_PERSISTENCE_FAILED");
 
-    // Keywords
-    const { data: keywords } = await supabase
+    const { data: keywords, error: keywordError } = await supabase
       .from("keywords")
       .select("keyword")
-      .eq("user_id", userId)
+      .eq("workspace_id", workspaceId)
       .eq("is_active", true);
+    if (keywordError) throw new Error("SMS_KEYWORD_QUERY_FAILED");
 
     const textLower = body.toLowerCase();
     const matched = (keywords || [])
@@ -266,11 +252,10 @@ serve(async (req) => {
       .map((k: any) => k.keyword);
     const intentScore = matched.length > 0 ? 0.5 : 0.1;
 
-    // Insert inbox message
     const { data: inboxMsg, error: inboxErr } = await supabase.from("inbox_messages").insert({
       user_id: userId,
       workspace_id: workspaceId,
-      channel_id: matchedChannel.id,
+      channel_id: channelId,
       channel_type: "sms",
       source_name: "SMS",
       sender_name: from,
@@ -284,41 +269,43 @@ serve(async (req) => {
       status: "new",
       direction: "inbound",
       delivery_status: "delivered",
-      provider_message_id: messageSid || null,
+      provider_message_id: messageSid,
       media_attachments: mediaAttachments,
-      thread_id: threadId || null,
+      thread_id: threadId,
     } as any).select("id").single();
 
-    if (inboxErr) console.error("[SMS] Inbox error:", inboxErr);
-
-    // Store media records
-    if (inboxMsg) {
-      for (const media of mediaItems) {
-        await supabase.from("message_media").insert({
-          user_id: userId,
-          workspace_id: workspaceId,
-          inbox_message_id: inboxMsg.id,
-          media_type: media.contentType.startsWith("image") ? "image" : "document",
-          mime_type: media.contentType,
-          provider_url: media.url,
-        } as any);
+    if (inboxErr) {
+      if (inboxErr.code === "23505") {
+        return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
       }
+      throw new Error("SMS_INBOX_PERSISTENCE_FAILED");
+    }
 
-      // Delivery state
-      await supabase.from("message_delivery_states").insert({
+    for (const media of mediaItems) {
+      const { error: mediaError } = await supabase.from("message_media").insert({
         user_id: userId,
         workspace_id: workspaceId,
         inbox_message_id: inboxMsg.id,
-        channel_type: "sms",
-        direction: "inbound",
-        provider_message_id: messageSid,
-        delivery_status: "delivered",
+        media_type: media.contentType.startsWith("image") ? "image" : "document",
+        mime_type: media.contentType,
+        provider_url: media.url,
       } as any);
+      if (mediaError) console.error("[SMS] media metadata insert failed", mediaError.code ?? "unknown");
     }
 
-    // Lead
+    const { error: deliveryError } = await supabase.from("message_delivery_states").insert({
+      user_id: userId,
+      workspace_id: workspaceId,
+      inbox_message_id: inboxMsg.id,
+      channel_type: "sms",
+      direction: "inbound",
+      provider_message_id: messageSid,
+      delivery_status: "delivered",
+    } as any);
+    if (deliveryError) console.error("[SMS] delivery state insert failed", deliveryError.code ?? "unknown");
+
     if (matched.length > 0 && intentScore >= 0.3) {
-      await supabase.from("leads").insert({
+      const { error: leadError } = await supabase.from("leads").insert({
         user_id: userId,
         workspace_id: workspaceId,
         message_content: body,
@@ -326,19 +313,25 @@ serve(async (req) => {
         source_type: "sms",
         channel_type: "sms",
         contact_identifier: from,
-        thread_id: threadId || null,
-        inbox_message_id: inboxMsg?.id || null,
+        thread_id: threadId,
+        inbox_message_id: inboxMsg.id,
         message_date: new Date().toISOString(),
         detected_keyword: matched[0],
         intent_score: intentScore,
         status: "new",
       });
+      if (leadError) console.error("[SMS] lead insert failed", leadError.code ?? "unknown");
     }
 
-    console.log(`[SMS] Processed from ${from}, keywords: ${matched.length}, media: ${mediaItems.length}`);
+    console.log(`[SMS] processed provider event ${messageSid}; keywords=${matched.length}; media=${mediaItems.length}`);
     return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
-  } catch (e) {
-    console.error("[SMS] Error:", e);
-    return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
+  } catch (error) {
+    if (claimedWorkspaceId && claimedMessageSid) {
+      await releaseInboundEvent(supabase, claimedWorkspaceId, claimedMessageSid);
+    }
+    console.error("[SMS] critical ingress error", error instanceof Error ? error.message : "unknown");
+    // Return 500 so Twilio can retry a critical persistence failure. The provider
+    // claim was released above and the Inbox unique index remains the last race guard.
+    return new Response("<Response></Response>", { status: 500, headers: { "Content-Type": "text/xml" } });
   }
 });
