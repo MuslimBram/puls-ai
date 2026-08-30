@@ -106,7 +106,7 @@ commit;
 SQL
 expect_fail "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; insert into public.scan_sources(id,workspace_id,user_id,business_id) values('aa111111-1111-4111-8111-111111111111','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','33333333-3333-4333-8333-333333333333','b1111111-1111-4111-8111-111111111111');" cross_workspace_insert
 expect_fail "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; update public.scan_sources set workspace_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' where id='a3111111-1111-4111-8111-111111111111';" workspace_move
-expect_fail "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; update public.scan_sources set user_id='11111111-1111-4111-8111-111111111111' where id='a3111111-1111-4111-8111-111111111111';" user_move
+expect_fail "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; update public.scan_sources set user_id='22222222-2222-4222-8222-222222222222' where id='a3111111-1111-4111-8111-111111111111';" user_move
 
 psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
