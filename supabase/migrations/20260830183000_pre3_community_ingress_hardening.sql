@@ -12,6 +12,9 @@ ALTER TABLE public.community_interest_messages
 ALTER TABLE public.community_violations
   ADD COLUMN IF NOT EXISTS event_id text;
 
+ALTER TABLE public.community_notifications
+  ADD COLUMN IF NOT EXISTS event_id text;
+
 ALTER TABLE public.community_ai_usage
   ADD COLUMN IF NOT EXISTS result_json jsonb;
 
@@ -25,6 +28,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_community_interest_messages_sender_event
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_community_violations_user_event
   ON public.community_violations(user_id, event_id)
+  WHERE event_id IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_community_notifications_user_type_event
+  ON public.community_notifications(user_id, type, event_id)
   WHERE event_id IS NOT NULL;
 
 -- Comments must go through the authenticated Edge Function so deterministic
@@ -41,6 +48,8 @@ COMMENT ON COLUMN public.community_interest_messages.event_id IS
   'Caller-generated canonical event/idempotency key for community chat message creation.';
 COMMENT ON COLUMN public.community_violations.event_id IS
   'Canonical event key of the blocked write that produced this violation.';
+COMMENT ON COLUMN public.community_notifications.event_id IS
+  'Canonical event key used to make notification side effects exactly-once per user/type/event.';
 COMMENT ON COLUMN public.community_ai_usage.result_json IS
   'Persisted domain verdict/result returned for idempotent completed AI request reuse.';
 
