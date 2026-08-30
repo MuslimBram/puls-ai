@@ -19,10 +19,15 @@ const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const encoder = new TextEncoder();
+const textDecoder = new TextDecoder();
+const asciiDecoder = new TextDecoder("ascii");
 const MAX_RAW_EMAIL_BYTES = 40 * 1024 * 1024;
 const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
 const MAX_TOTAL_ATTACHMENT_BYTES = 50 * 1024 * 1024;
 const MAX_ATTACHMENTS = 50;
+const MAX_IMAP_CONTROL_BYTES = 128 * 1024;
+const MIME_MAX_NESTING_DEPTH = 64;
+const MIME_MAX_HEADERS_BYTES = 1024 * 1024;
 
 type ParsedAttachment = {
   index: number;
@@ -52,9 +57,19 @@ async function readBytesFromConn(
   }
 }
 
+function concatBytes(chunks: Uint8Array[], total: number): Uint8Array {
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
+
 async function readGreeting(conn: Deno.TlsConn | Deno.TcpConn): Promise<string> {
   const chunk = await readBytesFromConn(conn);
-  return chunk ? new TextDecoder().decode(chunk) : "";
+  return chunk ? textDecoder.decode(chunk) : "";
 }
 
 async function imapCommand(
@@ -77,21 +92,64 @@ async function imapCommand(
   return response;
 }
 
-function extractImapLiteral(response: string, tag: string): string {
-  const marker = /\{(\d+)\}\r\n/.exec(response);
-  if (!marker || marker.index < 0) throw new Error("EMAIL_IMAP_LITERAL_MISSING");
-  const start = marker.index + marker[0].length;
-  const terminators = [`\r\n)\r\n${tag} OK`, `)\r\n${tag} OK`];
-  let end = -1;
-  for (const terminator of terminators) {
-    const candidate = response.lastIndexOf(terminator);
-    if (candidate > start) {
-      end = candidate;
-      break;
+/**
+ * Reads one IMAP literal without decoding the literal bytes as text. Only the
+ * ASCII control prefix/suffix is decoded. This keeps attachment bytes exact for
+ * MIME decoding and malware hashing, including 8-bit/binary message bodies.
+ */
+async function imapLiteralCommand(
+  conn: Deno.TlsConn | Deno.TcpConn,
+  tag: string,
+  cmd: string,
+  maxLiteralBytes: number,
+  timeoutMs = 45_000,
+): Promise<Uint8Array> {
+  await conn.write(encoder.encode(`${tag} ${cmd}\r\n`));
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  let literalStart = -1;
+  let literalLength = -1;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const chunk = await readBytesFromConn(conn, Math.max(deadline - Date.now(), 1000));
+    if (!chunk) break;
+    chunks.push(chunk);
+    total += chunk.byteLength;
+
+    if (total > maxLiteralBytes + MAX_IMAP_CONTROL_BYTES) {
+      throw new Error("EMAIL_IMAP_LITERAL_RESPONSE_TOO_LARGE");
+    }
+
+    const combined = concatBytes(chunks, total);
+    if (literalStart < 0) {
+      const controlPrefix = asciiDecoder.decode(combined.subarray(0, Math.min(combined.byteLength, MAX_IMAP_CONTROL_BYTES)));
+      const marker = /\{(\d+)\}\r\n/.exec(controlPrefix);
+      if (marker?.index !== undefined) {
+        literalLength = Number(marker[1]);
+        if (!Number.isInteger(literalLength) || literalLength < 0 || literalLength > maxLiteralBytes) {
+          throw new Error("EMAIL_IMAP_LITERAL_SIZE_INVALID");
+        }
+        // The IMAP literal marker is ASCII, so character and byte offsets are identical.
+        literalStart = marker.index + marker[0].length;
+      }
+    }
+
+    if (literalStart >= 0 && literalLength >= 0) {
+      const literalEnd = literalStart + literalLength;
+      if (combined.byteLength >= literalEnd) {
+        const suffix = asciiDecoder.decode(combined.subarray(literalEnd));
+        if (suffix.includes(`${tag} NO`) || suffix.includes(`${tag} BAD`)) {
+          throw new Error("EMAIL_IMAP_LITERAL_FETCH_REJECTED");
+        }
+        if (suffix.includes(`${tag} OK`)) {
+          return combined.slice(literalStart, literalEnd);
+        }
+      }
     }
   }
-  if (end <= start) throw new Error("EMAIL_IMAP_LITERAL_TRUNCATED");
-  return response.slice(start, end);
+
+  throw new Error("EMAIL_IMAP_LITERAL_INCOMPLETE");
 }
 
 function stripHtml(html: string): string {
@@ -103,6 +161,12 @@ function stripHtml(html: string): string {
     .replace(/&amp;/gi, "&")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function mailboxField(value: unknown, field: "address" | "name"): string {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return "";
+  const record = value as Record<string, unknown>;
+  return typeof record[field] === "string" ? record[field].trim() : "";
 }
 
 async function sha256HexBytes(bytes: Uint8Array): Promise<string> {
@@ -281,17 +345,34 @@ serve(async (req) => {
               }
 
               const rawTag = `R${msgId}`;
-              const rawResp = await imapCommand(conn, rawTag, `FETCH ${msgId} (BODY.PEEK[])`, 45_000);
-              const rawEmail = extractImapLiteral(rawResp, rawTag);
-              const parsed = await PostalMime.parse(rawEmail);
+              const rawEmailBytes = await imapLiteralCommand(
+                conn,
+                rawTag,
+                `FETCH ${msgId} (BODY.PEEK[])`,
+                MAX_RAW_EMAIL_BYTES,
+                45_000,
+              );
+              if (rawEmailBytes.byteLength !== rawSize) {
+                throw new Error("EMAIL_RAW_MESSAGE_SIZE_MISMATCH");
+              }
 
-              const fromEmail = parsed.from?.address?.trim() || "unknown@email.com";
-              const fromName = parsed.from?.name?.trim() || fromEmail;
-              const subject = parsed.subject?.trim() || "(No Subject)";
-              const dateStr = parsed.date?.trim() || null;
-              const messageId = parsed.messageId?.trim() || null;
-              const inReplyTo = parsed.inReplyTo?.trim() || null;
-              const textBody = (parsed.text || (parsed.html ? stripHtml(parsed.html) : "") || subject).trim();
+              const parsed = await PostalMime.parse(rawEmailBytes, {
+                attachmentEncoding: "arraybuffer",
+                forceRfc822Attachments: true,
+                maxNestingDepth: MIME_MAX_NESTING_DEPTH,
+                maxHeadersSize: MIME_MAX_HEADERS_BYTES,
+                maxRfc822NestingDepth: 0,
+              });
+
+              const fromEmail = mailboxField(parsed.from, "address") || "unknown@email.com";
+              const fromName = mailboxField(parsed.from, "name") || fromEmail;
+              const subject = typeof parsed.subject === "string" && parsed.subject.trim() ? parsed.subject.trim() : "(No Subject)";
+              const dateStr = typeof parsed.date === "string" && parsed.date.trim() ? parsed.date.trim() : null;
+              const messageId = typeof parsed.messageId === "string" && parsed.messageId.trim() ? parsed.messageId.trim() : null;
+              const inReplyTo = typeof parsed.inReplyTo === "string" && parsed.inReplyTo.trim() ? parsed.inReplyTo.trim() : null;
+              const plainText = typeof parsed.text === "string" ? parsed.text : "";
+              const htmlText = typeof parsed.html === "string" ? stripHtml(parsed.html) : "";
+              const textBody = (plainText || htmlText || subject).trim();
               const messageContent = subject !== "(No Subject)"
                 ? `[${subject}] ${textBody.substring(0, 2000)}`
                 : textBody.substring(0, 2000);
@@ -303,6 +384,9 @@ serve(async (req) => {
               let totalAttachmentBytes = 0;
               for (let index = 0; index < rawAttachments.length; index++) {
                 const attachment = rawAttachments[index];
+                if ((attachment as Record<string, unknown>).rfc822DepthExceeded === true) {
+                  throw new Error("EMAIL_RFC822_DEPTH_EXCEEDED");
+                }
                 const bytes = attachmentBytes(attachment.content);
                 if (bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error("EMAIL_ATTACHMENT_TOO_LARGE");
                 totalAttachmentBytes += bytes.byteLength;
