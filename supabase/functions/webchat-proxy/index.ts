@@ -7,9 +7,8 @@
  * The browser never sees or sends INTERNAL_WEBHOOK_SECRET.
  * user_id and workspace_id are NEVER trusted from the browser.
  * Channel/workspace resolution remains entirely server-side via channel_id.
- * Each accepted message gets a canonical event_id before it crosses the
- * internal ingress boundary. Clients may provide a stable event_id for retry
- * idempotency; legacy clients receive a server-generated one.
+ * Every accepted logical message must arrive with a caller-stable event_id so
+ * network retries reuse the same idempotency boundary.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -84,7 +83,6 @@ serve(async (req) => {
   }
 
   const { channel_id, message, event_id, visitor_name, visitor_email, page_url } = inputResult;
-  const inboundEventId = event_id || `webchat_${crypto.randomUUID()}`;
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
   const { data: channelRows, error: channelErr } = await supabase
@@ -120,7 +118,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         channel_id,
-        event_id: inboundEventId,
+        event_id,
         message,
         visitor_name,
         visitor_email,
@@ -146,7 +144,7 @@ serve(async (req) => {
 
   return new Response(JSON.stringify({
     ok: true,
-    event_id: inboundEventId,
+    event_id,
     duplicate: Boolean(ingestBody.duplicate),
   }), {
     headers: { ...getCors(req), "Content-Type": "application/json" },
