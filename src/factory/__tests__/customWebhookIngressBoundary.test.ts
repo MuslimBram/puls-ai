@@ -28,21 +28,49 @@ describe("P0.6 custom webhook ingress boundary", () => {
     expect(ingest).not.toMatch(/const\s*\{[^}]*workspace_id[^}]*\}\s*=\s*body/);
   });
 
-  it("authenticates with the encrypted per-channel webhook secret and never the internal cron secret", () => {
-    expect(ingest).toContain('req.headers.get("x-webhook-secret")');
+  it("requires timestamped HMAC-SHA256 rather than replayable bearer-secret authentication", () => {
+    expect(ingest).toContain("const SIGNATURE_WINDOW_SECONDS = 300");
+    expect(ingest).toContain('req.headers.get("x-webhook-event-id")');
+    expect(ingest).toContain('req.headers.get("x-webhook-timestamp")');
+    expect(ingest).toContain('req.headers.get("x-webhook-signature")');
+    expect(ingest).toContain("{ name: \"HMAC\", hash: \"SHA-256\" }");
+    expect(ingest).toContain('const signingPayload = `${timestampHeader}.${eventId}.${rawBody}`');
+    expect(ingest).toContain("Math.abs(nowSeconds - timestampSeconds) > SIGNATURE_WINDOW_SECONDS");
+    expect(ingest).toContain("secureEqualHex(expectedSignature, signatureMatch[1].toLowerCase())");
     expect(ingest).toContain("decryptIfNeeded(storedCiphertext)");
-    expect(ingest).toContain("secureEqual(storedSecret, presentedSecret)");
+    expect(ingest).not.toContain('req.headers.get("x-webhook-secret")');
     expect(ingest).not.toContain("requireInternalSecret");
-    expect(setup).toContain('webhook_secret: secret');
-    expect(setup).toContain('"X-Webhook-Secret": sessionSecret');
   });
 
-  it("requires a canonical event id and stores it as provider_message_id", () => {
-    expect(ingest).toContain('body.event_id');
-    expect(ingest).toContain('error: "event_id required"');
+  it("binds the signature to exact raw JSON bytes and header/body event-id parity", () => {
+    const rawBodyRead = ingest.indexOf("const rawBody = await req.text()");
+    const jsonParse = ingest.indexOf("JSON.parse(rawBody)");
+    const signing = ingest.indexOf('const signingPayload = `${timestampHeader}.${eventId}.${rawBody}`');
+    expect(rawBodyRead).toBeGreaterThan(-1);
+    expect(jsonParse).toBeGreaterThan(rawBodyRead);
+    expect(signing).toBeGreaterThan(jsonParse);
+    expect(ingest).toContain("if (bodyEventId !== eventId)");
+    expect(ingest).toContain('error: "Body event_id must match X-Webhook-Event-Id"');
+    expect(ingest).toContain("EVENT_ID_PATTERN");
     expect(ingest).toContain("provider_message_id: eventId");
-    expect(setup).toContain('"event_id": "evt_unique_from_your_system"');
-    expect(setup).not.toContain('"user_id": "YOUR_USER_ID"');
+  });
+
+  it("uses channel_id only as endpoint routing and never trusts channel/user/workspace from signed body", () => {
+    expect(ingest).toContain('const channelId = boundedString(url.searchParams.get("channel_id"), 64)');
+    expect(ingest).not.toContain('url.searchParams.get("channel_id") || body.channel_id');
+    expect(ingest).not.toMatch(/body\.user_id|body\.workspace_id/);
+  });
+
+  it("documents and generates the exact HMAC v1 contract in the setup UI", () => {
+    expect(setup).toContain("async function hmacSha256Hex");
+    expect(setup).toContain('"X-Webhook-Timestamp": timestamp');
+    expect(setup).toContain('"X-Webhook-Event-Id": eventId');
+    expect(setup).toContain('"X-Webhook-Signature": `v1=${signature}`');
+    expect(setup).toContain('const signingPayload = `${timestamp}.${eventId}.${rawBody}`');
+    expect(setup).toContain("Replay window: 5 minutes");
+    expect(setup).toContain("Never send the secret itself in a request header");
+    expect(setup).not.toContain('"X-Webhook-Secret": sessionSecret');
+    expect(setup).toContain('webhook_secret: secret');
   });
 
   it("uses a race-safe unique boundary scoped only to custom webhooks", () => {
