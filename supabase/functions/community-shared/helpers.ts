@@ -56,33 +56,99 @@ export async function getAuthUser(req: Request, userClient: ReturnType<typeof cr
 }
 
 /**
+ * Canonical event/idempotency key for Community user-generated writes.
+ * The client should create the key once per intended write and reuse it on retry.
+ * Older callers still receive a server-generated canonical key.
+ */
+export function parseCommunityEventId(value: unknown):
+  | { ok: true; eventId: string; generated: boolean }
+  | { ok: false; message: string } {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true, eventId: crypto.randomUUID(), generated: true };
+  }
+  if (typeof value !== "string") {
+    return { ok: false, message: "event_id must be a string when provided" };
+  }
+
+  const eventId = value.trim();
+  if (eventId.length < 8 || eventId.length > 200) {
+    return { ok: false, message: "event_id must be between 8 and 200 characters" };
+  }
+
+  if (!/^[A-Za-z0-9:_-]+$/.test(eventId)) {
+    return { ok: false, message: "event_id contains unsupported characters" };
+  }
+
+  return { ok: true, eventId, generated: false };
+}
+
+export type CommunityModerationDecision =
+  | { allowed: true }
+  | {
+      allowed: false;
+      code: "CONTACT_INFO_VIOLATION";
+      category: "contact_info";
+      severity: "high";
+      field: string;
+      detection: { hasContact: true; type?: string; match?: string };
+    };
+
+/**
+ * Unified deterministic pre-insert moderation for Community text writes.
+ * This is deliberately deterministic and fail-closed for direct contact sharing.
+ * P0.6 content-security-firewall will extend this boundary with broader risk classes.
+ */
+export function moderateCommunityText(
+  fields: Array<{ field: string; text: string | null | undefined }>
+): CommunityModerationDecision {
+  for (const item of fields) {
+    const text = item.text?.trim();
+    if (!text) continue;
+
+    const detection = detectContactInformation(text);
+    if (detection.hasContact) {
+      return {
+        allowed: false,
+        code: "CONTACT_INFO_VIOLATION",
+        category: "contact_info",
+        severity: "high",
+        field: item.field,
+        detection: {
+          hasContact: true,
+          type: detection.type,
+          match: detection.match,
+        },
+      };
+    }
+  }
+
+  return { allowed: true };
+}
+
+/**
  * Server-side Contact Information Detector (Phone numbers, Emails, Messaging links, Social handles)
  */
 export function detectContactInformation(text: string): { hasContact: boolean; type?: string; match?: string } {
   if (!text) return { hasContact: false };
 
-  // 1. Email addresses
   const emailRegex = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/;
   const emailMatch = text.match(emailRegex);
   if (emailMatch) {
     return { hasContact: true, type: "email", match: emailMatch[0] };
   }
 
-  // 2. Social / Messaging URLs (whatsapp, telegram, instagram, facebook, viber, signal)
   const linkRegex = /(wa\.me|t\.me|telegram\.me|whatsapp\.com|instagram\.com|facebook\.com|viber\.com)\/[A-Za-z0-9_.-]+/i;
   const linkMatch = text.match(linkRegex);
   if (linkMatch) {
     return { hasContact: true, type: "messaging_link", match: linkMatch[0] };
   }
 
-  // 3. Social Handles (e.g. @my_handle, ig: handle)
   const handleRegex = /\b(ig|insta|telegram|tg|whatsapp|wa|viber)\s*[:=]\s*@?[A-Za-z0-9_.-]+/i;
   const handleMatch = text.match(handleRegex);
   if (handleMatch) {
     return { hasContact: true, type: "social_handle", match: handleMatch[0] };
   }
 
-  // 4. Phone numbers (e.g. +355691234567, 0691234567, 068 123 4567, +1-800-555-0199)
   const phoneRegex = /(\+?\d{1,4}[-.\s]?)?(\(?\d{2,4}\)?[-.\s]?)?\d{3,4}[-.\s]?\d{3,4}\b/;
   const phoneMatch = text.match(phoneRegex);
   if (phoneMatch && phoneMatch[0].replace(/\D/g, "").length >= 7) {
@@ -104,7 +170,6 @@ export async function resolveAiWorkspace(
   explicitWorkspaceId: string | null,
   adminClient: ReturnType<typeof createClient>
 ): Promise<{ workspaceId: string; via: "workspace" | "system" }> {
-  // 1. Explicit validated workspace
   if (explicitWorkspaceId) {
     const { data: ws } = await adminClient
       .from("workspaces")
@@ -129,7 +194,6 @@ export async function resolveAiWorkspace(
     }
   }
 
-  // 2. First owned workspace
   const { data: ownedWs } = await adminClient
     .from("workspaces")
     .select("id")
@@ -142,7 +206,6 @@ export async function resolveAiWorkspace(
     return { workspaceId: ownedWs.id, via: "workspace" };
   }
 
-  // 3. First member workspace
   const { data: memberWs } = await adminClient
     .from("workspace_members")
     .select("workspace_id")
@@ -154,12 +217,10 @@ export async function resolveAiWorkspace(
     return { workspaceId: memberWs.workspace_id, via: "workspace" };
   }
 
-  // 4. Controlled LIDHJET_SYSTEM_WORKSPACE_ID
   const systemWorkspaceId = Deno.env.get("LIDHJET_SYSTEM_WORKSPACE_ID");
   if (systemWorkspaceId) {
     return { workspaceId: systemWorkspaceId, via: "system" };
   }
 
-  // System workspace ID must be provisioned manually if no workspace found
   return { workspaceId: "00000000-0000-0000-0000-000000000000", via: "system" };
 }

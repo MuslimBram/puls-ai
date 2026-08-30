@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -31,6 +31,7 @@ export function InterestChatModal({ open, onOpenChange, interestId }: InterestCh
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [contactViolationError, setContactViolationError] = useState<string | null>(null);
+  const pendingEventId = useRef<string | null>(null);
 
   useEffect(() => {
     if (!open || !interestId) return;
@@ -66,6 +67,9 @@ export function InterestChatModal({ open, onOpenChange, interestId }: InterestCh
     setSending(true);
     setContactViolationError(null);
 
+    const eventId = pendingEventId.current ?? `community_msg_${crypto.randomUUID()}`;
+    pendingEventId.current = eventId;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -79,6 +83,7 @@ export function InterestChatModal({ open, onOpenChange, interestId }: InterestCh
         body: JSON.stringify({
           interest_id: interestId,
           message: newMessage,
+          event_id: eventId,
         }),
       });
 
@@ -96,8 +101,13 @@ export function InterestChatModal({ open, onOpenChange, interestId }: InterestCh
         throw new Error(resData.error || resData.message || "Failed to send message");
       }
 
-      setMessages((prev) => [...prev, resData.message]);
+      setMessages((prev) => (
+        prev.some((item) => item.id === resData.message.id)
+          ? prev
+          : [...prev, resData.message]
+      ));
       setNewMessage("");
+      pendingEventId.current = null;
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "An error occurred";
       toast({
@@ -123,7 +133,6 @@ export function InterestChatModal({ open, onOpenChange, interestId }: InterestCh
           </DialogDescription>
         </DialogHeader>
 
-        {/* Message Log */}
         <div className="flex-1 overflow-y-auto space-y-3 p-3 rounded-lg bg-muted/40 border border-border">
           {loading ? (
             <div className="flex items-center justify-center h-full">
@@ -160,7 +169,6 @@ export function InterestChatModal({ open, onOpenChange, interestId }: InterestCh
           )}
         </div>
 
-        {/* Violation Warning if triggered */}
         {contactViolationError && (
           <div className="p-2.5 rounded-lg bg-destructive/10 border border-destructive/30 text-xs text-destructive flex items-center gap-2">
             <ShieldAlert className="h-4 w-4 shrink-0" />
@@ -168,13 +176,13 @@ export function InterestChatModal({ open, onOpenChange, interestId }: InterestCh
           </div>
         )}
 
-        {/* Input Form */}
         <form onSubmit={handleSendMessage} className="flex gap-2 pt-2">
           <Input
             placeholder="Type your message..."
             value={newMessage}
             onChange={(e) => {
               setNewMessage(e.target.value);
+              pendingEventId.current = null;
               if (contactViolationError) setContactViolationError(null);
             }}
             className="flex-1 text-xs"
