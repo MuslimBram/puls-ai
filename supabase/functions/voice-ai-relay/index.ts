@@ -2,20 +2,21 @@
  * PULSE AI VOICE BRAIN — ConversationRelay Handler v2
  *
  * SECURITY:
- *   1. Validate Twilio WebSocket signature BEFORE accepting connection
- *   2. Resolve workspace from signed CallSid (not from query param alone)
- *   3. Route AI through ai-router (NOT hardwired to Anthropic)
- *   4. Scrub sensitive data before any AI prompt
- *   5. Feature flag: voice_ai_enabled must be true on channel
- *   6. Session persistence for reconnect
+ *   1. Resolve workspace from provider-owned called-number mapping
+ *   2. Validate Twilio WebSocket signature with that workspace token BEFORE upgrade
+ *   3. Never accept query-string workspace_id as tenant identity
+ *   4. Route AI through ai-router (NOT hardwired to Anthropic)
+ *   5. Scrub sensitive data before any AI prompt
+ *   6. Feature flag: voice_ai_enabled must be true on channel
+ *   7. Session persistence for reconnect
  */
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
-import { resolveWorkspaceFromCalledNumber, extractCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
+import { resolveWorkspaceFromCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_KEY  = getServiceKey()!;
+const SERVICE_KEY = getServiceKey()!;
 
 function scrubSensitive(text: string): string {
   return text
@@ -24,10 +25,9 @@ function scrubSensitive(text: string): string {
     .replace(/\b\d{3,4}\s+security\s+code\b/gi, "[CVV_REDACTED]");
 }
 
-/** Route AI through Pulse AI Router — NOT directly to any AI provider */
 async function routeAI(
   systemPrompt: string,
-  turns: Array<{role: string; content: string}>,
+  turns: Array<{ role: string; content: string }>,
   userMessage: string,
   workspaceId: string,
   sb: ReturnType<typeof createClient>,
@@ -37,11 +37,13 @@ async function routeAI(
 
   try {
     const messages = [
-      ...turns.slice(-10).map(t => ({ role: t.role === "ai" ? "assistant" : "user", content: t.content })),
+      ...turns.slice(-10).map((t) => ({
+        role: t.role === "ai" ? "assistant" : "user",
+        content: t.content,
+      })),
       { role: "user", content: scrubSensitive(userMessage) },
     ];
 
-    // Route through Pulse AI Router — provider selected by router, not hardwired
     const res = await fetch(`${SURL}/functions/v1/ai-router`, {
       method: "POST",
       headers: {
@@ -55,13 +57,12 @@ async function routeAI(
         messages,
         system: systemPrompt,
         max_tokens: 250,
-        require_fast: true,  // voice requires low latency — router picks fast provider
+        require_fast: true,
       }),
     });
 
     if (!res.ok) throw new Error(`ai-router ${res.status}`);
     const d = await res.json() as any;
-    // ai-router returns: { response: string, provider: string, ... }
     return d.response ?? d.content ?? d.text ?? "One moment please.";
   } catch (e: any) {
     console.error("[voice-ai-relay] ai-router failed:", e.message);
@@ -69,7 +70,11 @@ async function routeAI(
   }
 }
 
-async function buildContext(sb: ReturnType<typeof createClient>, wsId: string, callerId: string) {
+async function buildContext(
+  sb: ReturnType<typeof createClient>,
+  wsId: string,
+  callerId: string,
+) {
   const [biz, cust] = await Promise.all([
     sb.from("business_digital_twins").select("twin_data").eq("workspace_id", wsId).maybeSingle(),
     sb.from("contacts").select("name,email,phone,notes,intent_score").eq("workspace_id", wsId)
@@ -82,7 +87,6 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const url = new URL(req.url);
 
-  // ── HTTP: status check ────────────────────────────────────────────────────
   const isWsUpgrade = req.headers.get("upgrade")?.toLowerCase() === "websocket";
   if (!isWsUpgrade) {
     return new Response(JSON.stringify({
@@ -93,25 +97,27 @@ Deno.serve(async (req) => {
     }), { headers: { "Content-Type": "application/json" } });
   }
 
-  // ── WebSocket: VALIDATE SIGNATURE BEFORE ACCEPTING ────────────────────────
-  // Twilio sends X-Twilio-Signature on the WebSocket upgrade HTTP request.
-  // We MUST verify it before upgrading to prevent unsigned connections.
-  const rawBody = "";  // WebSocket upgrade has no body
+  const rawBody = "";
   const contentType = req.headers.get("content-type") ?? "";
-
-  // Resolve workspace from CallSid query param via active_calls lookup
-  const callSid     = url.searchParams.get("CallSid") ?? "";
+  const callSid = url.searchParams.get("CallSid") ?? "";
   const calledParam = url.searchParams.get("To") ?? url.searchParams.get("Called") ?? "";
 
-  // Try to resolve workspace credentials from the called number
+  // Tenant identity is provider-bound: the called Twilio number must uniquely map
+  // to one enabled workspace channel before any signature can be accepted.
   const wsCreds = calledParam
-    ? await resolveWorkspaceFromCalledNumber(calledParam, ["voip","voice"], sb)
+    ? await resolveWorkspaceFromCalledNumber(calledParam, ["voip", "voice"], sb)
     : null;
 
-  // Validate Twilio signature on the HTTP upgrade request
+  if (!wsCreds) {
+    console.warn(`[voice-ai-relay] Workspace resolution failed (called=${calledParam}, CallSid=${callSid})`);
+    return new Response("Forbidden: workspace not found", { status: 403 });
+  }
+
   const sigCheck = await verifyTwilioSignature(
-    req, rawBody, contentType,
-    wsCreds?.decrypted_auth_token  // per-workspace token
+    req,
+    rawBody,
+    contentType,
+    wsCreds.decrypted_auth_token,
   );
 
   if (!sigCheck.ok) {
@@ -119,34 +125,20 @@ Deno.serve(async (req) => {
     return new Response("Forbidden: invalid signature", { status: 403 });
   }
 
-  // Workspace must be resolved from signed credentials — not from untrusted query params
-  if (!wsCreds) {
-    // Fallback: if global auth token is configured, accept but log warning
-    const globalToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-    if (!globalToken) {
-      console.warn("[voice-ai-relay] No workspace credentials found and no global token");
-      return new Response("Forbidden: workspace not found", { status: 403 });
-    }
-    // Single-tenant fallback — log and continue
-    console.warn(`[voice-ai-relay] Using global fallback for CallSid=${callSid}`);
-  }
+  const workspaceId = wsCreds.workspace_id;
+  const callerNum = url.searchParams.get("From") ?? "";
 
-  const workspaceId = wsCreds?.workspace_id ?? url.searchParams.get("workspace_id") ?? "";
-  const callerNum   = url.searchParams.get("From") ?? "";
-
-  // ── Feature flag check ────────────────────────────────────────────────────
   const { data: ch } = await sb.from("channels")
     .select("voice_ai_enabled")
     .eq("workspace_id", workspaceId)
     .eq("channel_type", "voip")
+    .eq("is_enabled", true)
     .maybeSingle();
 
   if (!ch?.voice_ai_enabled) {
-    // Voice AI disabled — reject WebSocket so normal Twilio flow handles the call
     return new Response("voice_ai_disabled", { status: 503 });
   }
 
-  // ── Upgrade to WebSocket ──────────────────────────────────────────────────
   const { socket, response } = Deno.upgradeWebSocket(req);
 
   let session: Record<string, any> | null = null;
@@ -155,7 +147,7 @@ Deno.serve(async (req) => {
   socket.onopen = async () => {
     try {
       const ctx = await buildContext(sb, workspaceId, callerNum);
-      const bizName  = (ctx.business as any)?.name ?? "our business";
+      const bizName = (ctx.business as any)?.name ?? "our business";
       const custName = (ctx.customer as any)?.name;
 
       systemPrompt = `You are an AI receptionist for ${bizName}.
@@ -170,13 +162,17 @@ RULES:
 - For bookings: collect name, time, service
 - Qualify leads naturally — ask about needs and challenges`;
 
-      // Create/restore session
       const { data: existing } = await sb.from("voice_ai_sessions")
-        .select("*").eq("call_sid", callSid).maybeSingle();
+        .select("*")
+        .eq("call_sid", callSid)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
 
       session = existing ?? (await sb.from("voice_ai_sessions").insert({
-        call_sid: callSid, workspace_id: workspaceId,
-        caller_number: callerNum, direction: "inbound",
+        call_sid: callSid,
+        workspace_id: workspaceId,
+        caller_number: callerNum,
+        direction: "inbound",
         session_status: "active",
         business_context: ctx.business,
         customer_context: ctx.customer,
@@ -199,35 +195,62 @@ RULES:
       const msg = JSON.parse(event.data as string);
       if (msg.type !== "prompt" || !msg.voicePrompt) return;
       const userText = msg.voicePrompt as string;
-      const turns    = (session?.conversation_turns as Array<any>) ?? [];
+      const turns = (session?.conversation_turns as Array<any>) ?? [];
 
-      // Human handoff detection
-      const handoffPhrases = ["human","agent","person","speak to someone","talk to someone","representative","manager","real person"];
-      if (handoffPhrases.some(p => userText.toLowerCase().includes(p))) {
+      const handoffPhrases = [
+        "human",
+        "agent",
+        "person",
+        "speak to someone",
+        "talk to someone",
+        "representative",
+        "manager",
+        "real person",
+      ];
+      if (handoffPhrases.some((p) => userText.toLowerCase().includes(p))) {
         await sb.from("voice_ai_sessions").update({
-          human_handoff_requested: true, handoff_reason: "caller_requested",
-          session_status: "human_handoff", updated_at: new Date().toISOString(),
-        }).eq("call_sid", callSid);
-        socket.send(JSON.stringify({ type: "text", token: "Of course! Connecting you with a human agent right away. Please hold.", last: true }));
-        socket.send(JSON.stringify({ type: "handoff", reason: "human_requested" }));
+          human_handoff_requested: true,
+          handoff_reason: "caller_requested",
+          session_status: "human_handoff",
+          updated_at: new Date().toISOString(),
+        })
+          .eq("call_sid", callSid)
+          .eq("workspace_id", workspaceId);
+        socket.send(JSON.stringify({
+          type: "text",
+          token: "Of course! Connecting you with a human agent right away. Please hold.",
+          last: true,
+        }));
+        socket.send(JSON.stringify({
+          type: "end",
+          handoffData: JSON.stringify({
+            reasonCode: "live-agent-handoff",
+            reason: "caller_requested",
+          }),
+        }));
         return;
       }
 
-      // Route through Pulse AI Router — NOT directly to Anthropic
       const aiResponse = await routeAI(systemPrompt, turns, userText, workspaceId, sb);
 
       turns.push({ role: "user", content: userText });
       turns.push({ role: "ai", content: aiResponse });
       if (session) {
         await sb.from("voice_ai_sessions").update({
-          conversation_turns: turns.slice(-20), updated_at: new Date().toISOString(),
-        }).eq("call_sid", callSid);
+          conversation_turns: turns.slice(-20),
+          updated_at: new Date().toISOString(),
+        })
+          .eq("call_sid", callSid)
+          .eq("workspace_id", workspaceId);
       }
 
-      // Stream tokens to ConversationRelay
       const words = aiResponse.split(" ");
       for (let i = 0; i < words.length; i++) {
-        socket.send(JSON.stringify({ type: "text", token: (i === 0 ? "" : " ") + words[i], last: i === words.length - 1 }));
+        socket.send(JSON.stringify({
+          type: "text",
+          token: (i === 0 ? "" : " ") + words[i],
+          last: i === words.length - 1,
+        }));
       }
     } catch (e: any) {
       console.error("[voice-ai-relay] onmessage:", e.message);
@@ -236,8 +259,13 @@ RULES:
 
   socket.onclose = async () => {
     await sb.from("voice_ai_sessions").update({
-      session_status: "ended", ended_at: new Date().toISOString(), updated_at: new Date().toISOString(),
-    }).eq("call_sid", callSid).catch(() => {});
+      session_status: "ended",
+      ended_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+      .eq("call_sid", callSid)
+      .eq("workspace_id", workspaceId)
+      .catch(() => {});
   };
 
   return response;
