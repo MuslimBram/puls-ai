@@ -6,14 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
-import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Webhook, CheckCircle2, Copy, Loader2, AlertCircle, RefreshCw, Send } from "lucide-react";
 
 const EXAMPLE_PAYLOAD = `{
-  "user_id": "YOUR_USER_ID",
-  "channel_type": "custom_webhook",
+  "event_id": "evt_unique_from_your_system",
   "source_name": "My CRM",
   "sender_name": "John Doe",
   "sender_identifier": "john@example.com",
@@ -22,74 +19,123 @@ const EXAMPLE_PAYLOAD = `{
   "metadata": { "source": "contact_form" }
 }`;
 
+function generateWebhookSecret(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 export const WebhookSetup = () => {
-  const { user } = useAuth();
   const { channels, addChannel } = useChannels();
   const webhookChannels = channels.filter((c) => c.channel_type === "custom_webhook");
+  const existingWebhook = webhookChannels[0];
 
   const [channelName, setChannelName] = useState("");
-  const [testPayload, setTestPayload] = useState(
-    EXAMPLE_PAYLOAD.replace("YOUR_USER_ID", user?.id || "YOUR_USER_ID")
-  );
+  const [testPayload, setTestPayload] = useState(EXAMPLE_PAYLOAD);
   const [testSending, setTestSending] = useState(false);
-  const [testResult, setTestResult] = useState<{ ok: boolean; matched?: number; leadId?: string } | null>(null);
-  const [webhookSecret] = useState(() => crypto.randomUUID().replace(/-/g, "").slice(0, 32));
+  const [testResult, setTestResult] = useState<{ ok: boolean; matched?: number; leadId?: string; duplicate?: boolean } | null>(null);
+  const [sessionSecret, setSessionSecret] = useState<string | null>(null);
+  const [sessionChannelId, setSessionChannelId] = useState<string | null>(null);
 
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-ingest`;
+  const channelId = sessionChannelId || existingWebhook?.id || null;
+  const webhookBaseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webhook-ingest`;
+  const webhookUrl = channelId
+    ? `${webhookBaseUrl}?channel_id=${encodeURIComponent(channelId)}`
+    : webhookBaseUrl;
 
   const copyUrl = () => {
+    if (!channelId) {
+      toast.error("Connect the webhook first to generate its channel-bound endpoint.");
+      return;
+    }
     navigator.clipboard.writeText(webhookUrl);
     toast.success("Webhook URL copied");
   };
 
   const copySecret = () => {
-    navigator.clipboard.writeText(webhookSecret);
+    if (!sessionSecret) {
+      toast.error("The stored secret is never read back. Rotate it to reveal a new secret.");
+      return;
+    }
+    navigator.clipboard.writeText(sessionSecret);
     toast.success("Secret copied");
   };
 
   const copyPayload = () => {
-    navigator.clipboard.writeText(EXAMPLE_PAYLOAD.replace("YOUR_USER_ID", user?.id || "YOUR_USER_ID"));
+    navigator.clipboard.writeText(EXAMPLE_PAYLOAD);
     toast.success("Example payload copied");
+  };
+
+  const saveWebhookSecret = (secret: string, name: string) => {
+    const channelData: ChannelData = {
+      channel_type: "custom_webhook",
+      channel_name: name,
+      settings: {
+        webhook_url: webhookBaseUrl,
+        webhook_secret: secret,
+        configured: true,
+      },
+    };
+
+    addChannel.mutate(channelData, {
+      onSuccess: (data) => {
+        setSessionSecret(secret);
+        setSessionChannelId(data.channel_id);
+        setChannelName("");
+        setTestResult(null);
+        toast.success("Webhook secret saved securely. Copy it now; it will not be shown again after reload.");
+      },
+    });
+  };
+
+  const handleConnect = () => {
+    const name = channelName.trim() || existingWebhook?.channel_name || "Custom Webhook";
+    saveWebhookSecret(generateWebhookSecret(), name);
+  };
+
+  const handleRotateSecret = () => {
+    const name = existingWebhook?.channel_name || channelName.trim() || "Custom Webhook";
+    saveWebhookSecret(generateWebhookSecret(), name);
   };
 
   const handleTestWebhook = async () => {
     setTestSending(true);
     setTestResult(null);
     try {
-      const parsed = JSON.parse(testPayload);
-      // Ensure user_id is set
-      parsed.user_id = user?.id;
+      if (!channelId) throw new Error("Connect the webhook first.");
+      if (!sessionSecret) throw new Error("Rotate the webhook secret before testing from this browser session.");
 
-      const { data, error } = await supabase.functions.invoke("webhook-ingest", {
-        body: parsed,
+      const parsed = JSON.parse(testPayload) as Record<string, unknown>;
+      parsed.event_id = `ui_test_${crypto.randomUUID()}`;
+
+      const response = await fetch(webhookUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Webhook-Secret": sessionSecret,
+        },
+        body: JSON.stringify(parsed),
       });
-      if (error) throw error;
-      setTestResult({ ok: true, matched: data?.matched, leadId: data?.lead_id });
-      toast.success(`Test sent! ${data?.matched || 0} keywords matched.`);
-    } catch (e: any) {
-      setTestResult({ ok: false });
-      toast.error(e?.message || "Invalid payload or test failed");
-    }
-    setTestSending(false);
-  };
+      const data = await response.json() as {
+        error?: string;
+        matched?: number;
+        lead_id?: string | null;
+        duplicate?: boolean;
+      };
+      if (!response.ok) throw new Error(data.error || `Webhook returned ${response.status}`);
 
-  const handleConnect = () => {
-    const name = channelName.trim() || "Custom Webhook";
-    const channelData: ChannelData = {
-      channel_type: "custom_webhook",
-      channel_name: name,
-      settings: {
-        webhook_url: webhookUrl,
-        webhook_secret: webhookSecret,
-        configured: true,
-      },
-    };
-    addChannel.mutate(channelData, {
-      onSuccess: () => {
-        setChannelName("");
-        setTestResult(null);
-      },
-    });
+      setTestResult({
+        ok: true,
+        matched: data.matched,
+        leadId: data.lead_id || undefined,
+        duplicate: data.duplicate,
+      });
+      toast.success(data.duplicate ? "Duplicate event was safely ignored." : `Test sent! ${data.matched || 0} keywords matched.`);
+    } catch (error: unknown) {
+      setTestResult({ ok: false });
+      toast.error(error instanceof Error ? error.message : "Invalid payload or test failed");
+    } finally {
+      setTestSending(false);
+    }
   };
 
   return (
@@ -100,24 +146,22 @@ export const WebhookSetup = () => {
           Custom Webhook Setup
         </CardTitle>
         <CardDescription>
-          Receive lead and message data from external systems via webhook.
+          Receive lead and message data from external systems via a workspace-bound, secret-authenticated webhook.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Status */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">Status:</span>
-          {webhookChannels.length > 0 ? (
+          {existingWebhook || sessionChannelId ? (
             <Badge variant="default" className="gap-1"><CheckCircle2 className="h-3 w-3" /> Live</Badge>
           ) : (
             <Badge variant="secondary">Available for setup</Badge>
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Send JSON payloads from any external system (CRM, forms, automations) to this endpoint. Messages are normalized, keyword-matched, and added to your inbox.
+          Every request must use the channel-bound endpoint, include a unique event_id, and send the secret in the X-Webhook-Secret header. Workspace and user identity are resolved server-side from the channel.
         </p>
 
-        {/* Connected */}
         {webhookChannels.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Connected Webhooks</p>
@@ -131,44 +175,57 @@ export const WebhookSetup = () => {
           </div>
         )}
 
-        {/* Setup */}
         <div className="space-y-3 rounded-lg border border-border p-4">
           <div className="space-y-1.5">
             <Label>Channel Name</Label>
-            <Input placeholder="e.g. CRM Webhook, Contact Form" value={channelName} onChange={(e) => setChannelName(e.target.value)} />
+            <Input
+              placeholder="e.g. CRM Webhook, Contact Form"
+              value={channelName}
+              onChange={(e) => setChannelName(e.target.value)}
+              disabled={Boolean(existingWebhook)}
+            />
           </div>
 
-          {/* Endpoint URL */}
           <div className="rounded-lg bg-muted p-3">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-medium text-foreground">Webhook Endpoint</p>
-              <Button size="sm" variant="ghost" onClick={copyUrl}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
+              <Button size="sm" variant="ghost" onClick={copyUrl} disabled={!channelId}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
             </div>
-            <code className="text-xs text-muted-foreground break-all">{webhookUrl}</code>
+            <code className="text-xs text-muted-foreground break-all">
+              {channelId ? webhookUrl : "Connect the webhook to generate a channel-bound endpoint."}
+            </code>
           </div>
 
-          {/* Secret */}
           <div className="rounded-lg bg-muted p-3">
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between gap-2 mb-1">
               <p className="text-xs font-medium text-foreground">Webhook Secret</p>
-              <Button size="sm" variant="ghost" onClick={copySecret}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
+              <div className="flex gap-1">
+                <Button size="sm" variant="ghost" onClick={copySecret} disabled={!sessionSecret}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
+                {channelId && (
+                  <Button size="sm" variant="ghost" onClick={handleRotateSecret} disabled={addChannel.isPending}>
+                    <RefreshCw className="h-3 w-3 mr-1" /> Rotate
+                  </Button>
+                )}
+              </div>
             </div>
-            <code className="text-xs text-muted-foreground break-all">{webhookSecret}</code>
-            <p className="text-xs text-muted-foreground mt-1">Include this in the request headers for authentication.</p>
+            <code className="text-xs text-muted-foreground break-all">
+              {sessionSecret || (channelId ? "Stored encrypted — rotate to reveal a new secret once." : "Created when you connect the webhook.")}
+            </code>
+            <p className="text-xs text-muted-foreground mt-1">
+              Send it only as the X-Webhook-Secret request header. Pulse AI never reads the stored secret back into the browser.
+            </p>
           </div>
 
-          {/* Example payload */}
           <div className="rounded-lg bg-muted p-3">
             <div className="flex items-center justify-between mb-1">
               <p className="text-xs font-medium text-foreground">Example Payload</p>
               <Button size="sm" variant="ghost" onClick={copyPayload}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
             </div>
             <pre className="text-xs text-muted-foreground bg-background rounded p-2 overflow-x-auto whitespace-pre-wrap">
-              {EXAMPLE_PAYLOAD.replace("YOUR_USER_ID", user?.id || "YOUR_USER_ID")}
+              {EXAMPLE_PAYLOAD}
             </pre>
           </div>
 
-          {/* Test tool */}
           <div className="space-y-1.5">
             <Label>Test Payload</Label>
             <Textarea
@@ -183,19 +240,23 @@ export const WebhookSetup = () => {
             <div className={`flex items-center gap-2 text-xs ${testResult.ok ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
               {testResult.ok ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
               {testResult.ok
-                ? `Test passed — ${testResult.matched || 0} keywords matched${testResult.leadId ? ", lead created" : ""}`
-                : "Test failed — check your payload format"}
+                ? testResult.duplicate
+                  ? "Test passed — duplicate safely ignored"
+                  : `Test passed — ${testResult.matched || 0} keywords matched${testResult.leadId ? ", lead created" : ""}`
+                : "Test failed — check the endpoint, secret and payload"}
             </div>
           )}
 
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleTestWebhook} disabled={testSending}>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={handleTestWebhook} disabled={testSending || !channelId || !sessionSecret}>
               {testSending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
               Send Test
             </Button>
-            <Button onClick={handleConnect} disabled={addChannel.isPending}>
-              {addChannel.isPending ? "Connecting..." : "Connect Webhook"}
-            </Button>
+            {!channelId && (
+              <Button onClick={handleConnect} disabled={addChannel.isPending}>
+                {addChannel.isPending ? "Connecting..." : "Connect Webhook"}
+              </Button>
+            )}
           </div>
         </div>
       </CardContent>
