@@ -20,11 +20,15 @@ const migration = readFileSync(
 );
 
 describe("P0.6 webchat canonical event id", () => {
-  it("accepts a bounded client event id and generates one for legacy clients", () => {
+  it("requires a bounded retry-stable client event id and never invents one in the proxy", () => {
     expect(validator).toContain("event_id?: unknown");
-    expect(validator).toContain('error: "event_id too long"');
-    expect(proxy).toContain('event_id || `webchat_${crypto.randomUUID()}`');
-    expect(proxy).toContain("event_id: inboundEventId");
+    expect(validator).toContain('error: "event_id is required"');
+    expect(validator).toContain('error: "invalid event_id"');
+    expect(validator).toContain("event_id.length < 8 || event_id.length > 200");
+    expect(validator).toContain("EVENT_ID_PATTERN.test(event_id)");
+    expect(proxy).not.toContain("crypto.randomUUID()");
+    expect(proxy).not.toContain("event_id ||");
+    expect(proxy).toContain("event_id,");
   });
 
   it("requires the internal ingress to receive and persist the canonical event id", () => {
