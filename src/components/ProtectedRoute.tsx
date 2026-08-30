@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Navigate, useLocation } from "react-router-dom";
 import { Require2FASetup } from "@/components/Require2FASetup";
+import { useSecurityPresence } from "@/hooks/useSecurityPresence";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,8 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     staleTime: 300000,
   });
 
+  useSecurityPresence(!!user && !loading);
+
   if (loading || subLoading || rolesLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -52,11 +55,9 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Owner + Owner-appointed admins: lifetime access, no trial window, no payment required.
   const bypassRoles = ["admin", "super_admin", "business_owner"];
   const hasBypassRole = userRoles?.some((role) => bypassRoles.includes(role)) ?? false;
 
-  // Check whether the trial has expired
   let showBanner = false;
   let daysUntilDeletion = 30;
 
@@ -79,7 +80,6 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return (
     <Require2FASetup>
       <>
-        {/* Informational banner — does NOT block access */}
         {showBanner && !bannerDismissed && (
           <div className="sticky top-0 z-50 w-full bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2.5">
             <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
