@@ -47,8 +47,7 @@ describe("R4a1 populated tenant hardening", () => {
     expect(churnAdmin).toContain("workspaceId: risk.workspace_id");
   });
 
-  it("runs the isolated PostgreSQL verifier in CI", () => {
-    if (process.env.CI !== "true") return;
+  it.skipIf(process.env.CI !== "true")("runs the isolated PostgreSQL verifier in CI", () => {
     execFileSync("bash", ["scripts/verify-r4a1-populated-tenant-tables.sh"], {
       cwd: process.cwd(), stdio: "inherit", env: process.env,
     });
