@@ -53,7 +53,7 @@ end $$;
 insert into public.deals values('d3333333-3333-4333-8333-333333333333','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111','a1111111-1111-4111-8111-111111111111','c1111111-1111-4111-8111-111111111111','AX',now(),now()),('d4444444-4444-4444-8444-444444444444','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','22222222-2222-2222-2222-222222222222','b1111111-1111-4111-8111-111111111111','c2222222-2222-4222-8222-222222222222','BX',now(),now());
 SQL
 
-viewer_count="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -Atc "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-4444-444444444444'; select count(*) from public.deals;")"; [[ "$viewer_count" == "2" ]] || { echo "viewer select failed: $viewer_count"; exit 1; }
+viewer_count="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -qAtc "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-4444-444444444444'; select count(*) from public.deals;" | tail -n1)"; [[ "$viewer_count" == "2" ]] || { echo "viewer select failed: $viewer_count"; exit 1; }
 
 psql -h "$H" -p "$P" -U "$U" -d "$OK" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
@@ -75,7 +75,7 @@ expect_fail "set role authenticated; set request.jwt.claim.sub='44444444-4444-44
 expect_fail "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-4444-444444444444'; delete from public.deals where id='d1111111-1111-4111-8111-111111111111';" viewer_delete
 expect_fail "set role authenticated; set request.jwt.claim.sub='55555555-5555-5555-5555-555555555555'; delete from public.deals where id='d6666666-6666-4666-8666-666666666666';" member_delete
 
-platform_count="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -Atc "set role authenticated; set request.jwt.claim.sub='99999999-9999-4999-8999-999999999999'; select count(*) from public.deals;")"; [[ "$platform_count" == "0" ]] || { echo "platform admin read: $platform_count"; exit 1; }
-service_count="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -Atc "set role service_role; select count(*) from public.deals;")"; [[ "$service_count" =~ ^[1-9][0-9]*$ ]] || { echo "service role access: $service_count"; exit 1; }
+platform_count="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -qAtc "set role authenticated; set request.jwt.claim.sub='99999999-9999-4999-8999-999999999999'; select count(*) from public.deals;" | tail -n1)"; [[ "$platform_count" == "0" ]] || { echo "platform admin read: $platform_count"; exit 1; }
+service_count="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -qAtc "set role service_role; select count(*) from public.deals;" | tail -n1)"; [[ "$service_count" =~ ^[1-9][0-9]*$ ]] || { echo "service role access: $service_count"; exit 1; }
 
 echo "P0.5-B CRM deals + pipeline stages verification: PASS"
