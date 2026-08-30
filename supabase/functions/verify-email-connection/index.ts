@@ -2,6 +2,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { getServiceKey } from "../_shared/admin-client.ts";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { connectTlsToPublicHostname, validatePublicHostnameSyntax } from "../_shared/public-network-guard.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const json = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -19,57 +20,8 @@ function safeString(value: unknown, max: number): string {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-function isPrivateIpv4(ip: string): boolean {
-  const parts = ip.split(".").map(Number);
-  if (parts.length !== 4 || parts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) return true;
-  const [a, b] = parts;
-  return a === 0
-    || a === 10
-    || a === 127
-    || (a === 169 && b === 254)
-    || (a === 172 && b >= 16 && b <= 31)
-    || (a === 192 && b === 168)
-    || a >= 224;
-}
-
-function isPrivateIpv6(ip: string): boolean {
-  const normalized = ip.toLowerCase();
-  return normalized === "::"
-    || normalized === "::1"
-    || normalized.startsWith("fc")
-    || normalized.startsWith("fd")
-    || normalized.startsWith("fe8")
-    || normalized.startsWith("fe9")
-    || normalized.startsWith("fea")
-    || normalized.startsWith("feb")
-    || normalized.startsWith("::ffff:10.")
-    || normalized.startsWith("::ffff:127.")
-    || normalized.startsWith("::ffff:169.254.")
-    || normalized.startsWith("::ffff:192.168.");
-}
-
-async function assertPublicHostname(host: string): Promise<void> {
-  const normalized = host.toLowerCase();
-  if (!/^[a-z0-9.-]+$/.test(normalized)
-    || normalized.length > 253
-    || normalized === "localhost"
-    || normalized.endsWith(".localhost")
-    || normalized.endsWith(".local")
-    || !normalized.includes(".")) {
-    throw new Error("IMAP host must be a public DNS hostname");
-  }
-
-  const lookups = await Promise.allSettled([
-    Deno.resolveDns(normalized, "A"),
-    Deno.resolveDns(normalized, "AAAA"),
-  ]);
-  const addresses = lookups.flatMap((result) => result.status === "fulfilled" ? result.value : []);
-  if (addresses.length === 0) throw new Error("IMAP host could not be resolved");
-
-  for (const address of addresses) {
-    const privateAddress = address.includes(":") ? isPrivateIpv6(address) : isPrivateIpv4(address);
-    if (privateAddress) throw new Error("IMAP host resolves to a private or reserved network");
-  }
+function rawCredentialString(value: unknown, max: number): string {
+  return typeof value === "string" && value.length <= max ? value : "";
 }
 
 async function readUntil(
@@ -120,9 +72,11 @@ Deno.serve(async (req) => {
   try {
     const body = asRecord(await req.json());
     const workspaceId = safeString(body.workspace_id, 64);
-    const host = safeString(body.imap_host, 253).toLowerCase();
+    const host = validatePublicHostnameSyntax(safeString(body.imap_host, 253));
     const username = safeString(body.imap_user, 320);
-    const password = safeString(body.imap_password, 1_024);
+    // Credentials are opaque bytes from the user's perspective. Do not trim or
+    // normalize whitespace because that can silently change a valid password.
+    const password = rawCredentialString(body.imap_password, 1_024);
     const port = Number(body.imap_port ?? 993);
 
     if (!workspaceId || !host || !username || !password) {
@@ -138,11 +92,11 @@ Deno.serve(async (req) => {
     ]);
     if (!member && !owned) return json(req, { error: "Forbidden: not a workspace member" }, 403);
 
-    await assertPublicHostname(host);
-
     let conn: Deno.TlsConn | null = null;
     try {
-      conn = await Deno.connectTls({ hostname: host, port: 993, alpnProtocols: [] });
+      // Resolve and pin a public IP before TLS/LOGIN. The TLS upgrade keeps the
+      // original hostname for certificate verification without a second DNS lookup.
+      conn = await connectTlsToPublicHostname(host, 993);
       const greeting = await readUntil(conn, "\r\n", 8_000);
       if (!/^\*\s+(OK|PREAUTH)\b/im.test(greeting)) {
         throw new Error("IMAP server did not return a valid greeting");
