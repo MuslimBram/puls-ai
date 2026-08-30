@@ -16,6 +16,18 @@ interface EnrollData {
   otpauthUrl: string;
 }
 
+interface VerifyResponse {
+  verified?: boolean;
+  enrolled?: boolean;
+  restart_required?: boolean;
+  reason?: string;
+  message?: string;
+  factorId?: string;
+  qrCode?: string;
+  secret?: string;
+  otpauthUrl?: string;
+}
+
 export const useTOTP = () => {
   const queryClient = useQueryClient();
   const [enrollData, setEnrollData] = useState<EnrollData | null>(null);
@@ -48,21 +60,32 @@ export const useTOTP = () => {
   });
 
   const verify = useMutation({
-    mutationFn: async (token: string) => {
-      if (!enrollData?.factorId) {
-        throw new Error("No pending authenticator enrollment");
-      }
-
-      // Enrollment creates an unverified factor. It must be verified with
-      // verify_enroll; the login-time verify_totp action is for verified factors.
+    mutationFn: async (token: string): Promise<VerifyResponse> => {
+      if (!enrollData?.factorId) throw new Error("No pending authenticator enrollment");
       const { data, error } = await supabase.functions.invoke("totp-manage", {
         body: { action: "verify_enroll", token },
       });
-      if (error) throw error;
+      if (error) {
+        const context = (error as { context?: Response }).context;
+        if (context) {
+          try {
+            const payload = await context.clone().json();
+            if (payload?.error) throw new Error(payload.error);
+          } catch (parseError) {
+            if (parseError instanceof Error && parseError.message !== "Unexpected end of JSON input") throw parseError;
+          }
+        }
+        throw error;
+      }
       if (data?.error) throw new Error(data.error);
-      return data;
+      return data as VerifyResponse;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      if (data?.restart_required && data.factorId && data.qrCode && data.secret && data.otpauthUrl) {
+        setEnrollData({ factorId: data.factorId, qrCode: data.qrCode, secret: data.secret, otpauthUrl: data.otpauthUrl });
+        toast.warning(data.message || "Rrjeti ndryshoi gjatë konfigurimit. Skano QR-në e re dhe provo përsëri.");
+        return;
+      }
       toast.success("2FA enabled successfully!");
       setEnrollData(null);
       queryClient.invalidateQueries({ queryKey: ["totp-status"] });
@@ -86,12 +109,5 @@ export const useTOTP = () => {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  return {
-    status,
-    isLoading,
-    enrollData,
-    enroll,
-    verify,
-    disable,
-  };
+  return { status, isLoading, enrollData, enroll, verify, disable };
 };
