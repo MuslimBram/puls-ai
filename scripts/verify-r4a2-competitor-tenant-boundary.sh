@@ -23,7 +23,7 @@ SET ROLE authenticated; SELECT set_config('request.jwt.claim.sub','cccccccc-cccc
 DO $$ BEGIN
  BEGIN INSERT INTO competitors VALUES('34444444-4444-4444-8444-444444444444','cccccccc-cccc-4ccc-8ccc-cccccccccccc','22222222-2222-4222-8222-222222222222','foreign'); RAISE EXCEPTION 'foreign insert accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN UPDATE competitors SET workspace_id='22222222-2222-4222-8222-222222222222' WHERE id='33333333-3333-4333-8333-333333333333'; RAISE EXCEPTION 'move accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
- BEGIN DELETE FROM competitors WHERE id='33333333-3333-4333-8333-333333333333'; RAISE EXCEPTION 'member delete accepted'; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
+ BEGIN DELETE FROM competitors WHERE id='33333333-3333-4333-8333-333333333333'; IF FOUND THEN RAISE EXCEPTION 'member delete accepted'; END IF; EXCEPTION WHEN insufficient_privilege THEN NULL; END;
  BEGIN INSERT INTO competitor_alerts VALUES('42222222-2222-4222-8222-222222222222','cccccccc-cccc-4ccc-8ccc-cccccccccccc','11111111-1111-4111-8111-111111111111','32222222-2222-4222-8222-222222222222','foreign parent'); RAISE EXCEPTION 'foreign parent accepted'; EXCEPTION WHEN check_violation OR foreign_key_violation THEN NULL; END;
 END $$;
 UPDATE competitors SET name='member-tampered-owner-row' WHERE id='31111111-1111-4111-8111-111111111111';
