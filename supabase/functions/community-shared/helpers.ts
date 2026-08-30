@@ -2,6 +2,7 @@
 // Shared utilities for Lidhjet 12 Native Edge Functions
 
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { getServiceKey } from "../_shared/admin-client.ts";
 
 export const CORS_HEADERS = {
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +30,7 @@ export function errorResponse(message: string, status = 400, code?: string, deta
 export function createSupabaseClients(req: Request) {
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  const supabaseServiceKey = getServiceKey();
   const authHeader = req.headers.get("Authorization");
 
   const userClient = createClient(supabaseUrl, supabaseAnonKey, {
