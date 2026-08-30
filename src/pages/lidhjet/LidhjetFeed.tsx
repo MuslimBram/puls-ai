@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -81,6 +81,7 @@ export default function LidhjetFeed() {
   const [commentsMap, setCommentsMap] = useState<Record<string, CommentItem[]>>({});
   const [newCommentText, setNewCommentText] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
+  const pendingCommentEventId = useRef<string | null>(null);
 
   const fetchFeed = useCallback(async () => {
     setLoading(true);
@@ -158,6 +159,9 @@ export default function LidhjetFeed() {
     if (!newCommentText.trim() || !user) return;
     setSubmittingComment(true);
 
+    const eventId = pendingCommentEventId.current ?? `community_comment_${crypto.randomUUID()}`;
+    pendingCommentEventId.current = eventId;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -171,6 +175,7 @@ export default function LidhjetFeed() {
         body: JSON.stringify({
           post_id: postId,
           content: newCommentText,
+          event_id: eventId,
         }),
       });
 
@@ -185,6 +190,7 @@ export default function LidhjetFeed() {
       });
 
       setNewCommentText("");
+      pendingCommentEventId.current = null;
       loadComments(postId);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to post comment";
@@ -443,7 +449,10 @@ export default function LidhjetFeed() {
                         <Input
                           placeholder="Write a public comment..."
                           value={newCommentText}
-                          onChange={(e) => setNewCommentText(e.target.value)}
+                          onChange={(e) => {
+                            setNewCommentText(e.target.value);
+                            pendingCommentEventId.current = null;
+                          }}
                           className="text-xs"
                         />
                         <Button
