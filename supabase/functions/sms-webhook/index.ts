@@ -10,6 +10,7 @@ import {
   extractSecurityUrls,
   scanInboundContent,
 } from "../_shared/content-security-client.ts";
+import { stageInboundAttachment } from "../_shared/content-security-attachment-client.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -17,6 +18,13 @@ const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 150;
 const RATE_WINDOW = 60_000;
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+const MAX_TOTAL_MEDIA_BYTES = 50 * 1024 * 1024;
+const MAX_MEDIA_ITEMS = 10;
+const encoder = new TextEncoder();
+
+type MediaItem = { url: string; contentType: string; index: number };
+type DownloadedMedia = MediaItem & { bytes: Uint8Array; sha256: string; mimeType: string };
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
@@ -28,6 +36,56 @@ function checkRateLimit(key: string): boolean {
   if (entry.count >= RATE_LIMIT) return false;
   entry.count++;
   return true;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Text(value: string): Promise<string> {
+  return sha256Hex(encoder.encode(value));
+}
+
+function validTwilioMediaUrl(raw: string): URL | null {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "https:" || url.hostname !== "api.twilio.com") return null;
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function downloadTwilioMedia(
+  item: MediaItem,
+  accountSid: string,
+  authToken: string,
+): Promise<DownloadedMedia> {
+  const url = validTwilioMediaUrl(item.url);
+  if (!url || !accountSid || !authToken) throw new Error("TWILIO_MEDIA_BINDING_INVALID");
+
+  const response = await fetch(url.toString(), {
+    headers: { Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}` },
+    redirect: "error",
+  });
+  if (!response.ok) throw new Error("TWILIO_MEDIA_DOWNLOAD_FAILED");
+
+  const declaredLength = Number(response.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_MEDIA_BYTES) {
+    throw new Error("TWILIO_MEDIA_TOO_LARGE");
+  }
+
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength > MAX_MEDIA_BYTES) throw new Error("TWILIO_MEDIA_TOO_LARGE");
+
+  const responseMime = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  return {
+    ...item,
+    bytes,
+    sha256: await sha256Hex(bytes),
+    mimeType: responseMime || item.contentType || "application/octet-stream",
+  };
 }
 
 async function claimInboundEvent(
@@ -59,12 +117,6 @@ async function releaseInboundEvent(
   if (error) console.error("[SMS] failed to release provider claim", error.code ?? "unknown");
 }
 
-/**
- * SMS Webhook — Twilio inbound + status callbacks.
- * Tenant identity is derived only from the signed provider-owned phone number.
- * Inbound messages require the provider-native MessageSid/SmsSid as the stable
- * idempotency key before any normal business side effect.
- */
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
@@ -135,7 +187,7 @@ serve(async (req) => {
 
     let from = "", to = "", body = "", messageSid = "", numMedia = 0;
     let messageStatus = "", errorCode = "", errorMessage = "";
-    const mediaItems: Array<{ url: string; contentType: string; index: number }> = [];
+    const mediaItems: MediaItem[] = [];
 
     if (contentType.includes("application/x-www-form-urlencoded")) {
       const params = new URLSearchParams(rawBody);
@@ -148,10 +200,17 @@ serve(async (req) => {
       errorCode = params.get("ErrorCode") || "";
       errorMessage = params.get("ErrorMessage") || "";
 
+      if (!Number.isInteger(numMedia) || numMedia < 0 || numMedia > MAX_MEDIA_ITEMS) {
+        return new Response("<Response></Response>", { status: 400, headers: { "Content-Type": "text/xml" } });
+      }
       for (let i = 0; i < numMedia; i++) {
         const url = params.get(`MediaUrl${i}`);
         const ct = params.get(`MediaContentType${i}`);
-        if (url) mediaItems.push({ url, contentType: ct || "application/octet-stream", index: i });
+        if (!url) {
+          console.error(`[SMS] missing MediaUrl${i} for declared NumMedia=${numMedia}`);
+          return new Response("<Response></Response>", { status: 500, headers: { "Content-Type": "text/xml" } });
+        }
+        mediaItems.push({ url, contentType: ct || "application/octet-stream", index: i });
       }
     } else {
       const jsonBody = rawBody ? JSON.parse(rawBody) : {};
@@ -163,7 +222,6 @@ serve(async (req) => {
       errorCode = jsonBody.ErrorCode || "";
     }
 
-    // Delivery callbacks reconcile only the already-resolved tenant.
     if (messageStatus && messageSid && !body && mediaItems.length === 0) {
       const statusMap: Record<string, string> = {
         queued: "queued", sending: "queued", sent: "sent",
@@ -219,18 +277,47 @@ serve(async (req) => {
     const securityContent = body || "[attachment]";
     const securityEventId = `sms:${messageSid}`;
 
-    // Verified Twilio signature + canonical tenant + provider-native MessageSid
-    // are established before Content Security. MMS is always treated as an
-    // attachment and therefore remains quarantined until the real malware layer.
+    const downloadedMedia: DownloadedMedia[] = [];
+    if (mediaItems.length > 0) {
+      let totalBytes = 0;
+      for (const media of mediaItems) {
+        let downloaded: DownloadedMedia;
+        try {
+          downloaded = await downloadTwilioMedia(media, wsCreds.account_sid, wsCreds.decrypted_auth_token);
+        } catch (error) {
+          console.error("[SMS] media preparation failed", error instanceof Error ? error.message : "unknown");
+          return new Response("<Response></Response>", { status: 503, headers: { "Content-Type": "text/xml" } });
+        }
+        totalBytes += downloaded.bytes.byteLength;
+        if (totalBytes > MAX_TOTAL_MEDIA_BYTES) {
+          return new Response("<Response></Response>", { status: 413, headers: { "Content-Type": "text/xml" } });
+        }
+        downloadedMedia.push(downloaded);
+      }
+    }
+
+    let aggregateAttachment: { mime_type: string; size_bytes: number; sha256: string } | null = null;
+    if (downloadedMedia.length > 0) {
+      const manifest = downloadedMedia.map((media) => ({
+        index: media.index,
+        mime_type: media.mimeType,
+        byte_size: media.bytes.byteLength,
+        sha256: media.sha256,
+      }));
+      aggregateAttachment = {
+        mime_type: downloadedMedia.length === 1 ? downloadedMedia[0].mimeType : "multipart/mixed",
+        size_bytes: downloadedMedia.reduce((sum, media) => sum + media.bytes.byteLength, 0),
+        sha256: downloadedMedia.length === 1 ? downloadedMedia[0].sha256 : await sha256Text(JSON.stringify(manifest)),
+      };
+    }
+
     const security = await scanInboundContent({
       workspace_id: workspaceId,
       source: "sms",
       event_id: securityEventId,
       content: securityContent,
       urls: extractSecurityUrls(body),
-      attachment: mediaItems.length > 0
-        ? { mime_type: mediaItems[0]?.contentType || "application/octet-stream" }
-        : null,
+      attachment: aggregateAttachment,
     });
 
     if (!security.ok) {
@@ -240,10 +327,33 @@ serve(async (req) => {
       });
     }
     if (blocksNormalIngress(security.decision)) {
+      if (downloadedMedia.length > 0 && security.decision.action === "quarantine") {
+        for (const media of downloadedMedia) {
+          const staged = await stageInboundAttachment({
+            workspace_id: workspaceId,
+            source: "sms",
+            event_id: securityEventId,
+            attachment_key: `twilio_media_${media.index}`,
+            expected_attachment_count: downloadedMedia.length,
+            bytes: media.bytes,
+            mime_type: media.mimeType,
+          });
+          if (!staged.ok) {
+            console.error("[SMS] attachment staging failed", staged.code);
+            return new Response("<Response></Response>", {
+              status: staged.retryable ? 503 : 400,
+              headers: { "Content-Type": "text/xml" },
+            });
+          }
+        }
+      }
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
 
-    // Provider-native claim is now after the payload-bound security decision.
+    if (downloadedMedia.length > 0 || mediaItems.length > 0) {
+      return new Response("<Response></Response>", { status: 500, headers: { "Content-Type": "text/xml" } });
+    }
+
     const claim = await claimInboundEvent(supabase, workspaceId, messageSid);
     if (claim === "duplicate") {
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
