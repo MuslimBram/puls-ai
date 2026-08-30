@@ -24,6 +24,12 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
     expect(migration).toContain("REVOKE INSERT, UPDATE ON TABLE public.community_interest_messages FROM anon, authenticated");
   });
 
+  it("uses the canonical service-key resolver for Community admin clients", () => {
+    expect(helpers).toContain('import { getServiceKey } from "../_shared/admin-client.ts"');
+    expect(helpers).toContain("const supabaseServiceKey = getServiceKey()");
+    expect(helpers).not.toContain('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")');
+  });
+
   it("requires caller-generated event ids so retries preserve the same idempotency key", () => {
     expect(helpers).toContain('return { ok: false, message: "event_id is required for idempotent community writes" }');
     expect(helpers).not.toContain("crypto.randomUUID()");
@@ -36,11 +42,37 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
   it("uses one deterministic pre-insert moderation helper for comments and chat messages", () => {
     expect(helpers).toContain("export function moderateCommunityText");
     expect(helpers).toContain("detectContactInformation(text)");
-    expect(commentCreate).toContain("moderateCommunityText([{ field: \"content\", text: content }])");
-    expect(messageCreate).toContain("moderateCommunityText([{ field: \"message\", text: message }])");
+    expect(commentCreate).toContain('moderateCommunityText([{ field: "content", text: commentContent }])');
+    expect(messageCreate).toContain('moderateCommunityText([{ field: "message", text: messageContent }])');
 
     expect(commentCreate.indexOf("const moderation = moderateCommunityText")).toBeLessThan(commentCreate.indexOf('.from("community_comments")\n      .insert'));
     expect(messageCreate.indexOf("const moderation = moderateCommunityText")).toBeLessThan(messageCreate.indexOf('.from("community_interest_messages")\n      .insert'));
+  });
+
+  it("binds each event id to one immutable comment/message payload", () => {
+    expect(commentCreate).toContain("EVENT_ID_PAYLOAD_MISMATCH");
+    expect(messageCreate).toContain("EVENT_ID_PAYLOAD_MISMATCH");
+
+    const commentLookup = commentCreate.slice(
+      commentCreate.indexOf("const { data: existingComment"),
+      commentCreate.indexOf("if (existingComment)"),
+    );
+    expect(commentLookup).toContain('.eq("author_user_id", user.id)');
+    expect(commentLookup).toContain('.eq("event_id", eventId)');
+    expect(commentLookup).not.toContain('.eq("post_id"');
+
+    const messageLookup = messageCreate.slice(
+      messageCreate.indexOf("const { data: existingMessage"),
+      messageCreate.indexOf("if (existingMessage)"),
+    );
+    expect(messageLookup).toContain('.eq("sender_user_id", user.id)');
+    expect(messageLookup).toContain('.eq("event_id", eventId)');
+    expect(messageLookup).not.toContain('.eq("interest_id"');
+
+    expect(commentCreate).toContain("existingComment.post_id === postId");
+    expect(commentCreate).toContain("existingComment.content === commentContent");
+    expect(messageCreate).toContain("existingMessage.interest_id !== interestId");
+    expect(messageCreate).toContain("existingMessage.message !== messageContent");
   });
 
   it("deduplicates successful writes and blocked violation side effects by event id", () => {
@@ -50,6 +82,10 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
     expect(messageCreate).toContain("event_id: eventId");
     expect(commentCreate).toContain('commentError.code === "23505"');
     expect(messageCreate).toContain('msgError.code === "23505"');
+    expect(commentCreate).toContain('existingViolation.violation_type === "contact_info_in_comment"');
+    expect(messageCreate).toContain('existingViolation.violation_type === "contact_info_in_message"');
+    expect(commentCreate).toContain('violationError.code !== "23505"');
+    expect(messageCreate).toContain('violationError.code !== "23505"');
 
     expect(commentUi).toContain("pendingCommentEventId.current");
     expect(commentUi).toContain("community_comment_${crypto.randomUUID()}");
@@ -68,20 +104,20 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
 
     const existingPath = messageCreate.slice(
       messageCreate.indexOf("if (existingMessage)"),
-      messageCreate.indexOf("if (!interest.tax_paid"),
+      messageCreate.indexOf("const { data: existingViolation"),
     );
     expect(existingPath).toContain("ensureMessageNotification");
 
     const racedPath = messageCreate.slice(
       messageCreate.indexOf('if (msgError.code === "23505")'),
-      messageCreate.indexOf("return errorResponse(msgError.message"),
+      messageCreate.indexOf('return errorResponse("Unable to create message"'),
     );
     expect(racedPath).toContain("ensureMessageNotification");
   });
 
   it("validates comment parent integrity before service-role insertion", () => {
     expect(commentCreate).toContain('.select("id, post_id")');
-    expect(commentCreate).toContain("parentComment.post_id !== post_id");
+    expect(commentCreate).toContain("parentComment.post_id !== postId");
     expect(commentCreate).toContain("INVALID_PARENT_COMMENT");
     expect(commentCreate.indexOf("INVALID_PARENT_COMMENT")).toBeLessThan(commentCreate.indexOf('.from("community_comments")\n      .insert'));
   });
@@ -96,19 +132,24 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
     expect(messageCreate).not.toContain("moderation.detection.match");
   });
 
-  it("persists and reuses the real image classifier verdict instead of fabricating clean", () => {
+  it("persists, fingerprints and validates the real image classifier verdict", () => {
     expect(migration).toContain("ADD COLUMN IF NOT EXISTS result_json jsonb");
     expect(scanImage).toContain("function parseRouterScanResult");
-    expect(scanImage).toContain("scanResult = parseRouterScanResult(routerData)");
-    expect(scanImage).toContain("result_json: scanResult");
+    expect(scanImage).toContain("function validateScanResult");
+    expect(scanImage).toContain("normalizePublicHttpsImageUrl");
+    expect(scanImage).toContain("parseCommunityEventId(request_id)");
+    expect(scanImage).toContain("input_sha256: inputHash");
+    expect(scanImage).toContain("persisted.input_sha256 !== inputHash");
+    expect(scanImage).toContain("PERSISTED_VERDICT_INVALID");
+    expect(scanImage).toContain("EVENT_ID_PAYLOAD_MISMATCH");
+    expect(scanImage).toContain("result_json: persistedResult");
     expect(scanImage).toContain('.select("result_json")');
     expect(scanImage).toContain("PERSISTED_VERDICT_MISSING");
 
-    const liveRouterBlock = scanImage.slice(
-      scanImage.indexOf("if (mockMode)"),
-      scanImage.indexOf("const { data: completedUsage"),
-    );
-    expect(liveRouterBlock).not.toContain('scanResult = { safe: true, label: "clean"');
+    expect(scanImage).toContain('safe && normalizedLabel !== "clean"');
+    expect(scanImage).toContain('!safe && normalizedLabel === "clean"');
+    expect(scanImage).toContain('url.protocol !== "https:"');
+    expect(scanImage).toContain("url.username || url.password");
 
     expect(scanImage).toContain("const { data: completedUsage, error: completeError }");
     expect(scanImage).toContain('.eq("status", "reserved")\n        .select("id")\n        .maybeSingle()');
