@@ -10,6 +10,7 @@ const emailVerify = read("supabase/functions/verify-email-connection/index.ts");
 const networkGuard = read("supabase/functions/_shared/public-network-guard.ts");
 const webchat = read("supabase/functions/webchat-ingest/index.ts");
 const webchatProxy = read("supabase/functions/webchat-proxy/index.ts");
+const webchatValidator = read("supabase/functions/_shared/webchat-channel-validator.ts");
 const customWebhook = read("supabase/functions/webhook-ingest/index.ts");
 const sms = read("supabase/functions/sms-webhook/index.ts");
 const config = read("supabase/config.toml");
@@ -26,8 +27,9 @@ describe("P0.6 content-security ingress wave 2", () => {
     expect(networkGuard).toContain("Deno.connect({ hostname: address, port })");
     expect(networkGuard).toContain("Deno.startTls(tcp, { hostname: normalized");
     expect(networkGuard).toContain("Connected peer is not a public network address");
-    expect(config).toContain("[functions.verify-email-connection]");
-    expect(config).toContain("verify_jwt = true");
+    const verifyConfig = config.slice(config.indexOf("[functions.verify-email-connection]"));
+    expect(verifyConfig).toContain("[functions.verify-email-connection]");
+    expect(verifyConfig.split("\n").slice(0, 2).join("\n")).toContain("verify_jwt = true");
   });
 
   it("retires the tenant-unbound legacy Email ingest endpoint", () => {
@@ -69,7 +71,8 @@ describe("P0.6 content-security ingress wave 2", () => {
   });
 
   it("gates Webchat after internal auth/tenant resolution and before dedupe or business side effects", () => {
-    expect(webchatProxy).toContain("event_id is required");
+    expect(webchatValidator).toContain('error: "event_id is required"');
+    expect(webchatProxy).toContain("event_id,");
     expect(webchatProxy).not.toContain("crypto.randomUUID()");
     const auth = webchat.indexOf("requireInternalSecret(req)");
     const tenant = webchat.indexOf("const workspaceId = channel.workspace_id");
@@ -133,9 +136,10 @@ describe("P0.6 content-security ingress wave 2", () => {
   it("keeps race-safe provider idempotency migrations fail-fast and non-destructive", () => {
     const migrations = [emailMigration, webchatMigration, smsMigration, customMigration];
     for (const migration of migrations) {
-      expect(migration).toContain("CREATE UNIQUE INDEX");
-      expect(migration.toLowerCase()).toContain("having count(*) > 1");
-      expect(migration.toLowerCase()).not.toMatch(/delete\s+from\s+public\.inbox_messages/);
+      const lower = migration.toLowerCase();
+      expect(lower).toContain("create unique index");
+      expect(lower).toContain("having count(*) > 1");
+      expect(lower).not.toMatch(/delete\s+from\s+public\.inbox_messages/);
     }
   });
 
