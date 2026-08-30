@@ -127,6 +127,7 @@ BEGIN
       'reused', true,
       'status', 'completed',
       'event_record_id', v_event.id,
+      'content_sha256', v_event.content_sha256,
       'category', v_event.category,
       'risk_score', v_event.risk_score,
       'action', v_event.action,
@@ -134,7 +135,9 @@ BEGIN
     );
   END IF;
 
-  -- Failed work is retryable. Expired reservations may also be reclaimed.
+  -- Failed work is retryable. Expired reservations may also be reclaimed. The
+  -- existing content_sha256 is deliberately preserved so a request id cannot
+  -- be rebound to a different payload after a failure/expiry.
   IF v_event.processing_status = 'failed'
      OR (v_event.processing_status = 'reserved' AND v_event.claim_expires_at <= clock_timestamp()) THEN
     v_new_token := gen_random_uuid();
@@ -180,6 +183,64 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.bind_content_security_event_fingerprint(
+  p_workspace_id uuid,
+  p_source text,
+  p_event_id text,
+  p_claim_token uuid,
+  p_content_sha256 text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_event public.content_security_events%ROWTYPE;
+BEGIN
+  IF p_content_sha256 IS NULL OR p_content_sha256 !~ '^[0-9a-f]{64}$' THEN
+    RAISE EXCEPTION 'CONTENT_SECURITY_INVALID_FINGERPRINT';
+  END IF;
+
+  SELECT * INTO v_event
+  FROM public.content_security_events
+  WHERE workspace_id = p_workspace_id
+    AND source = p_source
+    AND event_id = p_event_id
+  FOR UPDATE;
+
+  IF v_event.id IS NULL
+     OR v_event.processing_status <> 'reserved'
+     OR v_event.claim_token <> p_claim_token THEN
+    RETURN jsonb_build_object(
+      'bound', false,
+      'code', 'CONTENT_SECURITY_CLAIM_NOT_OWNED'
+    );
+  END IF;
+
+  IF v_event.content_sha256 IS NOT NULL
+     AND v_event.content_sha256 <> p_content_sha256 THEN
+    RETURN jsonb_build_object(
+      'bound', false,
+      'code', 'EVENT_ID_PAYLOAD_MISMATCH'
+    );
+  END IF;
+
+  IF v_event.content_sha256 IS NULL THEN
+    UPDATE public.content_security_events
+    SET content_sha256 = p_content_sha256
+    WHERE id = v_event.id
+      AND processing_status = 'reserved'
+      AND claim_token = p_claim_token;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'bound', true,
+    'content_sha256', p_content_sha256
+  );
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.finalize_content_security_event(
   p_workspace_id uuid,
   p_source text,
@@ -205,6 +266,10 @@ AS $$
 DECLARE
   v_event public.content_security_events%ROWTYPE;
 BEGIN
+  IF p_content_sha256 IS NULL OR p_content_sha256 !~ '^[0-9a-f]{64}$' THEN
+    RAISE EXCEPTION 'CONTENT_SECURITY_INVALID_FINGERPRINT';
+  END IF;
+
   IF p_action = 'quarantine'
      AND (p_quarantine_ciphertext IS NULL OR p_quarantine_iv IS NULL OR p_quarantine_alg <> 'AES-GCM-256') THEN
     RAISE EXCEPTION 'QUARANTINE_ENCRYPTION_REQUIRED';
@@ -226,6 +291,7 @@ BEGIN
     AND event_id = p_event_id
     AND processing_status = 'reserved'
     AND claim_token = p_claim_token
+    AND content_sha256 = p_content_sha256
   RETURNING * INTO v_event;
 
   IF v_event.id IS NULL THEN
@@ -304,6 +370,11 @@ $$;
 REVOKE ALL ON FUNCTION public.claim_content_security_event(uuid, text, text)
   FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_content_security_event(uuid, text, text)
+  TO service_role;
+
+REVOKE ALL ON FUNCTION public.bind_content_security_event_fingerprint(uuid, text, text, uuid, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.bind_content_security_event_fingerprint(uuid, text, text, uuid, text)
   TO service_role;
 
 REVOKE ALL ON FUNCTION public.finalize_content_security_event(
