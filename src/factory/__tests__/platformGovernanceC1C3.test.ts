@@ -12,6 +12,9 @@ const approvalMigration = readFileSync(
   "utf8",
 );
 const workspacePayment = readFileSync(resolve(process.cwd(), "src/hooks/useWorkspacePayment.ts"), "utf8");
+const adminRoleManager = readFileSync(resolve(process.cwd(), "src/components/AdminRoleManager.tsx"), "utf8");
+const workspaceTeamRoles = readFileSync(resolve(process.cwd(), "src/components/WorkspaceTeamRoles.tsx"), "utf8");
+const walletSubscribe = readFileSync(resolve(process.cwd(), "supabase/functions/wallet-subscribe/index.ts"), "utf8");
 
 function sourceFiles(root: string): string[] {
   const out: string[] = [];
@@ -24,32 +27,50 @@ function sourceFiles(root: string): string[] {
   return out;
 }
 
-const runtimeFiles = [
-  ...sourceFiles(resolve(process.cwd(), "src")),
-  ...sourceFiles(resolve(process.cwd(), "supabase/functions")),
-];
-
-const directUserRoleWrites = runtimeFiles.filter((file) => {
+const browserFiles = sourceFiles(resolve(process.cwd(), "src"));
+const directBrowserRoleGrantsOrUpdates = browserFiles.filter((file) => {
   const source = readFileSync(file, "utf8");
-  return /\.from\(\s*["']user_roles["']\s*\)\s*\.\s*(?:insert|update|upsert|delete)\s*\(/s.test(source);
+  return /\.from\(\s*["']user_roles["']\s*\)\s*\.\s*(?:insert|update|upsert)\s*\(/s.test(source);
 });
 
 describe("Platform governance C1/C3 source contract", () => {
-  it("has no direct runtime writes to user_roles", () => {
-    expect(directUserRoleWrites).toEqual([]);
+  it("has no direct browser role grants or rewrites", () => {
+    expect(directBrowserRoleGrantsOrUpdates).toEqual([]);
+  });
+
+  it("routes admin elevation and operational grants through bounded RPCs", () => {
+    expect(adminRoleManager).toContain('rpc("request_admin_role"');
+    expect(adminRoleManager).toContain('rpc("grant_platform_operational_role"');
+    expect(workspaceTeamRoles).toContain('rpc("request_admin_role"');
+    expect(adminRoleManager).not.toMatch(/\.from\(\s*["']user_roles["']\s*\)\s*\.\s*(?:insert|update|upsert)\s*\(/s);
+    expect(workspaceTeamRoles).not.toMatch(/\.from\(\s*["']user_roles["']\s*\)\s*\.\s*(?:insert|update|upsert)\s*\(/s);
+  });
+
+  it("keeps trusted service-role role writes distinct from browser authority", () => {
+    expect(walletSubscribe).toContain("getServiceKey()!");
+    expect(walletSubscribe).toMatch(/\.from\(\s*["']user_roles["']\s*\)\s*\.\s*upsert\s*\(/s);
+    expect(migration).toContain("grant select, insert, update, delete on table public.user_roles to service_role");
   });
 
   it("preserves the SECURITY DEFINER admin approval grant path", () => {
     expect(approvalMigration).toMatch(/create or replace function public\.approve_admin_role[\s\S]*security definer/i);
     expect(approvalMigration).toContain("insert into public.user_roles(user_id, role)");
     expect(approvalMigration).toContain("grant execute on function public.approve_admin_role(uuid,text) to authenticated");
+    expect(migration).toContain("to_regprocedure('public.request_admin_role(uuid)')");
   });
 
-  it("removes authenticated direct role grant and update policies", () => {
+  it("removes authenticated direct role grant/update and bounds revocation", () => {
     expect(migration).toContain('drop policy if exists "Admins can manage roles" on public.user_roles');
     expect(migration).toContain('drop policy if exists "Admins can update roles" on public.user_roles');
+    expect(migration).toContain('create policy "Admins can delete operational roles"');
     expect(migration).toContain("grant select, delete on table public.user_roles to authenticated");
     expect(migration).not.toContain("grant select, insert, update, delete on table public.user_roles to authenticated");
+    expect(migration).toContain("create or replace function public.grant_platform_operational_role");
+    expect(migration).toContain("security definer");
+    expect(migration).toContain("set search_path = ''");
+    expect(migration).toContain("'controller'::public.app_role");
+    expect(migration).toContain("'worker'::public.app_role");
+    expect(migration).toContain("'moderator'::public.app_role");
   });
 
   it("locks ordinary admin self-identity while preserving owner/backend repair", () => {
