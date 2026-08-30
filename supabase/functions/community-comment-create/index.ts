@@ -54,6 +54,18 @@ serve(async (req) => {
       return jsonResponse({ success: true, reused: true, event_id: eventId, comment: existingComment });
     }
 
+    if (parent_id) {
+      const { data: parentComment, error: parentError } = await userClient
+        .from("community_comments")
+        .select("id, post_id")
+        .eq("id", parent_id)
+        .maybeSingle();
+
+      if (parentError || !parentComment || parentComment.post_id !== post_id) {
+        return errorResponse("Parent comment does not belong to this post", 400, "INVALID_PARENT_COMMENT");
+      }
+    }
+
     let authorizedWorkspaceId: string | null = null;
     if (workspace_id) {
       const { data: ws } = await adminClient
@@ -86,7 +98,7 @@ serve(async (req) => {
         event_id: eventId,
         violation_type: "contact_info_in_comment",
         severity: moderation.severity,
-        notes: `Attempted to share contact information in ${moderation.field} (${moderation.detection.type}: ${moderation.detection.match}).`,
+        notes: `Attempted to share contact information in ${moderation.field}; detector type=${moderation.detection.type || "unknown"}.`,
       });
 
       return errorResponse(
