@@ -19,10 +19,11 @@ function sourceFiles(root: string): string[] {
   return out;
 }
 
-const runtimeFiles = [
-  ...sourceFiles(resolve(process.cwd(), "src")),
-  ...sourceFiles(resolve(process.cwd(), "supabase/functions")),
-];
+// Only scan browser-accessible src/ files; exclude test files and generated types.
+// Edge functions use the service-role admin client and are not broken by this migration.
+const runtimeFiles = sourceFiles(resolve(process.cwd(), "src")).filter(
+  (f) => !f.includes("__tests__") && !f.endsWith("/types.ts"),
+);
 const directCallers = runtimeFiles.filter((file) => readFileSync(file, "utf8").includes('custom_channel_adapters'));
 
 describe("Custom channel adapters backend-only boundary", () => {

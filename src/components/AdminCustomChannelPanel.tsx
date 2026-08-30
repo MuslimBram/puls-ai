@@ -39,6 +39,22 @@ const isValidUrl = (url: string): boolean => {
 export const AdminCustomChannelPanel = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+
+  const workspaceQuery = useQuery({
+    queryKey: ["my-workspace-id", user?.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("workspace_members")
+        .select("workspace_id")
+        .eq("user_id", user!.id)
+        .limit(1)
+        .single();
+      if (error) throw error;
+      return data.workspace_id as string;
+    },
+    enabled: !!user,
+  });
+  const workspaceId = workspaceQuery.data ?? null;
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
@@ -68,28 +84,29 @@ export const AdminCustomChannelPanel = () => {
   const [testingConnection, setTestingConnection] = useState<string | null>(null);
 
   const adaptersQuery = useQuery({
-    queryKey: ["custom-channel-adapters"],
+    queryKey: ["custom-channel-adapters", workspaceId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("custom_channel_adapters" as any)
-        .select("*")
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.functions.invoke("custom-channel-admin", {
+        body: { action: "list", workspace_id: workspaceId },
+      });
       if (error) throw error;
-      return data as any[];
+      if (data?.error) throw new Error(data.error);
+      return (data?.adapters ?? []) as any[];
     },
+    enabled: !!workspaceId,
   });
 
   const eventLogsQuery = useQuery({
-    queryKey: ["integration-event-logs-custom"],
+    queryKey: ["integration-event-logs-custom", workspaceId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("integration_event_logs" as any)
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(50);
+      const { data, error } = await supabase.functions.invoke("custom-channel-admin", {
+        body: { action: "list_logs", workspace_id: workspaceId },
+      });
       if (error) throw error;
-      return data as any[];
+      if (data?.error) throw new Error(data.error);
+      return (data?.logs ?? []) as any[];
     },
+    enabled: !!workspaceId,
   });
 
   // Validate form
@@ -118,37 +135,32 @@ export const AdminCustomChannelPanel = () => {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!validateForm()) throw new Error("Fix form errors before saving");
+      if (!workspaceId) throw new Error("Workspace not loaded");
 
       const inboundMapping: Record<string, string> = {};
       inboundPairs.forEach(p => { if (p.key && p.value) inboundMapping[p.key] = p.value; });
       const outboundMapping: Record<string, string> = {};
       outboundPairs.forEach(p => { if (p.key && p.value) outboundMapping[p.key] = p.value; });
 
-      const payload = {
-        adapter_name: name.trim(),
-        adapter_key: adapterKey.trim(),
-        provider_api_url: providerUrl.trim() || null,
-        auth_type: authType,
-        auth_credentials: authCreds,
-        inbound_mapping: inboundMapping,
-        outbound_mapping: outboundMapping,
-      } as any;
-
-      if (editId) {
-        const { error } = await supabase.from("custom_channel_adapters" as any).update(payload).eq("id", editId);
-        if (error) throw error;
-      } else {
-        const { data: wm } = await supabase.from("workspace_members").select("workspace_id").eq("user_id", user!.id).limit(1).single();
-        const { error } = await supabase.from("custom_channel_adapters" as any).insert({
-          ...payload,
-          workspace_id: wm?.workspace_id,
-          created_by: user!.id,
-        });
-        if (error) throw error;
-      }
+      const { data, error } = await supabase.functions.invoke("custom-channel-admin", {
+        body: {
+          action: "upsert",
+          workspace_id: workspaceId,
+          ...(editId ? { id: editId } : {}),
+          adapter_name: name.trim(),
+          adapter_key: adapterKey.trim(),
+          provider_api_url: providerUrl.trim() || null,
+          auth_type: authType,
+          auth_credentials: authCreds,
+          inbound_mapping: inboundMapping,
+          outbound_mapping: outboundMapping,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["custom-channel-adapters"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-channel-adapters", workspaceId] });
       toast.success(editId ? "Adapter updated" : "Adapter created");
       resetForm();
       setDialogOpen(false);
@@ -158,22 +170,28 @@ export const AdminCustomChannelPanel = () => {
 
   const toggleMutation = useMutation({
     mutationFn: async ({ id, active }: { id: string; active: boolean }) => {
-      const { error } = await supabase.from("custom_channel_adapters" as any).update({ is_active: active }).eq("id", id);
+      const { data, error } = await supabase.functions.invoke("custom-channel-admin", {
+        body: { action: "toggle", workspace_id: workspaceId, id, is_active: active },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["custom-channel-adapters"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-channel-adapters", workspaceId] });
       toast.success("Adapter status updated");
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from("custom_channel_adapters" as any).delete().eq("id", id);
+      const { data, error } = await supabase.functions.invoke("custom-channel-admin", {
+        body: { action: "delete", workspace_id: workspaceId, id },
+      });
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["custom-channel-adapters"] });
+      queryClient.invalidateQueries({ queryKey: ["custom-channel-adapters", workspaceId] });
       toast.success("Adapter deleted");
       setDeleteTarget(null);
     },
@@ -253,7 +271,7 @@ export const AdminCustomChannelPanel = () => {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
-      queryClient.invalidateQueries({ queryKey: ["integration-event-logs-custom"] });
+      queryClient.invalidateQueries({ queryKey: ["integration-event-logs-custom", workspaceId] });
       if (data.success) {
         toast.success(`Inbound test OK — message_id: ${data.message_id}`);
       } else {
@@ -269,7 +287,7 @@ export const AdminCustomChannelPanel = () => {
       const { data, error } = await supabase.functions.invoke("custom-channel-send", {
         body: { adapter_key: key, message_content: testOutMsg, recipient_identifier: testOutRecipient },
       });
-      queryClient.invalidateQueries({ queryKey: ["integration-event-logs-custom"] });
+      queryClient.invalidateQueries({ queryKey: ["integration-event-logs-custom", workspaceId] });
       if (error) throw error;
       if (data?.success) {
         toast.success(`Outbound test OK — provider status: ${data.provider_status}`);
