@@ -53,8 +53,7 @@ insert into public.e2e_member values
 ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','88888888-8888-8888-8888-888888888888','employee',true,null),
 ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','99999999-9999-9999-9999-999999999999','freelancer',true,null),
 ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','aaaaaaaa-1111-1111-1111-aaaaaaaaaaaa','member',true,now()-interval '1 minute'),
-('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','aaaaaaaa-2222-2222-2222-aaaaaaaaaaaa','member',false,null),
-('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb','33333333-3333-3333-3333-333333333333','viewer',true,null);
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','aaaaaaaa-2222-2222-2222-aaaaaaaaaaaa','member',false,null);
 insert into public.e2e_platform values('aaaaaaaa-3333-3333-3333-aaaaaaaaaaaa','admin'),('aaaaaaaa-4444-4444-4444-aaaaaaaaaaaa','super_admin');
 insert into public.e2e_support values
 ('aaaaaaaa-5555-5555-5555-aaaaaaaaaaaa','aaaaaaaa-5555-5555-5555-aaaaaaaaaaaa','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','private-read',now()+interval '1 hour',null),
