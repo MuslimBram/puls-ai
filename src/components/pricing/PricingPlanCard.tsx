@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { PackageVariant, PlanKey } from "@/types/monetization";
-import { ArrowDown, ArrowUp, Check, Crown, Loader2, Sparkles } from "lucide-react";
+import { ArrowDown, ArrowUp, Check, Crown, Loader2, Sparkles, Landmark, CreditCard } from "lucide-react";
 import {
   formatCommitmentLabel,
   formatPackageBadge,
@@ -18,6 +20,8 @@ import {
   getPlanChangeIntent,
   type MonetizationPlan,
 } from "./pricing-utils";
+import { PayPalCheckoutButton } from "@/components/PayPalCheckoutButton";
+import { ManualPaymentFlow } from "@/components/ManualPaymentFlow";
 
 interface PricingPlanCardProps {
   annual: boolean;
@@ -40,6 +44,8 @@ export const PricingPlanCard = ({
   plan,
   planOrder,
 }: PricingPlanCardProps) => {
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<"manual" | "paypal">("manual");
   const intent = getPlanChangeIntent(currentPlanKey, plan.key, planOrder);
   const isCurrentSelection = currentPlanKey === plan.key && currentPackageType === packageType;
   const isSamePlanDifferentTerm = currentPlanKey === plan.key && !isCurrentSelection;
@@ -56,99 +62,143 @@ export const PricingPlanCard = ({
   const packageBadge = formatPackageBadge(packageType);
   const badgeText = plan.badgeLabel || (plan.highlighted ? "Recommended" : null);
 
+  const handleSelect = () => {
+    if (plan.key === "enterprise") {
+      onSelect(plan.key);
+      return;
+    }
+    setPaymentMethod("manual");
+    setCheckoutOpen(true);
+  };
+
   return (
-    <Card
-      className={cn(
-        "relative flex h-full flex-col overflow-hidden border-border/70 bg-card/80 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
-        plan.highlighted && "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary/20",
-        isCurrentSelection && "border-primary/60 ring-1 ring-primary/25",
-      )}
-    >
-      <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0" />
+    <>
+      <Card
+        className={cn(
+          "relative flex h-full flex-col overflow-hidden border-border/70 bg-card/80 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl",
+          plan.highlighted && "border-primary shadow-lg shadow-primary/10 ring-1 ring-primary/20",
+          isCurrentSelection && "border-primary/60 ring-1 ring-primary/25",
+        )}
+      >
+        <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary/0 via-primary to-primary/0" />
+        {badgeText ? (
+          <div className="absolute right-4 top-4">
+            <Badge variant={plan.highlighted ? "default" : "secondary"} className="gap-1">
+              {plan.highlighted ? <Crown className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
+              {badgeText}
+            </Badge>
+          </div>
+        ) : null}
 
-      {badgeText ? (
-        <div className="absolute right-4 top-4">
-          <Badge variant={plan.highlighted ? "default" : "secondary"} className="gap-1">
-            {plan.highlighted ? <Crown className="h-3 w-3" /> : <Sparkles className="h-3 w-3" />}
-            {badgeText}
-          </Badge>
-        </div>
-      ) : null}
+        <CardHeader className="space-y-4 pb-4">
+          <div className="space-y-2 pr-16">
+            <CardTitle className="text-xl text-foreground">{plan.name}</CardTitle>
+            <CardDescription className="min-h-[3rem] text-sm leading-6">{plan.description}</CardDescription>
+          </div>
 
-      <CardHeader className="space-y-4 pb-4">
-        <div className="space-y-2 pr-16">
-          <CardTitle className="text-xl text-foreground">{plan.name}</CardTitle>
-          <CardDescription className="min-h-[3rem] text-sm leading-6">{plan.description}</CardDescription>
-        </div>
+          <div className="space-y-2">
+            {plan.key === "enterprise" ? (
+              <div className="space-y-1">
+                <p className="text-4xl font-semibold tracking-tight text-foreground">Custom</p>
+                <p className="text-sm text-muted-foreground">Tailored pricing, onboarding, and rollout</p>
+              </div>
+            ) : (
+              <>
+                <div className="flex items-end gap-2">
+                  <span className="text-4xl font-semibold tracking-tight text-foreground">{formatALL(displayPrice)}</span>
+                  <span className="pb-1 text-sm text-muted-foreground">/mo</span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="outline">{commitmentLabel}</Badge>
+                  {packageBadge ? <Badge variant="secondary">{packageBadge}</Badge> : null}
+                </div>
+                <p className="text-xs text-muted-foreground">7-day trial, then {formatALL(totalPrice)} total billed for {commitmentLabel.toLowerCase()}</p>
+                {savings > 0 ? <p className="text-xs font-medium text-primary">You save {formatALL(savings)} on this term</p> : null}
+              </>
+            )}
+          </div>
+        </CardHeader>
 
-        <div className="space-y-2">
-          {plan.key === "enterprise" ? (
-            <div className="space-y-1">
-              <p className="text-4xl font-semibold tracking-tight text-foreground">Custom</p>
-              <p className="text-sm text-muted-foreground">Tailored pricing, onboarding, and rollout</p>
+        <CardContent className="flex flex-1 flex-col gap-5">
+          <div className="grid gap-2 text-sm text-foreground/90">
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /><span>{formatLimitValue(plan.limits.channels, "channels")}</span></div>
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /><span>{formatLimitValue(plan.limits.aiRepliesPerDay, "AI replies / day")}</span></div>
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /><span>{formatLimitValue(plan.limits.teamMembers, "team members")}</span></div>
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /><span>{formatLimitValue(plan.limits.imagesPerMonth, "images / day")}</span></div>
+            <div className="flex items-center gap-2"><Check className="h-4 w-4 shrink-0 text-primary" /><span>{plan.limits.videoMaxSeconds === -1 ? "Unlimited video / day" : `${Math.floor(plan.limits.videoMaxSeconds / 60)}min video / day`}</span></div>
+          </div>
+
+          <div className="rounded-xl border border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground">
+            <p><span className="font-medium text-foreground">Support:</span> {plan.support}</p>
+            <p className="mt-1">Daily quotas reset every 24h · no accumulation</p>
+          </div>
+
+          <Button
+            className="mt-auto w-full"
+            variant={plan.highlighted || intent === "upgrade" || isSamePlanDifferentTerm ? "default" : "outline"}
+            disabled={loading || isCurrentSelection}
+            onClick={handleSelect}
+          >
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {!loading && intent === "upgrade" && !isSamePlanDifferentTerm ? <ArrowUp className="mr-2 h-4 w-4" /> : null}
+            {!loading && intent === "downgrade" ? <ArrowDown className="mr-2 h-4 w-4" /> : null}
+            {actionLabel}
+          </Button>
+        </CardContent>
+      </Card>
+
+      {plan.key !== "enterprise" ? (
+        <Dialog open={checkoutOpen} onOpenChange={setCheckoutOpen}>
+          <DialogContent
+            className="max-w-lg data-[state=open]:slide-in-from-right-1/2 data-[state=closed]:slide-out-to-right-1/2"
+            aria-describedby="payment-dialog-description"
+          >
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2"><CreditCard className="h-5 w-5 text-primary" />Choose payment method</DialogTitle>
+              <DialogDescription id="payment-dialog-description">
+                {plan.name} · {commitmentLabel} · {formatALL(totalPrice)} total after the 7-day trial.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button type="button" onClick={() => setPaymentMethod("manual")} className={cn("rounded-xl border p-4 text-left transition-colors", paymentMethod === "manual" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40")}>
+                <div className="flex items-center gap-2 font-medium"><Landmark className="h-4 w-4 text-primary" />Bank / Payoneer</div>
+                <p className="mt-1 text-xs text-muted-foreground">Choose an available bank transfer or Payoneer method for your currency.</p>
+              </button>
+              <button type="button" onClick={() => setPaymentMethod("paypal")} className={cn("rounded-xl border p-4 text-left transition-colors", paymentMethod === "paypal" ? "border-primary bg-primary/5" : "border-border hover:border-primary/40")}>
+                <div className="flex items-center gap-2 font-medium"><CreditCard className="h-4 w-4 text-primary" />PayPal</div>
+                <p className="mt-1 text-xs text-muted-foreground">Continue through the existing PayPal checkout.</p>
+              </button>
             </div>
-          ) : (
-            <>
-              <div className="flex items-end gap-2">
-                <span className="text-4xl font-semibold tracking-tight text-foreground">{formatALL(displayPrice)}</span>
-                <span className="pb-1 text-sm text-muted-foreground">/mo</span>
+
+            {paymentMethod === "manual" ? (
+              <ManualPaymentFlow
+                planKey={plan.key}
+                planName={plan.name}
+                packageType={packageType}
+                chargedCurrency="ALL"
+                chargedAmount={totalPrice}
+                onSuccess={() => setCheckoutOpen(false)}
+              />
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm text-muted-foreground">
+                  PayPal checkout uses the currently configured PayPal settlement currency. No payment is started until you click the button below.
+                </div>
+                <PayPalCheckoutButton
+                  amount={totalPrice}
+                  currency="EUR"
+                  paymentType="one_time"
+                  planKey={plan.key}
+                  description={`Pulse AI - ${plan.name} (${commitmentLabel})`}
+                  label="Continue with PayPal"
+                  className="w-full"
+                />
               </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">{commitmentLabel}</Badge>
-                {packageBadge ? <Badge variant="secondary">{packageBadge}</Badge> : null}
-              </div>
-
-              <p className="text-xs text-muted-foreground">
-                7-day trial, then {formatALL(totalPrice)} total billed for {commitmentLabel.toLowerCase()}
-              </p>
-              {savings > 0 ? <p className="text-xs font-medium text-primary">You save {formatALL(savings)} on this term</p> : null}
-            </>
-          )}
-        </div>
-      </CardHeader>
-
-      <CardContent className="flex flex-1 flex-col gap-5">
-        <div className="grid gap-2 text-sm text-foreground/90">
-          <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-primary" />
-            <span>{formatLimitValue(plan.limits.channels, "channels")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-primary" />
-            <span>{formatLimitValue(plan.limits.aiRepliesPerDay, "AI replies / day")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-primary" />
-            <span>{formatLimitValue(plan.limits.teamMembers, "team members")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-primary" />
-            <span>{formatLimitValue(plan.limits.imagesPerMonth, "images / day")}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Check className="h-4 w-4 shrink-0 text-primary" />
-            <span>{plan.limits.videoMaxSeconds === -1 ? "Unlimited video / day" : `${Math.floor(plan.limits.videoMaxSeconds / 60)}min video / day`}</span>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-border/70 bg-muted/30 p-3 text-xs text-muted-foreground">
-          <p><span className="font-medium text-foreground">Support:</span> {plan.support}</p>
-          <p className="mt-1">Daily quotas reset every 24h · no accumulation</p>
-        </div>
-
-        <Button
-          className="mt-auto w-full"
-          variant={plan.highlighted || intent === "upgrade" || isSamePlanDifferentTerm ? "default" : "outline"}
-          disabled={loading || isCurrentSelection}
-          onClick={() => onSelect(plan.key)}
-        >
-          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-          {!loading && intent === "upgrade" && !isSamePlanDifferentTerm ? <ArrowUp className="mr-2 h-4 w-4" /> : null}
-          {!loading && intent === "downgrade" ? <ArrowDown className="mr-2 h-4 w-4" /> : null}
-          {actionLabel}
-        </Button>
-      </CardContent>
-    </Card>
+            )}
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </>
   );
 };
