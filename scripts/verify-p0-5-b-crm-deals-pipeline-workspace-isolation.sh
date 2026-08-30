@@ -21,8 +21,8 @@ create table public.deals(id uuid primary key,workspace_id uuid references publi
 create or replace function public.has_workspace_access(w uuid) returns boolean language sql stable security definer set search_path='' as $$ select (select auth.uid()) is not null and (exists(select 1 from public.workspaces x where x.id=w and x.owner_id=(select auth.uid())) or exists(select 1 from public.workspace_members x where x.workspace_id=w and x.user_id=(select auth.uid())) or exists(select 1 from public.workspace_access_assignments x where x.workspace_id=w and x.user_id=(select auth.uid()) and x.is_active and (x.expires_at is null or x.expires_at>pg_catalog.now()))) $$;
 create or replace function public.has_workspace_role(w uuid,roles text[]) returns boolean language sql stable security definer set search_path='' as $$ select (select auth.uid()) is not null and (exists(select 1 from public.workspaces x where x.id=w and x.owner_id=(select auth.uid()) and 'owner'=any(roles)) or exists(select 1 from public.workspace_members x where x.workspace_id=w and x.user_id=(select auth.uid()) and x.role=any(roles)) or exists(select 1 from public.workspace_access_assignments x where x.workspace_id=w and x.user_id=(select auth.uid()) and x.is_active and (x.expires_at is null or x.expires_at>pg_catalog.now()) and (case x.access_role when 'business_admin' then 'admin' when 'manager' then 'member' when 'employee' then 'member' when 'freelancer' then 'member' end)=any(roles))) $$;
 alter table public.pipeline_stages enable row level security; alter table public.deals enable row level security;
-create policy old_stage on public.pipeline_stages for all to authenticated using(auth.uid()=user_id) with check(auth.uid()=user_id);
-create policy old_deal on public.deals for all to authenticated using(auth.uid()=user_id) with check(auth.uid()=user_id);
+create policy "Users can manage own pipeline_stages" on public.pipeline_stages for all to authenticated using(auth.uid()=user_id) with check(auth.uid()=user_id);
+create policy "Users can manage own deals" on public.deals for all to authenticated using(auth.uid()=user_id) with check(auth.uid()=user_id);
 grant all privileges on public.pipeline_stages,public.deals to anon,authenticated,service_role; grant select,insert on public.pipeline_stages,public.deals to sandbox_exec; alter role service_role bypassrls;
 insert into public.workspaces values('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111','A'),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','22222222-2222-2222-2222-222222222222','B');
 insert into public.workspace_members values('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','33333333-3333-3333-3333-333333333333','member'),('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','33333333-3333-3333-3333-333333333333','member'),('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','44444444-4444-4444-4444-444444444444','viewer'),('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','55555555-5555-5555-5555-555555555555','member'),('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','66666666-6666-6666-6666-666666666666','admin');
@@ -65,15 +65,24 @@ commit;
 SQL
 
 expect_fail(){ if psql -h "$H" -p "$P" -U "$U" -d "$OK" -v ON_ERROR_STOP=1 -c "$1" >/dev/null 2>&1; then echo "unexpected success: $2"; exit 1; fi; }
+expect_fail_or_noop(){
+  local sql="$1" label="$2" noop_tag="$3" out
+  if out="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -v ON_ERROR_STOP=1 -c "$sql" 2>&1)"; then
+    [[ "$out" == *"$noop_tag"* ]] && return 0
+    echo "unexpected success: $label"
+    echo "$out"
+    exit 1
+  fi
+}
 expect_fail "set role authenticated; set request.jwt.claim.sub='55555555-5555-5555-5555-555555555555'; insert into public.deals(id,workspace_id,user_id,title) values('d7777777-7777-4777-8777-777777777777','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','55555555-5555-5555-5555-555555555555','F');" foreign_workspace_insert
 expect_fail "set role authenticated; set request.jwt.claim.sub='55555555-5555-5555-5555-555555555555'; update public.deals set workspace_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' where id='d1111111-1111-4111-8111-111111111111';" workspace_move
 expect_fail "set role authenticated; set request.jwt.claim.sub='55555555-5555-5555-5555-555555555555'; insert into public.deals(id,workspace_id,user_id,title) values('d8888888-8888-4888-8888-888888888888','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111','spoof');" user_spoof
 expect_fail "set role authenticated; set request.jwt.claim.sub='55555555-5555-5555-5555-555555555555'; insert into public.deals(id,workspace_id,user_id,stage_id,title) values('d9999999-9999-4999-8999-999999999999','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','55555555-5555-5555-5555-555555555555','b1111111-1111-4111-8111-111111111111','foreign-stage');" foreign_stage
 expect_fail "set role authenticated; set request.jwt.claim.sub='55555555-5555-5555-5555-555555555555'; insert into public.deals(id,workspace_id,user_id,lead_id,title) values('daaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','55555555-5555-5555-5555-555555555555','c2222222-2222-4222-8222-222222222222','foreign-lead');" foreign_lead
 expect_fail "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-4444-444444444444'; insert into public.deals(id,workspace_id,user_id,title) values('dbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','44444444-4444-4444-4444-444444444444','viewer');" viewer_insert
-expect_fail "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-4444-444444444444'; update public.deals set title='viewer' where id='d1111111-1111-4111-8111-111111111111';" viewer_update
-expect_fail "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-4444-444444444444'; delete from public.deals where id='d1111111-1111-4111-8111-111111111111';" viewer_delete
-expect_fail "set role authenticated; set request.jwt.claim.sub='55555555-5555-5555-5555-555555555555'; delete from public.deals where id='d6666666-6666-4666-8666-666666666666';" member_delete
+expect_fail_or_noop "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-4444-444444444444'; update public.deals set title='viewer' where id='d1111111-1111-4111-8111-111111111111';" viewer_update "UPDATE 0"
+expect_fail_or_noop "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-4444-444444444444'; delete from public.deals where id='d1111111-1111-4111-8111-111111111111';" viewer_delete "DELETE 0"
+expect_fail_or_noop "set role authenticated; set request.jwt.claim.sub='55555555-5555-5555-5555-555555555555'; delete from public.deals where id='d6666666-6666-4666-8666-666666666666';" member_delete "DELETE 0"
 
 platform_count="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -qAtc "set role authenticated; set request.jwt.claim.sub='99999999-9999-4999-8999-999999999999'; select count(*) from public.deals;" | tail -n1)"; [[ "$platform_count" == "0" ]] || { echo "platform admin read: $platform_count"; exit 1; }
 service_count="$(psql -h "$H" -p "$P" -U "$U" -d "$OK" -qAtc "set role service_role; select count(*) from public.deals;" | tail -n1)"; [[ "$service_count" =~ ^[1-9][0-9]*$ ]] || { echo "service role access: $service_count"; exit 1; }
