@@ -13,12 +13,15 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_event public.content_security_events%ROWTYPE;
-  v_scan public.content_security_attachment_scans%ROWTYPE;
   v_text_policy jsonb;
   v_text_action text;
   v_text_category text;
   v_text_risk integer;
   v_text_reason text;
+  v_expected_attachment_count integer;
+  v_scan_count integer;
+  v_clean_count integer;
+  v_infected_count integer;
 BEGIN
   IF COALESCE(auth.role(), '') <> 'service_role' THEN
     RAISE EXCEPTION 'SERVICE_ROLE_REQUIRED' USING ERRCODE='42501';
@@ -41,34 +44,69 @@ BEGIN
     );
   END IF;
 
-  SELECT * INTO v_scan
+  -- Never infer completeness from the scans that happen to exist. The parent
+  -- event must state how many attachments were expected at ingress time; this
+  -- prevents a clean subset from masking an unstaged second/third attachment.
+  BEGIN
+    v_expected_attachment_count := (v_event.metadata ->> 'expected_attachment_count')::integer;
+  EXCEPTION WHEN invalid_text_representation THEN
+    v_expected_attachment_count := NULL;
+  END;
+
+  IF v_expected_attachment_count IS NULL OR v_expected_attachment_count < 1 THEN
+    RETURN jsonb_build_object(
+      'ready', false,
+      'code', 'ATTACHMENT_COUNT_UNVERIFIED',
+      'requires_human_review', true
+    );
+  END IF;
+
+  SELECT
+    count(*)::integer,
+    count(*) FILTER (WHERE status = 'clean')::integer,
+    count(*) FILTER (WHERE status = 'infected')::integer
+  INTO v_scan_count, v_clean_count, v_infected_count
   FROM public.content_security_attachment_scans
   WHERE security_event_id = p_security_event_id;
 
-  IF NOT FOUND THEN
+  IF v_scan_count = 0 THEN
     RETURN jsonb_build_object('ready', false, 'code', 'MALWARE_SCAN_MISSING');
   END IF;
 
-  IF v_scan.status = 'infected' THEN
+  IF v_scan_count <> v_expected_attachment_count THEN
+    RETURN jsonb_build_object(
+      'ready', false,
+      'code', 'ATTACHMENT_SCAN_COUNT_MISMATCH',
+      'expected_attachment_count', v_expected_attachment_count,
+      'scan_count', v_scan_count,
+      'requires_human_review', true
+    );
+  END IF;
+
+  IF v_infected_count > 0 THEN
     RETURN jsonb_build_object(
       'ready', false,
       'code', 'MALWARE_INFECTED',
-      'scanner', v_scan.scanner,
-      'detection_name', v_scan.detection_name
+      'infected_count', v_infected_count,
+      'attachment_count', v_scan_count,
+      'requires_human_review', true
     );
   END IF;
 
-  IF v_scan.status <> 'clean' THEN
+  IF v_clean_count <> v_expected_attachment_count THEN
     RETURN jsonb_build_object(
       'ready', false,
-      'code', 'MALWARE_SCAN_NOT_CLEAN',
-      'scan_status', v_scan.status
+      'code', 'MALWARE_SCANS_NOT_ALL_CLEAN',
+      'expected_attachment_count', v_expected_attachment_count,
+      'clean_count', v_clean_count,
+      'scan_count', v_scan_count,
+      'requires_human_review', true
     );
   END IF;
 
-  -- A clean file cannot erase a text-policy quarantine/reject. The firewall
-  -- must have persisted a machine-only text_policy before automated release can
-  -- ever be considered. Until then this stays human-review-only.
+  -- A clean file set cannot erase a text-policy quarantine/reject. The firewall
+  -- must have persisted a machine-only text_policy before automated readiness
+  -- can ever be considered. Until then this stays human-review-only.
   v_text_policy := COALESCE(v_event.metadata -> 'text_policy', '{}'::jsonb);
   v_text_action := v_text_policy ->> 'action';
   v_text_category := v_text_policy ->> 'category';
@@ -102,13 +140,11 @@ BEGIN
   RETURN jsonb_build_object(
     'ready', true,
     'code', 'READY_FOR_REVIEW_RELEASE',
+    'attachment_count', v_scan_count,
     'text_action', v_text_action,
     'text_category', v_text_category,
     'text_risk_score', v_text_risk,
     'text_reason_code', v_text_reason,
-    'malware_scanner', v_scan.scanner,
-    'engine_version', v_scan.engine_version,
-    'signature_version', v_scan.signature_version,
     'requires_human_review', true
   );
 END;
@@ -120,4 +156,4 @@ GRANT EXECUTE ON FUNCTION public.get_content_security_attachment_release_readine
   TO service_role;
 
 COMMENT ON FUNCTION public.get_content_security_attachment_release_readiness(uuid) IS
-  'Read-only release readiness. A clean malware scan never overrides text-policy quarantine/reject and never releases content itself.';
+  'Read-only release readiness. Every expected attachment must be malware-clean; clean scans never override text-policy quarantine/reject and never release content themselves.';
