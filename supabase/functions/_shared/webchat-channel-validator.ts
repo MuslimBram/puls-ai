@@ -22,12 +22,14 @@ export type WebchatInputValidation =
       ok: true;
       channel_id: string;
       message: string;
-      event_id?: string;
+      event_id: string;
       visitor_name?: string;
       visitor_email?: string;
       page_url?: string;
     }
   | { ok: false; status: number; error: string };
+
+const EVENT_ID_PATTERN = /^[A-Za-z0-9:_-]+$/;
 
 export function validatePublicWebchatInput(body: WebchatPublicInput): WebchatInputValidation {
   // user_id and workspace_id must never be trusted from the browser
@@ -46,12 +48,14 @@ export function validatePublicWebchatInput(body: WebchatPublicInput): WebchatInp
     return { ok: false, status: 400, error: "Message too long" };
   }
 
-  const rawEventId = typeof body.event_id === "string" ? body.event_id.trim() : "";
-  if (rawEventId.length > 200) {
-    return { ok: false, status: 400, error: "event_id too long" };
+  const event_id = typeof body.event_id === "string" ? body.event_id.trim() : "";
+  if (!event_id) {
+    return { ok: false, status: 400, error: "event_id is required" };
+  }
+  if (event_id.length < 8 || event_id.length > 200 || !EVENT_ID_PATTERN.test(event_id)) {
+    return { ok: false, status: 400, error: "invalid event_id" };
   }
 
-  const event_id = rawEventId || undefined;
   const visitor_name = typeof body.visitor_name === "string" ? body.visitor_name.trim().slice(0, 200) || undefined : undefined;
   const visitor_email = typeof body.visitor_email === "string" ? body.visitor_email.trim().slice(0, 320) || undefined : undefined;
   const page_url = typeof body.page_url === "string" ? body.page_url.trim().slice(0, 2048) || undefined : undefined;
