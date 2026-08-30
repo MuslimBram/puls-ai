@@ -90,12 +90,13 @@ export type CommunityModerationDecision =
       category: "contact_info";
       severity: "high";
       field: string;
-      detection: { hasContact: true; type?: string; match?: string };
+      detection: { hasContact: true; type?: string };
     };
 
 /**
  * Unified deterministic pre-insert moderation for Community text writes.
  * This is deliberately deterministic and fail-closed for direct contact sharing.
+ * Raw contact values are intentionally not propagated into audit metadata.
  * P0.6 content-security-firewall will extend this boundary with broader risk classes.
  */
 export function moderateCommunityText(
@@ -116,7 +117,6 @@ export function moderateCommunityText(
         detection: {
           hasContact: true,
           type: detection.type,
-          match: detection.match,
         },
       };
     }
