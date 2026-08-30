@@ -25,7 +25,7 @@ const ASSIGNABLE_ROLES: { value: AppRole; label: string; icon: React.ReactNode }
 ];
 
 // Platform admins may manage operational platform roles only.
-// super_admin remains the sole authority for protected/global role changes.
+// Admin elevation itself stays behind the canonical request/approval workflow.
 const ADMIN_MANAGEABLE_ROLES: AppRole[] = ["admin", "controller", "worker", "moderator"];
 
 const ROLE_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
@@ -64,18 +64,39 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
   const assignRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
       if (!canManageRole(role)) throw new Error("You don't have permission to assign this role");
-      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: role as any });
+
+      if (role === "admin") {
+        const { error } = await supabase.rpc("request_admin_role" as any, {
+          _target_user_id: userId,
+        } as any);
+        if (error) throw error;
+        return "requested" as const;
+      }
+
+      if (!(["controller", "worker", "moderator"] as AppRole[]).includes(role)) {
+        throw new Error("This role is not assignable from the platform admin UI");
+      }
+
+      const { error } = await supabase.rpc("grant_platform_operational_role" as any, {
+        _target_user_id: userId,
+        _role: role,
+      } as any);
       if (error) throw error;
+      return "assigned" as const;
     },
-    onSuccess: async (_, { userId, role }) => {
-      await log("role_assigned", "user", userId, { role });
+    onSuccess: async (result, { userId, role }) => {
+      await log(result === "requested" ? "role_assignment_requested" : "role_assigned", "user", userId, { role });
       queryClient.invalidateQueries({ queryKey: ["admin-all-user-roles"] });
       queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
-      toast.success(`Role "${role}" assigned successfully`);
+      if (result === "requested") {
+        toast.success("Admin request submitted for approval");
+      } else {
+        toast.success(`Role "${role}" assigned successfully`);
+      }
     },
     onError: (e: Error) => {
-      if (e.message?.includes("duplicate")) {
-        toast.error("User already has this role");
+      if (e.message?.includes("duplicate") || e.message?.includes("already")) {
+        toast.error("User already has this role or a request is already pending");
       } else {
         toast.error(`Failed: ${e.message}`);
       }
@@ -105,8 +126,8 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
           Role Management
         </CardTitle>
         <CardDescription>
-{isAdmin
-            ? "Assign operational platform roles. Workspace roles are managed inside each business workspace."
+          {isAdmin
+            ? "Assign operational platform roles. Admin elevation requires the protected approval workflow."
             : "Only platform admins can assign or remove platform roles."}
         </CardDescription>
       </CardHeader>
@@ -174,7 +195,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
                       onClick={() => assignRole.mutate({ userId: p.user_id, role: selectedRole })}
                     >
                       <ShieldPlus className="h-3 w-3 mr-1" />
-                      Assign
+                      {selectedRole === "admin" ? "Request" : "Assign"}
                     </Button>
                   </div>
                 </div>
