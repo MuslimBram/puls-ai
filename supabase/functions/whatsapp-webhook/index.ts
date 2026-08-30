@@ -1,10 +1,8 @@
 /**
  * whatsapp-webhook — WhatsApp Cloud API events
  *
- * Workspace resolution: requires exact phone_number_id match in channels.settings.
- * REMOVED: fallback to first-enabled channel when phone_number_id is missing.
- *
- * Zero/ambiguous mapping → quarantine event, no side effects.
+ * verified Meta signature -> exact phone_number_id tenant resolution -> content security
+ * -> provider claim -> idempotent Inbox/thread/lead repair path.
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
@@ -18,61 +16,199 @@ import {
 } from "../_shared/content-security-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
-const rlMap = new Map<string, { n: number; t: number }>();
-function checkRL(k: string): boolean {
+const rateLimitMap = new Map<string, { n: number; resetAt: number }>();
+
+function checkRateLimit(key: string): boolean {
   const now = Date.now();
-  const e = rlMap.get(k);
-  if (!e || now > e.t) { rlMap.set(k, { n: 1, t: now + 60000 }); return true; }
-  if (e.n >= 200) return false; e.n++; return true;
+  const entry = rateLimitMap.get(key);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { n: 1, resetAt: now + 60_000 });
+    return true;
+  }
+  if (entry.n >= 200) return false;
+  entry.n++;
+  return true;
 }
 
-/** Atomic idempotency: INSERT returning id; conflict = duplicate */
+type ChannelRow = {
+  id: string;
+  user_id: string | null;
+  workspace_id: string | null;
+  settings: Record<string, unknown> | null;
+};
+
+type WhatsAppMessageShape = {
+  content: string;
+  attachment: { mime_type: string } | null;
+};
+
+function normalizeMessage(msg: Record<string, any>): WhatsAppMessageShape {
+  if (msg.type === "text" && typeof msg.text?.body === "string") {
+    return { content: msg.text.body, attachment: null };
+  }
+
+  if (msg.type === "interactive") {
+    const button = msg.interactive?.button_reply;
+    if (button) {
+      return {
+        content: String(button.title || button.id || "[interactive_button]"),
+        attachment: null,
+      };
+    }
+    const list = msg.interactive?.list_reply;
+    if (list) {
+      return {
+        content: [list.title, list.description, list.id].filter(Boolean).join(" ") || "[interactive_list]",
+        attachment: null,
+      };
+    }
+    return { content: "[interactive]", attachment: null };
+  }
+
+  const mediaTypes = new Set(["image", "audio", "video", "document", "sticker"]);
+  if (mediaTypes.has(String(msg.type || ""))) {
+    const media = msg[msg.type] ?? {};
+    const mimeType = typeof media.mime_type === "string" && media.mime_type.trim()
+      ? media.mime_type.trim().toLowerCase()
+      : "application/octet-stream";
+    const caption = typeof media.caption === "string" && media.caption.trim()
+      ? media.caption
+      : typeof msg.caption === "string" && msg.caption.trim()
+        ? msg.caption
+        : `[whatsapp_media:${String(msg.type)}]`;
+    return { content: caption, attachment: { mime_type: mimeType } };
+  }
+
+  return { content: `[whatsapp_event:${String(msg.type || "unknown")}]`, attachment: null };
+}
+
 async function claimEvent(
   sb: ReturnType<typeof createClient>,
-  provider: string,
   eventId: string,
   workspaceId: string,
 ): Promise<"claimed" | "duplicate" | "error"> {
   const { error } = await sb.from("processed_webhook_events")
-    .insert({ provider, event_id: `${provider}:${eventId}`, workspace_id: workspaceId });
+    .insert({ provider: "whatsapp", event_id: `whatsapp:${eventId}`, workspace_id: workspaceId });
   if (!error) return "claimed";
   if (error.code === "23505") return "duplicate";
   return "error";
 }
 
-/** Release a claim when the critical inbox write fails so provider retries can recover. */
-async function releaseEventClaim(
+async function ensureInboxMessage(
   sb: ReturnType<typeof createClient>,
-  provider: string,
-  eventId: string,
+  params: {
+    channel: ChannelRow & { user_id: string; workspace_id: string };
+    waId: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    timestamp: string;
+    phoneNumberId: string;
+    messageType: string;
+    threadId: string;
+    securityEventId: string;
+    security: { category: string; risk_score: number; action: string };
+  },
+): Promise<string> {
+  const { data: existing, error: lookupError } = await sb
+    .from("inbox_messages")
+    .select("id")
+    .eq("workspace_id", params.channel.workspace_id)
+    .eq("channel_id", params.channel.id)
+    .eq("provider_message_id", params.waId)
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing?.id) return existing.id;
+
+  const { data: inserted, error: insertError } = await sb.from("inbox_messages").insert({
+    user_id: params.channel.user_id,
+    workspace_id: params.channel.workspace_id,
+    channel_id: params.channel.id,
+    channel_type: "whatsapp",
+    source_name: "WhatsApp",
+    sender_name: params.senderName,
+    sender_identifier: params.senderId,
+    message_content: params.content,
+    message_timestamp: params.timestamp,
+    direction: "inbound",
+    status: "received",
+    delivery_status: "delivered",
+    provider_message_id: params.waId,
+    thread_id: params.threadId,
+    is_unread: true,
+    metadata: {
+      waba_phone: params.phoneNumberId,
+      wa_id: params.senderId,
+      type: params.messageType,
+      content_security: {
+        event_id: params.securityEventId,
+        category: params.security.category,
+        risk_score: params.security.risk_score,
+        action: params.security.action,
+      },
+    },
+  }).select("id").single();
+
+  if (!insertError && inserted?.id) return inserted.id;
+  if (insertError?.code === "23505") {
+    const { data: winner, error: winnerError } = await sb
+      .from("inbox_messages")
+      .select("id")
+      .eq("workspace_id", params.channel.workspace_id)
+      .eq("channel_id", params.channel.id)
+      .eq("provider_message_id", params.waId)
+      .limit(1)
+      .maybeSingle();
+    if (!winnerError && winner?.id) return winner.id;
+  }
+  throw new Error("WHATSAPP_INBOX_PERSIST_FAILED");
+}
+
+async function ensureLead(
+  sb: ReturnType<typeof createClient>,
   workspaceId: string,
-): Promise<void> {
-  const { error } = await sb.from("processed_webhook_events")
-    .delete()
-    .eq("provider", provider)
-    .eq("event_id", `${provider}:${eventId}`)
-    .eq("workspace_id", workspaceId);
-  if (error) console.error("[WA] Failed to release event claim:", error.message);
+  senderId: string,
+): Promise<string> {
+  const { data: lead, error } = await sb.from("leads").upsert({
+    workspace_id: workspaceId,
+    channel_type: "whatsapp",
+    contact_identifier: senderId,
+    source_type: "whatsapp",
+    status: "new",
+  }, { onConflict: "workspace_id,contact_identifier" }).select("id").single();
+  if (error || !lead?.id) throw new Error("WHATSAPP_LEAD_PERSIST_FAILED");
+  return lead.id;
 }
 
 serve(async (req) => {
   if (req.method === "GET") {
     const url = new URL(req.url);
-    const mode      = url.searchParams.get("hub.mode");
-    const token     = url.searchParams.get("hub.verify_token");
+    const mode = url.searchParams.get("hub.mode");
+    const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
-    const vt = Deno.env.get("WHATSAPP_VERIFY_TOKEN");
-    if (mode === "subscribe" && token === vt && challenge)
+    const verifyToken = Deno.env.get("WHATSAPP_VERIFY_TOKEN");
+    if (mode === "subscribe" && token === verifyToken && challenge) {
       return new Response(challenge, { status: 200 });
+    }
     return new Response("Forbidden", { status: 403 });
   }
 
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "POST required" }), {
+      status: 405,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
+  }
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "wa";
-  if (!checkRL(ip))
-    return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429,
-      headers: { "Content-Type": "application/json" } });
+  if (!checkRateLimit(ip)) {
+    return new Response(JSON.stringify({ error: "rate_limited" }), {
+      status: 429,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   const sb = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -82,213 +218,173 @@ serve(async (req) => {
 
   try {
     const rawBody = await req.text();
-
-    const sigCheck = await verifyMetaSignature(
-      rawBody, req.headers.get("x-hub-signature-256"), "WHATSAPP_APP_SECRET",
+    const signature = await verifyMetaSignature(
+      rawBody,
+      req.headers.get("x-hub-signature-256"),
+      "WHATSAPP_APP_SECRET",
     );
-    if (!sigCheck.ok) {
-      const sc = sigCheck.reason === "secret_not_configured" ? 503 : 403;
-      return new Response(JSON.stringify({ error: sigCheck.reason }), {
-        status: sc, headers: { "Content-Type": "application/json" },
+    if (!signature.ok) {
+      const status = signature.reason === "secret_not_configured" ? 503 : 403;
+      return new Response(JSON.stringify({ error: signature.reason }), {
+        status,
+        headers: { "Content-Type": "application/json" },
       });
     }
 
-    const body    = JSON.parse(rawBody);
-    const entries = body?.entry ?? [];
+    const body = JSON.parse(rawBody);
+    const entries = Array.isArray(body?.entry) ? body.entry : [];
     let processed = 0;
     let quarantined = 0;
 
-    // Load all enabled WhatsApp channels once
-    const { data: channels } = await sb.from("channels")
+    const { data: channels, error: channelsError } = await sb.from("channels")
       .select("id,user_id,workspace_id,settings")
       .eq("channel_type", "whatsapp")
       .eq("is_enabled", true);
+    if (channelsError) throw channelsError;
 
     for (const entry of entries) {
-      const changes = entry?.changes ?? [];
-      for (const change of changes) {
-        const msgs     = change.value?.messages  ?? [];
-        const contacts = change.value?.contacts  ?? [];
-        const statuses = change.value?.statuses  ?? [];
-        const wabaPhone = change.value?.metadata?.phone_number_id as string | undefined;
+      for (const change of entry?.changes ?? []) {
+        const value = change?.value ?? {};
+        const messages = Array.isArray(value.messages) ? value.messages : [];
+        const contacts = Array.isArray(value.contacts) ? value.contacts : [];
+        const statuses = Array.isArray(value.statuses) ? value.statuses : [];
+        const phoneNumberId = typeof value.metadata?.phone_number_id === "string"
+          ? value.metadata.phone_number_id
+          : "";
 
-        // REQUIRE exact phone_number_id match — NO fallback to first channel
-        if (!wabaPhone) {
-          console.warn("[WA] Missing phone_number_id in metadata — quarantining change");
-          quarantined++;
+        if (!phoneNumberId) {
+          quarantined += messages.length || 1;
           continue;
         }
 
-        const matches = (channels ?? []).filter((c) => {
-          const s = (c.settings as any) ?? {};
-          return s.phone_number_id === wabaPhone || s.waba_phone_number_id === wabaPhone;
+        const matches = (channels || []).filter((candidate) => {
+          const settings = (candidate.settings as Record<string, unknown> | null) ?? {};
+          return settings.phone_number_id === phoneNumberId
+            || settings.waba_phone_number_id === phoneNumberId;
         });
-
-        if (matches.length === 0) {
-          console.warn(`[WA] No channel for phone_number_id ${wabaPhone} — quarantining`);
-          quarantined++;
-          continue;
-        }
-        if (matches.length > 1) {
-          console.warn(`[WA] Ambiguous channel mapping for phone_number_id ${wabaPhone} — quarantining`);
-          quarantined++;
+        if (matches.length !== 1 || !matches[0].workspace_id || !matches[0].user_id) {
+          quarantined += messages.length || 1;
           continue;
         }
 
-        const ch = matches[0];
+        const channel = matches[0] as ChannelRow & { user_id: string; workspace_id: string };
 
-        const workspaceId = ch.workspace_id;
-        const channelId   = ch.id;
-
-        // Delivery status updates (lightweight — no content-security scan needed)
-        for (const st of statuses) {
+        // Delivery status is not untrusted message content. Keep it lightweight,
+        // but tenant-bind it to the resolved WhatsApp workspace.
+        for (const statusEvent of statuses) {
+          if (!statusEvent?.id) continue;
           const { error: statusError } = await sb.from("inbox_messages")
-            .update({ delivery_status: st.status, updated_at: new Date().toISOString() })
-            .eq("provider_message_id", st.id)
-            .eq("workspace_id", workspaceId);
-          if (statusError) console.warn("[WA] Delivery status update failed:", statusError.message);
+            .update({ delivery_status: statusEvent.status, updated_at: new Date().toISOString() })
+            .eq("provider_message_id", statusEvent.id)
+            .eq("workspace_id", channel.workspace_id)
+            .eq("channel_id", channel.id);
+          if (statusError) console.warn("[WA] delivery status update failed", statusError.code ?? "unknown");
         }
 
-        // Inbound messages
-        for (const msg of msgs) {
-          const waId = msg?.id ?? "";
-          if (!waId) {
-            // A provider-native stable event ID is mandatory for security and
-            // ingress idempotency. Do not invent a Date.now() key.
+        for (const msg of messages) {
+          const waId = typeof msg?.id === "string" ? msg.id.trim() : "";
+          const senderId = typeof msg?.from === "string" ? msg.from.trim() : "";
+          if (!waId || !senderId) {
+            // A provider-native stable event ID is mandatory.
             quarantined++;
             continue;
           }
 
-          const contact    = contacts.find((c: any) => c.wa_id === msg.from);
-          const senderName = contact?.profile?.name ?? msg.from;
-          const msgContent = msg.text?.body ?? msg.caption ?? `[${msg.type ?? "media"}]`;
+          const contact = contacts.find((candidate: any) => candidate.wa_id === senderId);
+          const senderName = contact?.profile?.name ?? senderId;
+          const normalized = normalizeMessage(msg);
           const securityEventId = `wa:${waId}`;
-          const hasAttachment = Boolean(msg.type && msg.type !== "text");
 
-          // Universal Content Security boundary:
-          // verified provider + canonical tenant + stable provider event ID,
-          // BEFORE webhook claim/thread/inbox/lead/AI side effects.
           const security = await scanInboundContent({
-            workspace_id: workspaceId,
+            workspace_id: channel.workspace_id,
             source: "whatsapp",
             event_id: securityEventId,
-            content: msgContent,
-            urls: extractSecurityUrls(msgContent),
-            attachment: hasAttachment ? { mime_type: "application/octet-stream" } : null,
+            content: normalized.content,
+            urls: extractSecurityUrls(normalized.content),
+            attachment: normalized.attachment,
           });
-
           if (!security.ok) {
-            console.error(`[WA] Content-security unavailable for event ${waId}: ${security.code}`);
             return new Response(JSON.stringify({ error: "content_security_unavailable" }), {
               status: 500,
               headers: { "Content-Type": "application/json" },
             });
           }
-
           if (blocksNormalIngress(security.decision)) {
             quarantined++;
             processed++;
             continue;
           }
 
-          // Atomic provider idempotency claim only after the security decision
-          // allows/tag normal ingress. This preserves retry repair without ever
-          // letting a provider duplicate bypass content security.
-          const claim = await claimEvent(sb, "whatsapp", waId, workspaceId);
-          if (claim === "duplicate") continue;
-          if (claim === "error") { quarantined++; continue; }
+          const claim = await claimEvent(sb, waId, channel.workspace_id);
+          if (claim === "error") {
+            return new Response(JSON.stringify({ error: "provider_claim_failed" }), {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
 
+          // Duplicate provider retries execute the same idempotent repair path.
           const { data: threadId, error: threadError } = await sb.rpc("upsert_conversation_thread", {
-            _user_id: ch.user_id,
-            _workspace_id: workspaceId,
+            _user_id: channel.user_id,
+            _workspace_id: channel.workspace_id,
             _channel_type: "whatsapp",
-            _contact_identifier: msg.from,
+            _contact_identifier: senderId,
             _contact_name: senderName,
-            _message_preview: msgContent,
+            _message_preview: normalized.content,
             _direction: "inbound",
           });
-          if (threadError || !threadId) {
-            await releaseEventClaim(sb, "whatsapp", waId, workspaceId);
-            throw new Error(`Conversation thread persistence failed: ${threadError?.message || "missing thread id"}`);
-          }
+          if (threadError || !threadId) throw new Error("WHATSAPP_THREAD_PERSIST_FAILED");
 
-          // Inbox
-          const { error: inboxError } = await sb.from("inbox_messages").insert({
-            user_id:            ch.user_id,
-            workspace_id:       workspaceId,
-            channel_id:         channelId,
-            channel_type:       "whatsapp",
-            source_name:        "WhatsApp",
-            sender_name:        senderName,
-            sender_identifier:  msg.from,
-            message_content:    msgContent,
-            message_timestamp:  new Date((Number(msg.timestamp ?? 0)) * 1000).toISOString(),
-            direction:          "inbound",
-            status:             "received",
-            delivery_status:    "delivered",
-            provider_message_id: waId,
-            thread_id:           threadId,
-            is_unread:          true,
-            metadata: {
-              waba_phone: wabaPhone,
-              wa_id: msg.from,
-              type: msg.type,
-              content_security: {
-                event_id: securityEventId,
-                category: security.decision.category,
-                risk_score: security.decision.risk_score,
-                action: security.decision.action,
-              },
-            },
+          const timestampSeconds = Number(msg.timestamp);
+          const messageTimestamp = Number.isFinite(timestampSeconds) && timestampSeconds > 0
+            ? new Date(timestampSeconds * 1000).toISOString()
+            : new Date().toISOString();
+
+          await ensureInboxMessage(sb, {
+            channel,
+            waId,
+            senderId,
+            senderName,
+            content: normalized.content,
+            timestamp: messageTimestamp,
+            phoneNumberId,
+            messageType: String(msg.type || "unknown"),
+            threadId,
+            securityEventId,
+            security: security.decision,
           });
-          if (inboxError) {
-            await releaseEventClaim(sb, "whatsapp", waId, workspaceId);
-            throw new Error(`Inbox persistence failed: ${inboxError.message}`);
-          }
 
-          // Lead upsert
-          const { data: lead, error: leadError } = await sb.from("leads").upsert({
-            workspace_id:       workspaceId,
-            channel_type:       "whatsapp",
-            contact_identifier: msg.from,
-            source_type:        "whatsapp",
-            status:             "new",
-          }, { onConflict: "workspace_id,contact_identifier" }).select("id").single();
-          if (leadError) console.warn("[WA] Lead upsert failed:", leadError.message);
+          const leadId = await ensureLead(sb, channel.workspace_id, senderId);
 
-          // Customer Brain: non-financial message activity
-          if (lead?.id) {
-            fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${getServiceKey()}`,
-                "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
-              },
-              body: JSON.stringify({
-                action:       "feedback",
-                workspace_id: workspaceId,
-                lead_id:      lead.id,
-                event_type:   "replied",
-                channel:      "whatsapp",
-                event_data:   { wa_id: msg.from, msg_id: waId, waba_phone: wabaPhone },
-              }),
-            }).catch(() => {});
-          }
+          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${getServiceKey()}`,
+              "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
+            },
+            body: JSON.stringify({
+              action: "feedback",
+              workspace_id: channel.workspace_id,
+              lead_id: leadId,
+              event_type: "replied",
+              channel: "whatsapp",
+              event_data: { wa_id: senderId, msg_id: waId, waba_phone: phoneNumberId },
+            }),
+          }).catch(() => {});
 
-          // Opt-out handling
           if (msg.type === "interactive" && msg.interactive?.type === "button_reply") {
-            const btn = msg.interactive.button_reply;
-            if (btn?.id?.startsWith("OPT_OUT")) {
+            const button = msg.interactive.button_reply;
+            if (typeof button?.id === "string" && button.id.startsWith("OPT_OUT")) {
               const { error: consentError } = await sb.from("contact_consent").upsert({
-                workspace_id: workspaceId,
-                lead_id:      lead?.id ?? null,
-                channel:      "whatsapp",
-                consented:    false,
+                workspace_id: channel.workspace_id,
+                lead_id: leadId,
+                channel: "whatsapp",
+                consented: false,
                 opt_out_date: new Date().toISOString(),
                 opt_out_reason: "user_opt_out",
               }, { onConflict: "workspace_id,lead_id,channel" });
-              if (consentError) console.warn("[WA] Consent update failed:", consentError.message);
+              if (consentError) throw new Error("WHATSAPP_CONSENT_PERSIST_FAILED");
             }
           }
 
@@ -300,11 +396,11 @@ serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, processed, quarantined }), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
-
-  } catch (e: any) {
-    console.error("[WA-WEBHOOK] error:", e.message);
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500, headers: { "Content-Type": "application/json" },
+  } catch (error) {
+    console.error("[WA-WEBHOOK] processing failed", error instanceof Error ? error.message : "unknown");
+    return new Response(JSON.stringify({ error: "whatsapp_processing_failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
     });
   }
 });
