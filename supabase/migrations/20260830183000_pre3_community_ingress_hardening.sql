@@ -30,9 +30,10 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_community_violations_user_event
   ON public.community_violations(user_id, event_id)
   WHERE event_id IS NOT NULL;
 
+-- Non-partial on purpose: PostgreSQL still permits multiple NULL event_id rows,
+-- while PostgREST/Supabase can infer this index for ON CONFLICT(user_id,type,event_id).
 CREATE UNIQUE INDEX IF NOT EXISTS idx_community_notifications_user_type_event
-  ON public.community_notifications(user_id, type, event_id)
-  WHERE event_id IS NOT NULL;
+  ON public.community_notifications(user_id, type, event_id);
 
 -- Comments must go through the authenticated Edge Function so deterministic
 -- pre-insert moderation and idempotency cannot be bypassed with Data API writes.
