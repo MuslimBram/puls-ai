@@ -5,6 +5,7 @@ import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -68,9 +69,34 @@ function extractTextBody(fetchResp: string): string {
   const bodyStart = fetchResp.indexOf("\r\n\r\n", fetchResp.indexOf("BODY[TEXT]"));
   let bodyText = bodyStart > -1 ? fetchResp.substring(bodyStart + 4) : "";
   bodyText = bodyText.replace(/\)\r\n.*$/s, "").trim();
-  // Strip HTML tags for plain text
   bodyText = bodyText.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
   return bodyText;
+}
+
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(input));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function canonicalEmailEventId(params: {
+  channelId: string;
+  imapSequenceId: string;
+  fromEmail: string;
+  dateStr: string | null;
+  subject: string;
+  messageContent: string;
+  messageId: string | null;
+}): Promise<string> {
+  if (params.messageId) return params.messageId;
+  const hash = await sha256Hex([
+    params.channelId,
+    params.imapSequenceId,
+    params.fromEmail,
+    params.dateStr ?? "",
+    params.subject,
+    params.messageContent,
+  ].join("\n"));
+  return `email_sha256:${hash}`;
 }
 
 serve(async (req) => {
@@ -104,9 +130,36 @@ serve(async (req) => {
     let totalErrors = 0;
 
     for (const channel of emailChannels) {
-      const settings = channel.settings as Record<string, any> | null;
-      if (!settings?.imap_host || !settings?.imap_user || !settings?.imap_password) {
+      if (!channel.workspace_id || !channel.user_id) {
+        console.error(`[EMAIL-POLL] Channel ${channel.id} has no canonical tenant identity; skipping`);
+        totalErrors++;
+        continue;
+      }
+
+      const settings = (channel.settings ?? {}) as Record<string, unknown>;
+      const credentials = (channel.credentials_encrypted ?? {}) as Record<string, unknown>;
+      const host = String(settings.imap_host ?? settings.imap_server ?? "").trim().toLowerCase();
+      const port = Number(settings.imap_port ?? 993);
+      const user = String(settings.imap_user ?? settings.imap_username ?? "").trim();
+      const storedPassword = String(credentials.imap_password ?? settings.imap_password ?? "");
+      const useTls = (settings.imap_tls ?? settings.use_ssl ?? true) !== false;
+
+      if (!host || !user || !storedPassword) {
         console.log(`[EMAIL-POLL] Channel ${channel.id} missing IMAP credentials, skipping`);
+        continue;
+      }
+      if (!useTls || port !== 993) {
+        console.error(`[EMAIL-POLL] Channel ${channel.id} is not configured for required IMAPS:993; skipping`);
+        totalErrors++;
+        continue;
+      }
+
+      let pass: string;
+      try {
+        pass = await decryptIfNeeded(storedPassword);
+      } catch {
+        console.error(`[EMAIL-POLL] Channel ${channel.id} password decryption failed`);
+        totalErrors++;
         continue;
       }
 
@@ -116,29 +169,19 @@ serve(async (req) => {
 
       while (attempt < maxAttempts && !success) {
         attempt++;
-        let conn: Deno.TlsConn | Deno.TcpConn | null = null;
+        let conn: Deno.TlsConn | null = null;
 
         try {
-          const host = settings.imap_host;
-          const port = settings.imap_port || 993;
-          const user = settings.imap_user;
-          const pass = settings.imap_password;
-          const useTls = settings.imap_tls !== false;
+          conn = await Deno.connectTls({ hostname: host, port: 993, alpnProtocols: [] });
 
-          // TLS-safe connection with hostname verification
-          conn = useTls
-            ? await Deno.connectTls({ hostname: host, port, alpnProtocols: [] })
-            : await Deno.connect({ hostname: host, port });
-
-          // Read server greeting
           const greeting = await readFromConn(conn);
           if (!greeting.includes("OK")) {
             throw new Error(`IMAP server did not send OK greeting: ${greeting.substring(0, 100)}`);
           }
 
-          // Login (escape special chars in password)
           const escapedPass = pass.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
-          const loginResp = await imapCommand(conn, "A001", `LOGIN "${user}" "${escapedPass}"`);
+          const escapedUser = user.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+          const loginResp = await imapCommand(conn, "A001", `LOGIN "${escapedUser}" "${escapedPass}"`);
           if (!loginResp.includes("A001 OK")) {
             console.error(`[EMAIL-POLL] Login failed for channel ${channel.id} (attempt ${attempt})`);
             if (attempt === maxAttempts) {
@@ -151,9 +194,7 @@ serve(async (req) => {
           }
 
           const selectResp = await imapCommand(conn, "A002", "SELECT INBOX");
-          if (!selectResp.includes("A002 OK")) {
-            throw new Error("Failed to SELECT INBOX");
-          }
+          if (!selectResp.includes("A002 OK")) throw new Error("Failed to SELECT INBOX");
 
           const searchResp = await imapCommand(conn, "A003", "SEARCH UNSEEN");
           const searchMatch = searchResp.match(/\* SEARCH (.+)/);
@@ -167,12 +208,10 @@ serve(async (req) => {
             continue;
           }
 
-          // Process latest 20 messages
           const idsToFetch = messageIds.slice(-20);
 
           for (const msgId of idsToFetch) {
             try {
-              // Fetch headers + text body (skip attachments for safety)
               const fetchResp = await imapCommand(
                 conn,
                 `F${msgId}`,
@@ -181,134 +220,124 @@ serve(async (req) => {
               );
 
               const headers = parseEmailHeaders(fetchResp);
-
-              // DEDUPLICATION by Message-ID
-              if (headers.messageId) {
-                const { data: existingMsg } = await supabase
-                  .from("inbox_messages")
-                  .select("id")
-                  .eq("user_id", channel.user_id)
-                  .eq("channel_id", channel.id)
-                  .contains("metadata", { external_message_id: headers.messageId })
-                  .maybeSingle();
-
-                if (existingMsg) {
-                  totalSkipped++;
-                  await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
-                  continue;
-                }
-              }
-
-              // Dedup by sender+timestamp
-              const msgTimestamp = headers.dateStr ? new Date(headers.dateStr).toISOString() : new Date().toISOString();
-              const { data: dupCheck } = await supabase
-                .from("inbox_messages")
-                .select("id")
-                .eq("user_id", channel.user_id)
-                .eq("sender_identifier", headers.fromEmail)
-                .eq("message_timestamp", msgTimestamp)
-                .maybeSingle();
-
-              if (dupCheck) {
-                totalSkipped++;
-                await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
-                continue;
-              }
-
-              // Extract body (attachment-safe: we only read TEXT part)
               let bodyText = extractTextBody(fetchResp);
               if (!bodyText) bodyText = headers.subject;
               const messageContent = headers.subject !== "(No Subject)"
                 ? `[${headers.subject}] ${bodyText.substring(0, 2000)}`
                 : bodyText.substring(0, 2000);
+              const eventId = await canonicalEmailEventId({
+                channelId: channel.id,
+                imapSequenceId: msgId,
+                fromEmail: headers.fromEmail,
+                dateStr: headers.dateStr,
+                subject: headers.subject,
+                messageContent,
+                messageId: headers.messageId,
+              });
 
-              // Keyword matching
-              const { data: keywords } = await supabase
+              const { data: existingMsg, error: existingError } = await supabase
+                .from("inbox_messages")
+                .select("id")
+                .eq("workspace_id", channel.workspace_id)
+                .eq("channel_id", channel.id)
+                .eq("provider_message_id", eventId)
+                .limit(1)
+                .maybeSingle();
+              if (existingError) throw existingError;
+              if (existingMsg) {
+                totalSkipped++;
+                await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+                continue;
+              }
+
+              const msgTimestamp = headers.dateStr && !Number.isNaN(Date.parse(headers.dateStr))
+                ? new Date(headers.dateStr).toISOString()
+                : new Date().toISOString();
+
+              const { data: keywords, error: keywordsError } = await supabase
                 .from("keywords")
                 .select("keyword")
-                .eq("user_id", channel.user_id)
+                .eq("workspace_id", channel.workspace_id)
                 .eq("is_active", true);
+              if (keywordsError) throw keywordsError;
 
               const textLower = messageContent.toLowerCase();
               const matched = (keywords || [])
-                .filter((k: any) => textLower.includes(k.keyword.toLowerCase()))
-                .map((k: any) => k.keyword);
+                .filter((k: { keyword: string }) => textLower.includes(k.keyword.toLowerCase()))
+                .map((k: { keyword: string }) => k.keyword);
 
               let aiScore = matched.length > 0 ? 0.5 : 0.1;
               let suggestedReply = "";
 
               if (matched.length > 0) {
-                {
-                  try {
-                    const { data: profile } = await supabase
-                      .from("business_profiles")
-                      .select("*")
-                      .eq("user_id", channel.user_id)
-                      .maybeSingle();
+                try {
+                  const { data: profile } = await supabase
+                    .from("business_profiles")
+                    .select("*")
+                    .eq("workspace_id", channel.workspace_id)
+                    .maybeSingle();
 
-                    const aiRes = await routerChatCompletion({
-                        model: "google/gemini-2.5-flash-lite",
-                        messages: [
-                          {
-                            role: "system",
-                            content: `Analyze email buying intent for keywords: ${matched.join(", ")}. Business: ${profile?.business_name || "Unknown"}. Respond with JSON: {"intent_score": number 0-1, "suggested_reply": string, "is_lead": boolean}`,
+                  const aiRes = await routerChatCompletion({
+                    model: "google/gemini-2.5-flash-lite",
+                    messages: [
+                      {
+                        role: "system",
+                        content: `Analyze email buying intent for keywords: ${matched.join(", ")}. Business: ${profile?.business_name || "Unknown"}. Respond with JSON: {"intent_score": number 0-1, "suggested_reply": string, "is_lead": boolean}`,
+                      },
+                      { role: "user", content: messageContent.substring(0, 1000) },
+                    ],
+                    tools: [{
+                      type: "function",
+                      function: {
+                        name: "analyze_lead",
+                        description: "Return analysis",
+                        parameters: {
+                          type: "object",
+                          properties: {
+                            intent_score: { type: "number" },
+                            suggested_reply: { type: "string" },
+                            is_lead: { type: "boolean" },
                           },
-                          { role: "user", content: messageContent.substring(0, 1000) },
-                        ],
-                        tools: [{
-                          type: "function",
-                          function: {
-                            name: "analyze_lead",
-                            description: "Return analysis",
-                            parameters: {
-                              type: "object",
-                              properties: {
-                                intent_score: { type: "number" },
-                                suggested_reply: { type: "string" },
-                                is_lead: { type: "boolean" },
-                              },
-                              required: ["intent_score", "suggested_reply", "is_lead"],
-                              additionalProperties: false,
-                            },
-                          },
-                        }],
-                        tool_choice: { type: "function", function: { name: "analyze_lead" } },
-                      }, { workspaceId: channel.workspace_id, userId: channel.user_id, taskType: "customer_support" });
-                    if (aiRes.ok) {
-                      const aiData = await aiRes.json();
-                      const tc = aiData.choices?.[0]?.message?.tool_calls?.[0];
-                      if (tc) {
-                        const parsed = JSON.parse(tc.function.arguments);
-                        aiScore = parsed.intent_score;
-                        suggestedReply = parsed.suggested_reply;
-                      }
+                          required: ["intent_score", "suggested_reply", "is_lead"],
+                          additionalProperties: false,
+                        },
+                      },
+                    }],
+                    tool_choice: { type: "function", function: { name: "analyze_lead" } },
+                  }, { workspaceId: channel.workspace_id, userId: channel.user_id, taskType: "customer_support" });
+                  if (aiRes.ok) {
+                    const aiData = await aiRes.json();
+                    const tc = aiData.choices?.[0]?.message?.tool_calls?.[0];
+                    if (tc) {
+                      const parsed = JSON.parse(tc.function.arguments);
+                      aiScore = parsed.intent_score;
+                      suggestedReply = parsed.suggested_reply;
                     }
-                  } catch (e) {
-                    console.error("[EMAIL-POLL] AI analysis error:", e);
                   }
+                } catch (e) {
+                  console.error("[EMAIL-POLL] AI analysis error:", e);
                 }
               }
 
-              // Threading: use In-Reply-To header for reliable threading
               let threadId: string | null = null;
               if (headers.inReplyTo) {
                 const { data: replyThread } = await supabase
                   .from("inbox_messages")
                   .select("thread_id")
-                  .eq("user_id", channel.user_id)
-                  .contains("metadata", { external_message_id: headers.inReplyTo })
+                  .eq("workspace_id", channel.workspace_id)
+                  .eq("channel_id", channel.id)
+                  .eq("provider_message_id", headers.inReplyTo)
                   .not("thread_id", "is", null)
                   .limit(1)
                   .maybeSingle();
                 if (replyThread?.thread_id) threadId = replyThread.thread_id;
               }
 
-              // Fallback: thread by sender + open status
               if (!threadId) {
                 const { data: existingThread } = await supabase
                   .from("conversation_threads")
                   .select("id")
-                  .eq("user_id", channel.user_id)
+                  .eq("workspace_id", channel.workspace_id)
                   .eq("channel_type", "email")
                   .eq("contact_identifier", headers.fromEmail)
                   .eq("status", "open")
@@ -322,33 +351,46 @@ serve(async (req) => {
                 await supabase.from("conversation_threads").update({
                   last_message_at: msgTimestamp,
                   updated_at: new Date().toISOString(),
-                }).eq("id", threadId);
+                }).eq("id", threadId).eq("workspace_id", channel.workspace_id);
               }
 
-              // Insert inbox message
-              const metadata: Record<string, any> = {};
+              const metadata: Record<string, unknown> = { external_event_id: eventId };
               if (headers.messageId) metadata.external_message_id = headers.messageId;
               if (headers.inReplyTo) metadata.in_reply_to = headers.inReplyTo;
               if (headers.hasAttachment) metadata.has_attachment = true;
 
-              const { data: insertedInboxMsg } = await supabase.from("inbox_messages").insert({
-                user_id: channel.user_id,
-                workspace_id: channel.workspace_id,
-                channel_id: channel.id,
-                channel_type: "email",
-                source_name: headers.fromEmail,
-                sender_name: headers.fromName,
-                sender_identifier: headers.fromEmail,
-                message_content: messageContent,
-                message_timestamp: msgTimestamp,
-                intent_score: aiScore,
-                matched_keywords: matched,
-                is_unread: true,
-                priority: aiScore >= 0.7 ? "high" : matched.length > 0 ? "medium" : "normal",
-                status: "new",
-                thread_id: threadId,
-                metadata: Object.keys(metadata).length > 0 ? metadata : null,
-              }).select("id").single();
+              const { data: insertedInboxMsg, error: inboxError } = await supabase
+                .from("inbox_messages")
+                .insert({
+                  user_id: channel.user_id,
+                  workspace_id: channel.workspace_id,
+                  channel_id: channel.id,
+                  channel_type: "email",
+                  provider_message_id: eventId,
+                  source_name: headers.fromEmail,
+                  sender_name: headers.fromName,
+                  sender_identifier: headers.fromEmail,
+                  message_content: messageContent,
+                  message_timestamp: msgTimestamp,
+                  intent_score: aiScore,
+                  matched_keywords: matched,
+                  is_unread: true,
+                  priority: aiScore >= 0.7 ? "high" : matched.length > 0 ? "medium" : "normal",
+                  status: "new",
+                  thread_id: threadId,
+                  metadata,
+                })
+                .select("id")
+                .single();
+
+              if (inboxError) {
+                if (inboxError.code === "23505") {
+                  totalSkipped++;
+                  await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+                  continue;
+                }
+                throw inboxError;
+              }
 
               if (matched.length > 0 && aiScore >= 0.3) {
                 await supabase.from("leads").insert({
