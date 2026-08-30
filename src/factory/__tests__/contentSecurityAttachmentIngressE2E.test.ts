@@ -10,6 +10,7 @@ const whatsapp = read("supabase/functions/whatsapp-webhook/index.ts");
 const telegram = read("supabase/functions/telegram-webhook/index.ts");
 const sms = read("supabase/functions/sms-webhook/index.ts");
 const meta = read("supabase/functions/meta-webhook/index.ts");
+const email = read("supabase/functions/email-poll/index.ts");
 
 describe("P0.6 provider attachment E2E staging", () => {
   it("resolves the canonical quarantined DB parent before raw-byte staging", () => {
@@ -100,10 +101,60 @@ describe("P0.6 provider attachment E2E staging", () => {
     expect(meta).toContain("META_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
   });
 
+  it("parses raw RFC822 Email with a pinned MIME parser and PEEK semantics", () => {
+    expect(email).toContain('PostalMime from "npm:postal-mime@3.0.0"');
+    expect(email).toContain("RFC822.SIZE BODY.PEEK[HEADER.FIELDS");
+    expect(email).toContain("FETCH ${msgId} (BODY.PEEK[])");
+    expect(email).toContain("MAX_RAW_EMAIL_BYTES = 40 * 1024 * 1024");
+    expect(email).toContain("const parsed = await PostalMime.parse(rawEmail)");
+    expect(email).not.toContain("BODY[TEXT]");
+  });
+
+  it("hashes every parsed Email attachment and binds the complete attachment manifest", () => {
+    const parse = email.indexOf("const parsed = await PostalMime.parse(rawEmail)");
+    const attachmentLoop = email.indexOf("for (let index = 0; index < rawAttachments.length; index++)");
+    const scan = email.indexOf("const security = await scanInboundContent({");
+    expect(parse).toBeGreaterThan(-1);
+    expect(parse).toBeLessThan(attachmentLoop);
+    expect(attachmentLoop).toBeLessThan(scan);
+    expect(email).toContain("MAX_ATTACHMENTS = 50");
+    expect(email).toContain("MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024");
+    expect(email).toContain("MAX_TOTAL_ATTACHMENT_BYTES = 50 * 1024 * 1024");
+    expect(email).toContain("sha256: await sha256HexBytes(bytes)");
+    expect(email).toContain("JSON.stringify(manifest)");
+    expect(email).toContain("size_bytes: totalAttachmentBytes");
+  });
+
+  it("stages every Email attachment before marking the IMAP message Seen", () => {
+    const blockedStart = email.indexOf("if (blocksNormalIngress(security.decision))");
+    const blockedEnd = email.indexOf("if (attachments.length > 0) throw new Error", blockedStart);
+    expect(blockedStart).toBeGreaterThan(-1);
+    expect(blockedEnd).toBeGreaterThan(blockedStart);
+    const blocked = email.slice(blockedStart, blockedEnd);
+    const stageCall = blocked.indexOf("const staged = await stageInboundAttachment({");
+    const seen = blocked.indexOf("STORE ${msgId} +FLAGS (\\\\Seen)");
+    expect(stageCall).toBeGreaterThan(-1);
+    expect(seen).toBeGreaterThan(stageCall);
+    expect(blocked).toContain("expected_attachment_count: attachments.length");
+    expect(blocked).toContain("attachment_key: `email_att_${attachment.index}`");
+    expect(email).toContain("EMAIL_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
+  });
+
+  it("never stores Email attachment bytes or filenames in normal content-security metadata", () => {
+    const securityCallStart = email.indexOf("const security = await scanInboundContent({");
+    const securityCallEnd = email.indexOf("});", securityCallStart);
+    expect(securityCallStart).toBeGreaterThan(-1);
+    expect(securityCallEnd).toBeGreaterThan(securityCallStart);
+    const securityCall = email.slice(securityCallStart, securityCallEnd);
+    expect(securityCall).toContain("attachment: aggregateAttachment");
+    expect(securityCall).not.toMatch(/filename|attachment\.content|rawEmail|bytes:/i);
+  });
+
   it("never lets a provider attachment continue into normal business processing", () => {
     expect(whatsapp).toContain("if (downloaded || normalized.attachment)");
     expect(telegram).toContain("if (downloaded || attachment)");
     expect(sms).toContain("if (downloadedMedia.length > 0 || mediaItems.length > 0)");
     expect(meta).toContain("if (downloadedAttachments.length > 0 || rawAttachments.length > 0)");
+    expect(email).toContain("if (attachments.length > 0) throw new Error(\"EMAIL_ATTACHMENT_SECURITY_CONTRACT_VIOLATION\")");
   });
 });
