@@ -5,6 +5,11 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
 import { extractCalledNumber, resolveWorkspaceFromCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -159,7 +164,7 @@ serve(async (req) => {
     }
 
     // Delivery callbacks reconcile only the already-resolved tenant.
-    if (messageStatus && messageSid && !body) {
+    if (messageStatus && messageSid && !body && mediaItems.length === 0) {
       const statusMap: Record<string, string> = {
         queued: "queued", sending: "queued", sent: "sent",
         delivered: "delivered", read: "read",
@@ -203,7 +208,7 @@ serve(async (req) => {
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
 
-    if (!from || !body) {
+    if (!from || (!body && mediaItems.length === 0)) {
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
     if (!messageSid) {
@@ -211,7 +216,34 @@ serve(async (req) => {
       return new Response("<Response></Response>", { status: 400, headers: { "Content-Type": "text/xml" } });
     }
 
-    // Provider-native idempotency claim happens before thread/Inbox/lead/media side effects.
+    const securityContent = body || "[attachment]";
+    const securityEventId = `sms:${messageSid}`;
+
+    // Verified Twilio signature + canonical tenant + provider-native MessageSid
+    // are established before Content Security. MMS is always treated as an
+    // attachment and therefore remains quarantined until the real malware layer.
+    const security = await scanInboundContent({
+      workspace_id: workspaceId,
+      source: "sms",
+      event_id: securityEventId,
+      content: securityContent,
+      urls: extractSecurityUrls(body),
+      attachment: mediaItems.length > 0
+        ? { mime_type: mediaItems[0]?.contentType || "application/octet-stream" }
+        : null,
+    });
+
+    if (!security.ok) {
+      return new Response("<Response></Response>", {
+        status: security.status >= 500 ? 500 : security.status,
+        headers: { "Content-Type": "text/xml" },
+      });
+    }
+    if (blocksNormalIngress(security.decision)) {
+      return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
+    }
+
+    // Provider-native claim is now after the payload-bound security decision.
     const claim = await claimInboundEvent(supabase, workspaceId, messageSid);
     if (claim === "duplicate") {
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
@@ -222,19 +254,13 @@ serve(async (req) => {
     claimedWorkspaceId = workspaceId;
     claimedMessageSid = messageSid;
 
-    const mediaAttachments = mediaItems.map((media) => ({
-      type: media.contentType.startsWith("image") ? "image" : media.contentType.startsWith("video") ? "video" : "document",
-      provider_url: media.url,
-      mime_type: media.contentType,
-    }));
-
     const { data: threadId, error: threadError } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: userId,
       _workspace_id: workspaceId,
       _channel_type: "sms",
       _contact_identifier: from,
       _contact_name: from,
-      _message_preview: body,
+      _message_preview: securityContent,
       _direction: "inbound",
     });
     if (threadError || !threadId) throw new Error("SMS_THREAD_PERSISTENCE_FAILED");
@@ -260,7 +286,7 @@ serve(async (req) => {
       source_name: "SMS",
       sender_name: from,
       sender_identifier: from,
-      message_content: body,
+      message_content: securityContent,
       message_timestamp: new Date().toISOString(),
       intent_score: intentScore,
       matched_keywords: matched,
@@ -270,8 +296,16 @@ serve(async (req) => {
       direction: "inbound",
       delivery_status: "delivered",
       provider_message_id: messageSid,
-      media_attachments: mediaAttachments,
+      media_attachments: [],
       thread_id: threadId,
+      metadata: {
+        content_security: {
+          event_id: securityEventId,
+          category: security.decision.category,
+          risk_score: security.decision.risk_score,
+          action: security.decision.action,
+        },
+      },
     } as any).select("id").single();
 
     if (inboxErr) {
@@ -279,18 +313,6 @@ serve(async (req) => {
         return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
       }
       throw new Error("SMS_INBOX_PERSISTENCE_FAILED");
-    }
-
-    for (const media of mediaItems) {
-      const { error: mediaError } = await supabase.from("message_media").insert({
-        user_id: userId,
-        workspace_id: workspaceId,
-        inbox_message_id: inboxMsg.id,
-        media_type: media.contentType.startsWith("image") ? "image" : "document",
-        mime_type: media.contentType,
-        provider_url: media.url,
-      } as any);
-      if (mediaError) console.error("[SMS] media metadata insert failed", mediaError.code ?? "unknown");
     }
 
     const { error: deliveryError } = await supabase.from("message_delivery_states").insert({
@@ -308,7 +330,7 @@ serve(async (req) => {
       const { error: leadError } = await supabase.from("leads").insert({
         user_id: userId,
         workspace_id: workspaceId,
-        message_content: body,
+        message_content: securityContent,
         source_name: from,
         source_type: "sms",
         channel_type: "sms",
@@ -323,15 +345,13 @@ serve(async (req) => {
       if (leadError) console.error("[SMS] lead insert failed", leadError.code ?? "unknown");
     }
 
-    console.log(`[SMS] processed provider event ${messageSid}; keywords=${matched.length}; media=${mediaItems.length}`);
+    console.log(`[SMS] processed provider event ${messageSid}; keywords=${matched.length}; media=0`);
     return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
   } catch (error) {
     if (claimedWorkspaceId && claimedMessageSid) {
       await releaseInboundEvent(supabase, claimedWorkspaceId, claimedMessageSid);
     }
     console.error("[SMS] critical ingress error", error instanceof Error ? error.message : "unknown");
-    // Return 500 so Twilio can retry a critical persistence failure. The provider
-    // claim was released above and the Inbox unique index remains the last race guard.
     return new Response("<Response></Response>", { status: 500, headers: { "Content-Type": "text/xml" } });
   }
 });
