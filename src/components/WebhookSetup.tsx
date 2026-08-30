@@ -19,9 +19,33 @@ const EXAMPLE_PAYLOAD = `{
   "metadata": { "source": "contact_form" }
 }`;
 
+const SIGNING_INSTRUCTIONS = `Headers:
+X-Webhook-Timestamp: <unix-seconds>
+X-Webhook-Event-Id: <same value as body.event_id>
+X-Webhook-Signature: v1=<hex-hmac-sha256>
+
+Signing payload (exact bytes):
+<timestamp>.<event_id>.<raw JSON body>
+
+HMAC key: your webhook secret
+Replay window: 5 minutes`;
+
 function generateWebhookSecret(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function hmacSha256Hex(secret: string, payload: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey(
+    "raw",
+    encoder.encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signed = new Uint8Array(await crypto.subtle.sign("HMAC", key, encoder.encode(payload)));
+  return Array.from(signed, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 export const WebhookSetup = () => {
@@ -65,6 +89,11 @@ export const WebhookSetup = () => {
     toast.success("Example payload copied");
   };
 
+  const copySigning = () => {
+    navigator.clipboard.writeText(SIGNING_INSTRUCTIONS);
+    toast.success("Signing instructions copied");
+  };
+
   const saveWebhookSecret = (secret: string, name: string) => {
     const channelData: ChannelData = {
       channel_type: "custom_webhook",
@@ -72,6 +101,7 @@ export const WebhookSetup = () => {
       settings: {
         webhook_url: webhookBaseUrl,
         webhook_secret: secret,
+        signature_version: "v1",
         configured: true,
       },
     };
@@ -82,7 +112,7 @@ export const WebhookSetup = () => {
         setSessionChannelId(data.channel_id);
         setChannelName("");
         setTestResult(null);
-        toast.success("Webhook secret saved securely. Copy it now; it will not be shown again after reload.");
+        toast.success("Webhook signing secret saved securely. Copy it now; it will not be shown again after reload.");
       },
     });
   };
@@ -105,15 +135,22 @@ export const WebhookSetup = () => {
       if (!sessionSecret) throw new Error("Rotate the webhook secret before testing from this browser session.");
 
       const parsed = JSON.parse(testPayload) as Record<string, unknown>;
-      parsed.event_id = `ui_test_${crypto.randomUUID()}`;
+      const eventId = `ui_test_${crypto.randomUUID()}`;
+      parsed.event_id = eventId;
+      const rawBody = JSON.stringify(parsed);
+      const timestamp = String(Math.floor(Date.now() / 1000));
+      const signingPayload = `${timestamp}.${eventId}.${rawBody}`;
+      const signature = await hmacSha256Hex(sessionSecret, signingPayload);
 
       const response = await fetch(webhookUrl, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Webhook-Secret": sessionSecret,
+          "X-Webhook-Timestamp": timestamp,
+          "X-Webhook-Event-Id": eventId,
+          "X-Webhook-Signature": `v1=${signature}`,
         },
-        body: JSON.stringify(parsed),
+        body: rawBody,
       });
       const data = await response.json() as {
         error?: string;
@@ -129,7 +166,7 @@ export const WebhookSetup = () => {
         leadId: data.lead_id || undefined,
         duplicate: data.duplicate,
       });
-      toast.success(data.duplicate ? "Duplicate event was safely ignored." : `Test sent! ${data.matched || 0} keywords matched.`);
+      toast.success(data.duplicate ? "Duplicate event was safely ignored." : `Signed test sent! ${data.matched || 0} keywords matched.`);
     } catch (error: unknown) {
       setTestResult({ ok: false });
       toast.error(error instanceof Error ? error.message : "Invalid payload or test failed");
@@ -146,7 +183,7 @@ export const WebhookSetup = () => {
           Custom Webhook Setup
         </CardTitle>
         <CardDescription>
-          Receive lead and message data from external systems via a workspace-bound, secret-authenticated webhook.
+          Receive lead and message data through a workspace-bound webhook with timestamped HMAC-SHA256 request signing.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -159,7 +196,7 @@ export const WebhookSetup = () => {
           )}
         </div>
         <p className="text-xs text-muted-foreground">
-          Every request must use the channel-bound endpoint, include a unique event_id, and send the secret in the X-Webhook-Secret header. Workspace and user identity are resolved server-side from the channel.
+          Every request must use the channel-bound endpoint, a unique event_id, a current Unix timestamp, and an HMAC-SHA256 v1 signature. Workspace and user identity are always resolved server-side from the channel.
         </p>
 
         {webhookChannels.length > 0 && (
@@ -198,7 +235,7 @@ export const WebhookSetup = () => {
 
           <div className="rounded-lg bg-muted p-3">
             <div className="flex items-center justify-between gap-2 mb-1">
-              <p className="text-xs font-medium text-foreground">Webhook Secret</p>
+              <p className="text-xs font-medium text-foreground">Webhook Signing Secret</p>
               <div className="flex gap-1">
                 <Button size="sm" variant="ghost" onClick={copySecret} disabled={!sessionSecret}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
                 {channelId && (
@@ -212,8 +249,18 @@ export const WebhookSetup = () => {
               {sessionSecret || (channelId ? "Stored encrypted — rotate to reveal a new secret once." : "Created when you connect the webhook.")}
             </code>
             <p className="text-xs text-muted-foreground mt-1">
-              Send it only as the X-Webhook-Secret request header. Pulse AI never reads the stored secret back into the browser.
+              Use this key to compute HMAC-SHA256. Never send the secret itself in a request header.
             </p>
+          </div>
+
+          <div className="rounded-lg bg-muted p-3">
+            <div className="flex items-center justify-between mb-1">
+              <p className="text-xs font-medium text-foreground">HMAC v1 Signing Contract</p>
+              <Button size="sm" variant="ghost" onClick={copySigning}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
+            </div>
+            <pre className="text-xs text-muted-foreground bg-background rounded p-2 overflow-x-auto whitespace-pre-wrap">
+              {SIGNING_INSTRUCTIONS}
+            </pre>
           </div>
 
           <div className="rounded-lg bg-muted p-3">
@@ -243,14 +290,14 @@ export const WebhookSetup = () => {
                 ? testResult.duplicate
                   ? "Test passed — duplicate safely ignored"
                   : `Test passed — ${testResult.matched || 0} keywords matched${testResult.leadId ? ", lead created" : ""}`
-                : "Test failed — check the endpoint, secret and payload"}
+                : "Test failed — check the endpoint, signing secret, timestamp and payload"}
             </div>
           )}
 
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={handleTestWebhook} disabled={testSending || !channelId || !sessionSecret}>
               {testSending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
-              Send Test
+              Send Signed Test
             </Button>
             {!channelId && (
               <Button onClick={handleConnect} disabled={addChannel.isPending}>
