@@ -91,8 +91,8 @@ expect_fail(){
   echo "$out"
   exit 1
 }
-platform_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atc "set role authenticated; set request.jwt.claim.sub='99999999-9999-4999-8999-999999999999'; select count(*) from public.scan_sources;" | tail -n1)"; [[ "$platform_count" == "0" ]] || exit 1
-viewer_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atc "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-8444-444444444444'; select count(*) from public.scan_sources;" | tail -n1)"; [[ "$viewer_count" == "1" ]] || exit 1
+platform_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atc "set role authenticated; set request.jwt.claim.sub='99999999-9999-4999-8999-999999999999'; select count(*) from public.scan_sources;" | tail -n1)"; [[ "$platform_count" == "0" ]] || { echo "platform_count assertion failed: got $platform_count expected 0"; exit 1; }
+viewer_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atc "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-8444-444444444444'; select count(*) from public.scan_sources;" | tail -n1)"; [[ "$viewer_count" == "1" ]] || { echo "viewer_count assertion failed: got $viewer_count expected 1"; exit 1; }
 expect_fail "set role authenticated; set request.jwt.claim.sub='44444444-4444-4444-8444-444444444444'; update public.scan_sources set scan_status='paused' where id='a3111111-1111-4111-8111-111111111111';" viewer_update
 
 psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
@@ -106,7 +106,8 @@ commit;
 SQL
 expect_fail "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; insert into public.scan_sources(id,workspace_id,user_id,business_id) values('aa111111-1111-4111-8111-111111111111','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','33333333-3333-4333-8333-333333333333','b1111111-1111-4111-8111-111111111111');" cross_workspace_insert
 expect_fail "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; update public.scan_sources set workspace_id='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb' where id='a3111111-1111-4111-8111-111111111111';" workspace_move
-expect_fail "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; update public.scan_sources set user_id='22222222-2222-4222-8222-222222222222' where id='a3111111-1111-4111-8111-111111111111';" user_move
+member_visible_count="$(psql -h "$H" -p "$P" -U "$U" -d "$D" -Atc "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; select count(*) from public.scan_sources where id='a8111111-1111-4111-8111-111111111111';" | tail -n1)"; [[ "$member_visible_count" == "1" ]] || { echo "member visibility assertion failed: got $member_visible_count expected 1"; exit 1; }
+expect_fail "set role authenticated; set request.jwt.claim.sub='33333333-3333-4333-8333-333333333333'; update public.scan_sources set user_id='22222222-2222-4222-8222-222222222222' where id='a8111111-1111-4111-8111-111111111111';" user_move
 
 psql -h "$H" -p "$P" -U "$U" -d "$D" -v ON_ERROR_STOP=1 <<'SQL'
 begin;
