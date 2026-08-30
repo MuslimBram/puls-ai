@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import PostalMime from "npm:postal-mime@3.0.0";
 import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
@@ -12,75 +13,105 @@ import {
   extractSecurityUrls,
   scanInboundContent,
 } from "../_shared/content-security-client.ts";
+import { stageInboundAttachment } from "../_shared/content-security-attachment-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
+const MAX_RAW_EMAIL_BYTES = 40 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const MAX_TOTAL_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+const MAX_ATTACHMENTS = 50;
 
-async function readFromConn(conn: Deno.TlsConn | Deno.TcpConn, timeoutMs = 10_000): Promise<string> {
-  const buf = new Uint8Array(16384);
-  const timer = setTimeout(() => { try { conn.close(); } catch { /* noop */ } }, timeoutMs);
+type ParsedAttachment = {
+  index: number;
+  bytes: Uint8Array;
+  mimeType: string;
+  sha256: string;
+};
+
+async function readBytesFromConn(
+  conn: Deno.TlsConn | Deno.TcpConn,
+  timeoutMs = 10_000,
+): Promise<Uint8Array | null> {
+  const buf = new Uint8Array(16_384);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    try { conn.close(); } catch { /* noop */ }
+  }, timeoutMs);
   try {
     const n = await conn.read(buf);
     clearTimeout(timer);
-    return n ? decoder.decode(buf.subarray(0, n)) : "";
+    if (timedOut || !n) return null;
+    return buf.slice(0, n);
   } catch {
     clearTimeout(timer);
-    return "";
+    return null;
   }
 }
 
-async function imapCommand(conn: Deno.TlsConn | Deno.TcpConn, tag: string, cmd: string, timeoutMs = 15_000): Promise<string> {
+async function readGreeting(conn: Deno.TlsConn | Deno.TcpConn): Promise<string> {
+  const chunk = await readBytesFromConn(conn);
+  return chunk ? new TextDecoder().decode(chunk) : "";
+}
+
+async function imapCommand(
+  conn: Deno.TlsConn | Deno.TcpConn,
+  tag: string,
+  cmd: string,
+  timeoutMs = 15_000,
+): Promise<string> {
   await conn.write(encoder.encode(`${tag} ${cmd}\r\n`));
   let response = "";
+  const decoder = new TextDecoder();
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const chunk = await readFromConn(conn, Math.max(deadline - Date.now(), 1000));
-    response += chunk;
-    if (response.includes(`${tag} OK`) || response.includes(`${tag} NO`) || response.includes(`${tag} BAD`)) break;
+    const chunk = await readBytesFromConn(conn, Math.max(deadline - Date.now(), 1000));
     if (!chunk) break;
+    response += decoder.decode(chunk, { stream: true });
+    if (response.includes(`${tag} OK`) || response.includes(`${tag} NO`) || response.includes(`${tag} BAD`)) break;
   }
+  response += decoder.decode();
   return response;
 }
 
-function parseEmailHeaders(raw: string) {
-  const fromMatch = raw.match(/From:\s*(.+)/i);
-  const subjectMatch = raw.match(/Subject:\s*(.+)/i);
-  const dateMatch = raw.match(/Date:\s*(.+)/i);
-  const messageIdMatch = raw.match(/Message-ID:\s*(<[^>]+>|[^\s]+)/i);
-  const inReplyToMatch = raw.match(/In-Reply-To:\s*(<[^>]+>|[^\s]+)/i);
-  const contentTypeMatch = raw.match(/Content-Type:\s*([^;\r\n]+)/i);
-
-  const fromRaw = fromMatch?.[1]?.trim() || "unknown@email.com";
-  const emailMatch = fromRaw.match(/<(.+?)>/);
-  const fromEmail = emailMatch ? emailMatch[1] : fromRaw;
-  const fromName = fromRaw.replace(/<.+>/, "").replace(/"/g, "").trim() || fromEmail;
-
-  return {
-    fromEmail,
-    fromName,
-    subject: subjectMatch?.[1]?.trim() || "(No Subject)",
-    dateStr: dateMatch?.[1]?.trim() || null,
-    messageId: messageIdMatch?.[1]?.trim() || null,
-    inReplyTo: inReplyToMatch?.[1]?.trim() || null,
-    hasAttachment: /multipart\/mixed/i.test(contentTypeMatch?.[1] || ""),
-    contentType: contentTypeMatch?.[1]?.trim() || "text/plain",
-  };
+function extractImapLiteral(response: string, tag: string): string {
+  const marker = /\{(\d+)\}\r\n/.exec(response);
+  if (!marker || marker.index < 0) throw new Error("EMAIL_IMAP_LITERAL_MISSING");
+  const start = marker.index + marker[0].length;
+  const terminators = [`\r\n)\r\n${tag} OK`, `)\r\n${tag} OK`];
+  let end = -1;
+  for (const terminator of terminators) {
+    const candidate = response.lastIndexOf(terminator);
+    if (candidate > start) {
+      end = candidate;
+      break;
+    }
+  }
+  if (end <= start) throw new Error("EMAIL_IMAP_LITERAL_TRUNCATED");
+  return response.slice(start, end);
 }
 
-function extractTextBody(fetchResp: string): string {
-  const bodyStart = fetchResp.indexOf("\r\n\r\n", fetchResp.indexOf("BODY[TEXT]"));
-  let bodyText = bodyStart > -1 ? fetchResp.substring(bodyStart + 4) : "";
-  bodyText = bodyText.replace(/\)\r\n.*$/s, "").trim();
-  bodyText = bodyText.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
-  return bodyText;
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+async function sha256HexBytes(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function sha256Hex(input: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", encoder.encode(input));
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return sha256HexBytes(encoder.encode(input));
 }
 
 async function canonicalMessageIdToken(messageId: string): Promise<string> {
@@ -108,6 +139,15 @@ async function canonicalEmailEventId(params: {
     params.messageContent,
   ].join("\n"));
   return `email_sha256:${hash}`;
+}
+
+function attachmentBytes(content: unknown): Uint8Array {
+  if (content instanceof Uint8Array) return content;
+  if (content instanceof ArrayBuffer) return new Uint8Array(content);
+  if (ArrayBuffer.isView(content)) {
+    return new Uint8Array(content.buffer, content.byteOffset, content.byteLength);
+  }
+  throw new Error("EMAIL_ATTACHMENT_CONTENT_INVALID");
 }
 
 serve(async (req) => {
@@ -183,11 +223,9 @@ serve(async (req) => {
         let conn: Deno.TlsConn | null = null;
 
         try {
-          // Re-resolve and pin a public IP on every cron connection before any
-          // credential is sent. This closes stored-host SSRF/DNS-rebinding.
           conn = await connectTlsToPublicHostname(host, 993);
 
-          const greeting = await readFromConn(conn);
+          const greeting = await readGreeting(conn);
           if (!greeting.includes("OK")) {
             throw new Error(`IMAP server did not send OK greeting: ${greeting.substring(0, 100)}`);
           }
@@ -226,61 +264,116 @@ serve(async (req) => {
 
           for (const msgId of idsToFetch) {
             try {
-              const fetchResp = await imapCommand(
+              const metaTag = `M${msgId}`;
+              const metaResp = await imapCommand(
                 conn,
-                `F${msgId}`,
-                `FETCH ${msgId} (UID BODY[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID IN-REPLY-TO CONTENT-TYPE)] BODY[TEXT])`,
+                metaTag,
+                `FETCH ${msgId} (UID RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM SUBJECT DATE MESSAGE-ID IN-REPLY-TO CONTENT-TYPE)])`,
                 20_000,
               );
+              const imapUid = metaResp.match(/\bUID\s+(\d+)\b/i)?.[1] ?? null;
+              const rawSize = Number(metaResp.match(/RFC822\.SIZE\s+(\d+)/i)?.[1] ?? 0);
+              if (!imapUid || !Number.isInteger(rawSize) || rawSize <= 0) {
+                throw new Error("EMAIL_IMAP_METADATA_INVALID");
+              }
+              if (rawSize > MAX_RAW_EMAIL_BYTES) {
+                throw new Error("EMAIL_RAW_MESSAGE_TOO_LARGE");
+              }
 
-              const headers = parseEmailHeaders(fetchResp);
-              const imapUid = fetchResp.match(/\bUID\s+(\d+)\b/i)?.[1] ?? null;
-              let bodyText = extractTextBody(fetchResp);
-              if (!bodyText) bodyText = headers.subject;
-              const messageContent = headers.subject !== "(No Subject)"
-                ? `[${headers.subject}] ${bodyText.substring(0, 2000)}`
-                : bodyText.substring(0, 2000);
+              const rawTag = `R${msgId}`;
+              const rawResp = await imapCommand(conn, rawTag, `FETCH ${msgId} (BODY.PEEK[])`, 45_000);
+              const rawEmail = extractImapLiteral(rawResp, rawTag);
+              const parsed = await PostalMime.parse(rawEmail);
+
+              const fromEmail = parsed.from?.address?.trim() || "unknown@email.com";
+              const fromName = parsed.from?.name?.trim() || fromEmail;
+              const subject = parsed.subject?.trim() || "(No Subject)";
+              const dateStr = parsed.date?.trim() || null;
+              const messageId = parsed.messageId?.trim() || null;
+              const inReplyTo = parsed.inReplyTo?.trim() || null;
+              const textBody = (parsed.text || (parsed.html ? stripHtml(parsed.html) : "") || subject).trim();
+              const messageContent = subject !== "(No Subject)"
+                ? `[${subject}] ${textBody.substring(0, 2000)}`
+                : textBody.substring(0, 2000);
+
+              const rawAttachments = Array.isArray(parsed.attachments) ? parsed.attachments : [];
+              if (rawAttachments.length > MAX_ATTACHMENTS) throw new Error("EMAIL_ATTACHMENT_COUNT_LIMIT");
+
+              const attachments: ParsedAttachment[] = [];
+              let totalAttachmentBytes = 0;
+              for (let index = 0; index < rawAttachments.length; index++) {
+                const attachment = rawAttachments[index];
+                const bytes = attachmentBytes(attachment.content);
+                if (bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error("EMAIL_ATTACHMENT_TOO_LARGE");
+                totalAttachmentBytes += bytes.byteLength;
+                if (totalAttachmentBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error("EMAIL_ATTACHMENTS_TOTAL_TOO_LARGE");
+                attachments.push({
+                  index,
+                  bytes,
+                  mimeType: String(attachment.mimeType || "application/octet-stream").toLowerCase(),
+                  sha256: await sha256HexBytes(bytes),
+                });
+              }
+
               const eventId = await canonicalEmailEventId({
                 channelId: channel.id,
                 uidValidity,
                 imapUid,
-                fromEmail: headers.fromEmail,
-                dateStr: headers.dateStr,
-                subject: headers.subject,
+                fromEmail,
+                dateStr,
+                subject,
                 messageContent,
-                messageId: headers.messageId,
+                messageId,
               });
 
-              // Cron auth + canonical channel tenant + stable canonical event ID
-              // are established before any keyword/AI/thread/Inbox side effect.
+              let aggregateAttachment: { mime_type: string; size_bytes: number; sha256: string } | null = null;
+              if (attachments.length > 0) {
+                const manifest = attachments.map((attachment) => ({
+                  index: attachment.index,
+                  mime_type: attachment.mimeType,
+                  byte_size: attachment.bytes.byteLength,
+                  sha256: attachment.sha256,
+                }));
+                aggregateAttachment = {
+                  mime_type: attachments.length === 1 ? attachments[0].mimeType : "multipart/mixed",
+                  size_bytes: totalAttachmentBytes,
+                  sha256: attachments.length === 1 ? attachments[0].sha256 : await sha256Hex(JSON.stringify(manifest)),
+                };
+              }
+
               const security = await scanInboundContent({
                 workspace_id: channel.workspace_id,
                 source: "email",
                 event_id: eventId,
                 content: messageContent,
                 urls: extractSecurityUrls(messageContent),
-                attachment: headers.hasAttachment
-                  ? { mime_type: headers.contentType || "application/octet-stream" }
-                  : null,
+                attachment: aggregateAttachment,
               });
 
-              if (!security.ok) {
-                throw new Error(`EMAIL_CONTENT_SECURITY_${security.code}`);
-              }
+              if (!security.ok) throw new Error(`EMAIL_CONTENT_SECURITY_${security.code}`);
 
               if (blocksNormalIngress(security.decision)) {
-                totalSkipped++;
-                // Text-only quarantine/reject has durable encrypted content in the
-                // security quarantine and can safely leave the IMAP unseen queue.
-                // Attachment-bearing mail stays UNSEEN until attachment staging is
-                // wired to the real malware scanner; do not silently lose the file.
-                if (!headers.hasAttachment) {
-                  await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+                if (attachments.length > 0 && security.decision.action === "quarantine") {
+                  for (const attachment of attachments) {
+                    const staged = await stageInboundAttachment({
+                      workspace_id: channel.workspace_id,
+                      source: "email",
+                      event_id: eventId,
+                      attachment_key: `email_att_${attachment.index}`,
+                      expected_attachment_count: attachments.length,
+                      bytes: attachment.bytes,
+                      mime_type: attachment.mimeType,
+                    });
+                    if (!staged.ok) throw new Error(`EMAIL_ATTACHMENT_STAGE_${staged.code}`);
+                  }
                 }
+                totalSkipped++;
+                await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
                 continue;
               }
 
-              // Friendly fast-path only after payload-bound content security.
+              if (attachments.length > 0) throw new Error("EMAIL_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
+
               const { data: existingMsg, error: existingError } = await supabase
                 .from("inbox_messages")
                 .select("id")
@@ -296,8 +389,8 @@ serve(async (req) => {
                 continue;
               }
 
-              const msgTimestamp = headers.dateStr && !Number.isNaN(Date.parse(headers.dateStr))
-                ? new Date(headers.dateStr).toISOString()
+              const msgTimestamp = dateStr && !Number.isNaN(Date.parse(dateStr))
+                ? new Date(dateStr).toISOString()
                 : new Date().toISOString();
 
               const { data: keywords, error: keywordsError } = await supabase
@@ -355,9 +448,9 @@ serve(async (req) => {
                     const aiData = await aiRes.json();
                     const tc = aiData.choices?.[0]?.message?.tool_calls?.[0];
                     if (tc) {
-                      const parsed = JSON.parse(tc.function.arguments);
-                      aiScore = parsed.intent_score;
-                      suggestedReply = parsed.suggested_reply;
+                      const parsedAi = JSON.parse(tc.function.arguments);
+                      aiScore = parsedAi.intent_score;
+                      suggestedReply = parsedAi.suggested_reply;
                     }
                   }
                 } catch (error) {
@@ -366,14 +459,14 @@ serve(async (req) => {
               }
 
               let threadId: string | null = null;
-              if (headers.inReplyTo) {
-                const canonicalReplyId = await canonicalMessageIdToken(headers.inReplyTo);
+              if (inReplyTo) {
+                const canonicalReplyId = await canonicalMessageIdToken(inReplyTo);
                 const { data: replyThread } = await supabase
                   .from("inbox_messages")
                   .select("thread_id")
                   .eq("workspace_id", channel.workspace_id)
                   .eq("channel_id", channel.id)
-                  .in("provider_message_id", [canonicalReplyId, headers.inReplyTo])
+                  .in("provider_message_id", [canonicalReplyId, inReplyTo])
                   .not("thread_id", "is", null)
                   .limit(1)
                   .maybeSingle();
@@ -386,7 +479,7 @@ serve(async (req) => {
                   .select("id")
                   .eq("workspace_id", channel.workspace_id)
                   .eq("channel_type", "email")
-                  .eq("contact_identifier", headers.fromEmail)
+                  .eq("contact_identifier", fromEmail)
                   .eq("status", "open")
                   .order("last_message_at", { ascending: false })
                   .limit(1)
@@ -410,11 +503,10 @@ serve(async (req) => {
                   action: security.decision.action,
                 },
               };
-              if (headers.messageId) metadata.external_message_id = headers.messageId;
+              if (messageId) metadata.external_message_id = messageId;
               if (imapUid) metadata.imap_uid = imapUid;
               if (uidValidity) metadata.imap_uidvalidity = uidValidity;
-              if (headers.inReplyTo) metadata.in_reply_to = headers.inReplyTo;
-              if (headers.hasAttachment) metadata.has_attachment = true;
+              if (inReplyTo) metadata.in_reply_to = inReplyTo;
 
               const { data: insertedInboxMsg, error: inboxError } = await supabase
                 .from("inbox_messages")
@@ -424,9 +516,9 @@ serve(async (req) => {
                   channel_id: channel.id,
                   channel_type: "email",
                   provider_message_id: eventId,
-                  source_name: headers.fromEmail,
-                  sender_name: headers.fromName,
-                  sender_identifier: headers.fromEmail,
+                  source_name: fromEmail,
+                  sender_name: fromName,
+                  sender_identifier: fromEmail,
                   message_content: messageContent,
                   message_timestamp: msgTimestamp,
                   intent_score: aiScore,
@@ -454,10 +546,10 @@ serve(async (req) => {
                   user_id: channel.user_id,
                   workspace_id: channel.workspace_id,
                   message_content: messageContent,
-                  source_name: headers.fromEmail,
+                  source_name: fromEmail,
                   source_type: "email",
                   channel_type: "email",
-                  contact_identifier: headers.fromEmail,
+                  contact_identifier: fromEmail,
                   thread_id: threadId || null,
                   inbox_message_id: insertedInboxMsg?.id || null,
                   message_date: msgTimestamp,
@@ -483,7 +575,7 @@ serve(async (req) => {
               await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
               totalProcessed++;
             } catch (msgErr) {
-              console.error(`[EMAIL-POLL] Error processing message ${msgId}:`, msgErr);
+              console.error(`[EMAIL-POLL] Error processing message ${msgId}:`, msgErr instanceof Error ? msgErr.message : "unknown");
               totalErrors++;
             }
           }
@@ -493,7 +585,7 @@ serve(async (req) => {
           conn = null;
           success = true;
         } catch (channelErr) {
-          console.error(`[EMAIL-POLL] Error for channel ${channel.id} (attempt ${attempt}):`, channelErr);
+          console.error(`[EMAIL-POLL] Error for channel ${channel.id} (attempt ${attempt}):`, channelErr instanceof Error ? channelErr.message : "unknown");
           if (conn) { try { conn.close(); } catch { /* noop */ } }
           if (attempt === maxAttempts) {
             await supabase.from("channels").update({ connection_status: "error" }).eq("id", channel.id);
@@ -513,7 +605,7 @@ serve(async (req) => {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[EMAIL-POLL] Error:", error);
+    console.error("[EMAIL-POLL] Error:", error instanceof Error ? error.message : "unknown");
     return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown" }), {
       status: 500,
       headers: { ...getCors(req), "Content-Type": "application/json" },
