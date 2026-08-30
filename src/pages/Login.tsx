@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from "@/components/ui/sonner";
 import { Mail, Lock, Zap, ShieldCheck, Loader2, RefreshCw, Smartphone, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { AuthBackdropVisual } from "@/components/auth/AuthBackdropVisual";
+import { AuthDialogShell } from "@/components/auth/AuthDialogShell";
 
 type TwoFAMethod = "choose" | "authenticator" | "authenticator_enroll" | "email";
 type LoginStep = "credentials" | "security_code" | "2fa";
@@ -235,7 +235,7 @@ const Login = () => {
   if (loginStep === "security_code") {
     return (
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8 sm:px-8">
-        <AuthBackdropVisual />
+        <AuthDialogShell>
         <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
@@ -280,6 +280,7 @@ const Login = () => {
             </Button>
           </CardFooter>
         </Card>
+        </AuthDialogShell>
       </div>
     );
   }
@@ -288,7 +289,7 @@ const Login = () => {
   if (needs2FA && twoFAMethod === "choose") {
     return (
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8 sm:px-8">
-        <AuthBackdropVisual />
+        <AuthDialogShell>
         <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
@@ -349,6 +350,7 @@ const Login = () => {
             </Button>
           </CardFooter>
         </Card>
+        </AuthDialogShell>
       </div>
     );
   }
@@ -357,7 +359,7 @@ const Login = () => {
   if (needs2FA && twoFAMethod === "authenticator_enroll") {
     return (
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8 sm:px-8">
-        <AuthBackdropVisual />
+        <AuthDialogShell>
         <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
@@ -422,6 +424,7 @@ const Login = () => {
             </Button>
           </CardFooter>
         </Card>
+        </AuthDialogShell>
       </div>
     );
   }
@@ -431,7 +434,7 @@ const Login = () => {
     const isEmail = twoFAMethod === "email";
     return (
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8 sm:px-8">
-        <AuthBackdropVisual />
+        <AuthDialogShell>
         <Card className="relative z-10 max-h-[calc(100vh-4rem)] w-full max-w-md overflow-y-auto border-border/80 bg-card/90 shadow-2xl backdrop-blur-xl">
           <CardHeader className="text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
@@ -510,6 +513,7 @@ const Login = () => {
             </Button>
           </CardFooter>
         </Card>
+        </AuthDialogShell>
       </div>
     );
   }

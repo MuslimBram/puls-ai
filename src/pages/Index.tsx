@@ -587,7 +587,6 @@ const Index = () => {
           </div>
         </section>
       </div>
-
       <FloatingAIBot />
     </PublicShell>
   );

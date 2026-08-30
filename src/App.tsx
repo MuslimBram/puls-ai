@@ -11,6 +11,7 @@ import { ErrorBoundary, PageErrorFallback } from "@/components/ErrorBoundary";
 import { AdminRoute } from "@/components/AdminRoute";
 import { PermissionRoute } from "@/components/PermissionRoute";
 import { GlobalFooter } from "@/components/GlobalFooter";
+import { FloatingAIBot } from "@/components/FloatingAIBot";
 import type { RolePermissions } from "@/hooks/useRolePermissions";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { CookieConsentBanner } from "@/components/legal/CookieConsentBanner";
@@ -384,6 +385,7 @@ const App = () => (
               </div>
               <PWAInstallPrompt />
               <CookieConsentBanner />
+              <FloatingAIBot />
             </BrowserRouter>
           </TooltipProvider>
         </WorkspaceProvider>
