@@ -94,7 +94,23 @@ describe("P0.6 content security core", () => {
     expect(firewall).toContain('action: "quarantine"');
     expect(firewall).toContain('category: "unknown"');
     expect(firewall).toContain('reasonCode: "MALWARE_SCANNER_REQUIRED"');
-    expect(firewall).toContain('malware: attachment ? "required_not_integrated"');
+    expect(firewall).toContain('malware: attachment ? "required_external_clamav"');
+  });
+
+  it("persists text policy independently so malware-clean cannot override phishing or threats", () => {
+    const textDeterministic = firewall.indexOf("let decision = deterministicDecision(content, urls)");
+    const textSemantic = firewall.indexOf("decision = await runSemanticClassifier(workspaceId");
+    const attachmentLayer = firewall.indexOf("if (attachment) {");
+    expect(textDeterministic).toBeGreaterThan(-1);
+    expect(textSemantic).toBeGreaterThan(textDeterministic);
+    expect(attachmentLayer).toBeGreaterThan(textSemantic);
+    expect(firewall).toContain("const textPolicy = decision");
+    expect(firewall).toContain("text_policy: {");
+    expect(firewall).toContain("category: textPolicy.category");
+    expect(firewall).toContain("risk_score: textPolicy.riskScore");
+    expect(firewall).toContain("action: textPolicy.action");
+    expect(firewall).toContain("reason_code: textPolicy.reasonCode");
+    expect(firewall).toContain('reasonCode: "MALWARE_SCANNER_REQUIRED"');
   });
 
   it("hard-fails quarantine when encrypted payload storage is unavailable", () => {
