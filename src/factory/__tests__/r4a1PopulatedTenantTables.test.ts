@@ -26,7 +26,8 @@ describe("R4a1 populated tenant hardening", () => {
   it("prevents workspace movement and cross-author member updates", () => {
     expect(migration).toContain("Workspace authors or admins can update");
     expect(migration).toContain("user_id=(SELECT auth.uid())");
-    expect(migration).toContain("public.has_workspace_role(workspace_id, ARRAY['owner','admin'])");
+    expect(migration).toContain("public.has_workspace_role(workspace_id, ARRAY[''owner'',''admin''])");
+    expect(migration).toContain("public.has_workspace_role(workspace_id, ARRAY[''member''])");
   });
 
   it("guards knowledge source parent/workspace equality", () => {
