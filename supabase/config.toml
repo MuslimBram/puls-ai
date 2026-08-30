@@ -51,6 +51,8 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.ai-router-runtime-check]
     verify_jwt = false
+  [functions.content-security-firewall]
+    verify_jwt = false
   [functions.community-profile]
     verify_jwt = true
   [functions.community-feed]
