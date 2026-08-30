@@ -101,17 +101,31 @@ describe("P0.6 provider attachment E2E staging", () => {
     expect(meta).toContain("META_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
   });
 
-  it("parses raw RFC822 Email with a pinned MIME parser and PEEK semantics", () => {
+  it("reads Email RFC822 literals byte-for-byte and never auto-marks them Seen", () => {
     expect(email).toContain('PostalMime from "npm:postal-mime@3.0.0"');
     expect(email).toContain("RFC822.SIZE BODY.PEEK[HEADER.FIELDS");
     expect(email).toContain("FETCH ${msgId} (BODY.PEEK[])");
-    expect(email).toContain("MAX_RAW_EMAIL_BYTES = 40 * 1024 * 1024");
-    expect(email).toContain("const parsed = await PostalMime.parse(rawEmail)");
+    expect(email).toContain("async function imapLiteralCommand(");
+    expect(email).toContain("return combined.slice(literalStart, literalEnd)");
+    expect(email).toContain("rawEmailBytes.byteLength !== rawSize");
     expect(email).not.toContain("BODY[TEXT]");
   });
 
+  it("bounds hostile MIME nesting and forces nested RFC822 content into the attachment set", () => {
+    expect(email).toContain("MAX_RAW_EMAIL_BYTES = 40 * 1024 * 1024");
+    expect(email).toContain("MIME_MAX_NESTING_DEPTH = 64");
+    expect(email).toContain("MIME_MAX_HEADERS_BYTES = 1024 * 1024");
+    expect(email).toContain("PostalMime.parse(rawEmailBytes, {");
+    expect(email).toContain('attachmentEncoding: "arraybuffer"');
+    expect(email).toContain("forceRfc822Attachments: true");
+    expect(email).toContain("maxNestingDepth: MIME_MAX_NESTING_DEPTH");
+    expect(email).toContain("maxHeadersSize: MIME_MAX_HEADERS_BYTES");
+    expect(email).toContain("maxRfc822NestingDepth: 0");
+    expect(email).toContain("EMAIL_RFC822_DEPTH_EXCEEDED");
+  });
+
   it("hashes every parsed Email attachment and binds the complete attachment manifest", () => {
-    const parse = email.indexOf("const parsed = await PostalMime.parse(rawEmail)");
+    const parse = email.indexOf("const parsed = await PostalMime.parse(rawEmailBytes");
     const attachmentLoop = email.indexOf("for (let index = 0; index < rawAttachments.length; index++)");
     const scan = email.indexOf("const security = await scanInboundContent({");
     expect(parse).toBeGreaterThan(-1);
@@ -147,7 +161,7 @@ describe("P0.6 provider attachment E2E staging", () => {
     expect(securityCallEnd).toBeGreaterThan(securityCallStart);
     const securityCall = email.slice(securityCallStart, securityCallEnd);
     expect(securityCall).toContain("attachment: aggregateAttachment");
-    expect(securityCall).not.toMatch(/filename|attachment\.content|rawEmail|bytes:/i);
+    expect(securityCall).not.toMatch(/filename|attachment\.content|rawEmailBytes|bytes:/i);
   });
 
   it("never lets a provider attachment continue into normal business processing", () => {
