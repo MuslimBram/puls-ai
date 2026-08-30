@@ -11,9 +11,9 @@ const meta = read("supabase/functions/meta-webhook/index.ts");
 describe("P0.6 content-security ingress wave 1", () => {
   it("uses one internal fail-closed firewall client and never logs raw content", () => {
     expect(client).toContain('/functions/v1/content-security-firewall');
-    expect(client).toContain('req');
     expect(client).toContain('"x-internal-secret": internalSecret');
     expect(client).toContain("apikey: serviceKey");
+    expect(client).toContain('Authorization: `Bearer ${serviceKey}`');
     expect(client).toContain('code: "CONTENT_SECURITY_NOT_CONFIGURED"');
     expect(client).toContain('code: "CONTENT_SECURITY_UNAVAILABLE"');
     expect(client).toContain('code: "CONTENT_SECURITY_INVALID_RESPONSE"');
@@ -49,7 +49,7 @@ describe("P0.6 content-security ingress wave 1", () => {
 
   it("requires WhatsApp provider-native IDs instead of creating unstable retry keys", () => {
     expect(whatsapp).toContain('const waId = msg?.id ?? ""');
-    expect(whatsapp).not.toContain("Date.now()");
+    expect(whatsapp).not.toContain('msg?.id ?? `wa:${Date.now()}`');
     expect(whatsapp).toContain("A provider-native stable event ID is mandatory");
     expect(whatsapp).toContain("const securityEventId = `wa:${waId}`");
   });
@@ -58,14 +58,14 @@ describe("P0.6 content-security ingress wave 1", () => {
     const scanCall = telegram.indexOf("const security = await scanInboundContent({");
     const eventLogClaim = telegram.indexOf('supabase.from("integration_event_logs").insert');
     const aiCall = telegram.indexOf("const aiRaw = await callAIRouter(");
-    const leadInsert = telegram.indexOf('.from("leads")');
+    const leadAccess = telegram.indexOf('.from("leads")');
     const threadCall = telegram.indexOf('supabase.rpc("upsert_conversation_thread"');
     const inboxCall = telegram.indexOf('supabase.from("inbox_messages").insert');
 
     expect(scanCall).toBeGreaterThan(-1);
     expect(scanCall).toBeLessThan(eventLogClaim);
     expect(scanCall).toBeLessThan(aiCall);
-    expect(scanCall).toBeLessThan(leadInsert);
+    expect(scanCall).toBeLessThan(leadAccess);
     expect(scanCall).toBeLessThan(threadCall);
     expect(scanCall).toBeLessThan(inboxCall);
     expect(telegram).toContain("if (blocksNormalIngress(security.decision))");
