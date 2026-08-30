@@ -27,6 +27,18 @@ begin
   end if;
 
   if not exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'user_roles'
+      and policyname = 'Admins can delete roles' and cmd = 'DELETE'
+  ) then
+    raise exception 'Cannot harden user_roles: expected authenticated DELETE policy is missing';
+  end if;
+
+  if to_regprocedure('public.request_admin_role(uuid)') is null then
+    raise exception 'Cannot harden user_roles: canonical request_admin_role(uuid) RPC is missing';
+  end if;
+
+  if not exists (
     select 1 from information_schema.columns
     where table_schema = 'public' and table_name = 'profiles' and column_name = 'full_name'
   ) or not exists (
@@ -57,9 +69,9 @@ begin
 end
 $$;
 
--- C1: authenticated clients may inspect their permitted role rows and platform
--- admins may revoke roles, but role grants/changes must go through audited
--- SECURITY DEFINER/service-role governance paths.
+-- C1: browser/authenticated role grants and role rewrites are removed. Admin
+-- elevation continues through the existing two-person request/approval path;
+-- lower-risk operational platform roles use a bounded SECURITY DEFINER RPC.
 drop policy if exists "Admins can manage roles" on public.user_roles;
 drop policy if exists "Admins can update roles" on public.user_roles;
 
@@ -67,6 +79,72 @@ revoke all privileges on table public.user_roles
   from public, anon, authenticated, sandbox_exec, service_role;
 grant select, delete on table public.user_roles to authenticated;
 grant select, insert, update, delete on table public.user_roles to service_role;
+
+-- Preserve authenticated revocation, but prevent ordinary admins from deleting
+-- protected/global roles such as super_admin, business_owner, partner, or user.
+drop policy if exists "Admins can delete roles" on public.user_roles;
+drop policy if exists "Admins can delete operational roles" on public.user_roles;
+create policy "Admins can delete operational roles"
+on public.user_roles
+for delete to authenticated
+using (
+  public.has_role(auth.uid(), 'super_admin'::public.app_role)
+  or (
+    public.has_role(auth.uid(), 'admin'::public.app_role)
+    and role in (
+      'admin'::public.app_role,
+      'controller'::public.app_role,
+      'worker'::public.app_role,
+      'moderator'::public.app_role
+    )
+  )
+);
+
+create or replace function public.grant_platform_operational_role(
+  _target_user_id uuid,
+  _role public.app_role
+)
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  _caller uuid := (select auth.uid());
+begin
+  if _caller is null then
+    raise exception 'Authentication required' using errcode = '42501';
+  end if;
+
+  if not (
+    public.has_role(_caller, 'admin'::public.app_role)
+    or public.has_role(_caller, 'super_admin'::public.app_role)
+  ) then
+    raise exception 'Only platform admins can grant operational platform roles' using errcode = '42501';
+  end if;
+
+  if _target_user_id is null then
+    raise exception 'Target user is required' using errcode = '22004';
+  end if;
+
+  if _role not in (
+    'controller'::public.app_role,
+    'worker'::public.app_role,
+    'moderator'::public.app_role
+  ) then
+    raise exception 'Role must use the protected admin approval path or is not assignable here' using errcode = '42501';
+  end if;
+
+  insert into public.user_roles(user_id, role)
+  values (_target_user_id, _role)
+  on conflict (user_id, role) do nothing;
+end
+$$;
+
+revoke all on function public.grant_platform_operational_role(uuid, public.app_role)
+  from public, anon, authenticated, service_role;
+grant execute on function public.grant_platform_operational_role(uuid, public.app_role)
+  to authenticated;
 
 -- Traceability: an ordinary platform admin cannot rewrite their own display
 -- identity after being granted the admin role. Normal users remain able to edit
