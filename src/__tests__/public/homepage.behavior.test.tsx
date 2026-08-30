@@ -64,7 +64,7 @@ describe("Homepage behavior", () => {
     ).toBeInTheDocument();
 
     screen.getAllByRole("link", { name: "Get Started" }).forEach((link) => {
-      expect(link).toHaveAttribute("href", "/login?next=%2Fdashboard");
+      expect(link).toHaveAttribute("href", "/register?next=%2Fdashboard");
     });
   });
 
