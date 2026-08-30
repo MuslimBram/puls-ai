@@ -8,7 +8,7 @@ on:
 
 jobs:
   secret-scan:
-    name: Secret Scanning (gitleaks full-history v8.30.0)
+    name: Secret Scanning (Gitleaks full-history v8.30.0)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository (full history)
@@ -41,6 +41,19 @@ jobs:
     name: Lint, Test, Validate, Build
     runs-on: ubuntu-latest
     needs: secret-scan
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
 
     steps:
       - name: Checkout repository
@@ -54,6 +67,105 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Apply corrective migration to an ephemeral PostgreSQL database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+          fi
+
+          cat > /tmp/p0_fixture.sql <<'SQL'
+          create schema auth;
+          create role anon noinherit nologin;
+          create role authenticated noinherit nologin;
+          create role service_role noinherit nologin;
+          create or replace function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
+          create table public.workspaces (id uuid primary key, owner_id uuid not null);
+          create table public.workspace_members (workspace_id uuid not null, user_id uuid not null, role text not null);
+          create table public.workspace_access_assignments (workspace_id uuid not null, user_id uuid not null, access_role text not null, is_active boolean not null default true, expires_at timestamptz null);
+          create table public.business_profiles (id uuid primary key, workspace_id uuid not null);
+          create table public.channels (id uuid primary key, workspace_id uuid not null);
+          create table public.leads (id uuid primary key, workspace_id uuid not null);
+          create table public.conversation_threads (id uuid primary key, workspace_id uuid not null);
+          create or replace function public.has_workspace_access(_workspace_id uuid) returns boolean language sql stable as $$ select true $$;
+          create or replace function public.has_workspace_role(_user_id uuid, _workspace_id uuid, _roles text[]) returns boolean language sql stable as $$ select true $$;
+          create policy "workspace members can view business profiles" on public.business_profiles for select to authenticated using (public.has_workspace_role((select auth.uid()), workspace_id, array['owner','admin','member']));
+          create policy "workspace members can view channels" on public.channels for select to authenticated using (public.has_workspace_role((select auth.uid()), workspace_id, array['owner','admin','member']));
+          create policy "workspace members can view leads" on public.leads for select to authenticated using (public.has_workspace_role((select auth.uid()), workspace_id, array['owner','admin','member']));
+          create policy "workspace members can view conversation threads" on public.conversation_threads for select to authenticated using (public.has_workspace_role((select auth.uid()), workspace_id, array['owner','admin','member']));
+          SQL
+
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f /tmp/p0_fixture.sql
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 -f supabase/migrations/20260828071542_harden_has_workspace_role_and_core_rls.sql
+
+          psql -h 127.0.0.1 -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+          do $$
+          begin
+            if to_regprocedure('public.has_workspace_role(uuid,uuid,text[])') is not null then raise exception 'legacy arbitrary-user helper still exists'; end if;
+            if to_regprocedure('public.has_workspace_role(uuid,text[])') is null then raise exception 'caller-bound helper missing'; end if;
+            if to_regprocedure('public.has_workspace_role_for_user(uuid,uuid,text[])') is null then raise exception 'service-only explicit-user helper missing'; end if;
+            if has_function_privilege('anon', 'public.has_workspace_role(uuid,text[])', 'execute') then raise exception 'anon can execute browser helper'; end if;
+            if not has_function_privilege('authenticated', 'public.has_workspace_role(uuid,text[])', 'execute') then raise exception 'authenticated cannot execute browser helper'; end if;
+            if has_function_privilege('authenticated', 'public.has_workspace_role_for_user(uuid,uuid,text[])', 'execute') then raise exception 'authenticated can execute explicit-user helper'; end if;
+            if not has_function_privilege('service_role', 'public.has_workspace_role_for_user(uuid,uuid,text[])', 'execute') then raise exception 'service_role cannot execute explicit-user helper'; end if;
+            if exists (select 1 from pg_policies where schemaname='public' and tablename in ('business_profiles','channels','leads','conversation_threads') and cmd='SELECT' and coalesce(qual,'') ilike '%has_role(%admin%') then raise exception 'global platform-admin SELECT bypass remains'; end if;
+            if exists (select 1 from pg_policies where schemaname='public' and tablename in ('business_profiles','channels','leads','conversation_threads') and cmd='DELETE' and coalesce(qual,'') ilike '%member%') then raise exception 'member DELETE remains on core resources'; end if;
+            if exists (select 1 from pg_policies where schemaname='public' and tablename in ('business_profiles','channels','leads','conversation_threads') and cmd='UPDATE' and (qual is null or with_check is null)) then raise exception 'UPDATE policy missing USING or WITH CHECK'; end if;
+          end $$;
+
+          insert into public.workspaces(id, owner_id) values ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', '11111111-1111-1111-1111-111111111111');
+          insert into public.workspace_access_assignments(workspace_id,user_id,access_role,is_active,expires_at) values
+            ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','22222222-2222-2222-2222-222222222222','business_admin',true,null),
+            ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','33333333-3333-3333-3333-333333333333','freelancer',true,null),
+            ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','44444444-4444-4444-4444-444444444444','manager',true,now() - interval '1 minute'),
+            ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','55555555-5555-5555-5555-555555555555','employee',false,null);
+          do $$ begin
+            if not public.has_workspace_role_for_user('22222222-2222-2222-2222-222222222222','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',array['admin']) then raise exception 'business_admin assignment did not map to admin'; end if;
+            if not public.has_workspace_role_for_user('33333333-3333-3333-3333-333333333333','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',array['member']) then raise exception 'freelancer assignment did not map to member'; end if;
+            if public.has_workspace_role_for_user('44444444-4444-4444-4444-444444444444','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',array['member']) then raise exception 'expired manager assignment was accepted'; end if;
+            if public.has_workspace_role_for_user('55555555-5555-5555-5555-555555555555','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',array['member']) then raise exception 'inactive employee assignment was accepted'; end if;
+          end $$;
+          SQL
+
+      - name: Apply and verify P0.2 tenant isolation migration
+        env:
+          PGPASSWORD: postgres
+        run: bash scripts/verify-p0-2-migration.sh
+
+      - name: Apply and verify P0.3 ancillary Inbox isolation migration
+        env:
+          PGPASSWORD: postgres
+        run: bash scripts/verify-p0-3-inbox-ancillary.sh
+
+      - name: Apply and verify P0.4 CALL Voice isolation migration
+        env:
+          PGPASSWORD: postgres
+        run: bash scripts/verify-p0-4-call-voice.sh
+
+      - name: Generate P0 ledger hash report
+        if: always()
+        run: |
+          node <<'NODE' > p0-ledger-hashes.txt
+          const fs = require('fs');
+          const crypto = require('crypto');
+          const dir = 'supabase/migrations';
+          for (const file of fs.readdirSync(dir).filter(f => f.endsWith('.sql')).sort()) {
+            if (!/^20260827(113753|114248|152201|154758|154920|160224|160328|160728|190129|190233|190330|190506|191457)_/.test(file)) continue;
+            const sql = fs.readFileSync(`${dir}/${file}`, 'utf8').replace(/[\r\n\t ]+$/, '');
+            console.log(`${file} ${crypto.createHash('sha256').update(sql).digest('hex')}`);
+          }
+          NODE
+
+      - name: Upload P0 ledger hash report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p0-ledger-hashes
+          path: p0-ledger-hashes.txt
 
       - name: Run ESLint check
         run: npx eslint .
@@ -74,18 +186,13 @@ jobs:
           const seenVersions = new Map();
           for (const f of files.sort()) {
             const version = f.split('_')[0];
-            if (seenVersions.has(version)) {
-              console.error('Duplicate migration version ' + version + ': ' + seenVersions.get(version) + ' and ' + f);
-              process.exit(1);
-            }
+            if (seenVersions.has(version)) { console.error('Duplicate migration version ' + version); process.exit(1); }
             seenVersions.set(version, f);
-            if (version < lastVersion) {
-              console.error('Migration order anomaly: ' + f);
-              process.exit(1);
-            }
+            if (version < lastVersion) { console.error('Migration order anomaly: ' + f); process.exit(1); }
             lastVersion = version;
           }
-          console.log('Migration sequence valid; all versions are unique.');
+          if ('20260828071542' <= '20260827191457') { console.error('Corrective migration order invalid'); process.exit(1); }
+          console.log('Migration sequence valid; all versions are unique; corrective follows historical maximum.');
           "
 
       - name: Build Vite Production Bundle

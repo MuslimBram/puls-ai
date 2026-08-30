@@ -46,6 +46,10 @@ serve(async (req) => {
     return new Response(null, { headers: getCors(req) });
   }
 
+  const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
+  let claimedWorkspaceId: string | null = null;
+  let claimedIdempotencyKey: string | null = null;
+
   try {
     const payload = await req.json();
     const msg = payload?.message || payload?.edited_message;
@@ -54,8 +58,6 @@ serve(async (req) => {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
-
-    const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
 
     const { data: channels, error: channelsError } = await supabase
       .from("channels")
@@ -96,17 +98,18 @@ serve(async (req) => {
 
     const idempotencyKey = `tg:${channel.id}:${chatId}:${senderId}:${String(msg.message_id)}`;
 
-    const { data: integrationRow } = await supabase
+    const { data: integrationRow, error: integrationError } = await supabase
       .from("external_integrations")
       .select("id")
-      .eq("user_id", channel.user_id)
+      .eq("workspace_id", workspaceId)
       .eq("integration_key", "telegram")
-      .limit(1)
       .maybeSingle();
+    if (integrationError) throw integrationError;
 
     const { error: claimErr } = await supabase.from("integration_event_logs").insert({
       integration_id: integrationRow?.id,
       user_id: channel.user_id,
+      workspace_id: workspaceId,
       event_type: "message",
       event_message: "Telegram inbound message",
       adapter_key: "telegram",
@@ -128,6 +131,7 @@ serve(async (req) => {
         const { data: existingClaim } = await supabase
           .from("integration_event_logs")
           .select("id, status")
+          .eq("workspace_id", workspaceId)
           .eq("idempotency_key", idempotencyKey)
           .maybeSingle();
 
@@ -136,6 +140,7 @@ serve(async (req) => {
             .from("integration_event_logs")
             .update({ status: "processing" })
             .eq("id", existingClaim.id)
+            .eq("workspace_id", workspaceId)
             .eq("status", "failed")
             .select("id")
             .maybeSingle();
@@ -160,6 +165,11 @@ serve(async (req) => {
       }
     }
 
+    // From this point on we own a processing claim. Any thrown error must move
+    // it to failed so a provider retry can reclaim the same idempotency key.
+    claimedWorkspaceId = workspaceId;
+    claimedIdempotencyKey = idempotencyKey;
+
     let intentScore = 0.3;
     let suggestedReply = "";
     const aiRaw = await callAIRouter(
@@ -181,6 +191,7 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       await supabase
         .from("integration_event_logs")
         .update({ status: "failed", event_message: "Telegram AI parse failure" })
+        .eq("workspace_id", workspaceId)
         .eq("idempotency_key", idempotencyKey);
       return new Response(JSON.stringify({ ok: false, error: "invalid_ai_response" }), {
         status: 502,
@@ -218,7 +229,25 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       }
     }
 
-    await supabase.from("inbox_messages").insert({
+    const { data: threadId, error: threadError } = await supabase.rpc("upsert_conversation_thread", {
+      _user_id: channel.user_id,
+      _workspace_id: workspaceId,
+      _channel_type: "telegram",
+      _contact_identifier: chatId,
+      _contact_name: senderName,
+      _message_preview: msg.text,
+      _direction: "inbound",
+    });
+    if (threadError || !threadId) {
+      await supabase
+        .from("integration_event_logs")
+        .update({ status: "failed", event_message: "Telegram thread persistence failure" })
+        .eq("workspace_id", workspaceId)
+        .eq("idempotency_key", idempotencyKey);
+      throw new Error(threadError?.message || "Conversation thread persistence failed");
+    }
+
+    const { error: inboxError } = await supabase.from("inbox_messages").insert({
       user_id: channel.user_id,
       workspace_id: workspaceId,
       channel_id: channel.id,
@@ -233,13 +262,16 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       direction: "inbound",
       delivery_status: "delivered",
       provider_message_id: String(msg.message_id),
+      thread_id: threadId,
       metadata: { chat_id: chatId, telegram_user_id: senderId },
       intent_score: intentScore,
     } as never);
+    if (inboxError) throw inboxError;
 
     await supabase
       .from("integration_event_logs")
       .update({ status: "processed", metadata: { lead_id: leadId, workspace_id: workspaceId, channel_id: channel.id } })
+      .eq("workspace_id", workspaceId)
       .eq("idempotency_key", idempotencyKey);
 
     return new Response(
@@ -252,6 +284,18 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       { headers: { ...getCors(req), "Content-Type": "application/json" } },
     );
   } catch (e) {
+    if (claimedWorkspaceId && claimedIdempotencyKey) {
+      const { error: failureUpdateError } = await supabase
+        .from("integration_event_logs")
+        .update({ status: "failed", event_message: "Telegram processing failure" })
+        .eq("workspace_id", claimedWorkspaceId)
+        .eq("idempotency_key", claimedIdempotencyKey)
+        .eq("status", "processing");
+      if (failureUpdateError) {
+        console.error("[TELEGRAM-WEBHOOK] Failed to release processing claim:", failureUpdateError);
+      }
+    }
+
     console.error("[TELEGRAM-WEBHOOK] Error:", e);
     return new Response(
       JSON.stringify({ ok: false, error: e instanceof Error ? e.message : "Unknown" }),

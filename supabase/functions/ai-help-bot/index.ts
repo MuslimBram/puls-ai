@@ -116,6 +116,9 @@ function buildSystemPrompt(pricingRows: PricingRow[], pricingOk: boolean): strin
     "Do not invent product status, pricing, referral terms, legal/security certifications, duration discounts, or trial duration.",
     "Referral truth currently has unresolved internal conflicts. You may explain partner/referral programs exist, but for exact percentages, eligibility, lifetime/one-time rules, bonuses, and payouts direct users to current partner/Affiliate Terms or human support.",
     "Respond in the user's language when clear from their message; support English and Albanian naturally.",
+    "Channel truth: WhatsApp uses Meta WhatsApp Cloud API directly; Twilio is used for SMS/Voice, not WhatsApp.",
+    "For channel troubleshooting, identify the exact failing step, explain one safe corrective action at a time, never ask for a token/secret in chat, and include the matching /help-center#channel-... link.",
+    "Do not call a provider live merely because a form exists. Telegram and WhatsApp have production proofs; other providers still require account-specific configuration and runtime verification.",
     "If information is unavailable or conflicting, say so clearly and safely instead of guessing.",
     "Current public pricing source (pricing_settings):",
     publicPricingContext,
@@ -123,6 +126,119 @@ function buildSystemPrompt(pricingRows: PricingRow[], pricingOk: boolean): strin
       ? "Use only the pricing numbers from this pricing_settings context when answering pricing questions."
       : "Pricing source is unavailable; do not provide numeric prices. Direct users to the current /pricing page for exact current prices.",
   ].join("\n");
+}
+
+function buildGroundedFallback(messages: ChatMessage[]): string {
+  const question = [...messages].reverse().find((msg) => msg.role === "user")?.content.toLowerCase() ?? "";
+  const albanian = /\b(si|sa|çfarë|cfare|lidh|regjistr|ndihm|nuk|kam|është|eshte|mund|kusht|gabim)\b/.test(question);
+  const answer = (sq: string, en: string) => albanian ? sq : en;
+
+  if (/whatsapp|waba|phone number id|meta cloud/.test(question)) {
+    if (/invalid.*token|token.*invalid|expired|revoked/.test(question)) {
+      return answer(
+        "Token-i WhatsApp është i pavlefshëm ose ka skaduar. Gjenero System User token permanent me lejet whatsapp_business_management dhe whatsapp_business_messaging; kontrollo që App dhe WABA i janë caktuar user-it. Mos e dërgo token-in në chat. Lexo më shumë: /help-center#channel-whatsapp",
+        "The WhatsApp token is invalid or expired. Generate a permanent System User token with whatsapp_business_management and whatsapp_business_messaging, and confirm the App and WABA assets are assigned. Never paste the token into chat. Read more: /help-center#channel-whatsapp",
+      );
+    }
+    if (/webhook|verify token|no inbound|nuk (vjen|hy)/.test(question)) {
+      return answer(
+        "Kontrollo që Callback URL mbaron me /whatsapp-webhook, verify token është identik në Meta dhe Pulse AI, aplikacioni është subscribed te WABA dhe fusha messages është Subscribed. Lexo më shumë: /help-center#channel-whatsapp",
+        "Confirm the Callback URL ends in /whatsapp-webhook, the verify token is identical in Meta and Pulse AI, the app is subscribed to the WABA, and the messages field is subscribed. Read more: /help-center#channel-whatsapp",
+      );
+    }
+    if (/24|template|business.initiated|payment|undelivered|delivery/.test(question)) {
+      return answer(
+        "Brenda 24 orëve nga mesazhi i klientit mund të përgjigjesh lirshëm; jashtë kësaj dritareje kërkohet template i aprovuar dhe payment method aktiv. Kontrollo delivery status callback për arsyen e dështimit. Lexo më shumë: /help-center#channel-whatsapp",
+        "Within 24 hours of a customer message you can reply freely; outside that window you need an approved template and an active payment method. Check the delivery-status callback for the failure reason. Read more: /help-center#channel-whatsapp",
+      );
+    }
+    return answer(
+      "WhatsApp lidhet direkt me Meta Cloud API, jo me Twilio. Duhen Phone Number ID, WABA ID, System User token permanent dhe verify token privat; pastaj Verify, Save & Activate dhe provë inbound/outbound. Lexo më shumë: /help-center#channel-whatsapp",
+      "WhatsApp connects directly through Meta Cloud API, not Twilio. You need the Phone Number ID, WABA ID, permanent System User token and a private verify token; then Verify, Save & Activate and run inbound/outbound proofs. Read more: /help-center#channel-whatsapp",
+    );
+  }
+
+  if (/telegram|botfather|bot token/.test(question)) {
+    if (/invalid|failed|error|nuk/.test(question)) {
+      return answer(
+        "Te @BotFather rigjenero token-in, kopjoje të plotë pa thonjëza ose hapësira dhe provo sërish Verify. Nëse Verify kalon por aktivizimi dështon, bëj reconnect me token-in e ri; pastaj dërgo /start. Mos e dërgo token-in në chat. Lexo më shumë: /help-center#channel-telegram",
+        "Regenerate the token in @BotFather, copy the complete value without quotes or spaces, and retry Verify. If Verify passes but activation fails, reconnect with the fresh token; then send /start. Never paste the token into chat. Read more: /help-center#channel-telegram",
+      );
+    }
+    return answer(
+      "Krijo ose zgjidh botin te @BotFather, vendos emrin dhe token-in në Pulse AI, bëj Verify dhe Save & Activate, pastaj dërgo /start për provën inbound. Lexo më shumë: /help-center#channel-telegram",
+      "Create or select the bot in @BotFather, enter its name and token in Pulse AI, Verify and Save & Activate, then send /start for the inbound proof. Read more: /help-center#channel-telegram",
+    );
+  }
+
+  if (/email|imap|dkim|spf|dmarc|resend/.test(question)) {
+    return answer(
+      "Kontrollo domain-in dërgues, DKIM/SPF/DMARC dhe statusin Verified; për IMAP përdor app password, jo fjalëkalimin kryesor. Pastaj bëj provë reale dërgim+marrje. Lexo më shumë: /help-center#channel-email",
+      "Check the sending domain, DKIM/SPF/DMARC and Verified status; for IMAP use an app password, not the primary password. Then run a real send-and-receive proof. Read more: /help-center#channel-email",
+    );
+  }
+
+  if (/facebook|instagram|messenger|oauth|redirect mismatch/.test(question)) {
+    return answer(
+      "Kontrollo që user-i Meta ka full access te App dhe Page, Instagram Professional është lidhur me Page, redirect URL përputhet saktë dhe webhook fields janë subscribed. Për përdorues publikë kërkohet App Review/Publish. Lexo më shumë: /help-center#channel-facebook",
+      "Confirm the Meta user has full access to the App and Page, Instagram Professional is linked to the Page, the redirect URL matches exactly, and webhook fields are subscribed. Public users require App Review/Publish. Read more: /help-center#channel-facebook",
+    );
+  }
+
+  if (/sms|twilio|vonage|messagebird/.test(question)) {
+    const anchor = /messagebird/.test(question) ? "messagebird" : "sms";
+    return answer(
+      `Twilio këtu përdoret për SMS/Voice, jo WhatsApp. Kontrollo SID/token nga e njëjta llogari, numrin E.164 me aftësi SMS, balancën dhe sms-webhook si inbound/status callback. Lexo më shumë: /help-center#channel-${anchor}`,
+      `Twilio here is for SMS/Voice, not WhatsApp. Confirm SID/token are from the same account, the E.164 number is SMS-capable, balance is available, and sms-webhook is set for inbound/status callbacks. Read more: /help-center#channel-${anchor}`,
+    );
+  }
+
+  if (/voip|voice|phone call|telefonat/.test(question)) {
+    return answer(
+      "Kontrollo numrin me Voice, caller ID, Account SID/Auth Token, lejet gjeografike dhe TwiML callback. Pastaj testo outbound, inbound dhe status callback. Lexo më shumë: /help-center#channel-voip",
+      "Check the voice-capable number, caller ID, Account SID/Auth Token, geographic permissions and TwiML callback. Then test outbound, inbound and status callbacks. Read more: /help-center#channel-voip",
+    );
+  }
+
+  if (/google sheets|spreadsheet|service account/.test(question)) {
+    return answer(
+      "Aktivizo Sheets API, krijo service account, ndaje Sheet-in me email-in e tij si Editor dhe vendos JSON key + Spreadsheet ID. Mos e dërgo JSON key në chat. Lexo më shumë: /help-center#channel-google_sheets",
+      "Enable Sheets API, create a service account, share the Sheet with its email as Editor, and enter the JSON key plus Spreadsheet ID. Never paste the JSON key into chat. Read more: /help-center#channel-google_sheets",
+    );
+  }
+
+  if (/tiktok/.test(question)) {
+    return answer(
+      "TikTok varet nga produktet/scopes dhe rajoni i aprovuar. Kontrollo developer app, review status dhe long-lived token; mos e quaj lidhjen live pa provë runtime. Lexo më shumë: /help-center#channel-tiktok",
+      "TikTok depends on approved products/scopes and region. Check the developer app, review status and long-lived token; do not treat it as live without runtime proof. Read more: /help-center#channel-tiktok",
+    );
+  }
+
+  if (/viber/.test(question)) {
+    return answer(
+      "Duhet Viber bot i aprovuar dhe auth token aktiv. Vendos token-in vetëm te formulari i enkriptuar, konfiguro webhook-un dhe testo mesazh real. Lexo më shumë: /help-center#channel-viber",
+      "You need an approved Viber bot and active auth token. Enter the token only in the encrypted form, configure the webhook and test a real message. Read more: /help-center#channel-viber",
+    );
+  }
+
+  if (/regjistr|register|sign up|account|llogari/.test(question)) {
+    return answer(
+      "Zgjidh Get Started, metodën e regjistrimit dhe llojin e llogarisë; përfundo verifikimin e email-it dhe onboarding-un. Shëno tekstin e saktë të çdo gabimi. Lexo më shumë: /help-center",
+      "Choose Get Started, the sign-up method and account type; complete email verification and onboarding. Record the exact text of any error. Read more: /help-center",
+    );
+  }
+
+  if (/price|pricing|plan|çmim|cmim|paket/.test(question)) {
+    return answer(
+      "Çmimet merren nga konfigurimi aktual i platformës. Shiko /pricing për planet dhe kufijtë e sotëm; për faturim të llogarisë kërko suport njerëzor.",
+      "Pricing is loaded from the platform's current configuration. See /pricing for current plans and limits; request human support for account-specific billing.",
+    );
+  }
+
+  return answer(
+    "Mund të të udhëzoj hap pas hapi. Shkruaj emrin e kanalit, hapin ku ngece dhe tekstin e saktë të gabimit—pa dërguar token, fjalëkalim ose secret. Lexo më shumë: /help-center",
+    "I can guide you step by step. Send the channel name, the step where you are stuck and the exact error text—without any token, password or secret. Read more: /help-center",
+  );
 }
 
 function shouldEscalate(messages: ChatMessage[], aiReply: string): boolean {
@@ -208,8 +324,9 @@ serve(async (req) => {
         });
       }
       if (routerResponse.status === 503) {
-        return new Response(JSON.stringify({ error: "AI help is temporarily unavailable. Please try again shortly." }), {
-          status: 503,
+        const reply = buildGroundedFallback(normalized.messages);
+        return new Response(JSON.stringify({ reply, needs_admin: false, degraded: true }), {
+          status: 200,
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }

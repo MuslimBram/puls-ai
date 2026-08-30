@@ -23,6 +23,29 @@ const deleteSchema = z.object({
 const listSchema = z.object({
   action: z.literal("list"),
 });
+const listSettingsSchema = z.object({
+  action: z.literal("list_settings"),
+});
+const apiSecretNameSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(128)
+  .regex(/^[A-Z][A-Z0-9_]+$/, "api_secret_name must be an environment secret name")
+  .nullable()
+  .optional();
+const upsertSettingSchema = z.object({
+  action: z.literal("upsert_setting"),
+  provider_key: providerKeySchema,
+  provider_name: z.string().trim().min(2).max(160),
+  media_types: z.array(z.string().trim().min(1).max(40)).min(1).max(10),
+  is_enabled: z.boolean(),
+  is_mock: z.boolean(),
+  api_secret_name: apiSecretNameSchema,
+  priority: z.number().int().min(0).max(10000),
+  config: z.record(z.unknown()),
+});
+const sensitiveConfigKey = /(token|secret|password|api[_-]?key|private[_-]?key|credential)/i;
 
 const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder();
@@ -47,14 +70,49 @@ serve(async (req) => {
       .from("user_roles")
       .select("role")
       .eq("user_id", authData.user.id)
-      .in("role", ["admin", "super_admin", "business_owner"]);
+      .in("role", ["admin", "super_admin"]);
 
     if (roleError) throw roleError;
     if (!roleRows || roleRows.length === 0) {
-      return json({ error: "Admin access required" }, { status: 403 });
+      return json(req, { error: "Platform admin access required" }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
+
+    if (listSettingsSchema.safeParse(body).success) {
+      const { data, error } = await supabaseAdmin
+        .from("media_provider_settings")
+        .select("id, provider_key, provider_name, media_types, is_enabled, is_mock, api_secret_name, config, priority, created_at, updated_at, updated_by")
+        .order("priority", { ascending: true })
+        .order("provider_name", { ascending: true });
+
+      if (error) throw error;
+      return json(req, { settings: data ?? [] });
+    }
+
+    const parsedSetting = upsertSettingSchema.safeParse(body);
+    if (parsedSetting.success) {
+      if (containsSensitiveConfigKey(parsedSetting.data.config)) {
+        return json(req, { error: "Provider config must not contain credential or secret values" }, { status: 400 });
+      }
+
+      const { action: _action, ...setting } = parsedSetting.data;
+      const { data, error } = await supabaseAdmin
+        .from("media_provider_settings")
+        .upsert(
+          {
+            ...setting,
+            updated_by: authData.user.id,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "provider_key" },
+        )
+        .select("id, provider_key, provider_name, media_types, is_enabled, is_mock, api_secret_name, config, priority, created_at, updated_at, updated_by")
+        .single();
+
+      if (error) throw error;
+      return json(req, { success: true, setting: data });
+    }
 
     if (listSchema.safeParse(body).success) {
       const { data, error } = await supabaseAdmin
@@ -64,7 +122,7 @@ serve(async (req) => {
 
       if (error) throw error;
 
-      return json({
+      return json(req, {
         credentials: (data ?? []).map((item) => ({
           providerKey: item.provider_key,
           credentialType: item.credential_type,
@@ -86,12 +144,12 @@ serve(async (req) => {
         .eq("provider_key", parsedDelete.data.providerKey);
 
       if (error) throw error;
-      return json({ success: true });
+      return json(req, { success: true });
     }
 
     const parsedUpsert = upsertSchema.safeParse(body);
     if (!parsedUpsert.success) {
-      return json({ error: parsedUpsert.error.issues[0]?.message || "Invalid request" }, { status: 400 });
+      return json(req, { error: parsedUpsert.error.issues[0]?.message || "Invalid request" }, { status: 400 });
     }
 
     const providerKey = parsedUpsert.data.providerKey;
@@ -103,7 +161,7 @@ serve(async (req) => {
 
     if (providerError) throw providerError;
     if (!provider) {
-      return json({ error: `Provider ${providerKey} does not exist` }, { status: 404 });
+      return json(req, { error: `Provider ${providerKey} does not exist` }, { status: 404 });
     }
 
     const validation = await validateCredential(provider, parsedUpsert.data.secret);
@@ -130,7 +188,7 @@ serve(async (req) => {
 
     if (saveError) throw saveError;
 
-    return json({
+    return json(req, {
       success: true,
       validationMessage: validation.message,
       credential: {
@@ -145,11 +203,21 @@ serve(async (req) => {
       },
     });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : "Unknown error" }, { status: 400 });
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, { status: 400 });
   }
 });
 
-function json(body: unknown, init?: ResponseInit) {
+function containsSensitiveConfigKey(value: unknown): boolean {
+  if (!value || typeof value !== "object") return false;
+  if (Array.isArray(value)) return value.some(containsSensitiveConfigKey);
+  for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+    if (sensitiveConfigKey.test(key)) return true;
+    if (containsSensitiveConfigKey(child)) return true;
+  }
+  return false;
+}
+
+function json(req: Request, body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
     ...init,
     headers: {

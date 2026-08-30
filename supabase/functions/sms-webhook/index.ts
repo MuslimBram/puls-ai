@@ -53,22 +53,51 @@ serve(async (req) => {
     const contentType = req.headers.get("content-type") || "";
     const rawBody = await req.text();
 
-    // SECURITY: Resolve per-workspace credentials from signed To number.
-    // workspace_id query param is NEVER trusted alone.
-    const calledNumber = extractCalledNumber(rawBody, contentType);
-    const wsCreds = await resolveWorkspaceFromCalledNumber(calledNumber, ["sms","voip"], supabase);
+    // SECURITY: resolve the tenant credential from the provider-owned phone
+    // number before accepting the request. For inbound SMS, To is our number;
+    // for outbound delivery callbacks, From is our Twilio number.
+    let routingTo = "", routingFrom = "", routingBody = "", routingSid = "", routingStatus = "", routingCalled = "";
+    if (contentType.includes("application/x-www-form-urlencoded")) {
+      const routingParams = new URLSearchParams(rawBody);
+      routingTo = routingParams.get("To") || "";
+      routingFrom = routingParams.get("From") || "";
+      routingBody = routingParams.get("Body") || "";
+      routingSid = routingParams.get("MessageSid") || routingParams.get("SmsSid") || "";
+      routingStatus = routingParams.get("MessageStatus") || "";
+      routingCalled = routingParams.get("Called") || "";
+    } else if (rawBody) {
+      try {
+        const routingJson = JSON.parse(rawBody);
+        routingTo = routingJson.to || routingJson.To || "";
+        routingFrom = routingJson.from || routingJson.From || "";
+        routingBody = routingJson.body || routingJson.Body || routingJson.message || "";
+        routingSid = routingJson.message_sid || routingJson.MessageSid || "";
+        routingStatus = routingJson.MessageStatus || routingJson.status || "";
+        routingCalled = routingJson.Called || "";
+      } catch {
+        // Signature verification below will fail closed if no tenant credential
+        // can be resolved from the malformed payload.
+      }
+    }
+
+    const isStatusCallback = Boolean(routingStatus && routingSid && !routingBody);
+    const providerOwnedNumber = isStatusCallback
+      ? (routingFrom || routingCalled || routingTo)
+      : (routingTo || routingCalled || extractCalledNumber(rawBody, contentType));
+
+    const wsCreds = await resolveWorkspaceFromCalledNumber(providerOwnedNumber, ["sms","voip"], supabase);
 
     const sigCheck = await verifyTwilioSignature(
       req, rawBody, contentType,
       wsCreds?.decrypted_auth_token
     );
     if (!sigCheck.ok) {
-      console.warn(`[SMS] Twilio signature rejected: ${sigCheck.reason} (to=${calledNumber})`);
+      console.warn(`[SMS] Twilio signature rejected: ${sigCheck.reason} (routing=${providerOwnedNumber})`);
       return new Response("<Response></Response>", {
         status: 403, headers: { ...getCors(req), "Content-Type": "text/xml" },
       });
     }
-    // Workspace is authoritative from signed To number, NOT query param
+    // Workspace is authoritative from the signed provider-owned number, NOT query params.
     const resolvedWorkspaceId = wsCreds?.workspace_id;
 
     let from = "", to = "", body = "", messageSid = "", numMedia = 0;
@@ -110,18 +139,16 @@ serve(async (req) => {
       };
       const normalizedStatus = statusMap[messageStatus.toLowerCase()] || messageStatus.toLowerCase();
 
-      // Find channel user
-      const { data: channels } = await supabase
-        .from("channels")
-        .select("id, user_id, workspace_id, settings")
-        .eq("channel_type", "sms")
-        .eq("is_enabled", true)
-        .limit(100);
-
-      const matchedChannel = (channels || []).find((ch: any) => {
-        const s = ch.settings as Record<string, any> | null;
-        return s?.phone_number === to || s?.twilio_phone === to || s?.phone_number === from || s?.twilio_phone === from;
-      });
+      // The workspace/channel was already resolved from the signed provider-owned
+      // number before signature verification. Do not perform a second global
+      // first-match channel search here.
+      const matchedChannel = wsCreds && resolvedWorkspaceId
+        ? {
+            id: wsCreds.channel_id,
+            user_id: wsCreds.user_id,
+            workspace_id: resolvedWorkspaceId,
+          }
+        : null;
 
       if (matchedChannel) {
         // Record delivery state
@@ -138,11 +165,12 @@ serve(async (req) => {
           metadata: { message_status: messageStatus },
         } as any);
 
-        // Update inbox message
+        // Update only the resolved tenant's inbox row.
         await supabase
           .from("inbox_messages")
           .update({ delivery_status: normalizedStatus, updated_at: new Date().toISOString() } as any)
-          .eq("provider_message_id", messageSid);
+          .eq("provider_message_id", messageSid)
+          .eq("workspace_id", matchedChannel.workspace_id);
 
         // Bounce → suppression
         if (["failed", "undelivered"].includes(normalizedStatus)) {
@@ -200,6 +228,12 @@ serve(async (req) => {
 
     const userId = matchedChannel.user_id;
     const workspaceId = matchedChannel.workspace_id;
+    if (!workspaceId) {
+      throw new Error("SMS channel is not linked to a workspace");
+    }
+    if (resolvedWorkspaceId && resolvedWorkspaceId !== workspaceId) {
+      throw new Error("Signed Twilio destination does not match the resolved workspace");
+    }
 
     // Build media attachments
     const mediaAttachments = mediaItems.map(m => ({
@@ -211,6 +245,7 @@ serve(async (req) => {
     // Thread
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: userId,
+      _workspace_id: workspaceId,
       _channel_type: "sms",
       _contact_identifier: from,
       _contact_name: from,

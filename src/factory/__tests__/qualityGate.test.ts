@@ -108,7 +108,7 @@ describe("Phase 3C: Pure Quality Gate Engine", () => {
 
       const secretLeakingWorker: WorkerResult = {
         ...validWorkerResult,
-        logs: ["Log: using API key sk_live_1234567890abcdef1234 for testing"],
+        logs: ['Log: secret_key="aaaaaa" used for testing'],
       };
 
       const report = evaluateQualityGate(plan, contextPack, execPlan, [secretLeakingWorker]);
@@ -164,12 +164,12 @@ describe("Phase 3C: Pure Quality Gate Engine", () => {
 
   describe("3. Secret Scanner Contract (Fake Fixtures Only)", () => {
     it("should detect fake secret patterns in logs and outputs", () => {
-      const logs = ["Log containing sk_test_abcdef123456789012"];
+      const logs = ['Log containing secret_key="aaaaaa"'];
       const scan = scanArtifactsForSecrets(logs, [], []);
 
       expect(scan.secrets_detected).toBe(true);
       expect(scan.findings.length).toBeGreaterThan(0);
-      expect(scan.findings[0].pattern_name).toContain("Generic API Key");
+      expect(scan.findings[0].pattern_name).toContain("Hardcoded Password Assignment");
     });
 
     it("should detect fake dotenv leakage in changed files", () => {

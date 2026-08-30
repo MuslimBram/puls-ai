@@ -40,5 +40,29 @@ describe("WhatsApp Full E2E hardening", () => {
     expect(webhook).toContain('phone_number_id');
     expect(webhook).toContain('Ambiguous channel mapping');
     expect(webhook).toContain('processed_webhook_events');
+    expect(webhook).toContain('.select("id,user_id,workspace_id,settings")');
+    expect(webhook).toContain('user_id:            ch.user_id');
+    expect(webhook).toContain('releaseEventClaim');
+    expect(webhook).toContain('Inbox persistence failed');
+    expect(webhook).not.toContain('.eq("provider_message_id", st.id).catch');
+    expect(webhook).not.toContain('.single()\n            .catch');
+    expect(webhook).not.toContain('{ onConflict: "workspace_id,lead_id,channel" }).catch');
+  });
+
+  it("exposes a compact WhatsApp reply flow in the unified inbox", () => {
+    const inbox = read("src/pages/Inbox.tsx");
+    expect(inbox).toContain('selectedMsg.channel_type === "whatsapp"');
+    expect(inbox).toContain('channel: "whatsapp"');
+    expect(inbox).toContain('Reply on {selectedMsg.channel_type');
+    expect(inbox).toContain('h-[92dvh]');
+    expect(inbox).toContain('min-h-0 flex-1');
+    expect(inbox).toContain('overflow-hidden');
+    expect(inbox).toContain('Customer intelligence & AI context');
+  });
+
+  it("marks a verified generic channel connected when Save & Activate succeeds", () => {
+    const writer = read("supabase/functions/save-channel-credentials/index.ts");
+    expect(writer).toContain('connection_status: "connected"');
+    expect(writer).toContain('last_error: null');
   });
 });

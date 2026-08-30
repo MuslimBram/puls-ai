@@ -6,3 +6,7 @@
 b529b1204335151b7df18bb9162c6089cccf3309:src/components/Require2FASetup.tsx:generic-api-key:91
 ea4a891a53c4de9ad2ee4643c4aeb869c461eb09:src/components/WalkthroughVideo.tsx:generic-api-key:6
 aaffea6b06f456db596a19c1464d6202984b89e8:.github/workflows/ci.yml:supabase-mgmt-token:22
+983c4062e29eb22556ccf3859142d334016a41e8:src/components/WalkthroughVideo.tsx:generic-api-key:6
+983c4062e29eb22556ccf3859142d334016a41e8:src/factory/__tests__/redditDiscordPhaseR3.test.ts:discord-client-id:11
+983c4062e29eb22556ccf3859142d334016a41e8:src/factory/__tests__/qualityGate.test.ts:stripe-access-token:111
+983c4062e29eb22556ccf3859142d334016a41e8:src/factory/__tests__/qualityGate.test.ts:stripe-access-token:167

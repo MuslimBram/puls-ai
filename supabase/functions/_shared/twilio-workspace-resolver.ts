@@ -55,39 +55,50 @@ export async function resolveWorkspaceFromCalledNumber(
 
   if (!channels?.length) return null;
 
-  for (const channel of channels) {
+  const matches = channels.filter((channel) => {
     const settings = asStringRecord(channel.settings);
-    const credentials = asStringRecord(channel.credentials_encrypted);
     const channelPhone = settings.phone_number ?? "";
-    if (!channelPhone) continue;
+    return Boolean(channelPhone) && normalize(channelPhone) === normalizedCalled;
+  });
 
-    if (normalize(channelPhone) === normalizedCalled) {
-      // Canonical source is credentials_encrypted. Legacy settings fallback is
-      // temporary so existing production rows continue working until migration.
-      const rawAuthToken = credentials.auth_token || settings.auth_token || "";
-      if (!rawAuthToken) continue;
-
-      try {
-        const decrypted = await decryptIfNeeded(rawAuthToken);
-        if (!decrypted) continue;
-        return {
-          workspace_id: channel.workspace_id,
-          channel_id: channel.id,
-          user_id: channel.user_id,
-          account_sid: settings.account_sid ?? "",
-          decrypted_auth_token: decrypted,
-          phone_number: channelPhone,
-          settings: safeSettings(settings),
-        };
-      } catch {
-        console.error(`[resolver] Failed to decrypt auth_token for channel ${channel.id}`);
-        continue;
-      }
+  // Fail closed on duplicate tenant mappings. A phone number is an authoritative
+  // tenant-routing key only when it resolves to exactly one enabled channel.
+  if (matches.length !== 1) {
+    if (matches.length > 1) {
+      console.error(`[resolver] Ambiguous Twilio phone mapping for ${normalizedCalled}: ${matches.length} enabled channels`);
     }
+    return null;
   }
 
-  // Fail closed. A shared environment-level Twilio token cannot safely choose
-  // among multiple workspaces. A workspace must be resolved by its configured
-  // channel phone number before its credentials are returned.
-  return null;
+  const channel = matches[0];
+  if (!channel.workspace_id) {
+    console.error(`[resolver] Twilio channel ${channel.id} is not linked to a workspace`);
+    return null;
+  }
+
+  const settings = asStringRecord(channel.settings);
+  const credentials = asStringRecord(channel.credentials_encrypted);
+  const channelPhone = settings.phone_number ?? "";
+
+  // Canonical source is credentials_encrypted. Legacy settings fallback is
+  // temporary so existing production rows continue working until migration.
+  const rawAuthToken = credentials.auth_token || settings.auth_token || "";
+  if (!rawAuthToken) return null;
+
+  try {
+    const decrypted = await decryptIfNeeded(rawAuthToken);
+    if (!decrypted) return null;
+    return {
+      workspace_id: channel.workspace_id,
+      channel_id: channel.id,
+      user_id: channel.user_id,
+      account_sid: settings.account_sid ?? "",
+      decrypted_auth_token: decrypted,
+      phone_number: channelPhone,
+      settings: safeSettings(settings),
+    };
+  } catch {
+    console.error(`[resolver] Failed to decrypt auth_token for channel ${channel.id}`);
+    return null;
+  }
 }

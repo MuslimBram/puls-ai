@@ -35,7 +35,7 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 }
 
 const SITE_NAME = "Pulse AI"
-const SENDER_DOMAIN = Deno.env.get('EMAIL_SENDER_DOMAIN') || "notify.kohablerjeve.top"
+const SENDER_DOMAIN = Deno.env.get('EMAIL_SENDER_DOMAIN') || "pulse-bos.com"
 const FROM_DOMAIN = Deno.env.get('EMAIL_FROM_DOMAIN') || SENDER_DOMAIN
 const PUBLIC_SITE_URL = Deno.env.get('PUBLIC_SITE_URL') || "https://pulse-bos.com"
 const SAMPLE_EMAIL = "user@example.test"

@@ -97,6 +97,7 @@ serve(async (req) => {
     const providerMessageId = data.message_id || data.id || null;
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: user.id,
+      _workspace_id: workspace_id,
       _channel_type: channel,
       _contact_identifier: recipient_id,
       _contact_name: recipient_id,

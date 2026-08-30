@@ -13,11 +13,9 @@ function generateCode(): string {
 }
 
 async function sendEmailDirect(to: string, subject: string, htmlBody: string) {
-  // Use Supabase Auth admin to send email via built-in email service
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const serviceKey = getServiceKey()!;
 
-  // Try sending via the Lovable email callback if available
   const callbackUrl = Deno.env.get("LOVABLE_EMAIL_CALLBACK_URL");
   if (callbackUrl) {
     try {
@@ -32,7 +30,6 @@ async function sendEmailDirect(to: string, subject: string, htmlBody: string) {
     }
   }
 
-  // Fallback: try the send-email edge function with service role
   try {
     const adminClient = createClient(supabaseUrl, serviceKey);
     const { error } = await adminClient.functions.invoke("send-email", {
@@ -44,9 +41,6 @@ async function sendEmailDirect(to: string, subject: string, htmlBody: string) {
     console.error("send-email invocation failed:", e);
   }
 
-  // Last resort: use Supabase Auth admin generateLink to send a magic link
-  // This won't work for OTP but at least logs the attempt
-  console.error("All email methods failed for:", to);
   return false;
 }
 
@@ -78,27 +72,20 @@ Deno.serve(async (req) => {
 
     const userId = authUser.id;
     const userEmail = authUser.email || "";
+    const body = await req.json().catch(() => ({}));
+    const { action, token, factor_id } = body as { action?: string; token?: string; factor_id?: string };
+    const supabaseAdmin = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
 
-    const { action, token } = await req.json();
-    const supabaseAdmin = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      getServiceKey()!
-    );
-
-    // ── enroll: Enroll TOTP factor via Supabase MFA ──
     if (action === "enroll") {
       const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
       const existingTotp = factorsData?.totp?.[0];
-      
-      if (existingTotp && existingTotp.status === "verified") {
+      if (existingTotp?.status === "verified") {
         return new Response(JSON.stringify({ error: "TOTP tashmë i konfiguruar" }), {
           status: 400,
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
-
-      // Unenroll any unverified factors first
-      if (existingTotp && existingTotp.status === "unverified") {
+      if (existingTotp?.status === "unverified") {
         await supabaseClient.auth.mfa.unenroll({ factorId: existingTotp.id });
       }
 
@@ -106,114 +93,42 @@ Deno.serve(async (req) => {
         factorType: "totp",
         friendlyName: "Pulse AI Authenticator",
       });
-
-      if (enrollError) {
-        return new Response(JSON.stringify({ error: enrollError.message }), {
-          status: 500,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
+      if (enrollError) throw enrollError;
 
       return new Response(JSON.stringify({
         factorId: enrollData.id,
         qrCode: enrollData.totp.qr_code,
         secret: enrollData.totp.secret,
         otpauthUrl: enrollData.totp.uri,
-      }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+      }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
-    // ── verify_enroll: Verify TOTP enrollment with first code ──
+    // Enrollment verification must target the newly-created unverified factor.
+    // Passing false here previously selected only an already-verified factor,
+    // causing mandatory registration MFA to fail with a non-2xx response.
     if (action === "verify_enroll") {
-      if (!token || token.length !== 6) {
-        return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
-          status: 400,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
-      const totpFactor = factorsData?.totp?.[0];
-
-      if (!totpFactor) {
-        return new Response(JSON.stringify({ error: "Nuk ka faktor TOTP. Filloni regjistrimin." }), {
-          status: 400,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
-        factorId: totpFactor.id,
-      });
-
-      if (challengeError) {
-        return new Response(JSON.stringify({ error: "Gabim në krijimin e sfidës" }), {
-          status: 500,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
-
-      const { error: verifyError } = await supabaseClient.auth.mfa.verify({
-        factorId: totpFactor.id,
-        challengeId: challengeData.id,
-        code: token,
-      });
-
-      if (verifyError) {
-        return new Response(JSON.stringify({ error: "Kodi i gabuar. Provoni përsëri." }), {
-          status: 400,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ verified: true, enrolled: true }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+      return await verifyTotpFactor(req, supabaseClient, token, true);
     }
 
-    // ── send_code: Generate a 6-digit code, store it, email it ──
     if (action === "send_code") {
       const code = generateCode();
       const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
-      await supabaseAdmin
-        .from("login_otp_codes")
-        .delete()
-        .eq("user_id", userId);
-
-      await supabaseAdmin.from("login_otp_codes").insert({
-        user_id: userId,
-        code,
-        expires_at: expiresAt,
+      await supabaseAdmin.from("login_otp_codes").delete().eq("user_id", userId);
+      const { error: insertError } = await supabaseAdmin.from("login_otp_codes").insert({
+        user_id: userId, code, expires_at: expiresAt,
       });
+      if (insertError) throw insertError;
 
-      const emailHtml = `
-        <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:30px;">
-          <h2 style="color:#333;margin-bottom:20px;">Kodi i Sigurisë</h2>
-          <p style="color:#555;font-size:14px;">Kodi juaj 6-shifror për të hyrë në llogari:</p>
-          <div style="background:#f0f4ff;border-radius:12px;padding:20px;text-align:center;margin:20px 0;">
-            <span style="font-size:32px;font-weight:bold;letter-spacing:8px;color:#1a1a2e;font-family:monospace;">${code}</span>
-          </div>
-          <p style="color:#888;font-size:12px;">Ky kod skadon pas 5 minutash.</p>
-          <hr style="border:none;border-top:1px solid #eee;margin:20px 0;" />
-          <p style="color:#aaa;font-size:11px;">Pulse AI - Siguria e llogarisë</p>
-        </div>
-      `;
-
+      const emailHtml = `<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:30px"><h2>Kodi i Sigurisë</h2><p>Kodi juaj 6-shifror për të hyrë në llogari:</p><div style="background:#f0f4ff;border-radius:12px;padding:20px;text-align:center;margin:20px 0"><span style="font-size:32px;font-weight:bold;letter-spacing:8px;font-family:monospace">${code}</span></div><p style="color:#888;font-size:12px">Ky kod skadon pas 5 minutash.</p></div>`;
       const sent = await sendEmailDirect(userEmail, "Kodi juaj i sigurisë - Pulse AI", emailHtml);
 
-      return new Response(
-        JSON.stringify({ 
-          sent, 
-          email: userEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3"),
-          ...(sent ? {} : { warning: "Email nuk u dërgua. Kontrolloni konfigurimin." }),
-        }),
-        { headers: { ...getCors(req), "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({
+        sent,
+        email: userEmail.replace(/(.{2})(.*)(@.*)/, "$1***$3"),
+        ...(sent ? {} : { warning: "Email nuk u dërgua. Kontrolloni konfigurimin." }),
+      }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
-    // ── verify_code: Verify the 6-digit email code ──
     if (action === "verify_code" || action === "login_verify") {
       if (!token || token.length !== 6) {
         return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
@@ -221,10 +136,9 @@ Deno.serve(async (req) => {
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
-
       const { data: otpRow } = await supabaseAdmin
         .from("login_otp_codes")
-        .select("*")
+        .select("id")
         .eq("user_id", userId)
         .eq("code", token)
         .eq("used", false)
@@ -232,110 +146,81 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-
       if (!otpRow) {
         return new Response(JSON.stringify({ error: "Kodi i gabuar ose ka skaduar. Provo përsëri." }), {
           status: 400,
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
-
-      await supabaseAdmin
-        .from("login_otp_codes")
-        .update({ used: true })
-        .eq("id", otpRow.id);
-
-      return new Response(JSON.stringify({ verified: true }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+      await supabaseAdmin.from("login_otp_codes").update({ used: true }).eq("id", otpRow.id);
+      return new Response(JSON.stringify({ verified: true }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
-    // ── verify_totp: Verify Google Authenticator TOTP code at login ──
-    if (action === "verify_totp") {
-      if (!token || token.length !== 6) {
-        return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), {
-          status: 400,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
-      const totpFactor = factorsData?.totp?.find(f => f.status === "verified");
-
-      if (!totpFactor) {
-        return new Response(JSON.stringify({ error: "TOTP nuk është konfiguruar. Përdorni kodin me email.", not_enrolled: true }), {
-          status: 400,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
-
-      const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({
-        factorId: totpFactor.id,
-      });
-
-      if (challengeError) {
-        return new Response(JSON.stringify({ error: "Gabim në krijimin e sfidës TOTP" }), {
-          status: 500,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
-
-      const { error: verifyError } = await supabaseClient.auth.mfa.verify({
-        factorId: totpFactor.id,
-        challengeId: challengeData.id,
-        code: token,
-      });
-
-      if (verifyError) {
-        return new Response(JSON.stringify({ error: "Kodi i gabuar. Provoni përsëri." }), {
-          status: 400,
-          headers: { ...getCors(req), "Content-Type": "application/json" },
-        });
-      }
-
-      return new Response(JSON.stringify({ verified: true }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+    if (action === "verify_totp" || action === "verify") {
+      return await verifyTotpFactor(req, supabaseClient, token, true);
     }
 
-    // ── check_totp_status: Check if user has TOTP enrolled ──
     if (action === "check_totp_status") {
       const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
-      const totpFactor = factorsData?.totp?.find(f => f.status === "verified");
-      return new Response(JSON.stringify({ enrolled: !!totpFactor }), {
+      const verifiedTotp = factorsData?.totp?.some((f) => f.status === "verified") ?? false;
+      return new Response(JSON.stringify({ enrolled: verifiedTotp, verified: verifiedTotp }), {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
-    // ── check: Always requires 2FA ──
+    if (action === "disable" || action === "unenroll") {
+      const factorId = factor_id || (await supabaseClient.auth.mfa.listFactors()).data?.totp?.find((f) => f.status === "verified")?.id;
+      if (!factorId) return new Response(JSON.stringify({ error: "TOTP nuk është konfiguruar" }), { status: 400, headers: { ...getCors(req), "Content-Type": "application/json" } });
+      const { error: unenrollError } = await supabaseClient.auth.mfa.unenroll({ factorId });
+      if (unenrollError) return new Response(JSON.stringify({ error: unenrollError.message }), { status: 400, headers: { ...getCors(req), "Content-Type": "application/json" } });
+      await supabaseAdmin.from("user_mfa_settings").update({ totp_enabled: false }).eq("user_id", userId);
+      return new Response(JSON.stringify({ success: true }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
+    }
+
     if (action === "check") {
-      return new Response(JSON.stringify({ requires_2fa: true }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify({ requires_2fa: true }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
-    // ── status ──
     if (action === "status") {
       const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
-      const totpFactor = factorsData?.totp?.find(f => f.status === "verified");
-      return new Response(JSON.stringify({ 
-        enrolled: true, 
-        verified: true,
-        totp_enrolled: !!totpFactor,
-      }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
+      const verified = factorsData?.totp?.some((f) => f.status === "verified") ?? false;
+      return new Response(JSON.stringify({ enrolled: verified, verified, enrolledAt: null, totp_enrolled: verified }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
-    return new Response(JSON.stringify({ error: "Unknown action" }), {
-      status: 400,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  } catch (e: any) {
+    return new Response(JSON.stringify({ error: "Unknown action" }), { status: 400, headers: { ...getCors(req), "Content-Type": "application/json" } });
+  } catch (e) {
     console.error("totp-manage error:", e);
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), { status: 500, headers: { ...getCors(req), "Content-Type": "application/json" } });
   }
 });
+
+async function verifyTotpFactor(
+  req: Request,
+  supabaseClient: ReturnType<typeof createClient>,
+  token: string | undefined,
+  allowUnverified: boolean,
+): Promise<Response> {
+  const headers = { ...getCors(req), "Content-Type": "application/json" };
+  if (!token || token.length !== 6) return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), { status: 400, headers });
+
+  const { data: factorsData, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
+  if (factorsError) throw factorsError;
+
+  const unverified = factorsData?.totp?.find((f) => f.status === "unverified");
+  const verified = factorsData?.totp?.find((f) => f.status === "verified");
+  const factor = allowUnverified && unverified ? unverified : verified;
+
+  if (!factor) return new Response(JSON.stringify({ error: "TOTP nuk është konfiguruar.", not_enrolled: true }), { status: 400, headers });
+
+  const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId: factor.id });
+  if (challengeError) throw challengeError;
+
+  const { error: verifyError } = await supabaseClient.auth.mfa.verify({
+    factorId: factor.id,
+    challengeId: challengeData.id,
+    code: token,
+  });
+  if (verifyError) return new Response(JSON.stringify({ error: "Kodi i gabuar ose i skaduar" }), { status: 400, headers });
+
+  return new Response(JSON.stringify({ verified: true, enrolled: true }), { headers });
+}

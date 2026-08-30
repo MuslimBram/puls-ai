@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { validateInternalPath } from "../../lib/safeNavigate";
 import { SECURITY_CLAIM } from "../../lib/publicSecurityClaim";
-import { buildLoggedOutCtaLoginHref } from "../../components/public/publicCtaDestination";
+import { buildLoggedOutCtaRegisterHref } from "../../components/public/publicCtaDestination";
 import {
   platformNavItems,
   standaloneNavItems,
@@ -167,9 +167,9 @@ describe("CTA auth-aware navigation safety (validateInternalPath)", () => {
   });
 
   it("default logged-out CTA builds next from validated appDestination", () => {
-    expect(buildLoggedOutCtaLoginHref("/crm")).toBe("/register?next=%2Fcrm");
-    expect(buildLoggedOutCtaLoginHref("https://evil.com")).toBe("/register?next=%2Fdashboard");
-    expect(buildLoggedOutCtaLoginHref()).toBe("/register?next=%2Fdashboard");
+    expect(buildLoggedOutCtaRegisterHref("/crm")).toBe("/register?next=%2Fcrm");
+    expect(buildLoggedOutCtaRegisterHref("https://evil.com")).toBe("/register?next=%2Fdashboard");
+    expect(buildLoggedOutCtaRegisterHref()).toBe("/register?next=%2Fdashboard");
   });
 
   it("rejects external URL in CTA destination", () => {

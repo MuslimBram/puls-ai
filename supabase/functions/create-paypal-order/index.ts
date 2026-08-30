@@ -13,6 +13,23 @@ const json = (req: Request, body: unknown, status = 200) =>
     headers: { ...getCors(req), "Content-Type": "application/json" },
   });
 
+const PACKAGE_VARIANTS = [
+  { type: "monthly", months: 1, discount: 0 },
+  { type: "3-month", months: 3, discount: 5 },
+  { type: "6-month", months: 6, discount: 10 },
+  { type: "yearly", months: 12, discount: 15 },
+] as const;
+
+type PayPalCurrency = "EUR" | "USD";
+
+const roundMoney = (value: number) => Math.round(value * 100) / 100;
+const moneyMatches = (a: number, b: number) => Math.abs(roundMoney(a) - roundMoney(b)) < 0.005;
+
+const normalizePayPalCurrency = (value: unknown): PayPalCurrency => {
+  if (value === "EUR" || value === "USD") return value;
+  throw new Error("PayPal checkout supports EUR or USD only");
+};
+
 async function getPayPalAccessToken(clientId: string, secret: string, sandbox: boolean) {
   const base = sandbox
     ? "https://api-m.sandbox.paypal.com"
@@ -36,6 +53,53 @@ async function getPayPalAccessToken(clientId: string, secret: string, sandbox: b
   return { token: data.access_token as string, base };
 }
 
+async function resolvePlanPurchase(
+  supabase: ReturnType<typeof createClient>,
+  planKey: unknown,
+  currency: PayPalCurrency,
+  requestedAmount: number,
+) {
+  if (typeof planKey !== "string" || !planKey) throw new Error("planKey is required for plan payments");
+
+  const { data: plan, error } = await supabase
+    .from("pricing_settings")
+    .select("plan_key, plan_label, monthly_price_eur, monthly_price_usd, monthly_price_all, monthly_price, is_public, is_donation")
+    .eq("plan_key", planKey)
+    .eq("is_public", true)
+    .eq("is_donation", false)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (!plan) throw new Error("Plan is not available for checkout");
+
+  const settlementMonthly = Number(currency === "EUR" ? plan.monthly_price_eur : plan.monthly_price_usd);
+  const displayMonthlyAll = Number(plan.monthly_price_all ?? plan.monthly_price);
+  if (!Number.isFinite(settlementMonthly) || settlementMonthly <= 0) {
+    throw new Error(`Plan price is not configured for ${currency}`);
+  }
+
+  const matched = PACKAGE_VARIANTS.find((variant) => {
+    const settlementCandidate = roundMoney(settlementMonthly * (1 - variant.discount / 100) * variant.months);
+    const allDisplayCandidate = Number.isFinite(displayMonthlyAll) && displayMonthlyAll > 0
+      ? roundMoney(displayMonthlyAll * (1 - variant.discount / 100) * variant.months)
+      : Number.NaN;
+    return moneyMatches(settlementCandidate, requestedAmount) || moneyMatches(allDisplayCandidate, requestedAmount);
+  });
+
+  if (!matched) {
+    throw new Error("Requested PayPal package does not match the canonical pricing catalog");
+  }
+
+  const settlementAmount = roundMoney(settlementMonthly * (1 - matched.discount / 100) * matched.months);
+
+  return {
+    planKey: plan.plan_key as string,
+    planLabel: (plan.plan_label as string | null) || (plan.plan_key as string),
+    packageType: matched.type,
+    amount: settlementAmount,
+  };
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
@@ -50,23 +114,52 @@ serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) throw new Error("Unauthorized");
 
     const token = authHeader.replace("Bearer ", "");
-    const { data: userData } = await supabase.auth.getUser(token);
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
     const user = userData.user;
-    if (!user) throw new Error("Unauthorized");
+    if (userError || !user) throw new Error("Unauthorized");
 
     const clientId = Deno.env.get("PAYPAL_CLIENT_ID");
     const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
     if (!clientId || !clientSecret) throw new Error("PayPal credentials not configured");
 
     const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
-
     const body = await req.json();
-    // BUSINESS ENFORCEMENT: set PAYPAL_MERCHANT_EMAIL secret to route to business account
-    const MERCHANT_EMAIL = Deno.env.get("PAYPAL_MERCHANT_EMAIL");
-    const { amount, currency = "USD", paymentType = "one_time", planKey, description } = body;
+    const requestedAmount = Number(body?.amount);
+    const paymentType = body?.paymentType === "donation" ? "donation" : "one_time";
+    const currency = normalizePayPalCurrency(body?.currency ?? "EUR");
 
-    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
       throw new Error("Valid amount is required");
+    }
+
+    let amount = roundMoney(requestedAmount);
+    let planKey: string | null = null;
+    let packageType: string | null = null;
+    let description = "Pulse AI Donation";
+
+    if (paymentType === "one_time") {
+      const purchase = await resolvePlanPurchase(supabase, body?.planKey, currency, requestedAmount);
+      amount = purchase.amount;
+      planKey = purchase.planKey;
+      packageType = purchase.packageType;
+      description = `Pulse AI - ${purchase.planLabel} (${purchase.packageType})`;
+    } else {
+      if (amount > 100000) throw new Error("Donation amount exceeds the supported PayPal limit");
+      description = typeof body?.description === "string" && body.description.trim()
+        ? body.description.trim().slice(0, 127)
+        : "Pulse AI Donation";
+    }
+
+    // Resolve tenant ownership BEFORE creating an external payable order. Plan purchases
+    // without a canonical workspace are rejected before the user can pay.
+    const { data: sub, error: subError } = await supabase
+      .from("subscriptions")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (subError) throw subError;
+    if (paymentType === "one_time" && !sub?.workspace_id) {
+      throw new Error("A workspace subscription record is required before PayPal plan checkout");
     }
 
     const { token: ppToken, base } = await getPayPalAccessToken(clientId, clientSecret, sandbox);
@@ -76,11 +169,12 @@ serve(async (req) => {
       intent: "CAPTURE",
       purchase_units: [
         {
+          custom_id: user.id,
           amount: {
             currency_code: currency,
-            value: Number(amount).toFixed(2),
+            value: amount.toFixed(2),
           },
-          description: description || (paymentType === "donation" ? "Pulse AI Donation" : `Pulse AI - ${planKey || "Payment"}`),
+          description,
         },
       ],
       application_context: {
@@ -107,26 +201,24 @@ serve(async (req) => {
 
     const order = await orderRes.json();
     const approveUrl = order.links?.find((l: any) => l.rel === "approve")?.href;
+    if (!order?.id || !approveUrl) throw new Error("PayPal did not return a valid order");
 
-    // Get workspace
-    const { data: sub } = await supabase
-      .from("subscriptions")
-      .select("workspace_id")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    // Save transaction
-    await supabase.from("paypal_transactions").insert({
+    const { error: txnError } = await supabase.from("paypal_transactions").insert({
       user_id: user.id,
       workspace_id: sub?.workspace_id ?? null,
       paypal_order_id: order.id,
-      amount: Number(amount),
+      amount,
       currency,
       payment_type: paymentType,
-      plan_key: planKey ?? null,
+      plan_key: planKey,
       status: "pending",
-      metadata: { description },
+      metadata: {
+        description,
+        package_type: packageType,
+        pricing_source: paymentType === "one_time" ? "pricing_settings" : "user_donation",
+      },
     });
+    if (txnError) throw txnError;
 
     return json(req, { orderId: order.id, approveUrl });
   } catch (error) {

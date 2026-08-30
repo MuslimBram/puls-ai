@@ -17,15 +17,13 @@ interface WorkspaceMemberRow {
 }
 
 /**
- * Lets a workspace Owner promote teammates to the platform 'admin' role
- * (and demote them back), without exposing the full /admin platform panel.
- * Backed by RLS policies on user_roles that only allow business_owner
- * accounts to insert/update/delete the 'admin' role specifically.
+ * Platform-admin view of workspace teammates. Admin elevation is never written
+ * directly from the browser; it enters the canonical protected approval flow.
  */
 export const WorkspaceTeamRoles = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
-  const { isBusinessOwner, isAdmin } = useRolePermissions();
+  const { isAdmin } = useRolePermissions();
   const queryClient = useQueryClient();
 
   const membersQuery = useQuery({
@@ -61,21 +59,23 @@ export const WorkspaceTeamRoles = () => {
         is_platform_admin: adminSet.has(m.user_id),
       })) as (WorkspaceMemberRow & { is_platform_admin: boolean })[];
     },
-    enabled: !!workspace?.id,
+    enabled: !!workspace?.id && isAdmin,
   });
 
   const promote = useMutation({
     mutationFn: async (userId: string) => {
-      const { error } = await supabase.from("user_roles").insert({ user_id: userId, role: "admin" });
+      const { error } = await supabase.rpc("request_admin_role" as any, {
+        _target_user_id: userId,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace-team-roles", workspace?.id] });
-      toast.success("Promoted to Admin");
+      toast.success("Admin request submitted for approval");
     },
     onError: (e: Error) => {
-      if (e.message?.includes("duplicate")) {
-        toast.error("This user is already an Admin");
+      if (e.message?.includes("already") || e.message?.includes("pending")) {
+        toast.error("This user is already an Admin or already has a pending request");
       } else {
         toast.error(`Failed: ${e.message}`);
       }
@@ -89,14 +89,14 @@ export const WorkspaceTeamRoles = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace-team-roles", workspace?.id] });
-      toast.success("Moved back to Owner/Member");
+      toast.success("Admin role removed");
     },
     onError: (e: Error) => toast.error(`Failed: ${e.message}`),
   });
 
   const members = (membersQuery.data || []) as (WorkspaceMemberRow & { is_platform_admin: boolean })[];
 
-  if (!isBusinessOwner && !isAdmin) return null;
+  if (!isAdmin) return null;
 
   return (
     <Card>
@@ -106,7 +106,7 @@ export const WorkspaceTeamRoles = () => {
           Team Roles
         </CardTitle>
         <CardDescription>
-          As the workspace Owner, promote a teammate to Admin, or move yourself between Owner and Admin.
+          Platform Admin promotions use the protected approval workflow. Workspace roles remain managed separately.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -148,17 +148,17 @@ export const WorkspaceTeamRoles = () => {
                         onClick={() => demote.mutate(m.user_id)}
                       >
                         <ShieldMinus className="h-3 w-3 mr-1" />
-                        Move to {isSelf ? "Owner" : "Member"}
+                        Remove Admin
                       </Button>
                     ) : (
                       <Button
                         size="sm"
                         variant="default"
-                        disabled={promote.isPending}
+                        disabled={promote.isPending || isSelf}
                         onClick={() => promote.mutate(m.user_id)}
                       >
                         <ShieldPlus className="h-3 w-3 mr-1" />
-                        Make Admin
+                        Request Admin
                       </Button>
                     )}
                   </div>

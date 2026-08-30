@@ -1,12 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 
 export interface UnifiedConnection {
   id: string;
   user_id: string;
-  workspace_id: string | null;
+  workspace_id: string;
   business_id: string | null;
   provider: string;
   category: string;
@@ -31,22 +32,28 @@ export interface ConnectionLog {
   created_at: string;
 }
 
+async function invokeIntegrationBoundary<T>(body: Record<string, unknown>): Promise<T> {
+  const { data, error } = await supabase.functions.invoke("manage-integration-connections", { body });
+  if (error) throw error;
+  if (data?.error) throw new Error(String(data.error));
+  return data as T;
+}
+
 export const useUnifiedConnections = () => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
   const qc = useQueryClient();
 
   const query = useQuery({
-    queryKey: ["unified-connections", user?.id],
+    queryKey: ["unified-connections", workspace?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("unified_connections" as any)
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      return (data || []) as unknown as UnifiedConnection[];
+      const data = await invokeIntegrationBoundary<{ connections: UnifiedConnection[] }>({
+        action: "list_unified",
+        workspace_id: workspace!.id,
+      });
+      return data.connections ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 
   const addConnection = useMutation({
@@ -56,99 +63,71 @@ export const useUnifiedConnections = () => {
       connection_type: string;
       display_name?: string;
       config_json?: Record<string, unknown>;
+      credentials?: Record<string, string>;
       business_id?: string;
-      workspace_id?: string;
     }) => {
-      const { error } = await supabase.from("unified_connections" as any).insert({
-        user_id: user!.id,
+      if (!workspace?.id) throw new Error("Select a workspace first");
+      await invokeIntegrationBoundary({
+        action: "create_unified",
+        workspace_id: workspace.id,
         provider: params.provider,
         category: params.category,
         connection_type: params.connection_type,
-        display_name: params.display_name || params.provider,
-        config_json: params.config_json || {},
-        business_id: params.business_id || null,
-        workspace_id: params.workspace_id || null,
-        status: "pending",
-      } as any);
-      if (error) throw error;
-
-      // Log the connection
-      await supabase.from("connection_logs" as any).insert({
-        user_id: user!.id,
-        event_type: "connection_created",
-        message: `Created ${params.connection_type} connection for ${params.provider}`,
-        metadata: { provider: params.provider, category: params.category },
-      } as any);
+        display_name: params.display_name,
+        config_json: params.config_json ?? {},
+        credentials: params.credentials,
+        business_id: params.business_id ?? null,
+      });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["unified-connections"] });
+      qc.invalidateQueries({ queryKey: ["unified-connections", workspace?.id] });
+      qc.invalidateQueries({ queryKey: ["connection-logs", workspace?.id] });
       toast.success("Connection added");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Connection add failed"),
   });
 
   const testConnection = useMutation({
     mutationFn: async (id: string) => {
-      // Update last_tested_at
-      const { error } = await supabase
-        .from("unified_connections" as any)
-        .update({
-          last_tested_at: new Date().toISOString(),
-          status: "connected",
-          last_error: null,
-        } as any)
-        .eq("id", id);
-      if (error) throw error;
-
-      await supabase.from("connection_logs" as any).insert({
-        user_id: user!.id,
-        connection_id: id,
-        event_type: "connection_tested",
-        message: "Connection test passed",
-      } as any);
+      if (!workspace?.id) throw new Error("Select a workspace first");
+      await invokeIntegrationBoundary({ action: "test_unified", workspace_id: workspace.id, id });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["unified-connections"] });
+      qc.invalidateQueries({ queryKey: ["unified-connections", workspace?.id] });
+      qc.invalidateQueries({ queryKey: ["connection-logs", workspace?.id] });
       toast.success("Connection test passed");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Connection test failed"),
   });
 
   const updateStatus = useMutation({
-    mutationFn: async ({ id, status, error: lastError }: { id: string; status: string; error?: string }) => {
-      const { error } = await supabase
-        .from("unified_connections" as any)
-        .update({ status, last_error: lastError || null } as any)
-        .eq("id", id);
-      if (error) throw error;
-
-      await supabase.from("connection_logs" as any).insert({
-        user_id: user!.id,
-        connection_id: id,
-        event_type: "status_changed",
-        message: `Status changed to ${status}${lastError ? `: ${lastError}` : ""}`,
-      } as any);
+    mutationFn: async ({ id, status, error: lastError }: { id: string; status: UnifiedConnection["status"]; error?: string }) => {
+      if (!workspace?.id) throw new Error("Select a workspace first");
+      await invokeIntegrationBoundary({
+        action: "update_unified_status",
+        workspace_id: workspace.id,
+        id,
+        status,
+        last_error: lastError ?? null,
+      });
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["unified-connections"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["unified-connections", workspace?.id] });
+      qc.invalidateQueries({ queryKey: ["connection-logs", workspace?.id] });
+    },
   });
 
   const deleteConnection = useMutation({
     mutationFn: async (id: string) => {
-      await supabase.from("connection_logs" as any).insert({
-        user_id: user!.id,
-        connection_id: id,
-        event_type: "connection_deleted",
-        message: "Connection removed",
-      } as any);
-
-      const { error } = await supabase.from("unified_connections" as any).delete().eq("id", id);
-      if (error) throw error;
+      if (!workspace?.id) throw new Error("Select a workspace first");
+      await invokeIntegrationBoundary({ action: "delete_unified", workspace_id: workspace.id, id });
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["unified-connections"] });
+      qc.invalidateQueries({ queryKey: ["unified-connections", workspace?.id] });
+      qc.invalidateQueries({ queryKey: ["connection-logs", workspace?.id] });
       toast.success("Connection removed");
     },
-    onError: (e) => toast.error(e.message),
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Connection removal failed"),
   });
 
   return {
@@ -163,25 +142,18 @@ export const useUnifiedConnections = () => {
 
 export const useConnectionLogs = (connectionId?: string | null) => {
   const { user } = useAuth();
+  const { workspace } = useWorkspace();
 
   return useQuery({
-    queryKey: ["connection-logs", connectionId],
+    queryKey: ["connection-logs", workspace?.id, connectionId],
     queryFn: async () => {
-      let q = supabase
-        .from("connection_logs" as any)
-        .select("*")
-        .eq("user_id", user!.id)
-        .order("created_at", { ascending: false })
-        .limit(100);
-
-      if (connectionId) {
-        q = q.eq("connection_id", connectionId);
-      }
-
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data || []) as unknown as ConnectionLog[];
+      const data = await invokeIntegrationBoundary<{ logs: ConnectionLog[] }>({
+        action: "list_connection_logs",
+        workspace_id: workspace!.id,
+        connection_id: connectionId ?? null,
+      });
+      return data.logs ?? [];
     },
-    enabled: !!user,
+    enabled: !!user && !!workspace?.id,
   });
 };

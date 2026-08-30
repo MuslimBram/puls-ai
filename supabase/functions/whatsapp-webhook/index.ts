@@ -35,6 +35,21 @@ async function claimEvent(
   return "error";
 }
 
+/** Release a claim when the critical inbox write fails so provider retries can recover. */
+async function releaseEventClaim(
+  sb: ReturnType<typeof createClient>,
+  provider: string,
+  eventId: string,
+  workspaceId: string,
+): Promise<void> {
+  const { error } = await sb.from("processed_webhook_events")
+    .delete()
+    .eq("provider", provider)
+    .eq("event_id", `${provider}:${eventId}`)
+    .eq("workspace_id", workspaceId);
+  if (error) console.error("[WA] Failed to release event claim:", error.message);
+}
+
 serve(async (req) => {
   if (req.method === "GET") {
     const url = new URL(req.url);
@@ -80,7 +95,7 @@ serve(async (req) => {
 
     // Load all enabled WhatsApp channels once
     const { data: channels } = await sb.from("channels")
-      .select("id,workspace_id,settings")
+      .select("id,user_id,workspace_id,settings")
       .eq("channel_type", "whatsapp")
       .eq("is_enabled", true);
 
@@ -122,9 +137,11 @@ serve(async (req) => {
 
         // Delivery status updates (lightweight — no idempotency claim needed)
         for (const st of statuses) {
-          await sb.from("inbox_messages")
+          const { error: statusError } = await sb.from("inbox_messages")
             .update({ delivery_status: st.status, updated_at: new Date().toISOString() })
-            .eq("provider_message_id", st.id).catch(() => {});
+            .eq("provider_message_id", st.id)
+            .eq("workspace_id", workspaceId);
+          if (statusError) console.warn("[WA] Delivery status update failed:", statusError.message);
         }
 
         // Inbound messages
@@ -140,8 +157,23 @@ serve(async (req) => {
           const senderName = contact?.profile?.name ?? msg.from;
           const msgContent = msg.text?.body ?? msg.caption ?? `[${msg.type ?? "media"}]`;
 
+          const { data: threadId, error: threadError } = await sb.rpc("upsert_conversation_thread", {
+            _user_id: ch.user_id,
+            _workspace_id: workspaceId,
+            _channel_type: "whatsapp",
+            _contact_identifier: msg.from,
+            _contact_name: senderName,
+            _message_preview: msgContent,
+            _direction: "inbound",
+          });
+          if (threadError || !threadId) {
+            await releaseEventClaim(sb, "whatsapp", waId, workspaceId);
+            throw new Error(`Conversation thread persistence failed: ${threadError?.message || "missing thread id"}`);
+          }
+
           // Inbox
-          await sb.from("inbox_messages").insert({
+          const { error: inboxError } = await sb.from("inbox_messages").insert({
+            user_id:            ch.user_id,
             workspace_id:       workspaceId,
             channel_id:         channelId,
             channel_type:       "whatsapp",
@@ -154,19 +186,24 @@ serve(async (req) => {
             status:             "received",
             delivery_status:    "delivered",
             provider_message_id: waId,
+            thread_id:           threadId,
             is_unread:          true,
             metadata:           { waba_phone: wabaPhone, wa_id: msg.from, type: msg.type },
-          }).catch(() => {});
+          });
+          if (inboxError) {
+            await releaseEventClaim(sb, "whatsapp", waId, workspaceId);
+            throw new Error(`Inbox persistence failed: ${inboxError.message}`);
+          }
 
           // Lead upsert
-          const { data: lead } = await sb.from("leads").upsert({
+          const { data: lead, error: leadError } = await sb.from("leads").upsert({
             workspace_id:       workspaceId,
             channel_type:       "whatsapp",
             contact_identifier: msg.from,
             source_type:        "whatsapp",
             status:             "new",
-          }, { onConflict: "workspace_id,contact_identifier" }).select("id").single()
-            .catch(() => ({ data: null }));
+          }, { onConflict: "workspace_id,contact_identifier" }).select("id").single();
+          if (leadError) console.warn("[WA] Lead upsert failed:", leadError.message);
 
           // Customer Brain: non-financial message activity
           if (lead?.id) {
@@ -192,14 +229,15 @@ serve(async (req) => {
           if (msg.type === "interactive" && msg.interactive?.type === "button_reply") {
             const btn = msg.interactive.button_reply;
             if (btn?.id?.startsWith("OPT_OUT")) {
-              await sb.from("contact_consent").upsert({
+              const { error: consentError } = await sb.from("contact_consent").upsert({
                 workspace_id: workspaceId,
                 lead_id:      lead?.id ?? null,
                 channel:      "whatsapp",
                 consented:    false,
                 opt_out_date: new Date().toISOString(),
                 opt_out_reason: "user_opt_out",
-              }, { onConflict: "workspace_id,lead_id,channel" }).catch(() => {});
+              }, { onConflict: "workspace_id,lead_id,channel" });
+              if (consentError) console.warn("[WA] Consent update failed:", consentError.message);
             }
           }
 

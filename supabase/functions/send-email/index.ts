@@ -35,20 +35,32 @@ serve(async (req) => {
     const { to, subject, body: emailBody, reply_to_message_id } = await req.json();
     if (!to || !emailBody) throw new Error("'to' and 'body' are required");
 
-    // Get email channel SMTP credentials
+    // Get email channel SMTP credentials. Until the caller carries an
+    // authoritative channel/workspace selection, fail closed when a user has
+    // more than one enabled email channel instead of silently choosing one.
     const { data: channels } = await supabase
       .from("channels")
       .select("id, settings, workspace_id")
       .eq("user_id", user.id)
       .eq("channel_type", "email")
       .eq("is_enabled", true)
-      .limit(1);
+      .limit(2);
 
-    const channel = channels?.[0];
-    const settings = channel?.settings as Record<string, any> | null;
+    if (!channels?.length) {
+      throw new Error("Email SMTP not configured. Add SMTP credentials in your email channel settings.");
+    }
+    if (channels.length !== 1) {
+      throw new Error("Multiple enabled email channels found. Select a specific workspace/channel before sending.");
+    }
+
+    const channel = channels[0];
+    const settings = channel.settings as Record<string, any> | null;
 
     if (!settings?.smtp_host || !settings?.smtp_user || !settings?.smtp_password) {
       throw new Error("Email SMTP not configured. Add SMTP credentials in your email channel settings.");
+    }
+    if (!channel.workspace_id) {
+      throw new Error("Email channel is not linked to a workspace.");
     }
 
     const smtpHost = settings.smtp_host;
@@ -144,6 +156,7 @@ serve(async (req) => {
     // Record in inbox + thread
     const { data: threadId } = await supabase.rpc("upsert_conversation_thread", {
       _user_id: user.id,
+      _workspace_id: channel.workspace_id,
       _channel_type: "email",
       _contact_identifier: to,
       _contact_name: to,
@@ -153,8 +166,8 @@ serve(async (req) => {
 
     await supabase.from("inbox_messages").insert({
       user_id: user.id,
-      workspace_id: channel?.workspace_id,
-      channel_id: channel?.id,
+      workspace_id: channel.workspace_id,
+      channel_id: channel.id,
       channel_type: "email",
       source_name: fromEmail,
       sender_name: fromName,

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
@@ -62,6 +63,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
   const [isConnecting, setIsConnecting] = useState(false);
   const { addChannel, updateChannel } = useChannels();
   const { workspace } = useWorkspace();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     if (open) {
@@ -86,6 +88,34 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
     try {
       const capabilities = getCapabilitiesForMode(channel, selectedMode);
       const accountType = selectedMode === "professional" ? "business" : "personal";
+
+      if (channel.id === "telegram" && selectedMode === "professional") {
+        if (!workspace?.id) throw new Error("Select a workspace before connecting Telegram.");
+        const botToken = credentials.bot_token?.trim();
+        if (!botToken) throw new Error("Telegram bot token is required.");
+
+        const { data, error } = await supabase.functions.invoke("save-telegram-credentials", {
+          body: {
+            action: "save",
+            workspace_id: workspace.id,
+            bot_token: botToken,
+            channel_name: channel.name,
+          },
+        });
+        if (error || !data?.ok) {
+          throw new Error(data?.error || error?.message || "Telegram setup failed");
+        }
+
+        setCredentials({});
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ["channels"] }),
+          queryClient.invalidateQueries({ queryKey: ["connected-channels"] }),
+        ]);
+        setStep("done");
+        onConnected?.();
+        toast.success("Telegram connected securely");
+        return;
+      }
 
       const providerMetadata: Record<string, unknown> = {};
       if (selectedMode === "personal") {
