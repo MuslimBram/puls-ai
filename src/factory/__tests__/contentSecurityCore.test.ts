@@ -15,6 +15,7 @@ describe("P0.6 content security core", () => {
     expect(migration).toContain("REFERENCES public.workspaces(id) ON DELETE RESTRICT");
     expect(migration).toContain("processing_status text NOT NULL DEFAULT 'reserved'");
     expect(migration).toContain("claim_token uuid NOT NULL");
+    expect(migration).toContain("content_sha256 text");
   });
 
   it("keeps direct browser roles out of both security tables", () => {
@@ -24,8 +25,9 @@ describe("P0.6 content security core", () => {
     expect(migration).toContain("REVOKE ALL ON TABLE public.content_security_quarantine FROM PUBLIC, anon, authenticated");
   });
 
-  it("uses service-role-only claim/finalize/fail RPCs with safe search_path", () => {
+  it("uses service-role-only claim/bind/finalize/fail RPCs with safe search_path", () => {
     expect(migration).toContain("CREATE OR REPLACE FUNCTION public.claim_content_security_event");
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.bind_content_security_event_fingerprint");
     expect(migration).toContain("CREATE OR REPLACE FUNCTION public.finalize_content_security_event");
     expect(migration).toContain("CREATE OR REPLACE FUNCTION public.fail_content_security_event");
     expect(migration).toContain("SECURITY DEFINER");
@@ -33,6 +35,7 @@ describe("P0.6 content security core", () => {
     expect(migration).toContain("ON CONFLICT (workspace_id, source, event_id) DO NOTHING");
     expect(migration).toContain("FROM PUBLIC, anon, authenticated");
     expect(migration).toContain("TO service_role");
+    expect(migration).toContain("bind_content_security_event_fingerprint(uuid, text, text, uuid, text)");
   });
 
   it("makes the firewall internal-only rather than browser callable", () => {
@@ -45,20 +48,43 @@ describe("P0.6 content security core", () => {
     expect(firewall).not.toContain("Access-Control-Allow-Origin");
   });
 
-  it("atomically claims an event before the semantic classifier call-site", () => {
+  it("claims and binds the exact payload fingerprint before the semantic classifier call-site", () => {
     expect(firewall).toContain('admin.rpc("claim_content_security_event"');
+    expect(firewall).toContain('"bind_content_security_event_fingerprint"');
     expect(firewall).toContain('code: "SECURITY_EVENT_IN_PROGRESS"');
+    expect(firewall).toContain("const contentHash = await sha256Hex");
+
     const claimCall = firewall.indexOf('admin.rpc("claim_content_security_event"');
+    const bindCall = firewall.indexOf('"bind_content_security_event_fingerprint"');
     const semanticCall = firewall.indexOf("decision = await runSemanticClassifier(workspaceId");
     expect(claimCall).toBeGreaterThan(-1);
+    expect(bindCall).toBeGreaterThan(-1);
     expect(semanticCall).toBeGreaterThan(-1);
-    expect(claimCall).toBeLessThan(semanticCall);
+    expect(claimCall).toBeLessThan(bindCall);
+    expect(bindCall).toBeLessThan(semanticCall);
   });
 
-  it("reuses completed decisions without a provider call and protects finalization with a claim token", () => {
+  it("prevents an event id from being rebound to a different payload", () => {
+    expect(migration).toContain("'content_sha256', v_event.content_sha256");
+    expect(migration).toContain("'EVENT_ID_PAYLOAD_MISMATCH'");
+    expect(migration).toContain("v_event.content_sha256 <> p_content_sha256");
+    expect(migration).toContain("AND content_sha256 = p_content_sha256");
+    expect(firewall).toContain('code: "SECURITY_EVENT_FINGERPRINT_MISSING"');
+    expect(firewall).toContain('code: "EVENT_ID_PAYLOAD_MISMATCH"');
+    expect(firewall).toContain("claim.content_sha256 !== contentHash");
+    expect(firewall).toContain('fingerprintBinding.code === "EVENT_ID_PAYLOAD_MISMATCH"');
+
+    const completedCheck = firewall.indexOf("claim.content_sha256 !== contentHash");
+    const semanticCall = firewall.indexOf("decision = await runSemanticClassifier(workspaceId");
+    expect(completedCheck).toBeGreaterThan(-1);
+    expect(completedCheck).toBeLessThan(semanticCall);
+  });
+
+  it("reuses completed same-payload decisions without a provider call and protects finalization with a claim token", () => {
     expect(firewall).toContain('claim.status === "completed"');
     expect(firewall).toContain("reused: true");
     expect(firewall).toContain("p_claim_token: claimToken");
+    expect(firewall).toContain("p_content_sha256: contentHash");
     expect(migration).toContain("AND claim_token = p_claim_token");
     expect(migration).toContain("CONTENT_SECURITY_CLAIM_NOT_OWNED");
   });
