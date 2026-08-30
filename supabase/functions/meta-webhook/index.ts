@@ -18,9 +18,18 @@ import {
   extractSecurityUrls,
   scanInboundContent,
 } from "../_shared/content-security-client.ts";
+import { stageInboundAttachment } from "../_shared/content-security-attachment-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 const rateLimitMap = new Map<string, { n: number; t: number }>();
+const MAX_ATTACHMENT_BYTES = 25 * 1024 * 1024;
+const MAX_TOTAL_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+const MAX_ATTACHMENTS = 10;
+const encoder = new TextEncoder();
+
+type WorkspaceMapping = { workspace_id: string; channel_id: string };
+type MetaAttachment = { index: number; url: string; fallbackMime: string };
+type DownloadedMetaAttachment = MetaAttachment & { bytes: Uint8Array; sha256: string; mimeType: string };
 
 function checkRL(key: string): boolean {
   const now = Date.now();
@@ -32,6 +41,71 @@ function checkRL(key: string): boolean {
   if (entry.n >= 200) return false;
   entry.n++;
   return true;
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function sha256Text(value: string): Promise<string> {
+  return sha256Hex(encoder.encode(value));
+}
+
+function metaAttachmentMime(type: unknown): string {
+  switch (String(type || "").toLowerCase()) {
+    case "image": return "image/jpeg";
+    case "audio": return "audio/mpeg";
+    case "video": return "video/mp4";
+    default: return "application/octet-stream";
+  }
+}
+
+function allowedMetaCdnHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === "fbcdn.net"
+    || host.endsWith(".fbcdn.net")
+    || host === "fbsbx.com"
+    || host.endsWith(".fbsbx.com")
+    || host === "cdninstagram.com"
+    || host.endsWith(".cdninstagram.com");
+}
+
+function normalizeMetaAttachments(raw: unknown[]): MetaAttachment[] {
+  if (raw.length > MAX_ATTACHMENTS) throw new Error("META_ATTACHMENT_COUNT_LIMIT");
+  return raw.map((item, index) => {
+    const attachment = item && typeof item === "object" ? item as Record<string, any> : {};
+    const url = typeof attachment.payload?.url === "string" ? attachment.payload.url.trim() : "";
+    if (!url) throw new Error("META_ATTACHMENT_URL_MISSING");
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      throw new Error("META_ATTACHMENT_URL_INVALID");
+    }
+    if (parsed.protocol !== "https:" || !allowedMetaCdnHost(parsed.hostname)) {
+      throw new Error("META_ATTACHMENT_HOST_REJECTED");
+    }
+    return { index, url: parsed.toString(), fallbackMime: metaAttachmentMime(attachment.type) };
+  });
+}
+
+async function downloadMetaAttachment(attachment: MetaAttachment): Promise<DownloadedMetaAttachment> {
+  const response = await fetch(attachment.url, { redirect: "error" });
+  if (!response.ok) throw new Error("META_ATTACHMENT_DOWNLOAD_FAILED");
+  const declaredLength = Number(response.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_ATTACHMENT_BYTES) {
+    throw new Error("META_ATTACHMENT_TOO_LARGE");
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.byteLength > MAX_ATTACHMENT_BYTES) throw new Error("META_ATTACHMENT_TOO_LARGE");
+  const responseMime = (response.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  return {
+    ...attachment,
+    bytes,
+    sha256: await sha256Hex(bytes),
+    mimeType: responseMime || attachment.fallbackMime,
+  };
 }
 
 async function claimEvent(
@@ -46,8 +120,6 @@ async function claimEvent(
   if (error.code === "23505") return "duplicate";
   return "error";
 }
-
-type WorkspaceMapping = { workspace_id: string; channel_id: string };
 
 async function resolveWorkspaceFromPage(
   sb: ReturnType<typeof createClient>,
@@ -242,9 +314,38 @@ async function processMetaMessage(
   if (!messageId || !senderId) return "quarantined";
 
   const text = typeof message.text === "string" ? message.text : "";
-  const attachments = Array.isArray(message.attachments) ? message.attachments : [];
-  const content = text || (attachments.length ? "[attachment]" : "");
+  const rawAttachments = Array.isArray(message.attachments) ? message.attachments : [];
+  const content = text || (rawAttachments.length ? "[attachment]" : "");
   if (!content) return "skipped";
+
+  let downloadedAttachments: DownloadedMetaAttachment[] = [];
+  if (rawAttachments.length > 0) {
+    const attachments = normalizeMetaAttachments(rawAttachments);
+    let totalBytes = 0;
+    for (const attachment of attachments) {
+      const downloaded = await downloadMetaAttachment(attachment);
+      totalBytes += downloaded.bytes.byteLength;
+      if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error("META_ATTACHMENTS_TOTAL_TOO_LARGE");
+      downloadedAttachments.push(downloaded);
+    }
+  }
+
+  let aggregateAttachment: { mime_type: string; size_bytes: number; sha256: string } | null = null;
+  if (downloadedAttachments.length > 0) {
+    const manifest = downloadedAttachments.map((attachment) => ({
+      index: attachment.index,
+      mime_type: attachment.mimeType,
+      byte_size: attachment.bytes.byteLength,
+      sha256: attachment.sha256,
+    }));
+    aggregateAttachment = {
+      mime_type: downloadedAttachments.length === 1 ? downloadedAttachments[0].mimeType : "multipart/mixed",
+      size_bytes: downloadedAttachments.reduce((sum, attachment) => sum + attachment.bytes.byteLength, 0),
+      sha256: downloadedAttachments.length === 1
+        ? downloadedAttachments[0].sha256
+        : await sha256Text(JSON.stringify(manifest)),
+    };
+  }
 
   const securityEventId = `${params.provider === "meta_ig" ? "ig" : "fb"}:${messageId}`;
   const security = await scanInboundContent({
@@ -253,18 +354,35 @@ async function processMetaMessage(
     event_id: securityEventId,
     content,
     urls: extractSecurityUrls(content),
-    attachment: attachments.length ? { mime_type: "application/octet-stream" } : null,
+    attachment: aggregateAttachment,
   });
 
   if (!security.ok) throw new Error("META_CONTENT_SECURITY_UNAVAILABLE");
-  if (blocksNormalIngress(security.decision)) return "quarantined";
+  if (blocksNormalIngress(security.decision)) {
+    if (downloadedAttachments.length > 0 && security.decision.action === "quarantine") {
+      for (const attachment of downloadedAttachments) {
+        const staged = await stageInboundAttachment({
+          workspace_id: params.mapping.workspace_id,
+          source: params.provider,
+          event_id: securityEventId,
+          attachment_key: `meta_media_${attachment.index}`,
+          expected_attachment_count: downloadedAttachments.length,
+          bytes: attachment.bytes,
+          mime_type: attachment.mimeType,
+        });
+        if (!staged.ok) throw new Error(`META_ATTACHMENT_STAGE_${staged.code}`);
+      }
+    }
+    return "quarantined";
+  }
+
+  if (downloadedAttachments.length > 0 || rawAttachments.length > 0) {
+    throw new Error("META_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
+  }
 
   const claim = await claimEvent(sb, params.provider, messageId, params.mapping.workspace_id);
   if (claim === "error") throw new Error("META_PROVIDER_CLAIM_FAILED");
 
-  // Both the winning claim and a duplicate retry execute the same idempotent
-  // repair path. This prevents a prior post-claim Inbox/lead failure from being
-  // made permanent by the provider claim.
   const messageTimestamp = Number.isFinite(Number(params.event.timestamp))
     ? new Date(Number(params.event.timestamp)).toISOString()
     : new Date().toISOString();
