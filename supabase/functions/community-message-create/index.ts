@@ -73,7 +73,7 @@ serve(async (req) => {
         event_id: eventId,
         violation_type: "contact_info_in_message",
         severity: moderation.severity,
-        notes: `Attempted to share contact information in ${moderation.field} (${moderation.detection.type}: ${moderation.detection.match}).`,
+        notes: `Attempted to share contact information in ${moderation.field}; detector type=${moderation.detection.type || "unknown"}.`,
       });
 
       return errorResponse(
