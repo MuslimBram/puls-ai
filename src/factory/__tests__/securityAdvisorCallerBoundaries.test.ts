@@ -24,6 +24,36 @@ describe("Security Advisor direct caller boundaries", () => {
     }
   });
 
+  it("binds explicit-user business/referral helpers to self, platform admin, or service role", () => {
+    expect(migration).toContain("BUSINESS_LIMIT_SUBJECT_FORBIDDEN");
+    expect(migration).toContain("_user_id IS DISTINCT FROM _caller");
+    expect(migration).toContain("REFERRAL_COUNT_SUBJECT_FORBIDDEN");
+    expect(migration).toContain("_referrer_user_id IS DISTINCT FROM v_caller");
+    expect(migration).toContain("has_role(_caller, 'admin'::public.app_role)");
+    expect(migration).toContain("has_role(v_caller, 'super_admin'::public.app_role)");
+  });
+
+  it("keeps UI-facing workspace helpers authenticated but enforces caller workspace access", () => {
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.check_storage_quota");
+    expect(migration).toContain("NOT public.has_workspace_access(_workspace_id)");
+    expect(migration).toContain("STORAGE_QUOTA_WORKSPACE_FORBIDDEN");
+    expect(migration).toContain("GRANT EXECUTE ON FUNCTION public.check_storage_quota(uuid, text) TO authenticated, service_role");
+
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.evaluate_contact_policy");
+    expect(migration).toContain("NOT public.has_workspace_access(p_workspace_id)");
+    expect(migration).toContain("CONTACT_POLICY_LEAD_WORKSPACE_MISMATCH");
+    expect(migration).toContain("WHERE id=p_lead_id AND workspace_id=p_workspace_id");
+
+    expect(migration).toContain("CREATE OR REPLACE FUNCTION public.validate_nba_against_rules");
+    expect(migration).toContain("NBA_WORKSPACE_FORBIDDEN");
+    expect(migration).toContain("NBA_LEAD_WORKSPACE_MISMATCH");
+  });
+
+  it("fails invalid storage resource types instead of silently allowing them", () => {
+    expect(migration).toContain("INVALID_STORAGE_RESOURCE_TYPE");
+    expect(migration).not.toContain("ELSE\n      RETURN true");
+  });
+
   it("does not disclose another tenant's asset id, workspace name, or exact similar identifier", () => {
     expect(duplicateAsset).toContain("sanitizedDuplicateResult");
     expect(duplicateAsset).not.toContain("registered_to");
