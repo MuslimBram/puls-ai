@@ -1,20 +1,10 @@
 /**
  * meta-webhook — Instagram / Facebook Messenger events
  *
- * Workspace resolution:
- *   Meta page_id / Instagram account_id
- *   → channels.settings.page_id / instagram_account_id
- *   → ONE channel → workspace_id
- *   NEVER: workspaces.owner_id = senderId (invalid — external IDs ≠ Supabase UUIDs)
- *
- * Inbound ordering:
- *   verified Meta signature → canonical workspace → content-security firewall
- *   → provider idempotency claim → normal Inbox/lead/canonical side effects.
- *   Quarantine/reject decisions never enter the normal Inbox path.
- *
- * SOCIAL-1A:
- *   After existing inbox/lead writes, emit a canonical CanonicalEngagementEvent
- *   into social_engagement_events. Idempotency is enforced independently.
+ * Ordering:
+ * verified Meta signature -> exact page/account tenant resolution -> content security
+ * -> provider claim -> idempotent Inbox/lead/canonical repairable side effects.
+ * Quarantine/reject decisions never enter normal Inbox processing.
  */
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
@@ -31,137 +21,306 @@ import {
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 const rateLimitMap = new Map<string, { n: number; t: number }>();
-function checkRL(k: string): boolean {
+
+function checkRL(key: string): boolean {
   const now = Date.now();
-  const e = rateLimitMap.get(k);
-  if (!e || now > e.t) { rateLimitMap.set(k, { n: 1, t: now + 60000 }); return true; }
-  if (e.n >= 200) return false; e.n++; return true;
+  const entry = rateLimitMap.get(key);
+  if (!entry || now > entry.t) {
+    rateLimitMap.set(key, { n: 1, t: now + 60_000 });
+    return true;
+  }
+  if (entry.n >= 200) return false;
+  entry.n++;
+  return true;
 }
 
-/** Atomic provider idempotency claim — after content-security allow/tag. */
 async function claimEvent(
   sb: ReturnType<typeof createClient>,
-  provider: string,
+  provider: "meta_ig" | "meta_fb",
   eventId: string,
-  workspaceId?: string,
+  workspaceId: string,
 ): Promise<"claimed" | "duplicate" | "error"> {
   const { error } = await sb.from("processed_webhook_events")
-    .insert({ provider, event_id: `${provider}:${eventId}`, workspace_id: workspaceId ?? null });
+    .insert({ provider, event_id: `${provider}:${eventId}`, workspace_id: workspaceId });
   if (!error) return "claimed";
   if (error.code === "23505") return "duplicate";
   return "error";
 }
 
-/** Resolve workspace from Meta page_id or Instagram account_id.
- * NEVER resolves from sender_id — sender IDs are external provider IDs, not Supabase UUIDs. */
+type WorkspaceMapping = { workspace_id: string; channel_id: string };
+
 async function resolveWorkspaceFromPage(
   sb: ReturnType<typeof createClient>,
   pageId: string,
   platform: "instagram" | "facebook",
-): Promise<{ workspace_id: string; channel_id: string } | null | "AMBIGUOUS"> {
-  const { data: channels } = await sb
+): Promise<WorkspaceMapping | null | "AMBIGUOUS"> {
+  const { data: channels, error } = await sb
     .from("channels")
     .select("id, workspace_id, settings")
     .in("channel_type", platform === "instagram" ? ["instagram"] : ["facebook", "messenger"])
     .eq("is_enabled", true);
+  if (error) throw error;
 
-  if (!channels?.length) return null;
-
-  const matches: Array<{ workspace_id: string; channel_id: string }> = [];
-  for (const ch of channels) {
-    const s = (ch.settings as any) ?? {};
-    const storedPageId = s.page_id ?? s.facebook_page_id ?? null;
-    const storedAccountId = s.instagram_account_id ?? s.ig_account_id ?? null;
-    if (
-      (storedPageId && storedPageId === pageId) ||
-      (storedAccountId && storedAccountId === pageId)
-    ) {
-      matches.push({ workspace_id: ch.workspace_id, channel_id: ch.id });
+  const matches: WorkspaceMapping[] = [];
+  for (const channel of channels || []) {
+    if (!channel.workspace_id) continue;
+    const settings = (channel.settings as Record<string, unknown> | null) ?? {};
+    const storedPageId = settings.page_id ?? settings.facebook_page_id ?? null;
+    const storedAccountId = settings.instagram_account_id ?? settings.ig_account_id ?? null;
+    if (storedPageId === pageId || storedAccountId === pageId) {
+      matches.push({ workspace_id: channel.workspace_id, channel_id: channel.id });
     }
   }
+
   if (matches.length > 1) return "AMBIGUOUS";
-  if (matches.length === 1) return matches[0];
-  return null;
+  return matches[0] ?? null;
 }
 
-/** Helper: build and insert a canonical engagement event, idempotent via UNIQUE constraint. */
-async function tryCanonicalInsert(
+async function ensureInboxMessage(
   sb: ReturnType<typeof createClient>,
   params: {
-    workspace_id: string; channel_id: string; provider: "meta_ig" | "meta_fb";
-    account_identifier: string; event_type: "message_received";
-    provider_event_id: string; actor_provider_id: string | null;
-    content_ref: string; raw_timestamp: number | undefined;
+    workspaceId: string;
+    channelId: string;
+    channelType: "instagram" | "facebook";
+    sourceName: string;
+    senderId: string;
+    content: string;
+    messageId: string;
+    messageTimestamp: string;
+    pageId: string;
+    securityEventId: string;
+    security: { category: string; risk_score: number; action: string };
   },
-): Promise<{ status: "inserted" | "duplicate" | "error"; engagement_event_id?: string }> {
-  try {
-    const canonicalEvent = buildCanonicalEngagementEvent({
-      workspace_id: params.workspace_id,
-      channel_id: params.channel_id,
-      provider: params.provider,
-      account_identifier: params.account_identifier,
-      event_type: params.event_type,
-      provider_event_id: params.provider_event_id,
-      actor_provider_id: params.actor_provider_id ?? null,
-      content_ref: params.content_ref,
-      event_timestamp: params.raw_timestamp != null
-        ? new Date(params.raw_timestamp).toISOString()
-        : new Date().toISOString(),
-      normalized_metadata: { page_id: params.account_identifier },
-      consent_classification: "platform_terms",
-    });
-    const { data: inserted, error: segErr } = await sb.from("social_engagement_events").insert({
-      workspace_id: canonicalEvent.workspace_id,
-      channel_id: canonicalEvent.channel_id,
-      provider: canonicalEvent.provider,
-      account_identifier: canonicalEvent.account_identifier,
-      event_type: canonicalEvent.event_type,
-      provider_event_id: canonicalEvent.provider_event_id,
-      actor_provider_id: canonicalEvent.actor_provider_id,
-      actor_identity_state: canonicalEvent.actor_identity_state,
-      is_anonymous_aggregate: canonicalEvent.is_anonymous_aggregate,
-      content_ref: canonicalEvent.content_ref,
-      event_timestamp: canonicalEvent.event_timestamp,
-      normalized_metadata: canonicalEvent.normalized_metadata,
-      consent_classification: canonicalEvent.consent_classification,
-      source_ref: canonicalEvent.source_ref,
-      idempotency_key: canonicalEvent.idempotency_key,
-    }).select("id").single();
-    if (!segErr) return { status: "inserted", engagement_event_id: inserted?.id };
-    if ((segErr as any).code === "23505") {
-      const { data: existing } = await sb
-        .from("social_engagement_events")
-        .select("id")
-        .eq("idempotency_key", canonicalEvent.idempotency_key)
-        .limit(1)
-        .single();
-      return { status: "duplicate", engagement_event_id: existing?.id };
-    }
-    console.error(`[${params.provider.toUpperCase()}] canonical event insert error`, segErr.message);
-    return { status: "error" };
-  } catch (buildErr) {
-    console.error(`[${params.provider.toUpperCase()}] canonical event build error`, (buildErr as Error)?.message);
-    return { status: "error" };
+): Promise<string> {
+  const { data: existing, error: lookupError } = await sb
+    .from("inbox_messages")
+    .select("id")
+    .eq("workspace_id", params.workspaceId)
+    .eq("channel_id", params.channelId)
+    .eq("provider_message_id", params.messageId)
+    .limit(1)
+    .maybeSingle();
+  if (lookupError) throw lookupError;
+  if (existing?.id) return existing.id;
+
+  const { data: inserted, error: insertError } = await sb.from("inbox_messages").insert({
+    workspace_id: params.workspaceId,
+    channel_id: params.channelId,
+    channel_type: params.channelType,
+    source_name: params.sourceName,
+    sender_name: params.senderId,
+    sender_identifier: params.senderId,
+    message_content: params.content,
+    message_timestamp: params.messageTimestamp,
+    direction: "inbound",
+    status: "received",
+    delivery_status: "delivered",
+    is_unread: true,
+    provider_message_id: params.messageId,
+    metadata: {
+      page_id: params.pageId,
+      sender_id: params.senderId,
+      content_security: {
+        event_id: params.securityEventId,
+        category: params.security.category,
+        risk_score: params.security.risk_score,
+        action: params.security.action,
+      },
+    },
+  }).select("id").single();
+
+  if (!insertError && inserted?.id) return inserted.id;
+  if (insertError?.code === "23505") {
+    const { data: winner, error: winnerError } = await sb
+      .from("inbox_messages")
+      .select("id")
+      .eq("workspace_id", params.workspaceId)
+      .eq("channel_id", params.channelId)
+      .eq("provider_message_id", params.messageId)
+      .limit(1)
+      .maybeSingle();
+    if (!winnerError && winner?.id) return winner.id;
   }
+  throw new Error("META_INBOX_PERSIST_FAILED");
 }
 
-async function processCanonicalInterestMemory(
+async function ensureLead(
   sb: ReturnType<typeof createClient>,
-  provider: "meta_ig" | "meta_fb",
-  providerEventId: string,
-  canonicalEventId?: string,
-): Promise<"ok" | "error"> {
-  if (!canonicalEventId) {
-    console.error(`[${provider.toUpperCase()}] missing canonical event id for ${providerEventId}`);
-    return "error";
+  params: {
+    workspaceId: string;
+    channelType: "instagram" | "facebook";
+    senderId: string;
+  },
+): Promise<string> {
+  const { data: lead, error } = await sb.from("leads").upsert({
+    workspace_id: params.workspaceId,
+    channel_type: params.channelType,
+    contact_identifier: params.senderId,
+    source_type: params.channelType,
+    status: "new",
+  }, { onConflict: "workspace_id,contact_identifier" }).select("id").single();
+  if (error || !lead?.id) throw new Error("META_LEAD_PERSIST_FAILED");
+  return lead.id;
+}
+
+async function ensureCanonicalEvent(
+  sb: ReturnType<typeof createClient>,
+  params: {
+    workspaceId: string;
+    channelId: string;
+    provider: "meta_ig" | "meta_fb";
+    accountIdentifier: string;
+    providerEventId: string;
+    actorProviderId: string;
+    content: string;
+    timestamp?: number;
+  },
+): Promise<string> {
+  const canonicalEvent = buildCanonicalEngagementEvent({
+    workspace_id: params.workspaceId,
+    channel_id: params.channelId,
+    provider: params.provider,
+    account_identifier: params.accountIdentifier,
+    event_type: "message_received",
+    provider_event_id: params.providerEventId,
+    actor_provider_id: params.actorProviderId,
+    content_ref: params.content,
+    event_timestamp: params.timestamp != null
+      ? new Date(params.timestamp).toISOString()
+      : new Date().toISOString(),
+    normalized_metadata: { page_id: params.accountIdentifier },
+    consent_classification: "platform_terms",
+  });
+
+  const { data: inserted, error } = await sb.from("social_engagement_events").insert({
+    workspace_id: canonicalEvent.workspace_id,
+    channel_id: canonicalEvent.channel_id,
+    provider: canonicalEvent.provider,
+    account_identifier: canonicalEvent.account_identifier,
+    event_type: canonicalEvent.event_type,
+    provider_event_id: canonicalEvent.provider_event_id,
+    actor_provider_id: canonicalEvent.actor_provider_id,
+    actor_identity_state: canonicalEvent.actor_identity_state,
+    is_anonymous_aggregate: canonicalEvent.is_anonymous_aggregate,
+    content_ref: canonicalEvent.content_ref,
+    event_timestamp: canonicalEvent.event_timestamp,
+    normalized_metadata: canonicalEvent.normalized_metadata,
+    consent_classification: canonicalEvent.consent_classification,
+    source_ref: canonicalEvent.source_ref,
+    idempotency_key: canonicalEvent.idempotency_key,
+  }).select("id").single();
+
+  if (!error && inserted?.id) return inserted.id;
+  if (error?.code === "23505") {
+    const { data: existing, error: existingError } = await sb
+      .from("social_engagement_events")
+      .select("id")
+      .eq("idempotency_key", canonicalEvent.idempotency_key)
+      .limit(1)
+      .maybeSingle();
+    if (!existingError && existing?.id) return existing.id;
   }
+  throw new Error("META_CANONICAL_EVENT_PERSIST_FAILED");
+}
+
+async function processMetaMessage(
+  sb: ReturnType<typeof createClient>,
+  params: {
+    mapping: WorkspaceMapping;
+    pageId: string;
+    event: Record<string, any>;
+    provider: "meta_ig" | "meta_fb";
+    channelType: "instagram" | "facebook";
+    sourceName: string;
+  },
+): Promise<"processed" | "quarantined" | "skipped"> {
+  const message = params.event?.message;
+  if (!message) return "skipped";
+
+  const messageId = typeof message.mid === "string" ? message.mid.trim() : "";
+  const senderId = typeof params.event?.sender?.id === "string" ? params.event.sender.id.trim() : "";
+  if (!messageId || !senderId) return "quarantined";
+
+  const text = typeof message.text === "string" ? message.text : "";
+  const attachments = Array.isArray(message.attachments) ? message.attachments : [];
+  const content = text || (attachments.length ? "[attachment]" : "");
+  if (!content) return "skipped";
+
+  const securityEventId = `${params.provider === "meta_ig" ? "ig" : "fb"}:${messageId}`;
+  const security = await scanInboundContent({
+    workspace_id: params.mapping.workspace_id,
+    source: params.provider,
+    event_id: securityEventId,
+    content,
+    urls: extractSecurityUrls(content),
+    attachment: attachments.length ? { mime_type: "application/octet-stream" } : null,
+  });
+
+  if (!security.ok) throw new Error("META_CONTENT_SECURITY_UNAVAILABLE");
+  if (blocksNormalIngress(security.decision)) return "quarantined";
+
+  const claim = await claimEvent(sb, params.provider, messageId, params.mapping.workspace_id);
+  if (claim === "error") throw new Error("META_PROVIDER_CLAIM_FAILED");
+
+  // Both the winning claim and a duplicate retry execute the same idempotent
+  // repair path. This prevents a prior post-claim Inbox/lead failure from being
+  // made permanent by the provider claim.
+  const messageTimestamp = Number.isFinite(Number(params.event.timestamp))
+    ? new Date(Number(params.event.timestamp)).toISOString()
+    : new Date().toISOString();
+
+  await ensureInboxMessage(sb, {
+    workspaceId: params.mapping.workspace_id,
+    channelId: params.mapping.channel_id,
+    channelType: params.channelType,
+    sourceName: params.sourceName,
+    senderId,
+    content,
+    messageId,
+    messageTimestamp,
+    pageId: params.pageId,
+    securityEventId,
+    security: security.decision,
+  });
+
+  const leadId = await ensureLead(sb, {
+    workspaceId: params.mapping.workspace_id,
+    channelType: params.channelType,
+    senderId,
+  });
+
+  fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${getServiceKey()}`,
+      "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
+    },
+    body: JSON.stringify({
+      action: "feedback",
+      workspace_id: params.mapping.workspace_id,
+      lead_id: leadId,
+      event_type: "replied",
+      channel: params.channelType,
+      event_data: { msg_id: messageId, page_id: params.pageId },
+    }),
+  }).catch(() => {});
+
+  const canonicalEventId = await ensureCanonicalEvent(sb, {
+    workspaceId: params.mapping.workspace_id,
+    channelId: params.mapping.channel_id,
+    provider: params.provider,
+    accountIdentifier: params.pageId,
+    providerEventId: messageId,
+    actorProviderId: senderId,
+    content,
+    timestamp: Number.isFinite(Number(params.event.timestamp)) ? Number(params.event.timestamp) : undefined,
+  });
 
   const interestResult = await processInterestFromEngagementEventId(sb as any, canonicalEventId);
-  if (interestResult.status === "error") {
-    console.error(`[${provider.toUpperCase()}] interest memory processing failed for ${providerEventId}`);
-    return "error";
-  }
-  return "ok";
+  if (interestResult.status === "error") throw new Error("META_INTEREST_MEMORY_FAILED");
+
+  return "processed";
 }
 
 serve(async (req) => {
@@ -170,19 +329,27 @@ serve(async (req) => {
     const mode = url.searchParams.get("hub.mode");
     const token = url.searchParams.get("hub.verify_token");
     const challenge = url.searchParams.get("hub.challenge");
-    const vt = Deno.env.get("META_VERIFY_TOKEN");
-    if (mode === "subscribe" && token === vt && challenge) {
+    const verifyToken = Deno.env.get("META_VERIFY_TOKEN");
+    if (mode === "subscribe" && token === verifyToken && challenge) {
       return new Response(challenge, { status: 200 });
     }
     return new Response("Forbidden", { status: 403 });
   }
 
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ error: "POST required" }), {
+      status: 405,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
+  }
 
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "meta";
   if (!checkRL(ip)) {
-    return new Response(JSON.stringify({ error: "rate_limited" }), { status: 429,
-      headers: { ...getCors(req), "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "rate_limited" }), {
+      status: 429,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
   }
 
   const sb = createClient(
@@ -193,354 +360,65 @@ serve(async (req) => {
 
   try {
     const rawBody = await req.text();
-
-    const sigCheck = await verifyMetaSignature(
-      rawBody, req.headers.get("x-hub-signature-256"), "META_APP_SECRET",
+    const signature = await verifyMetaSignature(
+      rawBody,
+      req.headers.get("x-hub-signature-256"),
+      "META_APP_SECRET",
     );
-    if (!sigCheck.ok) {
-      const sc = sigCheck.reason === "secret_not_configured" ? 503 : 403;
-      return new Response(JSON.stringify({ error: sigCheck.reason }), {
-        status: sc, headers: { ...getCors(req), "Content-Type": "application/json" },
+    if (!signature.ok) {
+      const status = signature.reason === "secret_not_configured" ? 503 : 403;
+      return new Response(JSON.stringify({ error: signature.reason }), {
+        status,
+        headers: { "Content-Type": "application/json" },
       });
     }
 
     const body = JSON.parse(rawBody);
     const objectType = body?.object as string;
-    const entries = body?.entry ?? [];
+    const entries = Array.isArray(body?.entry) ? body.entry : [];
     let processed = 0;
     let quarantined = 0;
 
     for (const entry of entries) {
-      const pageId = entry.id as string;
+      const pageId = typeof entry?.id === "string" ? entry.id : "";
       if (!pageId) continue;
 
-      // ── Instagram DMs ─────────────────────────────────────────────────────
-      if (objectType === "instagram") {
-        const ws = await resolveWorkspaceFromPage(sb, pageId, "instagram");
-        if (ws === "AMBIGUOUS") {
-          console.warn(`[META] Ambiguous Instagram mapping for ${pageId} — quarantining`);
-          quarantined++;
-          continue;
-        }
-        if (!ws) {
-          console.warn(`[META] No workspace for Instagram account ${pageId} — skipping`);
-          continue;
-        }
+      const platform = objectType === "instagram"
+        ? "instagram"
+        : objectType === "page"
+          ? "facebook"
+          : null;
+      if (!platform) continue;
 
-        const messaging = (entry?.messaging ?? []) as any[];
-        for (const event of messaging) {
-          if (!event?.message) continue;
-
-          const msgId = event.message?.mid as string | undefined;
-          if (!msgId) {
-            console.warn("[META-IG] Missing provider message ID — fail closed");
-            quarantined++;
-            continue;
-          }
-
-          const senderId = event.sender?.id as string | undefined;
-          const msgText = event.message?.text ?? "";
-          const attachments = event.message?.attachments ?? [];
-          const content = msgText || (attachments.length ? "[attachment]" : "");
-          if (!content) continue;
-
-          const securityEventId = `ig:${msgId}`;
-          const security = await scanInboundContent({
-            workspace_id: ws.workspace_id,
-            source: "meta_ig",
-            event_id: securityEventId,
-            content,
-            urls: extractSecurityUrls(content),
-            attachment: attachments.length ? { mime_type: "application/octet-stream" } : null,
-          });
-
-          if (!security.ok) {
-            console.error(`[META-IG] Content-security unavailable for ${msgId}: ${security.code}`);
-            return new Response(JSON.stringify({ error: "content_security_unavailable", event_id: msgId }), {
-              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-            });
-          }
-          if (blocksNormalIngress(security.decision)) {
-            quarantined++;
-            processed++;
-            continue;
-          }
-
-          const claim = await claimEvent(sb, "meta_ig", msgId, ws.workspace_id);
-          if (claim === "error") {
-            console.error("[META-IG] Claim failed for", msgId);
-            return new Response(JSON.stringify({ error: "provider_claim_failed", event_id: msgId }), {
-              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-            });
-          }
-
-          if (claim === "duplicate") {
-            const dupIgResult = await tryCanonicalInsert(sb, {
-              workspace_id: ws.workspace_id, channel_id: ws.channel_id,
-              provider: "meta_ig", account_identifier: pageId,
-              event_type: "message_received", provider_event_id: msgId,
-              actor_provider_id: senderId ?? null,
-              content_ref: content, raw_timestamp: event.timestamp,
-            });
-            if (dupIgResult.status === "error") {
-              console.error(`[META-IG] canonical insert failed on retry for ${msgId} — returning 500`);
-              return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
-                status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-              });
-            }
-            if (await processCanonicalInterestMemory(sb, "meta_ig", msgId, dupIgResult.engagement_event_id) === "error") {
-              return new Response(JSON.stringify({ error: "interest_memory_failed", event_id: msgId }), {
-                status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-              });
-            }
-            continue;
-          }
-
-          const { data: inboxMsg } = await sb.from("inbox_messages").insert({
-            workspace_id: ws.workspace_id,
-            channel_id: ws.channel_id,
-            channel_type: "instagram",
-            source_name: "Instagram",
-            sender_name: senderId,
-            sender_identifier: senderId,
-            message_content: content,
-            message_timestamp: new Date().toISOString(),
-            direction: "inbound",
-            status: "received",
-            delivery_status: "delivered",
-            is_unread: true,
-            provider_message_id: msgId,
-            metadata: {
-              page_id: pageId,
-              sender_id: senderId,
-              content_security: {
-                event_id: securityEventId,
-                category: security.decision.category,
-                risk_score: security.decision.risk_score,
-                action: security.decision.action,
-              },
-            },
-          }).select("id").single().catch(() => ({ data: null }));
-
-          const { data: lead } = await sb.from("leads").upsert({
-            workspace_id: ws.workspace_id,
-            channel_type: "instagram",
-            contact_identifier: senderId,
-            source_type: "instagram",
-            status: "new",
-          }, { onConflict: "workspace_id,contact_identifier" }).select("id").single()
-            .catch(() => ({ data: null }));
-
-          if (lead?.id) {
-            fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${getServiceKey()}`,
-                "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
-              },
-              body: JSON.stringify({
-                action: "feedback",
-                workspace_id: ws.workspace_id,
-                lead_id: lead.id,
-                event_type: "replied",
-                channel: "instagram",
-                event_data: { msg_id: msgId, page_id: pageId },
-              }),
-            }).catch(() => {});
-          }
-
-          const igCanResult = await tryCanonicalInsert(sb, {
-            workspace_id: ws.workspace_id, channel_id: ws.channel_id,
-            provider: "meta_ig", account_identifier: pageId,
-            event_type: "message_received", provider_event_id: msgId,
-            actor_provider_id: senderId ?? null,
-            content_ref: content, raw_timestamp: event.timestamp,
-          });
-          if (igCanResult.status === "error") {
-            console.error(`[META-IG] canonical insert failed for ${msgId} — returning 500 for provider retry`);
-            return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
-              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-            });
-          }
-          if (await processCanonicalInterestMemory(sb, "meta_ig", msgId, igCanResult.engagement_event_id) === "error") {
-            return new Response(JSON.stringify({ error: "interest_memory_failed", event_id: msgId }), {
-              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-            });
-          }
-
-          void inboxMsg;
-          processed++;
-        }
+      const mapping = await resolveWorkspaceFromPage(sb, pageId, platform);
+      if (mapping === "AMBIGUOUS" || !mapping) {
+        quarantined++;
+        continue;
       }
 
-      // ── Facebook Messenger ────────────────────────────────────────────────
-      else if (objectType === "page") {
-        const ws = await resolveWorkspaceFromPage(sb, pageId, "facebook");
-        if (ws === "AMBIGUOUS") {
-          console.warn(`[META] Ambiguous Facebook mapping for ${pageId} — quarantining`);
-          quarantined++;
-          continue;
-        }
-        if (!ws) {
-          console.warn(`[META] No workspace for Facebook page ${pageId} — skipping`);
-          continue;
-        }
-
-        const messaging = (entry?.messaging ?? []) as any[];
-        for (const event of messaging) {
-          if (!event?.message) continue;
-
-          const msgId = event.message?.mid as string | undefined;
-          if (!msgId) {
-            console.warn("[META-FB] Missing provider message ID — fail closed");
-            quarantined++;
-            continue;
-          }
-
-          const senderId = event.sender?.id as string | undefined;
-          const msgText = event.message?.text ?? "";
-          const attachments = event.message?.attachments ?? [];
-          const content = msgText || (attachments.length ? "[attachment]" : "");
-          if (!content) continue;
-
-          const securityEventId = `fb:${msgId}`;
-          const security = await scanInboundContent({
-            workspace_id: ws.workspace_id,
-            source: "meta_fb",
-            event_id: securityEventId,
-            content,
-            urls: extractSecurityUrls(content),
-            attachment: attachments.length ? { mime_type: "application/octet-stream" } : null,
-          });
-
-          if (!security.ok) {
-            console.error(`[META-FB] Content-security unavailable for ${msgId}: ${security.code}`);
-            return new Response(JSON.stringify({ error: "content_security_unavailable", event_id: msgId }), {
-              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-            });
-          }
-          if (blocksNormalIngress(security.decision)) {
-            quarantined++;
-            processed++;
-            continue;
-          }
-
-          const claim = await claimEvent(sb, "meta_fb", msgId, ws.workspace_id);
-          if (claim === "error") {
-            console.error("[META-FB] Claim failed for", msgId);
-            return new Response(JSON.stringify({ error: "provider_claim_failed", event_id: msgId }), {
-              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-            });
-          }
-
-          if (claim === "duplicate") {
-            const dupFbResult = await tryCanonicalInsert(sb, {
-              workspace_id: ws.workspace_id, channel_id: ws.channel_id,
-              provider: "meta_fb", account_identifier: pageId,
-              event_type: "message_received", provider_event_id: msgId,
-              actor_provider_id: senderId ?? null,
-              content_ref: content, raw_timestamp: event.timestamp,
-            });
-            if (dupFbResult.status === "error") {
-              console.error(`[META-FB] canonical insert failed on retry for ${msgId} — returning 500`);
-              return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
-                status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-              });
-            }
-            if (await processCanonicalInterestMemory(sb, "meta_fb", msgId, dupFbResult.engagement_event_id) === "error") {
-              return new Response(JSON.stringify({ error: "interest_memory_failed", event_id: msgId }), {
-                status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-              });
-            }
-            continue;
-          }
-
-          await sb.from("inbox_messages").insert({
-            workspace_id: ws.workspace_id,
-            channel_id: ws.channel_id,
-            channel_type: "facebook",
-            source_name: "Facebook Messenger",
-            sender_name: senderId,
-            sender_identifier: senderId,
-            message_content: content,
-            message_timestamp: new Date().toISOString(),
-            direction: "inbound",
-            status: "received",
-            is_unread: true,
-            provider_message_id: msgId,
-            metadata: {
-              page_id: pageId,
-              sender_id: senderId,
-              content_security: {
-                event_id: securityEventId,
-                category: security.decision.category,
-                risk_score: security.decision.risk_score,
-                action: security.decision.action,
-              },
-            },
-          }).catch(() => {});
-
-          const { data: lead } = await sb.from("leads").upsert({
-            workspace_id: ws.workspace_id,
-            channel_type: "facebook",
-            contact_identifier: senderId,
-            source_type: "facebook",
-            status: "new",
-          }, { onConflict: "workspace_id,contact_identifier" }).select("id").single()
-            .catch(() => ({ data: null }));
-
-          if (lead?.id) {
-            fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${getServiceKey()}`,
-                "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
-              },
-              body: JSON.stringify({
-                action: "feedback",
-                workspace_id: ws.workspace_id,
-                lead_id: lead.id,
-                event_type: "replied",
-                channel: "facebook",
-                event_data: { msg_id: msgId, page_id: pageId },
-              }),
-            }).catch(() => {});
-          }
-
-          const fbCanResult = await tryCanonicalInsert(sb, {
-            workspace_id: ws.workspace_id, channel_id: ws.channel_id,
-            provider: "meta_fb", account_identifier: pageId,
-            event_type: "message_received", provider_event_id: msgId,
-            actor_provider_id: senderId ?? null,
-            content_ref: content, raw_timestamp: event.timestamp,
-          });
-          if (fbCanResult.status === "error") {
-            console.error(`[META-FB] canonical insert failed for ${msgId} — returning 500 for provider retry`);
-            return new Response(JSON.stringify({ error: "canonical_insert_failed", event_id: msgId }), {
-              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-            });
-          }
-          if (await processCanonicalInterestMemory(sb, "meta_fb", msgId, fbCanResult.engagement_event_id) === "error") {
-            return new Response(JSON.stringify({ error: "interest_memory_failed", event_id: msgId }), {
-              status: 500, headers: { ...getCors(req), "Content-Type": "application/json" },
-            });
-          }
-
-          processed++;
-        }
+      const messaging = Array.isArray(entry?.messaging) ? entry.messaging : [];
+      for (const event of messaging) {
+        const result = await processMetaMessage(sb, {
+          mapping,
+          pageId,
+          event,
+          provider: platform === "instagram" ? "meta_ig" : "meta_fb",
+          channelType: platform,
+          sourceName: platform === "instagram" ? "Instagram" : "Facebook Messenger",
+        });
+        if (result === "processed") processed++;
+        if (result === "quarantined") quarantined++;
       }
     }
 
     return new Response(JSON.stringify({ ok: true, processed, quarantined }), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
-
-  } catch (e: any) {
-    console.error("[META-WEBHOOK] error:", e.message);
-    return new Response(JSON.stringify({ error: e.message }), {
-      status: 500, headers: { "Content-Type": "application/json" },
+  } catch (error) {
+    console.error("[META-WEBHOOK] processing failed", error instanceof Error ? error.message : "unknown");
+    return new Response(JSON.stringify({ error: "meta_processing_failed" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
     });
   }
 });
