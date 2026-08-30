@@ -79,7 +79,23 @@ BEGIN
       SELECT 1
       FROM pg_proc
       WHERE oid = proc_oid
-        AND proconfig @> ARRAY['search_path=pg_catalog, public']
+        AND EXISTS (
+          SELECT 1
+          FROM unnest(coalesce(proconfig, ARRAY[]::text[])) AS cfg(setting)
+          WHERE replace(
+            replace(
+              replace(
+                replace(setting, ' ', ''),
+                E'\t',
+                ''
+              ),
+              '"',
+              ''
+            ),
+            '''',
+            ''
+          ) = 'search_path=pg_catalog,public'
+        )
     ) THEN
       RAISE EXCEPTION 'unsafe search_path remains on %', identity;
     END IF;
