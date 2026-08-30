@@ -4,6 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireInternalSecret } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 
@@ -62,15 +67,15 @@ serve(async (req) => {
       });
     }
 
-    if (eventId.length > 200) {
-      return new Response(JSON.stringify({ error: "event_id too long" }), {
+    if (eventId.length < 8 || eventId.length > 200 || !/^[A-Za-z0-9:_-]+$/.test(eventId)) {
+      return new Response(JSON.stringify({ error: "invalid event_id" }), {
         status: 400,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
-    if (message.length > 5000) {
-      return new Response(JSON.stringify({ error: "Message too long" }), {
+    if (typeof message !== "string" || message.length > 5000) {
+      return new Response(JSON.stringify({ error: "Invalid message" }), {
         status: 400,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
@@ -102,6 +107,35 @@ serve(async (req) => {
     const userId = channel.user_id;
     const workspaceId = channel.workspace_id;
 
+    // Universal Content Security boundary: internal proxy authentication and
+    // canonical channel/tenant resolution happen first. Security then owns the
+    // event-id + payload replay boundary before any Inbox/keyword/lead effects.
+    const security = await scanInboundContent({
+      workspace_id: workspaceId,
+      source: "webchat",
+      event_id: eventId,
+      content: message,
+      urls: extractSecurityUrls(message),
+      attachment: null,
+    });
+
+    if (!security.ok) {
+      return new Response(JSON.stringify({
+        error: "Content security unavailable",
+        code: security.code,
+      }), {
+        status: security.status >= 500 ? 503 : security.status,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    if (blocksNormalIngress(security.decision)) {
+      // Do not reveal the security category to an untrusted public caller.
+      return new Response(JSON.stringify({ ok: true, accepted: true, duplicate: security.reused }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
     const { data: existing, error: existingError } = await supabase
       .from("inbox_messages")
       .select("id")
@@ -124,7 +158,7 @@ serve(async (req) => {
       .eq("is_active", true);
     if (keywordsError) throw keywordsError;
 
-    const textLower = String(message).toLowerCase();
+    const textLower = message.toLowerCase();
     const matched = (keywords || [])
       .filter((k: { keyword: string }) => textLower.includes(k.keyword.toLowerCase()))
       .map((k: { keyword: string }) => k.keyword);
@@ -158,7 +192,17 @@ serve(async (req) => {
         is_unread: true,
         priority,
         status: "new",
-        metadata: { page_url, visitor_email, external_event_id: eventId },
+        metadata: {
+          page_url,
+          visitor_email,
+          external_event_id: eventId,
+          content_security: {
+            event_id: eventId,
+            category: security.decision.category,
+            risk_score: security.decision.risk_score,
+            action: security.decision.action,
+          },
+        },
       })
       .select("id")
       .single();
