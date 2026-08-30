@@ -8,6 +8,7 @@ const CLAMD_PORT = Number(process.env.CLAMD_PORT || 3310);
 const SCANNER_SHARED_SECRET = process.env.SCANNER_SHARED_SECRET || "";
 const MAX_SCAN_BYTES = Number(process.env.MAX_SCAN_BYTES || 104_857_600);
 const CLAMD_TIMEOUT_MS = Number(process.env.CLAMD_TIMEOUT_MS || 60_000);
+const SHA256_RE = /^[0-9a-f]{64}$/i;
 
 function json(res, status, body) {
   res.writeHead(status, {
@@ -56,11 +57,13 @@ async function clamdCommand(command) {
   });
 }
 
-async function scanStream(req) {
+async function scanStream(req, expectedSha256) {
   return await new Promise((resolve, reject) => {
     const socket = net.createConnection({ host: CLAMD_HOST, port: CLAMD_PORT });
     const responseChunks = [];
+    const hash = crypto.createHash("sha256");
     let total = 0;
+    let actualSha256 = null;
     let settled = false;
 
     const finish = (error, value) => {
@@ -79,12 +82,21 @@ async function scanStream(req) {
     socket.once("error", (error) => finish(error));
     socket.on("data", (chunk) => responseChunks.push(chunk));
     socket.once("close", () => {
-      if (!settled) {
-        try {
-          finish(null, parseClamdResult(Buffer.concat(responseChunks).toString("utf8")));
-        } catch (error) {
-          finish(error);
+      if (settled) return;
+      try {
+        if (!actualSha256) throw new Error("request stream ended without digest");
+        if (!safeEqual(actualSha256, expectedSha256)) {
+          finish(Object.assign(new Error("content hash mismatch"), { code: "CONTENT_HASH_MISMATCH" }));
+          return;
         }
+        const verdict = parseClamdResult(Buffer.concat(responseChunks).toString("utf8"));
+        finish(null, {
+          ...verdict,
+          content_sha256: actualSha256,
+          bytes_scanned: total,
+        });
+      } catch (error) {
+        finish(error);
       }
     });
 
@@ -104,6 +116,7 @@ async function scanStream(req) {
           finish(Object.assign(new Error("scan payload too large"), { code: "PAYLOAD_TOO_LARGE" }));
           return;
         }
+        hash.update(chunk);
         const size = Buffer.allocUnsafe(4);
         size.writeUInt32BE(chunk.length, 0);
         socket.write(size);
@@ -111,6 +124,7 @@ async function scanStream(req) {
       });
       req.once("end", () => {
         if (settled) return;
+        actualSha256 = hash.digest("hex");
         socket.write(Buffer.alloc(4));
       });
     });
@@ -137,11 +151,19 @@ const server = http.createServer(async (req, res) => {
   }
   if (!authenticate(req)) return json(res, 401, { error: "unauthorized" });
 
+  const expectedSha256 = String(req.headers["x-content-sha256"] || "").toLowerCase();
+  if (!SHA256_RE.test(expectedSha256)) {
+    return json(res, 400, { error: "content_sha256_required" });
+  }
+
   const declaredLength = Number(req.headers["content-length"] || 0);
+  if (!Number.isFinite(declaredLength) || declaredLength < 0) {
+    return json(res, 400, { error: "invalid_content_length" });
+  }
   if (declaredLength > MAX_SCAN_BYTES) return json(res, 413, { error: "payload_too_large" });
 
   try {
-    const verdict = await scanStream(req);
+    const verdict = await scanStream(req, expectedSha256);
     let version = "unknown";
     try { version = await clamdCommand("VERSION"); } catch { /* scan verdict remains authoritative */ }
     return json(res, 200, {
@@ -149,9 +171,12 @@ const server = http.createServer(async (req, res) => {
       engine_version: version.slice(0, 300),
       status: verdict.status,
       detection_name: verdict.detection_name,
+      content_sha256: verdict.content_sha256,
+      bytes_scanned: verdict.bytes_scanned,
     });
   } catch (error) {
     if (error?.code === "PAYLOAD_TOO_LARGE") return json(res, 413, { error: "payload_too_large" });
+    if (error?.code === "CONTENT_HASH_MISMATCH") return json(res, 409, { error: "content_hash_mismatch" });
     return json(res, 503, { error: "scanner_unavailable" });
   }
 });
