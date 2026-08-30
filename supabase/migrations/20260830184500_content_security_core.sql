@@ -8,18 +8,25 @@ CREATE TABLE IF NOT EXISTS public.content_security_events (
   workspace_id uuid NOT NULL REFERENCES public.workspaces(id) ON DELETE RESTRICT,
   source text NOT NULL CHECK (char_length(source) BETWEEN 1 AND 80),
   event_id text NOT NULL CHECK (char_length(event_id) BETWEEN 8 AND 200),
-  category text NOT NULL CHECK (category IN (
+  processing_status text NOT NULL DEFAULT 'reserved'
+    CHECK (processing_status IN ('reserved', 'completed', 'failed')),
+  claim_token uuid NOT NULL DEFAULT gen_random_uuid(),
+  claim_expires_at timestamptz NOT NULL DEFAULT (clock_timestamp() + interval '15 minutes'),
+  category text NOT NULL DEFAULT 'unknown' CHECK (category IN (
     'safe', 'spam', 'scam', 'phishing', 'malware', 'credential_theft',
     'harassment', 'insult', 'threat', 'violence', 'extortion', 'impersonation',
     'prompt_injection', 'suspicious_link', 'competitor_or_social_engineering', 'unknown'
   )),
-  risk_score smallint NOT NULL CHECK (risk_score BETWEEN 0 AND 100),
-  action text NOT NULL CHECK (action IN ('allow', 'quarantine', 'reject', 'tag')),
-  decision_reason text NOT NULL CHECK (char_length(decision_reason) BETWEEN 1 AND 160),
+  risk_score smallint NOT NULL DEFAULT 100 CHECK (risk_score BETWEEN 0 AND 100),
+  action text NOT NULL DEFAULT 'quarantine' CHECK (action IN ('allow', 'quarantine', 'reject', 'tag')),
+  decision_reason text NOT NULL DEFAULT 'PENDING_CLASSIFICATION'
+    CHECK (char_length(decision_reason) BETWEEN 1 AND 160),
   content_sha256 text CHECK (content_sha256 IS NULL OR content_sha256 ~ '^[0-9a-f]{64}$'),
   scanner_versions jsonb NOT NULL DEFAULT '{}'::jsonb,
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  completed_at timestamptz,
+  failed_at timestamptz,
   UNIQUE (workspace_id, source, event_id)
 );
 
@@ -31,24 +38,21 @@ CREATE TABLE IF NOT EXISTS public.content_security_quarantine (
   event_id text NOT NULL,
   category text NOT NULL,
   status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'released', 'rejected')),
-  payload_ciphertext text,
-  payload_iv text,
-  payload_alg text CHECK (payload_alg IS NULL OR payload_alg = 'AES-GCM-256'),
+  payload_ciphertext text NOT NULL,
+  payload_iv text NOT NULL,
+  payload_alg text NOT NULL CHECK (payload_alg = 'AES-GCM-256'),
   metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
   reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   reviewed_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
   updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
-  UNIQUE (workspace_id, source, event_id),
-  CHECK (
-    (payload_ciphertext IS NULL AND payload_iv IS NULL AND payload_alg IS NULL)
-    OR
-    (payload_ciphertext IS NOT NULL AND payload_iv IS NOT NULL AND payload_alg = 'AES-GCM-256')
-  )
+  UNIQUE (workspace_id, source, event_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_content_security_events_workspace_created
   ON public.content_security_events(workspace_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_content_security_events_status_claim
+  ON public.content_security_events(processing_status, claim_expires_at);
 CREATE INDEX IF NOT EXISTS idx_content_security_events_category_created
   ON public.content_security_events(category, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_content_security_quarantine_workspace_status
@@ -64,10 +68,123 @@ REVOKE ALL ON TABLE public.content_security_quarantine FROM PUBLIC, anon, authen
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.content_security_events TO service_role;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.content_security_quarantine TO service_role;
 
-CREATE OR REPLACE FUNCTION public.record_content_security_event(
+CREATE OR REPLACE FUNCTION public.claim_content_security_event(
+  p_workspace_id uuid,
+  p_source text,
+  p_event_id text
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+DECLARE
+  v_event public.content_security_events%ROWTYPE;
+  v_new_token uuid := gen_random_uuid();
+BEGIN
+  INSERT INTO public.content_security_events (
+    workspace_id,
+    source,
+    event_id,
+    processing_status,
+    claim_token,
+    claim_expires_at
+  )
+  VALUES (
+    p_workspace_id,
+    p_source,
+    p_event_id,
+    'reserved',
+    v_new_token,
+    clock_timestamp() + interval '15 minutes'
+  )
+  ON CONFLICT (workspace_id, source, event_id) DO NOTHING
+  RETURNING * INTO v_event;
+
+  IF FOUND THEN
+    RETURN jsonb_build_object(
+      'allowed', true,
+      'reused', false,
+      'status', 'reserved',
+      'event_record_id', v_event.id,
+      'claim_token', v_event.claim_token
+    );
+  END IF;
+
+  SELECT * INTO v_event
+  FROM public.content_security_events
+  WHERE workspace_id = p_workspace_id
+    AND source = p_source
+    AND event_id = p_event_id;
+
+  IF v_event.id IS NULL THEN
+    RAISE EXCEPTION 'CONTENT_SECURITY_CLAIM_LOOKUP_FAILED';
+  END IF;
+
+  IF v_event.processing_status = 'completed' THEN
+    RETURN jsonb_build_object(
+      'allowed', false,
+      'reused', true,
+      'status', 'completed',
+      'event_record_id', v_event.id,
+      'category', v_event.category,
+      'risk_score', v_event.risk_score,
+      'action', v_event.action,
+      'decision_reason', v_event.decision_reason
+    );
+  END IF;
+
+  -- Failed work is retryable. Expired reservations may also be reclaimed.
+  IF v_event.processing_status = 'failed'
+     OR (v_event.processing_status = 'reserved' AND v_event.claim_expires_at <= clock_timestamp()) THEN
+    v_new_token := gen_random_uuid();
+
+    UPDATE public.content_security_events
+    SET processing_status = 'reserved',
+        claim_token = v_new_token,
+        claim_expires_at = clock_timestamp() + interval '15 minutes',
+        decision_reason = 'PENDING_CLASSIFICATION',
+        failed_at = NULL
+    WHERE id = v_event.id
+      AND (
+        processing_status = 'failed'
+        OR (processing_status = 'reserved' AND claim_expires_at <= clock_timestamp())
+      )
+    RETURNING * INTO v_event;
+
+    IF FOUND THEN
+      RETURN jsonb_build_object(
+        'allowed', true,
+        'reused', true,
+        'reclaimed', true,
+        'status', 'reserved',
+        'event_record_id', v_event.id,
+        'claim_token', v_event.claim_token
+      );
+    END IF;
+
+    SELECT * INTO v_event
+    FROM public.content_security_events
+    WHERE workspace_id = p_workspace_id
+      AND source = p_source
+      AND event_id = p_event_id;
+  END IF;
+
+  RETURN jsonb_build_object(
+    'allowed', false,
+    'reused', true,
+    'status', v_event.processing_status,
+    'code', '409_in_progress',
+    'event_record_id', v_event.id
+  );
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.finalize_content_security_event(
   p_workspace_id uuid,
   p_source text,
   p_event_id text,
+  p_claim_token uuid,
   p_category text,
   p_risk_score integer,
   p_action text,
@@ -87,46 +204,32 @@ SET search_path = public, pg_temp
 AS $$
 DECLARE
   v_event public.content_security_events%ROWTYPE;
-  v_reused boolean := false;
 BEGIN
-  INSERT INTO public.content_security_events (
-    workspace_id,
-    source,
-    event_id,
-    category,
-    risk_score,
-    action,
-    decision_reason,
-    content_sha256,
-    scanner_versions,
-    metadata
-  )
-  VALUES (
-    p_workspace_id,
-    p_source,
-    p_event_id,
-    p_category,
-    p_risk_score,
-    p_action,
-    p_decision_reason,
-    p_content_sha256,
-    COALESCE(p_scanner_versions, '{}'::jsonb),
-    COALESCE(p_metadata, '{}'::jsonb)
-  )
-  ON CONFLICT (workspace_id, source, event_id) DO NOTHING
-  RETURNING * INTO v_event;
-
-  IF NOT FOUND THEN
-    SELECT * INTO v_event
-    FROM public.content_security_events
-    WHERE workspace_id = p_workspace_id
-      AND source = p_source
-      AND event_id = p_event_id;
-    v_reused := true;
+  IF p_action = 'quarantine'
+     AND (p_quarantine_ciphertext IS NULL OR p_quarantine_iv IS NULL OR p_quarantine_alg <> 'AES-GCM-256') THEN
+    RAISE EXCEPTION 'QUARANTINE_ENCRYPTION_REQUIRED';
   END IF;
 
+  UPDATE public.content_security_events
+  SET processing_status = 'completed',
+      category = p_category,
+      risk_score = p_risk_score,
+      action = p_action,
+      decision_reason = p_decision_reason,
+      content_sha256 = p_content_sha256,
+      scanner_versions = COALESCE(p_scanner_versions, '{}'::jsonb),
+      metadata = COALESCE(p_metadata, '{}'::jsonb),
+      completed_at = clock_timestamp(),
+      failed_at = NULL
+  WHERE workspace_id = p_workspace_id
+    AND source = p_source
+    AND event_id = p_event_id
+    AND processing_status = 'reserved'
+    AND claim_token = p_claim_token
+  RETURNING * INTO v_event;
+
   IF v_event.id IS NULL THEN
-    RAISE EXCEPTION 'CONTENT_SECURITY_EVENT_RECORD_FAILED';
+    RAISE EXCEPTION 'CONTENT_SECURITY_CLAIM_NOT_OWNED';
   END IF;
 
   IF v_event.action = 'quarantine' THEN
@@ -164,21 +267,60 @@ BEGIN
     'risk_score', v_event.risk_score,
     'action', v_event.action,
     'decision_reason', v_event.decision_reason,
-    'reused', v_reused
+    'status', v_event.processing_status,
+    'reused', false
   );
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.record_content_security_event(
-  uuid, text, text, text, integer, text, text, text, jsonb, jsonb, text, text, text, jsonb
+CREATE OR REPLACE FUNCTION public.fail_content_security_event(
+  p_workspace_id uuid,
+  p_source text,
+  p_event_id text,
+  p_claim_token uuid,
+  p_reason text
+)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  UPDATE public.content_security_events
+  SET processing_status = 'failed',
+      decision_reason = left(COALESCE(NULLIF(p_reason, ''), 'CONTENT_SECURITY_PROCESSING_FAILED'), 160),
+      failed_at = clock_timestamp(),
+      claim_expires_at = clock_timestamp()
+  WHERE workspace_id = p_workspace_id
+    AND source = p_source
+    AND event_id = p_event_id
+    AND processing_status = 'reserved'
+    AND claim_token = p_claim_token;
+
+  RETURN FOUND;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.claim_content_security_event(uuid, text, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.claim_content_security_event(uuid, text, text)
+  TO service_role;
+
+REVOKE ALL ON FUNCTION public.finalize_content_security_event(
+  uuid, text, text, uuid, text, integer, text, text, text, jsonb, jsonb, text, text, text, jsonb
 ) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.record_content_security_event(
-  uuid, text, text, text, integer, text, text, text, jsonb, jsonb, text, text, text, jsonb
+GRANT EXECUTE ON FUNCTION public.finalize_content_security_event(
+  uuid, text, text, uuid, text, integer, text, text, text, jsonb, jsonb, text, text, text, jsonb
 ) TO service_role;
 
+REVOKE ALL ON FUNCTION public.fail_content_security_event(uuid, text, text, uuid, text)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fail_content_security_event(uuid, text, text, uuid, text)
+  TO service_role;
+
 COMMENT ON TABLE public.content_security_events IS
-  'Idempotent tenant-bound content security decisions. Never stores raw inbound content.';
+  'Tenant-bound content security claims and decisions. Raw inbound content is never stored here.';
 COMMENT ON TABLE public.content_security_quarantine IS
-  'Encrypted or metadata-only quarantine records for blocked inbound content.';
+  'Encrypted quarantine records. Completed quarantine decisions require AES-GCM payload storage.';
 
 COMMIT;
