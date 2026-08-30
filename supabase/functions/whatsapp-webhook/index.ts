@@ -9,14 +9,19 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { verifyMetaSignature } from "../_shared/webhook-signatures.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
 import {
   blocksNormalIngress,
   extractSecurityUrls,
   scanInboundContent,
 } from "../_shared/content-security-client.ts";
+import { stageInboundAttachment } from "../_shared/content-security-attachment-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
 const rateLimitMap = new Map<string, { n: number; resetAt: number }>();
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+const META_GRAPH_VERSION = "v19.0";
+const encoder = new TextEncoder();
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
@@ -35,11 +40,23 @@ type ChannelRow = {
   user_id: string | null;
   workspace_id: string | null;
   settings: Record<string, unknown> | null;
+  credentials_encrypted: Record<string, unknown> | null;
+};
+
+type WhatsAppAttachmentShape = {
+  mime_type: string;
+  media_id: string;
 };
 
 type WhatsAppMessageShape = {
   content: string;
-  attachment: { mime_type: string } | null;
+  attachment: WhatsAppAttachmentShape | null;
+};
+
+type DownloadedMedia = {
+  bytes: Uint8Array;
+  mime_type: string;
+  sha256: string;
 };
 
 function normalizeMessage(msg: Record<string, any>): WhatsAppMessageShape {
@@ -71,15 +88,90 @@ function normalizeMessage(msg: Record<string, any>): WhatsAppMessageShape {
     const mimeType = typeof media.mime_type === "string" && media.mime_type.trim()
       ? media.mime_type.trim().toLowerCase()
       : "application/octet-stream";
+    const mediaId = typeof media.id === "string" ? media.id.trim() : "";
     const caption = typeof media.caption === "string" && media.caption.trim()
       ? media.caption
       : typeof msg.caption === "string" && msg.caption.trim()
         ? msg.caption
         : `[whatsapp_media:${String(msg.type)}]`;
-    return { content: caption, attachment: { mime_type: mimeType } };
+    return { content: caption, attachment: { mime_type: mimeType, media_id: mediaId } };
   }
 
   return { content: `[whatsapp_event:${String(msg.type || "unknown")}]`, attachment: null };
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function isAllowedWhatsAppMediaHost(url: URL): boolean {
+  return url.protocol === "https:"
+    && (url.hostname === "lookaside.fbsbx.com" || url.hostname === "lookaside.facebook.com");
+}
+
+async function downloadWhatsAppMedia(
+  mediaId: string,
+  accessToken: string,
+  fallbackMime: string,
+): Promise<DownloadedMedia> {
+  if (!mediaId) throw new Error("WHATSAPP_MEDIA_ID_MISSING");
+
+  const metadataResponse = await fetch(
+    `https://graph.facebook.com/${META_GRAPH_VERSION}/${encodeURIComponent(mediaId)}`,
+    {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      redirect: "error",
+    },
+  );
+  const metadata = await metadataResponse.json().catch(() => ({})) as Record<string, unknown>;
+  if (!metadataResponse.ok || typeof metadata.url !== "string") {
+    throw new Error("WHATSAPP_MEDIA_METADATA_FAILED");
+  }
+
+  const declaredSize = Number(metadata.file_size ?? 0);
+  if (Number.isFinite(declaredSize) && declaredSize > MAX_MEDIA_BYTES) {
+    throw new Error("WHATSAPP_MEDIA_TOO_LARGE");
+  }
+
+  let mediaUrl: URL;
+  try {
+    mediaUrl = new URL(metadata.url);
+  } catch {
+    throw new Error("WHATSAPP_MEDIA_URL_INVALID");
+  }
+  if (!isAllowedWhatsAppMediaHost(mediaUrl)) {
+    throw new Error("WHATSAPP_MEDIA_HOST_REJECTED");
+  }
+
+  const mediaResponse = await fetch(mediaUrl.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    redirect: "error",
+  });
+  if (!mediaResponse.ok) throw new Error("WHATSAPP_MEDIA_DOWNLOAD_FAILED");
+
+  const contentLength = Number(mediaResponse.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_MEDIA_BYTES) {
+    throw new Error("WHATSAPP_MEDIA_TOO_LARGE");
+  }
+
+  const bytes = new Uint8Array(await mediaResponse.arrayBuffer());
+  if (bytes.byteLength > MAX_MEDIA_BYTES) throw new Error("WHATSAPP_MEDIA_TOO_LARGE");
+  if (Number.isFinite(declaredSize) && declaredSize > 0 && declaredSize !== bytes.byteLength) {
+    throw new Error("WHATSAPP_MEDIA_SIZE_MISMATCH");
+  }
+
+  const actualSha256 = await sha256Hex(bytes);
+  const providerSha = typeof metadata.sha256 === "string" ? metadata.sha256.trim().toLowerCase() : "";
+  if (providerSha && providerSha !== actualSha256) {
+    throw new Error("WHATSAPP_MEDIA_HASH_MISMATCH");
+  }
+
+  const responseMime = (mediaResponse.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  const metadataMime = typeof metadata.mime_type === "string" ? metadata.mime_type.trim().toLowerCase() : "";
+  const mimeType = responseMime || metadataMime || fallbackMime || "application/octet-stream";
+
+  return { bytes, mime_type: mimeType, sha256: actualSha256 };
 }
 
 async function claimEvent(
@@ -237,7 +329,7 @@ serve(async (req) => {
     let quarantined = 0;
 
     const { data: channels, error: channelsError } = await sb.from("channels")
-      .select("id,user_id,workspace_id,settings")
+      .select("id,user_id,workspace_id,settings,credentials_encrypted")
       .eq("channel_type", "whatsapp")
       .eq("is_enabled", true);
     if (channelsError) throw channelsError;
@@ -295,13 +387,50 @@ serve(async (req) => {
           const normalized = normalizeMessage(msg);
           const securityEventId = `wa:${waId}`;
 
+          let downloaded: DownloadedMedia | null = null;
+          if (normalized.attachment) {
+            const settings = (channel.settings ?? {}) as Record<string, unknown>;
+            const encrypted = (channel.credentials_encrypted ?? {}) as Record<string, unknown>;
+            const encryptedToken = typeof encrypted.access_token === "string" ? encrypted.access_token : "";
+            const legacyToken = typeof settings.access_token === "string" ? settings.access_token : "";
+            const tokenValue = encryptedToken || legacyToken;
+            if (!tokenValue || !normalized.attachment.media_id) {
+              return new Response(JSON.stringify({ error: "whatsapp_media_credentials_unavailable" }), {
+                status: 503,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+
+            let accessToken: string;
+            try {
+              accessToken = await decryptIfNeeded(tokenValue);
+              downloaded = await downloadWhatsAppMedia(
+                normalized.attachment.media_id,
+                accessToken,
+                normalized.attachment.mime_type,
+              );
+            } catch (error) {
+              console.error("[WA] media preparation failed", error instanceof Error ? error.message : "unknown");
+              return new Response(JSON.stringify({ error: "whatsapp_media_preparation_failed" }), {
+                status: 503,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+          }
+
           const security = await scanInboundContent({
             workspace_id: channel.workspace_id,
             source: "whatsapp",
             event_id: securityEventId,
             content: normalized.content,
             urls: extractSecurityUrls(normalized.content),
-            attachment: normalized.attachment,
+            attachment: normalized.attachment
+              ? {
+                  mime_type: downloaded?.mime_type ?? normalized.attachment.mime_type,
+                  size_bytes: downloaded?.bytes.byteLength,
+                  sha256: downloaded?.sha256,
+                }
+              : null,
           });
           if (!security.ok) {
             return new Response(JSON.stringify({ error: "content_security_unavailable" }), {
@@ -310,9 +439,36 @@ serve(async (req) => {
             });
           }
           if (blocksNormalIngress(security.decision)) {
+            if (downloaded && normalized.attachment && security.decision.action === "quarantine") {
+              const staged = await stageInboundAttachment({
+                workspace_id: channel.workspace_id,
+                source: "whatsapp",
+                event_id: securityEventId,
+                attachment_key: "wa_media_0",
+                expected_attachment_count: 1,
+                bytes: downloaded.bytes,
+                mime_type: downloaded.mime_type,
+              });
+              if (!staged.ok) {
+                console.error("[WA] attachment staging failed", staged.code);
+                return new Response(JSON.stringify({ error: "whatsapp_attachment_staging_failed" }), {
+                  status: staged.retryable ? 503 : 400,
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+            }
             quarantined++;
             processed++;
             continue;
+          }
+
+          // Attachment-bearing content is expected to remain quarantined until
+          // the real malware layer completes; never insert media into normal Inbox.
+          if (downloaded || normalized.attachment) {
+            return new Response(JSON.stringify({ error: "attachment_security_contract_violation" }), {
+              status: 500,
+              headers: { "Content-Type": "application/json" },
+            });
           }
 
           const claim = await claimEvent(sb, waId, channel.workspace_id);
