@@ -41,29 +41,43 @@ describe("P0.6 content-security ingress wave 1", () => {
     expect(migration).not.toMatch(/delete\s+from\s+public\.inbox_messages/i);
   });
 
-  it("gates WhatsApp before provider claim, thread, Inbox, lead, or customer-brain side effects", () => {
-    const scanCall = whatsapp.indexOf("const security = await scanInboundContent({");
-    const claimCall = whatsapp.indexOf('const claim = await claimEvent(sb, "whatsapp"');
-    const threadCall = whatsapp.indexOf('sb.rpc("upsert_conversation_thread"');
-    const inboxCall = whatsapp.indexOf('sb.from("inbox_messages").insert');
-    const leadCall = whatsapp.indexOf('sb.from("leads").upsert');
-    const brainCall = whatsapp.indexOf('/functions/v1/customer-brain');
+  it("gates WhatsApp at the real message call-site before normal side effects", () => {
+    const flow = whatsapp.slice(whatsapp.indexOf("const security = await scanInboundContent({"));
+    const scanCall = flow.indexOf("const security = await scanInboundContent({");
+    const claimCall = flow.indexOf("const claim = await claimEvent(sb, waId");
+    const threadCall = flow.indexOf('sb.rpc("upsert_conversation_thread"');
+    const inboxCall = flow.indexOf("await ensureInboxMessage(sb");
+    const leadCall = flow.indexOf("await ensureLead(sb");
+    const brainCall = flow.indexOf('/functions/v1/customer-brain');
 
-    expect(scanCall).toBeGreaterThan(-1);
+    for (const position of [scanCall, claimCall, threadCall, inboxCall, leadCall, brainCall]) {
+      expect(position).toBeGreaterThan(-1);
+    }
     expect(scanCall).toBeLessThan(claimCall);
     expect(scanCall).toBeLessThan(threadCall);
     expect(scanCall).toBeLessThan(inboxCall);
     expect(scanCall).toBeLessThan(leadCall);
     expect(scanCall).toBeLessThan(brainCall);
     expect(whatsapp).toContain("if (blocksNormalIngress(security.decision))");
-    expect(whatsapp).toContain('attachment: hasAttachment ? { mime_type: "application/octet-stream" } : null');
   });
 
-  it("requires WhatsApp provider-native IDs instead of creating unstable retry keys", () => {
-    expect(whatsapp).toContain('const waId = msg?.id ?? ""');
-    expect(whatsapp).not.toContain('msg?.id ?? `wa:${Date.now()}`');
+  it("distinguishes WhatsApp media from interactive opt-out events", () => {
+    expect(whatsapp).toContain('const mediaTypes = new Set(["image", "audio", "video", "document", "sticker"])');
+    expect(whatsapp).toContain('if (msg.type === "interactive")');
+    expect(whatsapp).toContain("attachment: null");
+    expect(whatsapp).toContain("attachment: { mime_type: mimeType }");
+    expect(whatsapp).toContain('button.id.startsWith("OPT_OUT")');
+    expect(whatsapp).not.toContain('msg.type !== "text"');
+  });
+
+  it("requires WhatsApp provider-native IDs and makes duplicate retries repair normal ingress", () => {
+    expect(whatsapp).toContain('const waId = typeof msg?.id === "string" ? msg.id.trim() : ""');
     expect(whatsapp).toContain("A provider-native stable event ID is mandatory");
     expect(whatsapp).toContain("const securityEventId = `wa:${waId}`");
+    expect(whatsapp).toContain("Duplicate provider retries execute the same idempotent repair path");
+    expect(whatsapp).toContain("async function ensureInboxMessage");
+    expect(whatsapp).toContain('insertError?.code === "23505"');
+    expect(whatsapp).toContain("async function ensureLead");
   });
 
   it("never skips Telegram media and uses provider-native update_id as the retry identity", () => {
@@ -80,22 +94,23 @@ describe("P0.6 content-security ingress wave 1", () => {
   });
 
   it("gates Telegram before integration claims, AI, lead, thread and Inbox", () => {
-    const scanCall = telegram.indexOf("const security = await scanInboundContent({");
-    const eventLogClaim = telegram.indexOf('supabase.from("integration_event_logs").insert');
-    const aiCall = telegram.indexOf("const aiRaw = await callAIRouter(");
-    const leadAccess = telegram.indexOf('.from("leads")');
-    const threadCall = telegram.indexOf('supabase.rpc("upsert_conversation_thread"');
-    const inboxCall = telegram.indexOf('.from("inbox_messages")');
+    const flow = telegram.slice(telegram.indexOf("const security = await scanInboundContent({"));
+    const scanCall = flow.indexOf("const security = await scanInboundContent({");
+    const eventLogClaim = flow.indexOf('supabase.from("integration_event_logs").insert');
+    const aiCall = flow.indexOf("const aiRaw = await callAIRouter(");
+    const leadAccess = flow.indexOf('.from("leads")');
+    const threadCall = flow.indexOf('supabase.rpc("upsert_conversation_thread"');
+    const inboxCall = flow.indexOf('.from("inbox_messages")');
 
-    expect(scanCall).toBeGreaterThan(-1);
+    for (const position of [scanCall, eventLogClaim, aiCall, leadAccess, threadCall, inboxCall]) {
+      expect(position).toBeGreaterThan(-1);
+    }
     expect(scanCall).toBeLessThan(eventLogClaim);
     expect(scanCall).toBeLessThan(aiCall);
     expect(scanCall).toBeLessThan(leadAccess);
     expect(scanCall).toBeLessThan(threadCall);
     expect(scanCall).toBeLessThan(inboxCall);
     expect(telegram).toContain("if (blocksNormalIngress(security.decision))");
-    expect(telegram).toContain('source: "telegram"');
-    expect(telegram).toContain("event_id: idempotencyKey");
   });
 
   it("handles Telegram edits without creating a second provider-message Inbox row", () => {
@@ -106,42 +121,53 @@ describe("P0.6 content-security ingress wave 1", () => {
     expect(telegram).toContain('provider_message_id: String(messageId)');
   });
 
-  it("gates Meta after signature and tenant resolution and before provider claim", () => {
-    const signatureCall = meta.indexOf("verifyMetaSignature(");
-    const resolverCall = meta.indexOf("resolveWorkspaceFromPage(sb, pageId, platform)");
-    const scanCall = meta.indexOf("const security = await scanInboundContent({");
-    const claimCall = meta.indexOf("const claim = await claimEvent(sb, params.provider");
+  it("authenticates and resolves Meta before invoking its message processor", () => {
+    const serveBlock = meta.slice(meta.indexOf("serve(async (req)"));
+    const signatureCall = serveBlock.indexOf("const signature = await verifyMetaSignature(");
+    const resolverCall = serveBlock.indexOf("const mapping = await resolveWorkspaceFromPage(sb, pageId, platform)");
+    const processorCall = serveBlock.indexOf("const result = await processMetaMessage(sb");
 
-    expect(signatureCall).toBeGreaterThan(-1);
-    expect(resolverCall).toBeGreaterThan(-1);
-    expect(scanCall).toBeGreaterThan(-1);
-    expect(claimCall).toBeGreaterThan(-1);
+    for (const position of [signatureCall, resolverCall, processorCall]) expect(position).toBeGreaterThan(-1);
     expect(signatureCall).toBeLessThan(resolverCall);
-    expect(resolverCall).toBeLessThan(scanCall);
-    expect(scanCall).toBeLessThan(claimCall);
-    expect(meta).toContain("if (blocksNormalIngress(security.decision))");
-    expect(meta).toContain('attachment: attachments.length ? { mime_type: "application/octet-stream" } : null');
+    expect(resolverCall).toBeLessThan(processorCall);
   });
 
-  it("never invents Meta message IDs and requires sender identity", () => {
+  it("gates the Meta processor before provider claim and repair side effects", () => {
+    const processor = meta.slice(
+      meta.indexOf("async function processMetaMessage"),
+      meta.indexOf("serve(async (req)"),
+    );
+    const scanCall = processor.indexOf("const security = await scanInboundContent({");
+    const claimCall = processor.indexOf("const claim = await claimEvent(sb, params.provider");
+    const inboxCall = processor.indexOf("await ensureInboxMessage(sb");
+    const leadCall = processor.indexOf("await ensureLead(sb");
+    const canonicalCall = processor.indexOf("await ensureCanonicalEvent(sb");
+
+    for (const position of [scanCall, claimCall, inboxCall, leadCall, canonicalCall]) {
+      expect(position).toBeGreaterThan(-1);
+    }
+    expect(scanCall).toBeLessThan(claimCall);
+    expect(claimCall).toBeLessThan(inboxCall);
+    expect(claimCall).toBeLessThan(leadCall);
+    expect(claimCall).toBeLessThan(canonicalCall);
+    expect(processor).toContain("if (blocksNormalIngress(security.decision))");
+    expect(processor).toContain('attachment: attachments.length ? { mime_type: "application/octet-stream" } : null');
+  });
+
+  it("never invents Meta message IDs and makes duplicate claims execute repair", () => {
     expect(meta).toContain('const messageId = typeof message.mid === "string" ? message.mid.trim() : ""');
     expect(meta).toContain('const senderId = typeof params.event?.sender?.id === "string"');
     expect(meta).toContain('if (!messageId || !senderId) return "quarantined"');
     expect(meta).not.toContain("event.timestamp ?? Date.now()");
-  });
-
-  it("makes duplicate Meta claims execute an idempotent repair path", () => {
     expect(meta).toContain("Both the winning claim and a duplicate retry execute the same idempotent");
     expect(meta).toContain("async function ensureInboxMessage");
     expect(meta).toContain("async function ensureLead");
     expect(meta).toContain("async function ensureCanonicalEvent");
     expect(meta).toContain('insertError?.code === "23505"');
-    expect(meta).toContain("processInterestFromEngagementEventId");
-    expect(meta).not.toContain('.from("inbox_messages").insert({\n            workspace_id');
     expect(meta).not.toContain('.single().catch(() => ({ data: null }))');
   });
 
-  it("persists only machine security decision metadata on normal Inbox rows", () => {
+  it("persists machine security decision metadata on normal Inbox rows", () => {
     for (const source of [whatsapp, telegram, meta]) {
       expect(source).toContain("content_security:");
       expect(source).toContain("category:");
