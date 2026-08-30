@@ -13,9 +13,9 @@ trap 'dropdb -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" --if-exists "$DB" >/dev/null
 PGDATABASE="$DB" PGPASSWORD="$PGPASSWORD" psql -X -v ON_ERROR_STOP=1 -f scripts/verify-full-negative-role-tenant-e2e-v4.sql
 PGDATABASE="$DB" PGPASSWORD="$PGPASSWORD" psql -X -v ON_ERROR_STOP=1 <<'SQL'
 set role authenticated;
-select set_config('request.jwt.claim.sub','44444444-4444-4444-4444-444444444444',false);
+select set_config('request.jwt.claim.sub','11111111-1111-1111-1111-111111111111',false);
 update public.e2e_resource set payload='member-update' where id='aaaaaaaa-aaaa-0000-0000-aaaaaaaaaaaa';
-do $$ begin if not exists (select 1 from public.e2e_resource where id='aaaaaaaa-aaaa-0000-0000-aaaaaaaaaaaa' and payload='member-update') then raise exception 'member UPDATE positive failed'; end if; end $$;
+do $$ begin if not exists (select 1 from public.e2e_resource where id='aaaaaaaa-aaaa-0000-0000-aaaaaaaaaaaa' and payload='member-update') then raise exception 'owner UPDATE positive failed'; end if; end $$;
 select set_config('request.jwt.claim.sub','11111111-1111-1111-1111-111111111111',false);
 select count(*) from public.e2e_resource where ws='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 insert into public.e2e_resource values('aaaaaaaa-aaaa-2000-0000-aaaaaaaaaaaa','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111','owner');
