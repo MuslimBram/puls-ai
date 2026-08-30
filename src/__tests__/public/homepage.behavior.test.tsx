@@ -56,7 +56,7 @@ describe("Homepage behavior", () => {
     expect(screen.getByRole("button", { name: publicAiCta })).toBeInTheDocument();
   });
 
-  it("renders the English homepage and keeps logged-out CTAs on the safe login flow", () => {
+  it("renders the English homepage and keeps logged-out CTAs on the safe registration flow", () => {
     renderHomepage();
 
     expect(
@@ -64,7 +64,7 @@ describe("Homepage behavior", () => {
     ).toBeInTheDocument();
 
     screen.getAllByRole("link", { name: "Get Started" }).forEach((link) => {
-      expect(link).toHaveAttribute("href", "/login?next=%2Fdashboard");
+      expect(link).toHaveAttribute("href", "/register?next=%2Fdashboard");
     });
   });
 
