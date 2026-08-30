@@ -9,6 +9,7 @@ const helpers = read("supabase/functions/community-shared/helpers.ts");
 const commentCreate = read("supabase/functions/community-comment-create/index.ts");
 const messageCreate = read("supabase/functions/community-message-create/index.ts");
 const scanImage = read("supabase/functions/community-scan-image/index.ts");
+const commentUi = read("src/pages/lidhjet/LidhjetFeed.tsx");
 const chatUi = read("src/components/lidhjet/InterestChatModal.tsx");
 const scanUi = read("src/components/lidhjet/AiImageScanButton.tsx");
 
@@ -39,7 +40,12 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
     expect(messageCreate).toContain("event_id: eventId");
     expect(commentCreate).toContain('commentError.code === "23505"');
     expect(messageCreate).toContain('msgError.code === "23505"');
+
+    expect(commentUi).toContain("pendingCommentEventId.current");
+    expect(commentUi).toContain("community_comment_${crypto.randomUUID()}");
+    expect(commentUi).toContain("event_id: eventId");
     expect(chatUi).toContain("pendingEventId.current");
+    expect(chatUi).toContain("community_msg_${crypto.randomUUID()}");
     expect(chatUi).toContain("event_id: eventId");
   });
 
@@ -53,9 +59,13 @@ describe("P0.6 PRE3 Community ingress hardening", () => {
 
     const liveRouterBlock = scanImage.slice(
       scanImage.indexOf("if (mockMode)"),
-      scanImage.indexOf("const { error: completeError }"),
+      scanImage.indexOf("const { data: completedUsage"),
     );
     expect(liveRouterBlock).not.toContain('scanResult = { safe: true, label: "clean"');
+
+    expect(scanImage).toContain("const { data: completedUsage, error: completeError }");
+    expect(scanImage).toContain('.eq("status", "reserved")\n        .select("id")\n        .maybeSingle()');
+    expect(scanImage).toContain("if (completeError || !completedUsage)");
   });
 
   it("never renders an unsafe classifier result as a safe badge", () => {
