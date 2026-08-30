@@ -4,6 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
+import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const json = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), {
@@ -14,6 +19,7 @@ const json = (req: Request, body: unknown, status = 200) => new Response(JSON.st
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 120;
 const RATE_WINDOW = 60_000;
+const EVENT_ID_PATTERN = /^[A-Za-z0-9:_-]{8,200}$/;
 
 function checkRateLimit(key: string): boolean {
   const now = Date.now();
@@ -66,7 +72,7 @@ serve(async (req) => {
     const messageContent = typeof body.message_content === "string" ? body.message_content : "";
 
     if (!channelId) return json(req, { error: "channel_id required" }, 400);
-    if (!eventId) return json(req, { error: "event_id required" }, 400);
+    if (!EVENT_ID_PATTERN.test(eventId)) return json(req, { error: "valid event_id required" }, 400);
     if (!presentedSecret) return json(req, { error: "X-Webhook-Secret required" }, 401);
     if (!messageContent) return json(req, { error: "message_content required" }, 400);
     if (messageContent.length > 10_000) return json(req, { error: "Message too long" }, 400);
@@ -122,8 +128,28 @@ serve(async (req) => {
     const workspaceId = String(channel.workspace_id);
     const userId = String(channel.user_id);
 
-    // Friendly fast-path for retries. The unique partial index added by the
-    // companion migration is the authoritative race-safe dedupe boundary.
+    // Authenticated shared-secret webhook + canonical tenant + caller-stable
+    // event id are established before the universal content-security boundary.
+    const security = await scanInboundContent({
+      workspace_id: workspaceId,
+      source: "custom_webhook",
+      event_id: eventId,
+      content: messageContent,
+      urls: extractSecurityUrls(messageContent),
+      attachment: null,
+    });
+
+    if (!security.ok) {
+      return json(req, { error: "Content security unavailable", code: security.code }, security.status >= 500 ? 503 : security.status);
+    }
+
+    if (blocksNormalIngress(security.decision)) {
+      // Do not expose the security classification to an external integration.
+      return json(req, { ok: true, accepted: true, duplicate: security.reused });
+    }
+
+    // Friendly fast-path only after the payload-bound firewall decision. The
+    // unique partial index remains the authoritative race-safe Inbox boundary.
     const { data: existing, error: existingError } = await supabase
       .from("inbox_messages")
       .select("id")
@@ -176,6 +202,12 @@ serve(async (req) => {
           ...metadata,
           external_event_id: eventId,
           ingress: "custom_webhook",
+          content_security: {
+            event_id: eventId,
+            category: security.decision.category,
+            risk_score: security.decision.risk_score,
+            action: security.decision.action,
+          },
         },
       })
       .select("id")
@@ -207,8 +239,6 @@ serve(async (req) => {
         .single();
 
       if (leadError) {
-        // Preserve the accepted inbox message and expose only a generic retryable
-        // signal; never log the webhook secret or raw credentials.
         console.error("webhook-ingest lead creation failed", {
           inbox_message_id: inboxMessage.id,
           workspace_id: workspaceId,
