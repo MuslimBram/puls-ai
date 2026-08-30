@@ -1,166 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireInternalSecret } from "../_shared/cron-auth.ts";
-import { getServiceKey } from "../_shared/admin-client.ts";
-import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
-const ALLOW_ANY_ORIGIN = false;
-const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
 
-  // SECURITY: only the internal email-poll job may call this endpoint.
+  // This legacy endpoint previously accepted caller-supplied user_id/channel_id
+  // and had no canonical provider event id. Keep it fail-closed until a real
+  // provider-authenticated forwarding contract is implemented. The supported
+  // inbound Email path is email-poll with server-side channel/workspace binding.
   const unauth = requireInternalSecret(req);
-  if (unauth) return new Response(unauth.body, { status: unauth.status, headers: { ...getCors(req), "Content-Type": "application/json" } });
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = getServiceKey()!;
-  const supabase = createClient(supabaseUrl, serviceKey);
-
-
-  try {
-    const body = await req.json();
-    const {
-      user_id,
-      from_email,
-      from_name,
-      subject,
-      body_text,
-      received_at,
-      channel_id,
-    } = body;
-
-    if (!user_id || !body_text) {
-      return new Response(JSON.stringify({ error: "user_id and body_text are required" }), {
-        status: 400,
-        headers: { ...getCors(req), "Content-Type": "application/json" },
-      });
-    }
-
-    const messageContent = subject ? `[${subject}] ${body_text}` : body_text;
-    const timestamp = received_at || new Date().toISOString();
-
-    // Keyword matching
-    const { data: keywords } = await supabase
-      .from("keywords")
-      .select("keyword")
-      .eq("user_id", user_id)
-      .eq("is_active", true);
-
-    const textLower = messageContent.toLowerCase();
-    const matched = (keywords || [])
-      .filter((k: any) => textLower.includes(k.keyword.toLowerCase()))
-      .map((k: any) => k.keyword);
-
-    const intentScore = matched.length > 0 ? 0.5 : 0.1;
-    const priority = matched.length > 0 ? "medium" : "normal";
-
-    // AI analysis for matched messages
-    let aiScore = intentScore;
-    let suggestedReply = "";
-    if (matched.length > 0) {
-      {
-        try {
-          const { data: profile } = await supabase
-            .from("business_profiles")
-            .select("*")
-            .eq("user_id", user_id)
-            .maybeSingle();
-
-          const aiRes = await routerChatCompletion({
-              model: "google/gemini-3-flash-preview",
-              messages: [
-                {
-                  role: "system",
-                  content: `Analyze email buying intent for keywords: ${matched.join(", ")}. Business: ${profile?.business_name || "Unknown"}. Respond with JSON: {"intent_score": number, "suggested_reply": string, "is_lead": boolean}`,
-                },
-                { role: "user", content: messageContent },
-              ],
-              tools: [{
-                type: "function",
-                function: {
-                  name: "analyze_lead",
-                  description: "Return analysis",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      intent_score: { type: "number" },
-                      suggested_reply: { type: "string" },
-                      is_lead: { type: "boolean" },
-                    },
-                    required: ["intent_score", "suggested_reply", "is_lead"],
-                    additionalProperties: false,
-                  },
-                },
-              }],
-              tool_choice: { type: "function", function: { name: "analyze_lead" } },
-            }, { workspaceId: profile?.workspace_id || undefined, userId: user_id, taskType: "sales_reply", allowInternalNoWorkspace: !profile?.workspace_id });
-          if (aiRes.ok) {
-            const aiData = await aiRes.json();
-            const tc = aiData.choices?.[0]?.message?.tool_calls?.[0];
-            if (tc) {
-              const parsed = JSON.parse(tc.function.arguments);
-              aiScore = parsed.intent_score;
-              suggestedReply = parsed.suggested_reply;
-            }
-          }
-        } catch (e) {
-          console.error("AI analysis error:", e);
-        }
-      }
-    }
-
-    // Create inbox message
-    const { error: inboxErr } = await supabase.from("inbox_messages").insert({
-      user_id,
-      channel_id: channel_id || null,
-      channel_type: "email",
-      source_name: from_email || "Email",
-      sender_name: from_name || from_email || "Unknown",
-      sender_identifier: from_email || "",
-      message_content: messageContent,
-      message_timestamp: timestamp,
-      intent_score: aiScore,
-      matched_keywords: matched,
-      is_unread: true,
-      priority: aiScore >= 0.7 ? "high" : priority,
-      status: "new",
-    });
-
-    if (inboxErr) console.error("Inbox insert error:", inboxErr);
-
-    // Create lead if matched
-    let leadId = null;
-    if (matched.length > 0 && aiScore >= 0.3) {
-      const { data: lead } = await supabase
-        .from("leads")
-        .insert({
-          user_id,
-          message_content: messageContent,
-          source_name: from_email || "Email",
-          source_type: "email",
-          message_date: timestamp,
-          detected_keyword: matched[0],
-          intent_score: aiScore,
-          suggested_reply: suggestedReply,
-          status: "new",
-        })
-        .select("id")
-        .single();
-      leadId = lead?.id;
-    }
-
-    return new Response(JSON.stringify({ ok: true, matched: matched.length, lead_id: leadId }), {
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("email-ingest error:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown" }), {
-      status: 500,
+  if (unauth) {
+    return new Response(unauth.body, {
+      status: unauth.status,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
+
+  return new Response(JSON.stringify({
+    error: "Legacy email ingest is retired; use the verified IMAP email channel",
+    code: "EMAIL_INGEST_RETIRED",
+  }), {
+    status: 410,
+    headers: { ...getCors(req), "Content-Type": "application/json" },
+  });
 });
