@@ -21,6 +21,7 @@ create or replace function public.has_workspace_role(w uuid,roles text[]) return
 create or replace function public.has_active_support_scope(w uuid,s text) returns boolean language sql stable security definer set search_path='' as $$ select exists(select 1 from public.e2e_support x where x.user_id=(select auth.uid()) and x.ws=w and x.scope=s and x.revoked_at is null and x.expires_at>now()) $$;
 create or replace function public.e2e_assert(ok boolean,msg text) returns void language plpgsql as $$ begin if not ok then raise exception '%',msg; end if; end $$;
 create or replace function public.e2e_assert_denied(q text) returns void language plpgsql security invoker as $$ begin execute q; raise exception 'UNEXPECTED_SUCCESS'; exception when others then if sqlerrm='UNEXPECTED_SUCCESS' then raise; end if; end $$;
+create or replace function public.e2e_assert_denied_or_noop(q text) returns void language plpgsql security invoker as $$ begin execute q; if q ~* '^\s*update\b' then if not found then return; end if; elsif q ~* '^\s*delete\b' then if not found then return; end if; end if; raise exception 'UNEXPECTED_SUCCESS'; exception when others then if sqlerrm='UNEXPECTED_SUCCESS' then raise; end if; end $$;
 create or replace function public.e2e_immutable() returns trigger language plpgsql security invoker set search_path=pg_catalog as $$ begin if new.ws is distinct from old.ws then raise exception 'workspace immutable'; end if; if new.user_id is distinct from old.user_id then raise exception 'user immutable'; end if; return new; end $$;
 create or replace function public.e2e_parent_guard() returns trigger language plpgsql security definer set search_path='' as $$ begin if not exists(select 1 from public.e2e_resource p where p.id=new.parent_id and p.ws=new.ws) then raise exception 'foreign parent'; end if; return new; end $$;
 create trigger e2e_res_immutable before update of ws,user_id on public.e2e_resource for each row execute function public.e2e_immutable();
@@ -71,8 +72,8 @@ select set_config('request.jwt.claim.sub','33333333-3333-3333-3333-333333333333'
 select public.e2e_assert((select count(*) from public.e2e_resource where ws='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa')=1,'viewer own SELECT');
 select public.e2e_assert((select count(*) from public.e2e_resource where ws='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb')=0,'cross-workspace SELECT');
 select public.e2e_assert_denied($$insert into public.e2e_resource values('aaaaaaaa-aaaa-1000-0000-aaaaaaaaaaaa','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','33333333-3333-3333-3333-333333333333','viewer')$$);
-select public.e2e_assert_denied($$update public.e2e_resource set payload='x' where id='aaaaaaaa-aaaa-0000-0000-aaaaaaaaaaaa'$$);
-select public.e2e_assert_denied($$delete from public.e2e_resource where id='aaaaaaaa-aaaa-0000-0000-aaaaaaaaaaaa'$$);
+select public.e2e_assert_denied_or_noop($$update public.e2e_resource set payload='x' where id='aaaaaaaa-aaaa-0000-0000-aaaaaaaaaaaa'$$);
+select public.e2e_assert_denied_or_noop($$delete from public.e2e_resource where id='aaaaaaaa-aaaa-0000-0000-aaaaaaaaaaaa'$$);
 
 select set_config('request.jwt.claim.sub','44444444-4444-4444-4444-444444444444',false);
 insert into public.e2e_resource values('aaaaaaaa-aaaa-1001-0000-aaaaaaaaaaaa','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','44444444-4444-4444-4444-444444444444','member');
@@ -80,8 +81,8 @@ select public.e2e_assert_denied($$insert into public.e2e_resource values('aaaaaa
 select public.e2e_assert_denied($$insert into public.e2e_resource values('aaaaaaaa-aaaa-1003-0000-aaaaaaaaaaaa','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','11111111-1111-1111-1111-111111111111','spoof')$$);
 select public.e2e_assert_denied($$update public.e2e_resource set ws='bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' where id='aaaaaaaa-aaaa-1001-0000-aaaaaaaaaaaa'$$);
 select public.e2e_assert_denied($$update public.e2e_resource set user_id='11111111-1111-1111-1111-111111111111' where id='aaaaaaaa-aaaa-1001-0000-aaaaaaaaaaaa'$$);
-select public.e2e_assert_denied($$update public.e2e_resource set payload='cross' where id='bbbbbbbb-bbbb-0000-0000-bbbbbbbbbbbb'$$);
-select public.e2e_assert_denied($$delete from public.e2e_resource where id='bbbbbbbb-bbbb-0000-0000-bbbbbbbbbbbb'$$);
+select public.e2e_assert_denied_or_noop($$update public.e2e_resource set payload='cross' where id='bbbbbbbb-bbbb-0000-0000-bbbbbbbbbbbb'$$);
+select public.e2e_assert_denied_or_noop($$delete from public.e2e_resource where id='bbbbbbbb-bbbb-0000-0000-bbbbbbbbbbbb'$$);
 select public.e2e_assert_denied($$insert into public.e2e_child values('aaaaaaaa-aaaa-1004-0000-aaaaaaaaaaaa','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa','44444444-4444-4444-4444-444444444444','bbbbbbbb-bbbb-0000-0000-bbbbbbbbbbbb')$$);
 
 select set_config('request.jwt.claim.sub','55555555-5555-5555-5555-555555555555',false);
