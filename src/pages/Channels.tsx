@@ -14,6 +14,7 @@ import { ConnectedChannelCard } from "@/components/channels/ConnectedChannelCard
 import { ChannelCatalogCard } from "@/components/channels/ChannelCatalogCard";
 import { ChannelOrbitSelector } from "@/components/channels/ChannelOrbitSelector";
 import { ValidateWhatsAppButton } from "@/components/channels/ValidateWhatsAppButton";
+import { WebsiteChatSetupDialog } from "@/components/channels/WebsiteChatSetupDialog";
 import type { PlanKey } from "@/types/monetization";
 import {
   Globe, Mail, MessageSquare, Plug, Radio, Webhook,
@@ -33,6 +34,7 @@ const Channels = () => {
     existingId?: string;
     existingMode?: "professional" | "personal";
   }>({ channel: null });
+  const [websiteChatOpen, setWebsiteChatOpen] = useState(false);
 
   const { toggleChannel, deleteChannel } = useChannels();
   const { data: connectedChannels, isLoading } = useConnectedChannels();
@@ -62,9 +64,21 @@ const Channels = () => {
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") || "channels";
 
+  const openConnectionFlow = (item: ChannelRegistryWithModes, existing?: ConnectedChannel) => {
+    if (item.id === "website_chat") {
+      setWebsiteChatOpen(true);
+      return;
+    }
+    setConnectModal({
+      channel: item,
+      existingId: existing?.id,
+      existingMode: existing?.connection_mode,
+    });
+  };
+
   const handleUpgrade = (ch: ConnectedChannel) => {
     const reg = getRegistryItem(ch.channel_type);
-    if (reg) setConnectModal({ channel: reg, existingId: ch.id, existingMode: ch.connection_mode });
+    if (reg) openConnectionFlow(reg, ch);
   };
 
   return (
@@ -92,11 +106,7 @@ const Channels = () => {
                   items={registryItems}
                   connectedChannels={channels}
                   canAccess={canAccessChannel}
-                  onChoose={(item, existing) => setConnectModal({
-                    channel: item,
-                    existingId: existing?.id,
-                    existingMode: existing?.connection_mode,
-                  })}
+                  onChoose={(item, existing) => openConnectionFlow(item, existing)}
                 />
               </CardContent>
             </Card>
@@ -134,6 +144,7 @@ const Channels = () => {
                         onDelete={(id) => deleteChannel.mutate(id)}
                         onUpgrade={handleUpgrade}
                         onReconnect={handleUpgrade}
+                        onEdit={ch.channel_type === "website_chat" ? () => setWebsiteChatOpen(true) : undefined}
                       />
                     ))}
                   </div>
@@ -179,8 +190,8 @@ const Channels = () => {
                               existing={existing}
                               hasAccess={hasAccess}
                               minPlanName={minPlanName}
-                              onConnect={() => setConnectModal({ channel: item })}
-                              onManage={() => setConnectModal({ channel: item, existingId: existing?.id, existingMode: existing?.connection_mode })}
+                              onConnect={() => openConnectionFlow(item)}
+                              onManage={() => openConnectionFlow(item, existing)}
                               onUpgrade={() => window.location.href = '/pricing'}
                             />
                           );
@@ -198,6 +209,11 @@ const Channels = () => {
           <WebhookActivityLogs />
         </TabsContent>
       </Tabs>
+
+      <WebsiteChatSetupDialog
+        open={websiteChatOpen}
+        onOpenChange={setWebsiteChatOpen}
+      />
 
       <ChannelConnectionModal
         open={!!connectModal.channel}
