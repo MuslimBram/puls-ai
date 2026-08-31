@@ -7,8 +7,6 @@ import { buildCorsHeaders } from "../_shared/security-headers.ts";
 const admin = createAdminClient();
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const PROJECT_STATUSES = new Set(["planning", "building", "ready", "deployed", "failed", "archived"]);
-const TASK_STATUSES = new Set(["queued", "running", "succeeded", "failed", "cancelled", "retry_wait"]);
 
 function json(req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -44,11 +42,6 @@ function slugify(name: string): string {
   return `${base}-${suffix}`;
 }
 
-async function sha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
 async function requireProject(workspaceId: string, projectId: string) {
   const { data, error } = await admin.from("leah_projects")
     .select("id, workspace_id, status, version")
@@ -59,6 +52,38 @@ async function requireProject(workspaceId: string, projectId: string) {
   if (error) throw error;
   if (!data) throw new Error("Project not found");
   return data;
+}
+
+async function requireWorkspaceAdmin(userId: string, workspaceId: string) {
+  const { data, error } = await admin.rpc("has_workspace_role_for_user", {
+    _user_id: userId,
+    _workspace_id: workspaceId,
+    _roles: ["owner", "admin"],
+  });
+  if (error) throw error;
+  if (!data) throw new Error("Forbidden: LEAH workspace admin required");
+}
+
+function errorStatus(message: string): number {
+  if (message === "LEAH session required" || message === "LEAH session invalid or expired") return 401;
+  if (
+    message === "Forbidden" ||
+    message.startsWith("Forbidden:") ||
+    message.includes("access revoked") ||
+    message.includes("access denied") ||
+    message.includes("entitlement inactive") ||
+    message.includes("entitlement expired")
+  ) return 403;
+  if (message.toLowerCase().includes("not found")) return 404;
+  if (message.toLowerCase().includes("conflict") || message.toLowerCase().includes("terminal")) return 409;
+  if (
+    message.includes("required") ||
+    message.includes("Invalid") ||
+    message.includes("must not") ||
+    message.includes("exceeds") ||
+    message.includes("unsupported")
+  ) return 400;
+  return 500;
 }
 
 serve(async (req) => {
@@ -74,12 +99,15 @@ serve(async (req) => {
     const userId = session.userId;
 
     if (action === "session.revoke") {
-      const { error } = await admin.from("leah_access_sessions")
+      const { data, error } = await admin.from("leah_access_sessions")
         .update({ revoked_at: new Date().toISOString() })
         .eq("id", session.id)
         .eq("workspace_id", workspaceId)
-        .eq("user_id", userId);
+        .eq("user_id", userId)
+        .select("id")
+        .maybeSingle();
       if (error) throw error;
+      if (!data) throw new Error("LEAH session not found");
       return json(req, { success: true });
     }
 
@@ -128,8 +156,13 @@ serve(async (req) => {
       const patchRaw = body.patch;
       if (!patchRaw || typeof patchRaw !== "object" || Array.isArray(patchRaw)) throw new Error("patch is required");
       const patch = patchRaw as Record<string, unknown>;
-      if (Object.prototype.hasOwnProperty.call(patch, "workspace_id") || Object.prototype.hasOwnProperty.call(patch, "workspaceId")) {
-        throw new Error("workspace_id is server-derived and must not be supplied");
+      if (
+        Object.prototype.hasOwnProperty.call(patch, "workspace_id") ||
+        Object.prototype.hasOwnProperty.call(patch, "workspaceId") ||
+        Object.prototype.hasOwnProperty.call(patch, "status") ||
+        Object.prototype.hasOwnProperty.call(patch, "archived_at")
+      ) {
+        throw new Error("unsupported server-managed project field");
       }
 
       const update: Record<string, unknown> = {
@@ -139,10 +172,6 @@ serve(async (req) => {
       if (patch.name !== undefined) update.name = stringField(patch, "name", 120);
       if (patch.description !== undefined) update.description = optionalString(patch.description, 10_000) ?? "";
       if (patch.goal !== undefined) update.goal = optionalString(patch.goal, 10_000) ?? "";
-      if (patch.status !== undefined) {
-        if (typeof patch.status !== "string" || !PROJECT_STATUSES.has(patch.status)) throw new Error("Invalid project status");
-        update.status = patch.status;
-      }
       if (Object.keys(update).length === 2) throw new Error("No supported fields in patch");
 
       const { data, error } = await admin.from("leah_projects").update(update)
@@ -168,6 +197,7 @@ serve(async (req) => {
         updated_at: now,
         version: expectedVersion + 1,
       }).eq("id", projectId).eq("workspace_id", workspaceId).eq("version", expectedVersion)
+        .is("archived_at", null)
         .select("id, status, version, archived_at").maybeSingle();
       if (error) throw error;
       if (!data) throw new Error("Version conflict or project not found");
@@ -183,39 +213,6 @@ serve(async (req) => {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return json(req, { artifacts: data ?? [] });
-    }
-
-    if (action === "artifacts.put") {
-      const projectId = uuidField(body, "project_id");
-      const kind = stringField(body, "kind", 80);
-      const path = stringField(body, "path", 500);
-      const content = typeof body.content === "string" ? body.content : "";
-      if (content.length > 1_000_000) throw new Error("Artifact content exceeds 1 MB; use object storage");
-      await requireProject(workspaceId, projectId);
-      const hash = await sha256Hex(content);
-
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const { data: latest, error: latestError } = await admin.from("leah_project_artifacts")
-          .select("id, version")
-          .eq("workspace_id", workspaceId).eq("project_id", projectId).eq("path", path)
-          .order("version", { ascending: false }).limit(1).maybeSingle();
-        if (latestError) throw latestError;
-        const nextVersion = (latest?.version ?? 0) + 1;
-        const { data, error } = await admin.from("leah_project_artifacts").insert({
-          workspace_id: workspaceId,
-          project_id: projectId,
-          kind,
-          path,
-          content,
-          content_hash: hash,
-          version: nextVersion,
-          supersedes_id: latest?.id ?? null,
-          created_by: userId,
-        }).select("id, project_id, kind, path, content_hash, version, supersedes_id, created_at").single();
-        if (!error) return json(req, { artifact: data }, 201);
-        if (error.code !== "23505" || attempt === 2) throw error;
-      }
-      throw new Error("Artifact version allocation failed");
     }
 
     if (action === "executions.start") {
@@ -255,84 +252,34 @@ serve(async (req) => {
       return json(req, { execution: data, idempotent_replay: false }, 201);
     }
 
-    if (action === "executions.complete" || action === "executions.fail") {
-      const executionId = uuidField(body, "execution_id");
-      const status = action === "executions.complete" ? "succeeded" : "failed";
-      const patch: Record<string, unknown> = {
-        status,
-        ended_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      if (status === "failed") {
-        patch.error_code = typeof body.error_code === "string" ? body.error_code.slice(0, 100) : "execution_failed";
-        patch.error_detail = body.error_detail && typeof body.error_detail === "object" ? body.error_detail : { message: "Execution failed" };
-      }
-      const { data, error } = await admin.from("leah_executions").update(patch)
-        .eq("id", executionId).eq("workspace_id", workspaceId)
-        .in("status", ["queued", "running"])
-        .select("id, project_id, status, error_code, error_detail, ended_at").maybeSingle();
+    if (action === "executions.list") {
+      const projectId = uuidField(body, "project_id");
+      await requireProject(workspaceId, projectId);
+      const { data, error } = await admin.from("leah_executions")
+        .select("id, project_id, requested_by, status, idempotency_key, attempt, error_code, error_detail, started_at, ended_at, created_at, updated_at")
+        .eq("workspace_id", workspaceId)
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      if (!data) throw new Error("Execution not found or already terminal");
-      return json(req, { execution: data });
+      return json(req, { executions: data ?? [] });
     }
 
-    if (action === "tasks.add") {
+    if (action === "tasks.list") {
       const executionId = uuidField(body, "execution_id");
       const { data: execution, error: executionError } = await admin.from("leah_executions")
-        .select("id, project_id, status")
-        .eq("id", executionId).eq("workspace_id", workspaceId).maybeSingle();
+        .select("id")
+        .eq("id", executionId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
       if (executionError) throw executionError;
       if (!execution) throw new Error("Execution not found");
-      if (["succeeded", "failed", "cancelled"].includes(execution.status)) throw new Error("Execution is terminal");
-      const input = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? body.input : {};
-      const priority = Number.isInteger(Number(body.priority)) ? Math.max(-10_000, Math.min(10_000, Number(body.priority))) : 100;
-
-      for (let attempt = 0; attempt < 3; attempt++) {
-        const { data: latest, error: latestError } = await admin.from("leah_tasks")
-          .select("seq").eq("workspace_id", workspaceId).eq("execution_id", executionId)
-          .order("seq", { ascending: false }).limit(1).maybeSingle();
-        if (latestError) throw latestError;
-        const seq = (latest?.seq ?? -1) + 1;
-        const { data, error } = await admin.from("leah_tasks").insert({
-          workspace_id: workspaceId,
-          execution_id: executionId,
-          project_id: execution.project_id,
-          seq,
-          priority,
-          input,
-        }).select("id, execution_id, project_id, seq, priority, status, attempt, available_at, created_at").single();
-        if (!error) return json(req, { task: data }, 201);
-        if (error.code !== "23505" || attempt === 2) throw error;
-      }
-      throw new Error("Task sequence allocation failed");
-    }
-
-    if (action === "tasks.transition") {
-      const taskId = uuidField(body, "task_id");
-      const fromStatus = stringField(body, "from_status", 40);
-      const toStatus = stringField(body, "to_status", 40);
-      if (!TASK_STATUSES.has(fromStatus) || !TASK_STATUSES.has(toStatus)) throw new Error("Invalid task status");
-      const now = new Date().toISOString();
-      const patch: Record<string, unknown> = { status: toStatus, updated_at: now };
-      if (toStatus === "running") {
-        patch.started_at = now;
-        patch.attempt = Number(body.attempt ?? 1);
-      }
-      if (["succeeded", "failed", "cancelled"].includes(toStatus)) patch.ended_at = now;
-      if (body.output !== undefined) patch.output = body.output;
-      if (body.error !== undefined) patch.error = body.error;
-      if (toStatus === "retry_wait") {
-        const delayMs = Math.max(0, Math.min(24 * 60 * 60 * 1000, Number(body.retry_delay_ms ?? 1000)));
-        patch.available_at = new Date(Date.now() + delayMs).toISOString();
-      }
-
-      const { data, error } = await admin.from("leah_tasks").update(patch)
-        .eq("id", taskId).eq("workspace_id", workspaceId).eq("status", fromStatus)
-        .select("id, execution_id, seq, priority, status, attempt, available_at, started_at, ended_at, output, error")
-        .maybeSingle();
+      const { data, error } = await admin.from("leah_tasks")
+        .select("id, execution_id, project_id, seq, priority, status, attempt, available_at, started_at, ended_at, output, error, created_at, updated_at")
+        .eq("workspace_id", workspaceId)
+        .eq("execution_id", executionId)
+        .order("seq");
       if (error) throw error;
-      if (!data) throw new Error("Task state conflict or task not found");
-      return json(req, { task: data });
+      return json(req, { tasks: data ?? [] });
     }
 
     if (action === "memory.project.list") {
@@ -368,6 +315,7 @@ serve(async (req) => {
       const { data, error } = await admin.from("leah_project_memory").insert({
         workspace_id: workspaceId, project_id: projectId, key, value: body.value, updated_by: userId,
       }).select("id, project_id, key, value, version, updated_at").single();
+      if (error?.code === "23505") throw new Error("Memory version conflict");
       if (error) throw error;
       return json(req, { memory: data }, 201);
     }
@@ -404,6 +352,7 @@ serve(async (req) => {
       const key = stringField(body, "key", 200);
       if (body.value === undefined) throw new Error("value is required");
       const userScoped = body.user_scoped !== false;
+      if (!userScoped) await requireWorkspaceAdmin(userId, workspaceId);
       const targetUser = userScoped ? userId : null;
       let query = admin.from("leah_preferences").select("id")
         .eq("workspace_id", workspaceId).eq("scope", scope).eq("key", key);
@@ -421,11 +370,13 @@ serve(async (req) => {
       const { data, error } = await admin.from("leah_preferences").insert({
         workspace_id: workspaceId, user_id: targetUser, scope, key, value: body.value, updated_by: userId,
       }).select("id, user_id, scope, key, value, updated_at").single();
+      if (error?.code === "23505") throw new Error("Preference conflict");
       if (error) throw error;
       return json(req, { preference: data }, 201);
     }
 
     if (action === "secrets.list") {
+      await requireWorkspaceAdmin(userId, workspaceId);
       const { data, error } = await admin.from("leah_secret_registry")
         .select("id, alias, provider, hint, status, version, rotated_from, created_at, revoked_at")
         .eq("workspace_id", workspaceId).order("created_at", { ascending: false });
@@ -434,6 +385,7 @@ serve(async (req) => {
     }
 
     if (action === "secrets.create") {
+      await requireWorkspaceAdmin(userId, workspaceId);
       const alias = stringField(body, "alias", 100);
       const provider = stringField(body, "provider", 100);
       const secretValue = stringField(body, "secret", 20_000);
@@ -449,6 +401,7 @@ serve(async (req) => {
     }
 
     if (action === "secrets.rotate") {
+      await requireWorkspaceAdmin(userId, workspaceId);
       const secretId = uuidField(body, "secret_id");
       const secretValue = stringField(body, "secret", 20_000);
       const { data, error } = await admin.rpc("leah_vault_rotate", {
@@ -462,6 +415,7 @@ serve(async (req) => {
     }
 
     if (action === "secrets.revoke") {
+      await requireWorkspaceAdmin(userId, workspaceId);
       const secretId = uuidField(body, "secret_id");
       const { data, error } = await admin.rpc("leah_vault_revoke", {
         _workspace_id: workspaceId,
@@ -476,11 +430,6 @@ serve(async (req) => {
     throw new Error("Unknown LEAH action");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    const status = message.includes("session") ? 401 :
-      message === "Forbidden" || message.includes("access denied") ? 403 :
-      message.includes("not found") ? 404 :
-      message.includes("conflict") || message.includes("terminal") ? 409 :
-      message.includes("required") || message.includes("Invalid") || message.includes("must not") || message.includes("exceeds") ? 400 : 500;
-    return json(req, { error: message }, status);
+    return json(req, { error: message }, errorStatus(message));
   }
 });
