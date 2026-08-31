@@ -219,6 +219,7 @@ async function ensureInboxMessage(
     content: string;
     messageTimestamp: string;
     security: Awaited<ReturnType<typeof scanInboundContent>>;
+    attachment?: { mime_type: string } | null;
   },
 ): Promise<{ id?: string | null }> {
   if (params.platform === "instagram") {
@@ -236,6 +237,7 @@ async function ensureInboxMessage(
       delivery_status:     "delivered",
       is_unread:           true,
       provider_message_id: params.messageId,
+      media_attachments:   params.attachment ? [params.attachment] : [],
       metadata: {
         page_id: params.pageId,
         sender_id: params.senderId,
@@ -276,6 +278,7 @@ async function ensureInboxMessage(
     delivery_status:     "delivered",
     is_unread:           true,
     provider_message_id: params.messageId,
+    media_attachments:   params.attachment ? [params.attachment] : [],
     metadata: {
       page_id: params.pageId,
       sender_id: params.senderId,
@@ -461,6 +464,7 @@ async function processMetaMessage(
     content,
     messageTimestamp,
     security,
+    attachment: attachments.length ? { mime_type: "application/octet-stream" } : null,
   });
   await ensureLead(sb, {
     mapping: params.mapping,
