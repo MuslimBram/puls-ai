@@ -44,6 +44,8 @@ BEGIN
     );
   END IF;
 
+  -- Completeness is bound server-side by the enqueue RPC. Never infer the
+  -- expected number of files from the rows that happen to exist.
   v_expected_attachment_count := v_event.expected_attachment_count;
   IF v_expected_attachment_count IS NULL OR v_expected_attachment_count < 1 THEN
     RETURN jsonb_build_object(
@@ -96,6 +98,9 @@ BEGIN
     );
   END IF;
 
+  -- A clean file set cannot erase a text-policy quarantine/reject. The firewall
+  -- must have persisted a machine-only text_policy before automated readiness
+  -- can ever be considered. Until then this stays human-review-only.
   v_text_policy := COALESCE(v_event.metadata -> 'text_policy', '{}'::jsonb);
   v_text_action := v_text_policy ->> 'action';
   v_text_category := v_text_policy ->> 'category';
