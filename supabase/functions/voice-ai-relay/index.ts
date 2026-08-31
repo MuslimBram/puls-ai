@@ -5,11 +5,11 @@
  *   1. Resolve workspace from provider-owned called-number mapping
  *   2. Validate Twilio WebSocket signature with that workspace token BEFORE upgrade
  *   3. Never accept query-string workspace_id as tenant identity
- *   4. Gate final caller transcripts through Content Security before handoff/AI/persistence
- *   5. Route AI through ai-router (NOT hardwired to Anthropic)
- *   6. Scrub sensitive data from current and historical turns before any AI prompt
- *   7. Feature flag: voice_ai_enabled must be true on channel
- *   8. Session persistence for reconnect
+ *   4. Bind prompt event identity to Twilio ConversationRelay sessionId + turn sequence
+ *   5. Gate final caller transcripts through Content Security before handoff/AI/persistence
+ *   6. Route AI through ai-router (NOT hardwired to Anthropic)
+ *   7. Scrub sensitive data from current and historical turns before any AI prompt
+ *   8. Feature flag: voice_ai_enabled must be true on channel
  */
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
@@ -148,6 +148,7 @@ Deno.serve(async (req) => {
 
   let session: Record<string, any> | null = null;
   let systemPrompt = "";
+  let relaySessionId = "";
   let promptSequence = 0;
 
   socket.onopen = async () => {
@@ -185,9 +186,6 @@ RULES:
         conversation_turns: [],
       }).select().single()).data;
 
-      const persistedTurns = Array.isArray(session?.conversation_turns) ? session!.conversation_turns as Array<any> : [];
-      promptSequence = persistedTurns.filter((turn) => turn?.role === "user").length;
-
       const greeting = custName
         ? `Hello ${custName}, thank you for calling ${bizName}. How can I help you today?`
         : `Thank you for calling ${bizName}. How can I help you today?`;
@@ -202,10 +200,35 @@ RULES:
   socket.onmessage = async (event) => {
     try {
       const msg = JSON.parse(event.data as string);
+
+      if (msg.type === "setup") {
+        const setupSessionId = typeof msg.sessionId === "string" ? msg.sessionId.trim() : "";
+        const setupCallSid = typeof msg.callSid === "string" ? msg.callSid.trim() : "";
+        if (!setupSessionId || (callSid && setupCallSid && setupCallSid !== callSid)) {
+          socket.close(1008, "invalid_twilio_setup_identity");
+          return;
+        }
+        relaySessionId = setupSessionId;
+        promptSequence = 0;
+        if (session) {
+          await sb.from("voice_ai_sessions").update({
+            ws_session_id: relaySessionId,
+            updated_at: new Date().toISOString(),
+          })
+            .eq("call_sid", callSid)
+            .eq("workspace_id", workspaceId);
+        }
+        return;
+      }
+
       if (msg.type !== "prompt" || typeof msg.voicePrompt !== "string") return;
-      // ConversationRelay can emit partial prompt messages. Only the provider-marked
-      // final transcript is a business/security event and may reach AI.
       if (msg.last !== true) return;
+      // Twilio documents setup as the first ConversationRelay WebSocket message.
+      // Fail closed if a prompt somehow arrives without a provider session identity.
+      if (!relaySessionId) {
+        socket.close(1008, "missing_twilio_setup_identity");
+        return;
+      }
 
       const userText = msg.voicePrompt.trim();
       if (!userText) return;
@@ -214,7 +237,7 @@ RULES:
       const security = await scanInboundContent({
         workspace_id: workspaceId,
         source: "voice",
-        event_id: `voice:${callSid}:turn:${promptSequence}`,
+        event_id: `voice:${relaySessionId}:turn:${promptSequence}`,
         content: userText,
         urls: extractSecurityUrls(userText),
         attachment: null,
