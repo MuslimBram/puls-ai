@@ -370,6 +370,10 @@ serve(async (req) => {
               const dateStr = typeof parsed.date === "string" && parsed.date.trim() ? parsed.date.trim() : null;
               const messageId = typeof parsed.messageId === "string" && parsed.messageId.trim() ? parsed.messageId.trim() : null;
               const inReplyTo = typeof parsed.inReplyTo === "string" && parsed.inReplyTo.trim() ? parsed.inReplyTo.trim() : null;
+              const headers = {
+                inReplyTo,
+                hasAttachment: rawAttachments.length > 0,
+              };
               const plainText = typeof parsed.text === "string" ? parsed.text : "";
               const htmlText = typeof parsed.html === "string" ? stripHtml(parsed.html) : "";
               const textBody = (plainText || htmlText || subject).trim();
@@ -452,7 +456,10 @@ serve(async (req) => {
                   }
                 }
                 totalSkipped++;
-                await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+                // Attachment-bearing mail stays UNSEEN (waiting for malware scan completion)
+                if (!headers.hasAttachment) {
+                  await imapCommand(conn, `S${msgId}`, `STORE ${msgId} +FLAGS (\\Seen)`);
+                }
                 continue;
               }
 
@@ -550,7 +557,7 @@ serve(async (req) => {
                   .select("thread_id")
                   .eq("workspace_id", channel.workspace_id)
                   .eq("channel_id", channel.id)
-                  .in("provider_message_id", [canonicalReplyId, inReplyTo])
+                  .in("provider_message_id", [canonicalReplyId, headers.inReplyTo])
                   .not("thread_id", "is", null)
                   .limit(1)
                   .maybeSingle();

@@ -181,7 +181,12 @@ serve(async (req) => {
       });
     }
 
+    const matchedChannel = wsCreds;
     const workspaceId = wsCreds.workspace_id;
+    const resolvedWorkspaceId = workspaceId;
+    if (!workspaceId || resolvedWorkspaceId !== workspaceId) {
+      throw new Error("SMS channel is not linked to a workspace");
+    }
     const userId = wsCreds.user_id;
     const channelId = wsCreds.channel_id;
 
@@ -222,6 +227,7 @@ serve(async (req) => {
       errorCode = jsonBody.ErrorCode || "";
     }
 
+    // ── STATUS CALLBACK (delivery reconciliation) ──
     if (messageStatus && messageSid && !body && mediaItems.length === 0) {
       const statusMap: Record<string, string> = {
         queued: "queued", sending: "queued", sent: "sent",
@@ -246,7 +252,7 @@ serve(async (req) => {
       await supabase.from("inbox_messages")
         .update({ delivery_status: normalizedStatus, updated_at: new Date().toISOString() } as any)
         .eq("provider_message_id", messageSid)
-        .eq("workspace_id", workspaceId);
+        .eq("workspace_id", matchedChannel.workspace_id);
 
       if (["failed", "undelivered"].includes(normalizedStatus)) {
         const recipientPhone = from === to ? "" : (from || to);
@@ -266,6 +272,7 @@ serve(async (req) => {
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
 
+    // ── INBOUND MESSAGE ──
     if (!from || (!body && mediaItems.length === 0)) {
       return new Response("<Response></Response>", { status: 200, headers: { "Content-Type": "text/xml" } });
     }
@@ -317,7 +324,7 @@ serve(async (req) => {
       event_id: securityEventId,
       content: securityContent,
       urls: extractSecurityUrls(body),
-      attachment: aggregateAttachment,
+      attachment: mediaItems.length > 0 ? aggregateAttachment : null,
     });
 
     if (!security.ok) {

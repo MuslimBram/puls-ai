@@ -49,6 +49,9 @@ export function validatePublicWebchatInput(body: WebchatPublicInput): WebchatInp
   }
 
   const rawEventId = typeof body.event_id === "string" ? body.event_id.trim() : "";
+  if (typeof body.event_id === "string" && rawEventId === "") {
+    return { ok: false, status: 400, error: "event_id is required" };
+  }
   if (rawEventId && (rawEventId.length < 8 || rawEventId.length > 200 || !EVENT_ID_PATTERN.test(rawEventId))) {
     return { ok: false, status: 400, error: "invalid event_id" };
   }

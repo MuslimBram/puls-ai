@@ -45,12 +45,12 @@ type ChannelRow = {
 
 type WhatsAppAttachmentShape = {
   mime_type: string;
-  media_id: string;
 };
 
 type WhatsAppMessageShape = {
   content: string;
   attachment: WhatsAppAttachmentShape | null;
+  mediaId?: string;
 };
 
 type DownloadedMedia = {
@@ -94,7 +94,7 @@ function normalizeMessage(msg: Record<string, any>): WhatsAppMessageShape {
       : typeof msg.caption === "string" && msg.caption.trim()
         ? msg.caption
         : `[whatsapp_media:${String(msg.type)}]`;
-    return { content: caption, attachment: { mime_type: mimeType, media_id: mediaId } };
+    return { content: caption, attachment: { mime_type: mimeType }, mediaId };
   }
 
   return { content: `[whatsapp_event:${String(msg.type || "unknown")}]`, attachment: null };
@@ -378,19 +378,20 @@ serve(async (req) => {
         }
 
         const channel = matches[0] as ChannelRow & { user_id: string; workspace_id: string };
+        const workspaceId = channel.workspace_id;
 
-        // Delivery status is not untrusted message content. Keep it lightweight,
-        // but tenant-bind it to the resolved WhatsApp workspace.
-        for (const statusEvent of statuses) {
-          if (!statusEvent?.id) continue;
+        // Delivery status updates
+        for (const st of statuses) {
+          if (!st?.id) continue;
           const { error: statusError } = await sb.from("inbox_messages")
-            .update({ delivery_status: statusEvent.status, updated_at: new Date().toISOString() })
-            .eq("provider_message_id", statusEvent.id)
-            .eq("workspace_id", channel.workspace_id)
+            .update({ delivery_status: st.status, updated_at: new Date().toISOString() })
+            .eq("provider_message_id", st.id)
+            .eq("workspace_id", workspaceId)
             .eq("channel_id", channel.id);
           if (statusError) console.warn("[WA] delivery status update failed", statusError.code ?? "unknown");
         }
 
+        // Inbound messages
         for (const msg of messages) {
           const waId = typeof msg?.id === "string" ? msg.id.trim() : "";
           const senderId = typeof msg?.from === "string" ? msg.from.trim() : "";
@@ -412,7 +413,7 @@ serve(async (req) => {
             const encryptedToken = typeof encrypted.access_token === "string" ? encrypted.access_token : "";
             const legacyToken = typeof settings.access_token === "string" ? settings.access_token : "";
             const tokenValue = encryptedToken || legacyToken;
-            if (!tokenValue || !normalized.attachment.media_id) {
+            if (!tokenValue || !normalized.mediaId) {
               return new Response(JSON.stringify({ error: "whatsapp_media_credentials_unavailable" }), {
                 status: 503,
                 headers: { "Content-Type": "application/json" },
@@ -423,7 +424,7 @@ serve(async (req) => {
             try {
               accessToken = await decryptIfNeeded(tokenValue);
               downloaded = await downloadWhatsAppMedia(
-                normalized.attachment.media_id,
+                normalized.mediaId!,
                 accessToken,
                 normalized.attachment.mime_type,
               );

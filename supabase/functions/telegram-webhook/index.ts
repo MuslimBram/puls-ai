@@ -180,8 +180,8 @@ serve(async (req) => {
       });
     }
 
-    const attachment = telegramAttachment(msg);
-    const content = telegramContent(msg, attachment);
+    const tgMedia = telegramAttachment(msg);
+    const content = telegramContent(msg, tgMedia);
     if (!content) {
       return new Response(JSON.stringify({ ok: true, skipped: "Unsupported Telegram event" }), {
         headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -234,14 +234,14 @@ serve(async (req) => {
     const idempotencyKey = `tg:${channel.id}:update:${String(updateId)}`;
 
     let downloaded: DownloadedTelegramFile | null = null;
-    if (attachment) {
+    if (tgMedia) {
       const credentials = (channel.credentials_encrypted || {}) as Record<string, unknown>;
       const encryptedToken = typeof credentials.bot_token === "string" ? credentials.bot_token : "";
       let botToken = "";
       try {
         botToken = encryptedToken ? await decryptIfNeeded(encryptedToken) : (Deno.env.get("TELEGRAM_BOT_TOKEN") || "");
         if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN_MISSING");
-        downloaded = await downloadTelegramFile(botToken, attachment);
+        downloaded = await downloadTelegramFile(botToken, tgMedia);
       } catch (error) {
         console.error("[TELEGRAM-WEBHOOK] attachment preparation failed", error instanceof Error ? error.message : "unknown");
         return new Response(JSON.stringify({ ok: false, error: "telegram_attachment_preparation_failed" }), {
@@ -251,19 +251,21 @@ serve(async (req) => {
       }
     }
 
+    const attachment = tgMedia
+      ? {
+          mime_type: downloaded?.mime_type ?? tgMedia.mime_type,
+          size_bytes: downloaded?.bytes.byteLength,
+          sha256: downloaded?.sha256,
+        }
+      : null;
+
     const security = await scanInboundContent({
       workspace_id: workspaceId,
       source: "telegram",
       event_id: idempotencyKey,
       content,
       urls: extractSecurityUrls(content),
-      attachment: attachment
-        ? {
-            mime_type: downloaded?.mime_type ?? attachment.mime_type,
-            size_bytes: downloaded?.bytes.byteLength,
-            sha256: downloaded?.sha256,
-          }
-        : null,
+      attachment,
     });
 
     if (!security.ok) {
@@ -275,7 +277,7 @@ serve(async (req) => {
     }
 
     if (blocksNormalIngress(security.decision)) {
-      if (downloaded && attachment && security.decision.action === "quarantine") {
+      if (downloaded && tgMedia && security.decision.action === "quarantine") {
         const staged = await stageInboundAttachment({
           workspace_id: workspaceId,
           source: "telegram",
@@ -298,7 +300,7 @@ serve(async (req) => {
       });
     }
 
-    if (downloaded || attachment) {
+    if (downloaded || tgMedia) {
       return new Response(JSON.stringify({ ok: false, error: "attachment_security_contract_violation" }), {
         status: 500,
         headers: { ...getCors(req), "Content-Type": "application/json" },
