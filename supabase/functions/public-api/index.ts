@@ -3,6 +3,11 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -34,7 +39,6 @@ async function authenticateApiKey(req: Request) {
 
   if (error || !data || !data.workspace_id) throw new Error("Invalid or unscoped API key");
 
-  // Update usage
   await supabase.from("api_keys").update({
     last_used_at: new Date().toISOString(),
     usage_count: (data as any).usage_count + 1,
@@ -45,6 +49,16 @@ async function authenticateApiKey(req: Request) {
 
 function hasPermission(permissions: string[], required: string): boolean {
   return permissions.includes("admin") || permissions.includes(required);
+}
+
+function publicApiEventId(value: unknown): string {
+  if (value == null || value === "") return crypto.randomUUID();
+  if (typeof value !== "string") throw new Error("event_id must be a string");
+  const normalized = value.trim();
+  if (!/^[A-Za-z0-9_-]{8,160}$/.test(normalized)) {
+    throw new Error("event_id must be 8-160 characters using letters, numbers, _ or -");
+  }
+  return normalized;
 }
 
 async function fireZapierWebhooks(userId: string, workspaceId: string, eventType: string, payload: Record<string, unknown>) {
@@ -93,7 +107,6 @@ serve(async (req) => {
   const startTime = Date.now();
   const url = new URL(req.url);
   const pathParts = url.pathname.split("/").filter(Boolean);
-  // Expected: /public-api/{resource}
   const resource = pathParts[pathParts.length - 1] || url.searchParams.get("resource");
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip");
 
@@ -148,6 +161,30 @@ serve(async (req) => {
           if (!hasPermission(permissions, "write")) throw new Error("Insufficient permissions");
           const body = await req.json();
           if (typeof body.message !== "string" || !body.message.trim()) throw new Error("message is required");
+
+          const eventId = publicApiEventId(body.event_id ?? req.headers.get("x-idempotency-key"));
+          const message = body.message.trim();
+          const security = await scanInboundContent({
+            workspace_id,
+            source: "public_api",
+            event_id: `api:${eventId}`,
+            content: message,
+            urls: extractSecurityUrls(message),
+            attachment: null,
+          });
+
+          if (!security.ok) {
+            statusCode = security.status;
+            result = { error: "content_security_unavailable", code: security.code, event_id: eventId };
+            break;
+          }
+
+          if (blocksNormalIngress(security.decision)) {
+            statusCode = 202;
+            result = { accepted: false, quarantined: true, event_id: eventId };
+            break;
+          }
+
           const { data, error } = await supabase.from("inbox_messages").insert({
             user_id,
             workspace_id,
@@ -155,11 +192,35 @@ serve(async (req) => {
             source_name: "Public API",
             sender_name: body.sender_name || "API",
             sender_identifier: body.sender_identifier,
-            message_content: body.message,
+            message_content: message,
             direction: body.direction || "inbound",
+            provider_message_id: eventId,
+            metadata: {
+              content_security: {
+                event_id: `api:${eventId}`,
+                category: security.decision.category,
+                risk_score: security.decision.risk_score,
+                action: security.decision.action,
+              },
+            },
           }).select().single();
+
+          if (error?.code === "23505") {
+            const { data: existing, error: existingError } = await supabase
+              .from("inbox_messages")
+              .select("*")
+              .eq("workspace_id", workspace_id)
+              .eq("source_name", "Public API")
+              .eq("provider_message_id", eventId)
+              .limit(1)
+              .maybeSingle();
+            if (existingError || !existing) throw existingError ?? new Error("duplicate message lookup failed");
+            result = { message: existing, reused: true, event_id: eventId };
+            break;
+          }
           if (error) throw error;
-          result = { message: data };
+
+          result = { message: data, reused: security.reused, event_id: eventId };
           statusCode = 201;
           await fireZapierWebhooks(user_id, workspace_id, "message.received", data);
         } else if (req.method === "GET") {
@@ -202,7 +263,6 @@ serve(async (req) => {
           if (!hasPermission(permissions, "write")) throw new Error("Insufficient permissions");
           const body = await req.json();
           if (!body.workflow_id) throw new Error("workflow_id required");
-          // Look up workflow to get its trigger_type, then invoke execute-automation
           const { data: wf, error: wfErr } = await supabase
             .from("automation_workflows")
             .select("id, trigger_type, workspace_id, user_id")
@@ -240,7 +300,7 @@ serve(async (req) => {
           if (!hasPermission(permissions, "read")) throw new Error("Insufficient permissions");
           const days = parseInt(url.searchParams.get("days") || "7");
           const since = new Date(Date.now() - days * 86400000).toISOString();
-          
+
           const [leadsRes, msgsRes, dealsRes] = await Promise.all([
             supabase.from("leads").select("id", { count: "exact" }).eq("workspace_id", workspace_id).gte("created_at", since),
             supabase.from("inbox_messages").select("id", { count: "exact" }).eq("workspace_id", workspace_id).gte("message_timestamp", since),
