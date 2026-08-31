@@ -148,94 +148,7 @@ async function resolveWorkspaceFromPage(
   return matches[0] ?? null;
 }
 
-async function ensureInboxMessage(
-  sb: ReturnType<typeof createClient>,
-  params: {
-    workspaceId: string;
-    channelId: string;
-    channelType: "instagram" | "facebook";
-    sourceName: string;
-    senderId: string;
-    content: string;
-    messageId: string;
-    messageTimestamp: string;
-    pageId: string;
-    securityEventId: string;
-    security: { category: string; risk_score: number; action: string };
-  },
-): Promise<string> {
-  const { data: existing, error: lookupError } = await sb
-    .from("inbox_messages")
-    .select("id")
-    .eq("workspace_id", params.workspaceId)
-    .eq("channel_id", params.channelId)
-    .eq("provider_message_id", params.messageId)
-    .limit(1)
-    .maybeSingle();
-  if (lookupError) throw lookupError;
-  if (existing?.id) return existing.id;
-
-  const { data: inserted, error: insertError } = await sb.from("inbox_messages").insert({
-    workspace_id: params.workspaceId,
-    channel_id: params.channelId,
-    channel_type: params.channelType,
-    source_name: params.sourceName,
-    sender_name: params.senderId,
-    sender_identifier: params.senderId,
-    message_content: params.content,
-    message_timestamp: params.messageTimestamp,
-    direction: "inbound",
-    status: "received",
-    delivery_status: "delivered",
-    is_unread: true,
-    provider_message_id: params.messageId,
-    metadata: {
-      page_id: params.pageId,
-      sender_id: params.senderId,
-      content_security: {
-        event_id: params.securityEventId,
-        category: params.security.category,
-        risk_score: params.security.risk_score,
-        action: params.security.action,
-      },
-    },
-  }).select("id").single();
-
-  if (!insertError && inserted?.id) return inserted.id;
-  if (insertError?.code === "23505") {
-    const { data: winner, error: winnerError } = await sb
-      .from("inbox_messages")
-      .select("id")
-      .eq("workspace_id", params.workspaceId)
-      .eq("channel_id", params.channelId)
-      .eq("provider_message_id", params.messageId)
-      .limit(1)
-      .maybeSingle();
-    if (!winnerError && winner?.id) return winner.id;
-  }
-  throw new Error("META_INBOX_PERSIST_FAILED");
-}
-
-async function ensureLead(
-  sb: ReturnType<typeof createClient>,
-  params: {
-    workspaceId: string;
-    channelType: "instagram" | "facebook";
-    senderId: string;
-  },
-): Promise<string> {
-  const { data: lead, error } = await sb.from("leads").upsert({
-    workspace_id: params.workspaceId,
-    channel_type: params.channelType,
-    contact_identifier: params.senderId,
-    source_type: params.channelType,
-    status: "new",
-  }, { onConflict: "workspace_id,contact_identifier" }).select("id").single();
-  if (error || !lead?.id) throw new Error("META_LEAD_PERSIST_FAILED");
-  return lead.id;
-}
-
-async function ensureCanonicalEvent(
+async function tryCanonicalInsert(
   sb: ReturnType<typeof createClient>,
   params: {
     workspaceId: string;
@@ -247,198 +160,52 @@ async function ensureCanonicalEvent(
     content: string;
     timestamp?: number;
   },
-): Promise<string> {
+): Promise<{ status: "inserted" | "duplicate" | "error"; id?: string }> {
   const canonicalEvent = buildCanonicalEngagementEvent({
-    workspace_id: params.workspaceId,
-    channel_id: params.channelId,
-    provider: params.provider,
+    workspace_id:       params.workspaceId,
+    channel_id:         params.channelId,
+    provider:           params.provider,
     account_identifier: params.accountIdentifier,
-    event_type: "message_received",
-    provider_event_id: params.providerEventId,
-    actor_provider_id: params.actorProviderId,
-    content_ref: params.content,
-    event_timestamp: params.timestamp != null
+    event_type:         "message_received",
+    provider_event_id:  params.providerEventId,
+    actor_provider_id:  params.actorProviderId,
+    content_ref:        params.content,
+    event_timestamp:    params.timestamp != null
       ? new Date(params.timestamp).toISOString()
       : new Date().toISOString(),
-    normalized_metadata: { page_id: params.accountIdentifier },
+    normalized_metadata:    { page_id: params.accountIdentifier },
     consent_classification: "platform_terms",
   });
 
   const { data: inserted, error } = await sb.from("social_engagement_events").insert({
-    workspace_id: canonicalEvent.workspace_id,
-    channel_id: canonicalEvent.channel_id,
-    provider: canonicalEvent.provider,
-    account_identifier: canonicalEvent.account_identifier,
-    event_type: canonicalEvent.event_type,
-    provider_event_id: canonicalEvent.provider_event_id,
-    actor_provider_id: canonicalEvent.actor_provider_id,
-    actor_identity_state: canonicalEvent.actor_identity_state,
+    workspace_id:           canonicalEvent.workspace_id,
+    channel_id:             canonicalEvent.channel_id,
+    provider:               canonicalEvent.provider,
+    account_identifier:     canonicalEvent.account_identifier,
+    event_type:             canonicalEvent.event_type,
+    provider_event_id:      canonicalEvent.provider_event_id,
+    actor_provider_id:      canonicalEvent.actor_provider_id,
+    actor_identity_state:   canonicalEvent.actor_identity_state,
     is_anonymous_aggregate: canonicalEvent.is_anonymous_aggregate,
-    content_ref: canonicalEvent.content_ref,
-    event_timestamp: canonicalEvent.event_timestamp,
-    normalized_metadata: canonicalEvent.normalized_metadata,
+    content_ref:            canonicalEvent.content_ref,
+    event_timestamp:        canonicalEvent.event_timestamp,
+    normalized_metadata:    canonicalEvent.normalized_metadata,
     consent_classification: canonicalEvent.consent_classification,
-    source_ref: canonicalEvent.source_ref,
-    idempotency_key: canonicalEvent.idempotency_key,
+    source_ref:             canonicalEvent.source_ref,
+    idempotency_key:        canonicalEvent.idempotency_key,
   }).select("id").single();
 
-  if (!error && inserted?.id) return inserted.id;
+  if (!error && inserted?.id) return { status: "inserted", id: inserted.id };
   if (error?.code === "23505") {
-    const { data: existing, error: existingError } = await sb
+    const { data: existing, error: existErr } = await sb
       .from("social_engagement_events")
       .select("id")
       .eq("idempotency_key", canonicalEvent.idempotency_key)
       .limit(1)
       .maybeSingle();
-    if (!existingError && existing?.id) return existing.id;
+    if (!existErr && existing?.id) return { status: "duplicate", id: existing.id };
   }
-  throw new Error("META_CANONICAL_EVENT_PERSIST_FAILED");
-}
-
-async function processMetaMessage(
-  sb: ReturnType<typeof createClient>,
-  params: {
-    mapping: WorkspaceMapping;
-    pageId: string;
-    event: Record<string, any>;
-    provider: "meta_ig" | "meta_fb";
-    channelType: "instagram" | "facebook";
-    sourceName: string;
-  },
-): Promise<"processed" | "quarantined" | "skipped"> {
-  const message = params.event?.message;
-  if (!message) return "skipped";
-
-  const messageId = typeof message.mid === "string" ? message.mid.trim() : "";
-  const senderId = typeof params.event?.sender?.id === "string" ? params.event.sender.id.trim() : "";
-  if (!messageId || !senderId) return "quarantined";
-
-  const text = typeof message.text === "string" ? message.text : "";
-  const rawAttachments = Array.isArray(message.attachments) ? message.attachments : [];
-  const content = text || (rawAttachments.length ? "[attachment]" : "");
-  if (!content) return "skipped";
-
-  let downloadedAttachments: DownloadedMetaAttachment[] = [];
-  if (rawAttachments.length > 0) {
-    const attachments = normalizeMetaAttachments(rawAttachments);
-    let totalBytes = 0;
-    for (const attachment of attachments) {
-      const downloaded = await downloadMetaAttachment(attachment);
-      totalBytes += downloaded.bytes.byteLength;
-      if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error("META_ATTACHMENTS_TOTAL_TOO_LARGE");
-      downloadedAttachments.push(downloaded);
-    }
-  }
-
-  let aggregateAttachment: { mime_type: string; size_bytes: number; sha256: string } | null = null;
-  if (downloadedAttachments.length > 0) {
-    const manifest = downloadedAttachments.map((attachment) => ({
-      index: attachment.index,
-      mime_type: attachment.mimeType,
-      byte_size: attachment.bytes.byteLength,
-      sha256: attachment.sha256,
-    }));
-    aggregateAttachment = {
-      mime_type: downloadedAttachments.length === 1 ? downloadedAttachments[0].mimeType : "multipart/mixed",
-      size_bytes: downloadedAttachments.reduce((sum, attachment) => sum + attachment.bytes.byteLength, 0),
-      sha256: downloadedAttachments.length === 1
-        ? downloadedAttachments[0].sha256
-        : await sha256Text(JSON.stringify(manifest)),
-    };
-  }
-
-  const securityEventId = `${params.provider === "meta_ig" ? "ig" : "fb"}:${messageId}`;
-  const security = await scanInboundContent({
-    workspace_id: params.mapping.workspace_id,
-    source: params.provider,
-    event_id: securityEventId,
-    content,
-    urls: extractSecurityUrls(content),
-    attachment: aggregateAttachment,
-  });
-
-  if (!security.ok) throw new Error("META_CONTENT_SECURITY_UNAVAILABLE");
-  if (blocksNormalIngress(security.decision)) {
-    if (downloadedAttachments.length > 0 && security.decision.action === "quarantine") {
-      for (const attachment of downloadedAttachments) {
-        const staged = await stageInboundAttachment({
-          workspace_id: params.mapping.workspace_id,
-          source: params.provider,
-          event_id: securityEventId,
-          attachment_key: `meta_media_${attachment.index}`,
-          expected_attachment_count: downloadedAttachments.length,
-          bytes: attachment.bytes,
-          mime_type: attachment.mimeType,
-        });
-        if (!staged.ok) throw new Error(`META_ATTACHMENT_STAGE_${staged.code}`);
-      }
-    }
-    return "quarantined";
-  }
-
-  if (downloadedAttachments.length > 0 || rawAttachments.length > 0) {
-    throw new Error("META_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
-  }
-
-  const claim = await claimEvent(sb, params.provider, messageId, params.mapping.workspace_id);
-  if (claim === "error") throw new Error("META_PROVIDER_CLAIM_FAILED");
-
-  const messageTimestamp = Number.isFinite(Number(params.event.timestamp))
-    ? new Date(Number(params.event.timestamp)).toISOString()
-    : new Date().toISOString();
-
-  await ensureInboxMessage(sb, {
-    workspaceId: params.mapping.workspace_id,
-    channelId: params.mapping.channel_id,
-    channelType: params.channelType,
-    sourceName: params.sourceName,
-    senderId,
-    content,
-    messageId,
-    messageTimestamp,
-    pageId: params.pageId,
-    securityEventId,
-    security: security.decision,
-  });
-
-  const leadId = await ensureLead(sb, {
-    workspaceId: params.mapping.workspace_id,
-    channelType: params.channelType,
-    senderId,
-  });
-
-  fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${getServiceKey()}`,
-      "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
-    },
-    body: JSON.stringify({
-      action: "feedback",
-      workspace_id: params.mapping.workspace_id,
-      lead_id: leadId,
-      event_type: "replied",
-      channel: params.channelType,
-      event_data: { msg_id: messageId, page_id: params.pageId },
-    }),
-  }).catch(() => {});
-
-  const canonicalEventId = await ensureCanonicalEvent(sb, {
-    workspaceId: params.mapping.workspace_id,
-    channelId: params.mapping.channel_id,
-    provider: params.provider,
-    accountIdentifier: params.pageId,
-    providerEventId: messageId,
-    actorProviderId: senderId,
-    content,
-    timestamp: Number.isFinite(Number(params.event.timestamp)) ? Number(params.event.timestamp) : undefined,
-  });
-
-  const interestResult = await processInterestFromEngagementEventId(sb as any, canonicalEventId);
-  if (interestResult.status === "error") throw new Error("META_INTEREST_MEMORY_FAILED");
-
-  return "processed";
+  return { status: "error" };
 }
 
 serve(async (req) => {
@@ -508,24 +275,282 @@ serve(async (req) => {
           : null;
       if (!platform) continue;
 
-      const mapping = await resolveWorkspaceFromPage(sb, pageId, platform);
-      if (mapping === "AMBIGUOUS" || !mapping) {
+      const ws = await resolveWorkspaceFromPage(sb, pageId, platform);
+      if (ws === "AMBIGUOUS") {
+        console.warn("[META-WEBHOOK] quarantining: ambiguous workspace for page", pageId);
         quarantined++;
         continue;
       }
+      if (!ws) { quarantined++; continue; }
 
       const messaging = Array.isArray(entry?.messaging) ? entry.messaging : [];
+
       for (const event of messaging) {
-        const result = await processMetaMessage(sb, {
-          mapping,
-          pageId,
-          event,
-          provider: platform === "instagram" ? "meta_ig" : "meta_fb",
-          channelType: platform,
-          sourceName: platform === "instagram" ? "Instagram" : "Facebook Messenger",
+        const message = event?.message;
+        if (!message) continue;
+
+        const messageId = typeof message.mid === "string" ? message.mid.trim() : "";
+        const senderId = typeof event?.sender?.id === "string" ? event.sender.id.trim() : "";
+        if (!messageId || !senderId) { quarantined++; continue; }
+
+        const text = typeof message.text === "string" ? message.text : "";
+        const rawAttachments = Array.isArray(message.attachments) ? message.attachments : [];
+        const content = text || (rawAttachments.length ? "[attachment]" : "");
+        if (!content) continue;
+
+        let downloadedAttachments: DownloadedMetaAttachment[] = [];
+        if (rawAttachments.length > 0) {
+          const attachments = normalizeMetaAttachments(rawAttachments);
+          let totalBytes = 0;
+          for (const attachment of attachments) {
+            const downloaded = await downloadMetaAttachment(attachment);
+            totalBytes += downloaded.bytes.byteLength;
+            if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error("META_ATTACHMENTS_TOTAL_TOO_LARGE");
+            downloadedAttachments.push(downloaded);
+          }
+        }
+
+        let aggregateAttachment: { mime_type: string; size_bytes: number; sha256: string } | null = null;
+        if (downloadedAttachments.length > 0) {
+          const manifest = downloadedAttachments.map((a) => ({
+            index: a.index,
+            mime_type: a.mimeType,
+            byte_size: a.bytes.byteLength,
+            sha256: a.sha256,
+          }));
+          aggregateAttachment = {
+            mime_type: downloadedAttachments.length === 1 ? downloadedAttachments[0].mimeType : "multipart/mixed",
+            size_bytes: downloadedAttachments.reduce((sum, a) => sum + a.bytes.byteLength, 0),
+            sha256: downloadedAttachments.length === 1
+              ? downloadedAttachments[0].sha256
+              : await sha256Text(JSON.stringify(manifest)),
+          };
+        }
+
+        const provider = platform === "instagram" ? "meta_ig" as const : "meta_fb" as const;
+        const securityEventId = `${platform === "instagram" ? "ig" : "fb"}:${messageId}`;
+
+        const security = await scanInboundContent({
+          workspace_id: ws.workspace_id,
+          source: provider,
+          event_id: securityEventId,
+          content,
+          urls: extractSecurityUrls(content),
+          attachment: aggregateAttachment,
         });
-        if (result === "processed") processed++;
-        if (result === "quarantined") quarantined++;
+
+        if (!security.ok) throw new Error("META_CONTENT_SECURITY_UNAVAILABLE");
+
+        if (blocksNormalIngress(security.decision)) {
+          if (downloadedAttachments.length > 0 && security.decision.action === "quarantine") {
+            for (const attachment of downloadedAttachments) {
+              const staged = await stageInboundAttachment({
+                workspace_id: ws.workspace_id,
+                source: provider,
+                event_id: securityEventId,
+                attachment_key: `meta_media_${attachment.index}`,
+                expected_attachment_count: downloadedAttachments.length,
+                bytes: attachment.bytes,
+                mime_type: attachment.mimeType,
+              });
+              if (!staged.ok) throw new Error(`META_ATTACHMENT_STAGE_${staged.code}`);
+            }
+          }
+          quarantined++;
+          continue;
+        }
+
+        if (downloadedAttachments.length > 0 || rawAttachments.length > 0) {
+          throw new Error("META_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
+        }
+
+        const claim = await claimEvent(sb, provider, messageId, ws.workspace_id);
+        if (claim === "error") throw new Error("META_PROVIDER_CLAIM_FAILED");
+
+        const messageTimestamp = Number.isFinite(Number(event.timestamp))
+          ? new Date(Number(event.timestamp)).toISOString()
+          : new Date().toISOString();
+
+        const canonicalParams = {
+          workspaceId:       ws.workspace_id,
+          channelId:         ws.channel_id,
+          accountIdentifier: pageId,
+          providerEventId:   messageId,
+          actorProviderId:   senderId,
+          content,
+          timestamp: Number.isFinite(Number(event.timestamp)) ? Number(event.timestamp) : undefined,
+        };
+
+        if (platform === "instagram") {
+          // ── Instagram path ────────────────────────────────────────────────
+          if (claim === "duplicate") {
+            await tryCanonicalInsert(sb, { ...canonicalParams, provider: "meta_ig" });
+            continue;
+          }
+
+          // Idempotent inbox insert for Instagram
+          const { data: igInboxRow, error: igInboxErr } = await sb.from("inbox_messages").insert({
+            workspace_id:       ws.workspace_id,
+            channel_id:         ws.channel_id,
+            channel_type:       "instagram",
+            source_name:        "Instagram",
+            sender_name:        senderId,
+            sender_identifier:  senderId,
+            message_content:    content,
+            message_timestamp:  messageTimestamp,
+            direction:          "inbound",
+            status:             "received",
+            delivery_status:    "delivered",
+            is_unread:          true,
+            provider_message_id: messageId,
+            metadata: {
+              page_id: pageId,
+              sender_id: senderId,
+              content_security: {
+                event_id: securityEventId,
+                category: security.decision.category,
+                risk_score: security.decision.risk_score,
+                action: security.decision.action,
+              },
+            },
+          }).select("id").single();
+
+          if (igInboxErr && igInboxErr.code !== "23505") throw igInboxErr;
+          if (igInboxErr?.code === "23505") {
+            await sb.from("inbox_messages").select("id")
+              .eq("workspace_id", ws.workspace_id)
+              .eq("provider_message_id", messageId)
+              .limit(1).maybeSingle();
+          }
+
+          // Leads upsert
+          await sb.from("leads").upsert({
+            workspace_id:       ws.workspace_id,
+            channel_type:       "instagram",
+            contact_identifier: senderId,
+            source_type:        "instagram",
+            status:             "new",
+          }, { onConflict: "workspace_id,contact_identifier" });
+
+          // Customer brain (fire-and-forget)
+          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `******
+              "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
+            },
+            body: JSON.stringify({
+              action: "feedback",
+              workspace_id: ws.workspace_id,
+              lead_id: igInboxRow?.id,
+              event_type: "replied",
+              channel: "instagram",
+              event_data: { msg_id: messageId, page_id: pageId },
+            }),
+          }).catch(() => {});
+
+          // Canonical engagement event (idempotent, repairable)
+          const igCanResult = await tryCanonicalInsert(sb, { ...canonicalParams, provider: "meta_ig" });
+          if (igCanResult.status === "error") {
+            return new Response(JSON.stringify({ error: "canonical_insert_failed" }), {
+              status: 500,
+              headers: { ...getCors(req), "Content-Type": "application/json" },
+            });
+          }
+
+          if (igCanResult.id) {
+            const interestResult = await processInterestFromEngagementEventId(sb as any, igCanResult.id);
+            if (interestResult.status === "error") throw new Error("META_INTEREST_MEMORY_FAILED");
+          }
+
+          processed++;
+
+        } else {
+          // ── Facebook Messenger path ───────────────────────────────────────
+          if (claim === "duplicate") {
+            await tryCanonicalInsert(sb, { ...canonicalParams, provider: "meta_fb" });
+            continue;
+          }
+
+          // Idempotent inbox insert for Facebook Messenger
+          const { data: fbInboxRow, error: fbInboxErr } = await sb.from("inbox_messages").insert({
+            workspace_id:       ws.workspace_id,
+            channel_id:         ws.channel_id,
+            channel_type:       "facebook",
+            source_name:        "Facebook Messenger",
+            sender_name:        senderId,
+            sender_identifier:  senderId,
+            message_content:    content,
+            message_timestamp:  messageTimestamp,
+            direction:          "inbound",
+            status:             "received",
+            delivery_status:    "delivered",
+            is_unread:          true,
+            provider_message_id: messageId,
+            metadata: {
+              page_id: pageId,
+              sender_id: senderId,
+              content_security: {
+                event_id: securityEventId,
+                category: security.decision.category,
+                risk_score: security.decision.risk_score,
+                action: security.decision.action,
+              },
+            },
+          }).select("id").single();
+
+          if (fbInboxErr && fbInboxErr.code !== "23505") throw fbInboxErr;
+          if (fbInboxErr?.code === "23505") {
+            await sb.from("inbox_messages").select("id")
+              .eq("workspace_id", ws.workspace_id)
+              .eq("provider_message_id", messageId)
+              .limit(1).maybeSingle();
+          }
+
+          // Leads upsert
+          await sb.from("leads").upsert({
+            workspace_id:       ws.workspace_id,
+            channel_type:       "facebook",
+            contact_identifier: senderId,
+            source_type:        "facebook",
+            status:             "new",
+          }, { onConflict: "workspace_id,contact_identifier" });
+
+          // Customer brain (fire-and-forget)
+          fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/customer-brain`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `******
+              "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
+            },
+            body: JSON.stringify({
+              action: "feedback",
+              workspace_id: ws.workspace_id,
+              lead_id: fbInboxRow?.id,
+              event_type: "replied",
+              channel: "facebook",
+              event_data: { msg_id: messageId, page_id: pageId },
+            }),
+          }).catch(() => {});
+
+          // Canonical engagement event (idempotent, repairable)
+          const fbCanResult = await tryCanonicalInsert(sb, { ...canonicalParams, provider: "meta_fb" });
+          if (fbCanResult.status === "error") {
+            return new Response(JSON.stringify({ error: "canonical_insert_failed" }), {
+              status: 500,
+              headers: { ...getCors(req), "Content-Type": "application/json" },
+            });
+          }
+
+          if (fbCanResult.id) {
+            const interestResult = await processInterestFromEngagementEventId(sb as any, fbCanResult.id);
+            if (interestResult.status === "error") throw new Error("META_INTEREST_MEMORY_FAILED");
+          }
+
+          processed++;
+        }
       }
     }
 
