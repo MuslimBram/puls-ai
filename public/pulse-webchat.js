@@ -16,9 +16,11 @@
   let endpointUrl;
   try {
     endpointUrl = new URL(endpoint);
-    if (endpointUrl.protocol !== "https:" && endpointUrl.hostname !== "localhost" && endpointUrl.hostname !== "127.0.0.1") {
+    const isLocalhost = endpointUrl.hostname === "localhost" || endpointUrl.hostname === "127.0.0.1";
+    if (endpointUrl.protocol !== "https:" && !(isLocalhost && endpointUrl.protocol === "http:")) {
       throw new Error("HTTPS required");
     }
+    if (endpointUrl.username || endpointUrl.password) throw new Error("Credentials are not allowed in endpoint URL");
   } catch {
     console.error("[Pulse AI Webchat] invalid data-endpoint");
     return;
