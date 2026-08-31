@@ -371,6 +371,9 @@ serve(async (req) => {
               const messageId = typeof parsed.messageId === "string" && parsed.messageId.trim() ? parsed.messageId.trim() : null;
               const inReplyTo = typeof parsed.inReplyTo === "string" && parsed.inReplyTo.trim() ? parsed.inReplyTo.trim() : null;
               const rawAttachments = Array.isArray(parsed.attachments) ? parsed.attachments : [];
+              const messageContent = typeof parsed.text === "string" && parsed.text.trim()
+                ? parsed.text.trim()
+                : (typeof parsed.html === "string" && parsed.html.trim() ? parsed.html.replace(/<[^>]+>/g, " ").trim() : "") || subject;
               const headers = {
                 inReplyTo,
                 hasAttachment: rawAttachments.length > 0,

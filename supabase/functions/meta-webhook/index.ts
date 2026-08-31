@@ -484,7 +484,7 @@ async function processMetaMessage(
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `******`,
+        Authorization: `Bearer ${getServiceKey()}`,
         "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
       },
       body: JSON.stringify({
