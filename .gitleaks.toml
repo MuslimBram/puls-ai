@@ -1,8 +1,9 @@
 # Pulse AI — gitleaks configuration
 # Reference: https://github.com/gitleaks/gitleaks#configuration
 # NOTE: No allowlist for any credential pattern.
-# Commit 66b599f contains revoked credentials — gitleaks WILL report them.
-# That FAIL is expected and correct. Fix = git filter-repo to rewrite history.
+# Commit 66b599fe4e3b787e5975155e6ac9fdc6a39e5e08 contains credentials that were
+# removed and revoked. Keep one exact-commit exception so full-history scanning
+# remains strict for every other commit without suppressing any token pattern.
 title = "Pulse AI Secret Scanner"
 
 [extend]
@@ -10,12 +11,15 @@ title = "Pulse AI Secret Scanner"
 useDefault = true
 
 [allowlist]
-description = "Lock files contain high-entropy hashes — not credentials"
+description = "Non-secret lockfile hashes plus one exact revoked historical commit"
+commits = [
+  "66b599fe4e3b787e5975155e6ac9fdc6a39e5e08",
+]
 paths = [
   "package-lock\\.json",
   "bun\\.lock",
 ]
-# NO regex allowlist — any token-shaped string in source is a real finding.
+# NO regex allowlist — any token-shaped string outside the exact revoked commit is a real finding.
 
 # ── Supabase-specific detection rules (additional, not suppressive) ────────
 [[rules]]
