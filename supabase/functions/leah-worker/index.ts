@@ -43,17 +43,29 @@ function uuidField(body: Record<string, unknown>, key: string): string {
   return value;
 }
 
-async function sha256Hex(value: string): Promise<string> {
+async function sha256Bytes(value: string): Promise<Uint8Array> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return new Uint8Array(digest);
+}
+
+function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
 }
 
 async function requireWorker(req: Request): Promise<void> {
   const configured = Deno.env.get("LEAH_WORKER_SECRET")?.trim() ?? "";
   const supplied = req.headers.get("X-Leah-Worker-Secret")?.trim() ?? "";
   if (configured.length < 32 || supplied.length < 32) throw new Error("Worker authentication failed");
-  const [expectedHash, suppliedHash] = await Promise.all([sha256Hex(configured), sha256Hex(supplied)]);
-  if (expectedHash !== suppliedHash) throw new Error("Worker authentication failed");
+  const [expectedHash, suppliedHash] = await Promise.all([sha256Bytes(configured), sha256Bytes(supplied)]);
+  if (!constantTimeEqual(expectedHash, suppliedHash)) throw new Error("Worker authentication failed");
+}
+
+async function contentHash(value: string): Promise<string> {
+  const digest = await sha256Bytes(value);
+  return Array.from(digest).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 async function executionById(executionId: string) {
@@ -194,12 +206,12 @@ serve(async (req) => {
     if (action === "artifacts.put") {
       const executionId = uuidField(body, "execution_id");
       const execution = await executionById(executionId);
-      if (!["running", "succeeded"].includes(execution.status)) throw new Error("Execution is not producing artifacts");
+      if (execution.status !== "running") throw new Error("Execution is not producing artifacts");
       const kind = stringField(body, "kind", 80);
       const path = stringField(body, "path", 500);
       const content = typeof body.content === "string" ? body.content : "";
       if (content.length > 1_000_000) throw new Error("Artifact content exceeds 1 MB; use object storage");
-      const contentHash = await sha256Hex(content);
+      const hash = await contentHash(content);
 
       for (let attempt = 0; attempt < 5; attempt++) {
         const { data: latest, error: latestError } = await admin.from("leah_project_artifacts")
@@ -218,7 +230,7 @@ serve(async (req) => {
           kind,
           path,
           content,
-          content_hash: contentHash,
+          content_hash: hash,
           version: nextVersion,
           supersedes_id: latest?.id ?? null,
           created_by: execution.requested_by,
@@ -235,11 +247,25 @@ serve(async (req) => {
       const toStatus = stringField(body, "to_status", 40);
       if (!PROJECT_TRANSITIONS[fromStatus]?.has(toStatus)) throw new Error("Invalid project transition");
       const execution = await executionById(executionId);
-      const now = new Date().toISOString();
-      const { data, error } = await admin.from("leah_projects").update({ status: toStatus, updated_at: now })
+      const { data: current, error: currentError } = await admin.from("leah_projects")
+        .select("id, status, version")
         .eq("id", execution.project_id)
         .eq("workspace_id", execution.workspace_id)
+        .is("archived_at", null)
+        .maybeSingle();
+      if (currentError) throw currentError;
+      if (!current) throw new Error("Project not found");
+      if (current.status !== fromStatus) throw new Error("Project state conflict");
+      const now = new Date().toISOString();
+      const { data, error } = await admin.from("leah_projects").update({
+        status: toStatus,
+        version: current.version + 1,
+        updated_at: now,
+      })
+        .eq("id", current.id)
+        .eq("workspace_id", execution.workspace_id)
         .eq("status", fromStatus)
+        .eq("version", current.version)
         .is("archived_at", null)
         .select("id, status, version, updated_at")
         .maybeSingle();
@@ -284,6 +310,7 @@ serve(async (req) => {
       const executionId = uuidField(body, "execution_id");
       const secretId = uuidField(body, "secret_id");
       const execution = await executionById(executionId);
+      if (execution.status !== "running") throw new Error("Execution is not running");
       const { data, error } = await admin.rpc("leah_vault_read_for_runtime", {
         _workspace_id: execution.workspace_id,
         _user_id: execution.requested_by,
@@ -301,7 +328,7 @@ serve(async (req) => {
     const status = message === "Worker authentication failed" ? 401 :
       message.toLowerCase().includes("not found") ? 404 :
       message.toLowerCase().includes("conflict") || message.toLowerCase().includes("terminal") ? 409 :
-      message.includes("required") || message.includes("Invalid") || message.includes("must") || message.includes("exceeds") || message.includes("not producing") ? 400 : 500;
+      message.includes("required") || message.includes("Invalid") || message.includes("must") || message.includes("exceeds") || message.includes("not producing") || message.includes("not running") ? 400 : 500;
     return json({ error: message }, status);
   }
 });
