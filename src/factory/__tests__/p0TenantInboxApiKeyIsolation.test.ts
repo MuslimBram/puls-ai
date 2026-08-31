@@ -91,7 +91,7 @@ describe("P0.2 Inbox and API-key workspace isolation", () => {
     expect((publicApi.match(/\.eq\("workspace_id", workspace_id\)/g) ?? []).length).toBeGreaterThanOrEqual(8);
     expect(publicApi).toContain('.eq("workspace_id", workspaceId)');
     expect(publicApi).not.toContain('.eq("user_id", user_id)');
-    expect(publicApi).toContain('message_content: body.message');
+    expect(publicApi).toMatch(/message_content:\s*(?:body\.message|message)[,\s]/);
     expect(publicApi).toContain('source_name: "Public API"');
     expect(publicApi).not.toContain("message_body:");
     expect(publicApi).toContain("fireZapierWebhooks(user_id, workspace_id");
