@@ -5,7 +5,7 @@ import { randomSessionToken, sha256Hex } from "../_shared/leah-session.ts";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const SESSION_TTL_MS = 12 * 60 * 60 * 1000;
+const SESSION_TTL_MS = 60 * 60 * 1000;
 const ACTIVE_ENTITLEMENT_STATUSES = new Set(["trial", "active", "grace"]);
 
 const admin = createAdminClient();
@@ -14,7 +14,12 @@ const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false 
 function json(req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...getCors(req), "Content-Type": "application/json" },
+    headers: {
+      ...getCors(req),
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+      "Pragma": "no-cache",
+    },
   });
 }
 
@@ -61,16 +66,16 @@ serve(async (req) => {
     const tokenHash = await sha256Hex(rawToken);
     const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
 
-    // Clean only expired sessions for this same principal/workspace. Active sessions
-    // are intentionally allowed so multiple devices do not revoke each other.
+    // Expired/revoked sessions for this principal are disposable. Active sessions are
+    // left intact so separate devices do not revoke each other.
     const now = new Date().toISOString();
-    const { error: cleanupError } = await admin
+    const { error: expiredCleanupError } = await admin
       .from("leah_access_sessions")
       .delete()
       .eq("workspace_id", workspaceId)
       .eq("user_id", user.id)
       .lt("expires_at", now);
-    if (cleanupError) throw cleanupError;
+    if (expiredCleanupError) throw expiredCleanupError;
 
     const { data: session, error: insertError } = await admin
       .from("leah_access_sessions")
