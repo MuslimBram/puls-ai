@@ -6,7 +6,7 @@ const read = (path: string) => readFileSync(path, "utf8");
 const googleWorkspace = read("supabase/functions/google-workspace-sync/index.ts");
 const vicidial = read("supabase/functions/vicidial-cdr-sync/index.ts");
 const legacyGoogleAds = read("supabase/functions/google-ads-sync/index.ts");
-const migration = read("supabase/migrations/20260831231000_phase_h_vicidial_call_idempotency.sql");
+const migration = read("supabase/migrations/20260831210309_phase_h_vicidial_call_idempotency.sql");
 
 describe("Phase H external integration isolation", () => {
   it("binds Google Workspace credentials and actions to an authorized workspace", () => {
