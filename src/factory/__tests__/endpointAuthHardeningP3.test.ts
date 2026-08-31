@@ -3,12 +3,17 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 describe("P3: Audit and Hardening of Unverified Endpoints", () => {
-  it("A. meta-webhook-test requires internal authentication and is not a public unauthenticated endpoint", () => {
+  it("A. meta-webhook-test requires internal authentication before service-role access", () => {
     const fnPath = join(process.cwd(), "supabase", "functions", "meta-webhook-test", "index.ts");
     const content = readFileSync(fnPath, "utf-8");
 
-    expect(content).toContain("requireCronAuth");
-    expect(content).toContain("internalErr !== null");
+    const authIndex = content.indexOf("requireCronAuth(req)");
+    const serviceClientIndex = content.indexOf("createClient(");
+
+    expect(authIndex).toBeGreaterThan(-1);
+    expect(content).toContain("new Response(authFailure.body");
+    expect(content).toContain("status: authFailure.status");
+    expect(serviceClientIndex).toBeGreaterThan(authIndex);
   });
 
   it("B. Discovers and documents all verify_jwt=false endpoints with fail-closed security mechanisms", () => {

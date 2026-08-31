@@ -13,10 +13,14 @@ serve(async (req) => {
     return new Response(null, { headers: getCors(req) });
   }
 
-  // SECURITY: meta-webhook-test is an internal diagnostic tool and MUST NOT remain an unauthenticated public production endpoint.
-  const internalErr = requireCronAuth(req);
-  if (internalErr !== null) {
-    return internalErr;
+  // Internal diagnostics only. Gateway JWT is intentionally disabled because
+  // cron authentication is the canonical boundary for this endpoint.
+  const authFailure = requireCronAuth(req);
+  if (authFailure) {
+    return new Response(authFailure.body, {
+      status: authFailure.status,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   const supabase = createClient(
@@ -25,16 +29,13 @@ serve(async (req) => {
   );
 
   try {
-    // GET: Test verification endpoint
     if (req.method === "GET") {
       const url = new URL(req.url);
       const mode = url.searchParams.get("hub.mode");
       const token = url.searchParams.get("hub.verify_token");
       const challenge = url.searchParams.get("hub.challenge");
-
       const verifyToken = Deno.env.get("META_VERIFY_TOKEN");
 
-      // Log the verification attempt
       await supabase.from("webhook_activity_logs").insert({
         event_type: "verification_attempt",
         source: "meta_test",
@@ -59,11 +60,15 @@ serve(async (req) => {
       });
     }
 
-    // POST: Simulate incoming Meta webhook payload
+    if (req.method !== "POST") {
+      return new Response(JSON.stringify({ error: "POST or GET required" }), {
+        status: 405,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
     const body = await req.json();
     const startTime = Date.now();
-
-    // Validate structure
     const objectType = body?.object;
     const entries = (body?.entry as Array<Record<string, unknown>>) || [];
 
@@ -83,24 +88,12 @@ serve(async (req) => {
         ok: false,
         error: "Invalid payload",
         hint: "Payload must have 'object' field set to 'instagram' or 'page'",
-        expected_format: {
-          object: "instagram",
-          entry: [{
-            id: "PAGE_OR_ACCOUNT_ID",
-            messaging: [{
-              sender: { id: "SENDER_ID" },
-              message: { text: "Hello" },
-              timestamp: Date.now(),
-            }],
-          }],
-        },
       }), {
         status: 400,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
-    // Check for duplicate webhook setup
     const pageIds = entries.map((e) => e.id as string).filter(Boolean);
     const duplicateChecks: Array<Record<string, unknown>> = [];
 
@@ -116,19 +109,14 @@ serve(async (req) => {
         return s?.page_id === pageId || s?.instagram_account_id === pageId;
       });
 
-      if (duplicate) {
-        duplicateChecks.push({
-          page_id: pageId,
-          is_duplicate: true,
-          existing_channel: duplicate.channel_name,
-          existing_channel_id: duplicate.id,
-        });
-      } else {
-        duplicateChecks.push({
-          page_id: pageId,
-          is_duplicate: false,
-        });
-      }
+      duplicateChecks.push(duplicate
+        ? {
+            page_id: pageId,
+            is_duplicate: true,
+            existing_channel: duplicate.channel_name,
+            existing_channel_id: duplicate.id,
+          }
+        : { page_id: pageId, is_duplicate: false });
     }
 
     let messageCount = 0;
@@ -148,7 +136,12 @@ serve(async (req) => {
       status: "processed",
       processing_time_ms: processingTime,
       ip_address: req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown",
-      metadata: { object_type: objectType, entry_count: entries.length, message_count: messageCount, duplicate_checks: duplicateChecks },
+      metadata: {
+        object_type: objectType,
+        entry_count: entries.length,
+        message_count: messageCount,
+        duplicate_checks: duplicateChecks,
+      },
     });
 
     return new Response(JSON.stringify({
