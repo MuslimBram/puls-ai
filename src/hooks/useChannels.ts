@@ -15,6 +15,12 @@ export interface ChannelData {
   settings?: Record<string, unknown>;
 }
 
+export interface ChannelSaveResult {
+  ok: true;
+  channel_id: string;
+  configured_credential_keys: string[];
+}
+
 const SAFE_CHANNEL_COLUMNS = [
   "id",
   "user_id",
@@ -61,15 +67,18 @@ export const useChannels = () => {
   });
 
   const addChannel = useMutation({
-    mutationFn: async (channel: ChannelData) => {
+    mutationFn: async (channel: ChannelData): Promise<ChannelSaveResult> => {
       if (!workspace?.id) throw new Error("Select a workspace before connecting a channel.");
 
-      const { data: limitCheck, error: limitError } = await supabase.functions.invoke("enforce-limits", {
-        body: { action: "add", resource: "channels" },
-      });
-      if (limitError) throw new Error(limitError.message || "Failed to check limits");
-      if (limitCheck && !limitCheck.allowed) {
-        throw new Error(limitCheck.error || "Channel limit reached. Please upgrade your plan.");
+      const existing = query.data?.some((row) => row.channel_type === channel.channel_type) ?? false;
+      if (!existing) {
+        const { data: limitCheck, error: limitError } = await supabase.functions.invoke("enforce-limits", {
+          body: { action: "add", resource: "channels" },
+        });
+        if (limitError) throw new Error(limitError.message || "Failed to check limits");
+        if (limitCheck && !limitCheck.allowed) {
+          throw new Error(limitCheck.error || "Channel limit reached. Please upgrade your plan.");
+        }
       }
 
       // SECURITY: all channel writes flow through the server-side credential
@@ -89,7 +98,15 @@ export const useChannels = () => {
         },
       });
       if (error) throw new Error(error.message || "Failed to save channel securely");
-      if (!data?.ok) throw new Error(data?.error || "Failed to save channel securely");
+      if (!data?.ok || !data?.channel_id) throw new Error(data?.error || "Failed to save channel securely");
+
+      return {
+        ok: true,
+        channel_id: String(data.channel_id),
+        configured_credential_keys: Array.isArray(data.configured_credential_keys)
+          ? data.configured_credential_keys.map(String)
+          : [],
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["channels"] });

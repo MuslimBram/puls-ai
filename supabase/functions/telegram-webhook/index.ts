@@ -4,6 +4,13 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { callAIRouter } from "../_shared/ai-router-helper.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { decryptIfNeeded } from "../_shared/token-utils.ts";
+import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
+import { stageInboundAttachment } from "../_shared/content-security-attachment-client.ts";
 import {
   resolveAuthenticatedTelegramChannel,
   type TelegramChannelCandidate,
@@ -11,39 +18,139 @@ import {
 
 const ALLOW_ANY_ORIGIN = true;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
+
+type TelegramAttachment = {
+  mime_type: string;
+  file_id: string;
+};
+
+type TelegramChannelWithCredentials = TelegramChannelCandidate & {
+  credentials_encrypted?: Record<string, unknown> | null;
+};
+
+type DownloadedTelegramFile = {
+  bytes: Uint8Array;
+  mime_type: string;
+  sha256: string;
+};
 
 async function resolveWorkspaceFromChannel(
   supabase: ReturnType<typeof createClient>,
   channel: TelegramChannelCandidate,
 ): Promise<{ workspaceId: string | null; blocker?: string }> {
-  if (channel.workspace_id) {
-    return { workspaceId: channel.workspace_id };
-  }
+  if (channel.workspace_id) return { workspaceId: channel.workspace_id };
 
   const [ownedResult, memberResult] = await Promise.all([
     supabase.from("workspaces").select("id").eq("owner_id", channel.user_id),
     supabase.from("workspace_members").select("workspace_id").eq("user_id", channel.user_id),
   ]);
-
   if (ownedResult.error) throw ownedResult.error;
   if (memberResult.error) throw memberResult.error;
 
   const candidates = new Set<string>();
   for (const row of ownedResult.data || []) candidates.add(row.id);
   for (const row of memberResult.data || []) if (row.workspace_id) candidates.add(row.workspace_id);
-
-  if (candidates.size !== 1) {
-    return { workspaceId: null, blocker: "TELEGRAM_WORKSPACE_MAPPING_BLOCKER" };
-  }
+  if (candidates.size !== 1) return { workspaceId: null, blocker: "TELEGRAM_WORKSPACE_MAPPING_BLOCKER" };
 
   const workspaceId = [...candidates][0];
-  await supabase.from("channels").update({ workspace_id: workspaceId }).eq("id", channel.id);
+  const { error: updateError } = await supabase
+    .from("channels")
+    .update({ workspace_id: workspaceId })
+    .eq("id", channel.id)
+    .is("workspace_id", null);
+  if (updateError) throw updateError;
   return { workspaceId };
 }
 
+function telegramAttachment(msg: Record<string, any>): TelegramAttachment | null {
+  if (Array.isArray(msg.photo) && msg.photo.length) {
+    const photo = msg.photo[msg.photo.length - 1] ?? {};
+    return { mime_type: "image/jpeg", file_id: String(photo.file_id || "") };
+  }
+  if (msg.document) return { mime_type: String(msg.document.mime_type || "application/octet-stream"), file_id: String(msg.document.file_id || "") };
+  if (msg.video) return { mime_type: String(msg.video.mime_type || "video/mp4"), file_id: String(msg.video.file_id || "") };
+  if (msg.animation) return { mime_type: String(msg.animation.mime_type || "video/mp4"), file_id: String(msg.animation.file_id || "") };
+  if (msg.audio) return { mime_type: String(msg.audio.mime_type || "audio/mpeg"), file_id: String(msg.audio.file_id || "") };
+  if (msg.voice) return { mime_type: String(msg.voice.mime_type || "audio/ogg"), file_id: String(msg.voice.file_id || "") };
+  if (msg.sticker) return { mime_type: "image/webp", file_id: String(msg.sticker.file_id || "") };
+  return null;
+}
+
+function telegramContent(msg: Record<string, any>, attachment: TelegramAttachment | null): string {
+  if (typeof msg.text === "string" && msg.text.trim()) return msg.text;
+  if (typeof msg.caption === "string" && msg.caption.trim()) return msg.caption;
+  return attachment ? `[telegram_attachment:${attachment.mime_type}]` : "";
+}
+
+async function sha256Hex(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes));
+  return Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function validTelegramFilePath(path: string): boolean {
+  return path.length > 0
+    && path.length <= 1024
+    && !path.startsWith("/")
+    && !path.includes("..")
+    && !path.includes(":")
+    && /^[A-Za-z0-9_./-]+$/.test(path);
+}
+
+async function downloadTelegramFile(
+  botToken: string,
+  attachment: TelegramAttachment,
+): Promise<DownloadedTelegramFile> {
+  if (!attachment.file_id) throw new Error("TELEGRAM_FILE_ID_MISSING");
+
+  const getFileResponse = await fetch(
+    `https://api.telegram.org/bot${botToken}/getFile?file_id=${encodeURIComponent(attachment.file_id)}`,
+    { redirect: "error" },
+  );
+  const getFile = await getFileResponse.json().catch(() => ({})) as Record<string, any>;
+  if (!getFileResponse.ok || getFile.ok !== true || typeof getFile.result?.file_path !== "string") {
+    throw new Error("TELEGRAM_GET_FILE_FAILED");
+  }
+
+  const filePath = String(getFile.result.file_path);
+  if (!validTelegramFilePath(filePath)) throw new Error("TELEGRAM_FILE_PATH_REJECTED");
+  const declaredSize = Number(getFile.result.file_size ?? 0);
+  if (Number.isFinite(declaredSize) && declaredSize > MAX_MEDIA_BYTES) {
+    throw new Error("TELEGRAM_FILE_TOO_LARGE");
+  }
+
+  const downloadResponse = await fetch(
+    `https://api.telegram.org/file/bot${botToken}/${filePath}`,
+    { redirect: "error" },
+  );
+  if (!downloadResponse.ok) throw new Error("TELEGRAM_FILE_DOWNLOAD_FAILED");
+
+  const contentLength = Number(downloadResponse.headers.get("content-length") ?? 0);
+  if (Number.isFinite(contentLength) && contentLength > MAX_MEDIA_BYTES) {
+    throw new Error("TELEGRAM_FILE_TOO_LARGE");
+  }
+
+  const bytes = new Uint8Array(await downloadResponse.arrayBuffer());
+  if (bytes.byteLength > MAX_MEDIA_BYTES) throw new Error("TELEGRAM_FILE_TOO_LARGE");
+  if (Number.isFinite(declaredSize) && declaredSize > 0 && declaredSize !== bytes.byteLength) {
+    throw new Error("TELEGRAM_FILE_SIZE_MISMATCH");
+  }
+
+  const responseMime = (downloadResponse.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();
+  return {
+    bytes,
+    mime_type: responseMime || attachment.mime_type || "application/octet-stream",
+    sha256: await sha256Hex(bytes),
+  };
+}
+
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: getCors(req) });
+  if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
+  if (req.method !== "POST") {
+    return new Response(JSON.stringify({ ok: false, error: "POST required" }), {
+      status: 405,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
   }
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
@@ -53,23 +160,44 @@ serve(async (req) => {
   try {
     const payload = await req.json();
     const msg = payload?.message || payload?.edited_message;
-    if (!msg || !msg.text) {
-      return new Response(JSON.stringify({ ok: true, skipped: "No text content" }), {
+    if (!msg) {
+      return new Response(JSON.stringify({ ok: true, skipped: "No message content" }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const updateId = payload?.update_id;
+    if (!Number.isInteger(updateId) || updateId < 0) {
+      return new Response(JSON.stringify({ ok: true, quarantined: true, reason: "missing_update_id" }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const messageId = msg?.message_id;
+    if (!Number.isInteger(messageId) || messageId < 0 || !msg?.chat?.id || !msg?.from?.id) {
+      return new Response(JSON.stringify({ ok: true, quarantined: true, reason: "invalid_message_identity" }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const tgMedia = telegramAttachment(msg);
+    const content = telegramContent(msg, tgMedia);
+    if (!content) {
+      return new Response(JSON.stringify({ ok: true, skipped: "Unsupported Telegram event" }), {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
     const { data: channels, error: channelsError } = await supabase
       .from("channels")
-      .select("id, workspace_id, user_id, settings")
+      .select("id, workspace_id, user_id, settings, credentials_encrypted")
       .eq("channel_type", "telegram")
       .eq("is_enabled", true);
-
     if (channelsError) throw channelsError;
 
     const requestedChannelId = new URL(req.url).searchParams.get("channel_id") || payload?.channel_id || null;
     const authResult = resolveAuthenticatedTelegramChannel({
-      channels: (channels || []) as TelegramChannelCandidate[],
+      channels: (channels || []) as TelegramChannelWithCredentials[],
       secretHeader: req.headers.get("x-telegram-bot-api-secret-token"),
       configuredGlobalSecret: Deno.env.get("TELEGRAM_WEBHOOK_SECRET"),
       requestedChannelId: requestedChannelId ? String(requestedChannelId) : null,
@@ -83,7 +211,14 @@ serve(async (req) => {
       });
     }
 
-    const channel = authResult.channel;
+    const channel = authResult.channel as TelegramChannelWithCredentials;
+    if (!channel.user_id) {
+      return new Response(JSON.stringify({ ok: false, error: "Channel configuration error" }), {
+        status: 409,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
     const { workspaceId, blocker } = await resolveWorkspaceFromChannel(supabase, channel);
     if (!workspaceId) {
       return new Response(JSON.stringify({ ok: false, error: blocker || "Workspace mapping unavailable" }), {
@@ -94,9 +229,83 @@ serve(async (req) => {
 
     const chatId = String(msg.chat.id);
     const senderId = String(msg.from.id);
-    const senderName = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ") || msg.from.username || "Telegram User";
+    const senderName = [msg.from.first_name, msg.from.last_name].filter(Boolean).join(" ")
+      || msg.from.username || "Telegram User";
+    const idempotencyKey = `tg:${channel.id}:update:${String(updateId)}`;
 
-    const idempotencyKey = `tg:${channel.id}:${chatId}:${senderId}:${String(msg.message_id)}`;
+    let downloaded: DownloadedTelegramFile | null = null;
+    if (tgMedia) {
+      const credentials = (channel.credentials_encrypted || {}) as Record<string, unknown>;
+      const encryptedToken = typeof credentials.bot_token === "string" ? credentials.bot_token : "";
+      let botToken = "";
+      try {
+        botToken = encryptedToken ? await decryptIfNeeded(encryptedToken) : (Deno.env.get("TELEGRAM_BOT_TOKEN") || "");
+        if (!botToken) throw new Error("TELEGRAM_BOT_TOKEN_MISSING");
+        downloaded = await downloadTelegramFile(botToken, tgMedia);
+      } catch (error) {
+        console.error("[TELEGRAM-WEBHOOK] attachment preparation failed", error instanceof Error ? error.message : "unknown");
+        return new Response(JSON.stringify({ ok: false, error: "telegram_attachment_preparation_failed" }), {
+          status: 503,
+          headers: { ...getCors(req), "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    const attachment = tgMedia
+      ? {
+          mime_type: downloaded?.mime_type ?? tgMedia.mime_type,
+          size_bytes: downloaded?.bytes.byteLength,
+          sha256: downloaded?.sha256,
+        }
+      : null;
+
+    const security = await scanInboundContent({
+      workspace_id: workspaceId,
+      source: "telegram",
+      event_id: idempotencyKey,
+      content,
+      urls: extractSecurityUrls(content),
+      attachment,
+    });
+
+    if (!security.ok) {
+      console.error(`[TELEGRAM-WEBHOOK] Content-security unavailable: ${security.code}`);
+      return new Response(JSON.stringify({ ok: false, error: "content_security_unavailable" }), {
+        status: 500,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    if (blocksNormalIngress(security.decision)) {
+      if (downloaded && tgMedia && security.decision.action === "quarantine") {
+        const staged = await stageInboundAttachment({
+          workspace_id: workspaceId,
+          source: "telegram",
+          event_id: idempotencyKey,
+          attachment_key: "tg_media_0",
+          expected_attachment_count: 1,
+          bytes: downloaded.bytes,
+          mime_type: downloaded.mime_type,
+        });
+        if (!staged.ok) {
+          console.error("[TELEGRAM-WEBHOOK] attachment staging failed", staged.code);
+          return new Response(JSON.stringify({ ok: false, error: "telegram_attachment_staging_failed" }), {
+            status: staged.retryable ? 503 : 400,
+            headers: { ...getCors(req), "Content-Type": "application/json" },
+          });
+        }
+      }
+      return new Response(JSON.stringify({ ok: true, quarantined: true, event_id: idempotencyKey }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    if (downloaded || attachment) {
+      return new Response(JSON.stringify({ ok: false, error: "attachment_security_contract_violation" }), {
+        status: 500,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
 
     const { data: integrationRow, error: integrationError } = await supabase
       .from("external_integrations")
@@ -120,7 +329,14 @@ serve(async (req) => {
         workspace_id: workspaceId,
         chat_id: chatId,
         sender_id: senderId,
-        message_id: String(msg.message_id),
+        message_id: String(messageId),
+        update_id: String(updateId),
+        content_security: {
+          event_id: idempotencyKey,
+          category: security.decision.category,
+          risk_score: security.decision.risk_score,
+          action: security.decision.action,
+        },
       },
       payload,
     });
@@ -144,7 +360,6 @@ serve(async (req) => {
             .eq("status", "failed")
             .select("id")
             .maybeSingle();
-
           if (!reclaimed) {
             return new Response(JSON.stringify({ ok: true, duplicate: true }), {
               headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -165,31 +380,24 @@ serve(async (req) => {
       }
     }
 
-    // From this point on we own a processing claim. Any thrown error must move
-    // it to failed so a provider retry can reclaim the same idempotency key.
     claimedWorkspaceId = workspaceId;
     claimedIdempotencyKey = idempotencyKey;
 
     let intentScore = 0.3;
     let suggestedReply = "";
     const aiRaw = await callAIRouter(
-      [{ role: "user", content: msg.text }],
-      `Analyze buying intent for this Telegram message. Reply JSON only:
-{"intent_score": 0-1, "is_lead": boolean, "suggested_reply": string}
-Keep suggested_reply under 200 chars. Language: detect from message.`,
-      {
-        taskType: "text_classification",
-        workspaceId,
-      },
+      [{ role: "user", content }],
+      `Analyze buying intent for this Telegram message. Reply JSON only:\n{"intent_score": 0-1, "is_lead": boolean, "suggested_reply": string}\nKeep suggested_reply under 200 chars. Language: detect from message.`,
+      { taskType: "text_classification", workspaceId },
     );
 
     try {
       const parsed = JSON.parse(aiRaw.replace(/```json|```/g, "").trim()) as Record<string, unknown>;
-      intentScore = Number(parsed.intent_score ?? 0.3);
-      suggestedReply = String(parsed.suggested_reply ?? "");
+      const parsedScore = Number(parsed.intent_score ?? 0.3);
+      intentScore = Number.isFinite(parsedScore) ? Math.min(1, Math.max(0, parsedScore)) : 0.3;
+      suggestedReply = String(parsed.suggested_reply ?? "").slice(0, 500);
     } catch {
-      await supabase
-        .from("integration_event_logs")
+      await supabase.from("integration_event_logs")
         .update({ status: "failed", event_message: "Telegram AI parse failure" })
         .eq("workspace_id", workspaceId)
         .eq("idempotency_key", idempotencyKey);
@@ -201,17 +409,18 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
 
     let leadId: string | null = null;
     if (intentScore >= 0.3) {
-      const { data: existingLead } = await supabase
+      const { data: existingLead, error: leadLookupError } = await supabase
         .from("leads")
         .select("id")
         .eq("workspace_id", workspaceId)
         .eq("contact_identifier", `telegram:${senderId}`)
         .maybeSingle();
+      if (leadLookupError) throw leadLookupError;
 
       if (existingLead) {
         leadId = existingLead.id;
       } else {
-        const { data: newLead } = await supabase
+        const { data: newLead, error: newLeadError } = await supabase
           .from("leads")
           .insert({
             user_id: channel.user_id,
@@ -225,6 +434,7 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
           })
           .select("id")
           .single();
+        if (newLeadError) throw newLeadError;
         leadId = newLead?.id ?? null;
       }
     }
@@ -235,54 +445,105 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
       _channel_type: "telegram",
       _contact_identifier: chatId,
       _contact_name: senderName,
-      _message_preview: msg.text,
+      _message_preview: content,
       _direction: "inbound",
     });
-    if (threadError || !threadId) {
-      await supabase
-        .from("integration_event_logs")
-        .update({ status: "failed", event_message: "Telegram thread persistence failure" })
-        .eq("workspace_id", workspaceId)
-        .eq("idempotency_key", idempotencyKey);
-      throw new Error(threadError?.message || "Conversation thread persistence failed");
+    if (threadError || !threadId) throw new Error("Conversation thread persistence failed");
+
+    const { data: existingInbox, error: inboxLookupError } = await supabase
+      .from("inbox_messages")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .eq("channel_id", channel.id)
+      .eq("provider_message_id", String(messageId))
+      .limit(1)
+      .maybeSingle();
+    if (inboxLookupError) throw inboxLookupError;
+
+    if (existingInbox && payload?.edited_message) {
+      const { error: editError } = await supabase.from("inbox_messages")
+        .update({
+          message_content: content,
+          intent_score: intentScore,
+          updated_at: new Date().toISOString(),
+          metadata: {
+            chat_id: chatId,
+            telegram_user_id: senderId,
+            update_id: String(updateId),
+            edited: true,
+            content_security: {
+              event_id: idempotencyKey,
+              category: security.decision.category,
+              risk_score: security.decision.risk_score,
+              action: security.decision.action,
+            },
+          },
+        })
+        .eq("id", existingInbox.id)
+        .eq("workspace_id", workspaceId);
+      if (editError) throw editError;
+    } else if (!existingInbox) {
+      const { error: inboxError } = await supabase.from("inbox_messages").insert({
+        user_id: channel.user_id,
+        workspace_id: workspaceId,
+        channel_id: channel.id,
+        channel_type: "telegram",
+        source_name: "Telegram",
+        sender_name: senderName,
+        sender_identifier: `telegram:${senderId}`,
+        message_content: content,
+        message_timestamp: new Date(Number(msg.date) * 1000).toISOString(),
+        is_unread: true,
+        status: "received",
+        direction: "inbound",
+        delivery_status: "delivered",
+        provider_message_id: String(messageId),
+        thread_id: threadId,
+        metadata: {
+          chat_id: chatId,
+          telegram_user_id: senderId,
+          update_id: String(updateId),
+          content_security: {
+            event_id: idempotencyKey,
+            category: security.decision.category,
+            risk_score: security.decision.risk_score,
+            action: security.decision.action,
+          },
+        },
+        intent_score: intentScore,
+      } as never);
+      if (inboxError) throw inboxError;
     }
 
-    const { error: inboxError } = await supabase.from("inbox_messages").insert({
-      user_id: channel.user_id,
-      workspace_id: workspaceId,
-      channel_id: channel.id,
-      channel_type: "telegram",
-      source_name: "Telegram",
-      sender_name: senderName,
-      sender_identifier: `telegram:${senderId}`,
-      message_content: msg.text,
-      message_timestamp: new Date((msg.date ? Number(msg.date) : Math.floor(Date.now() / 1000)) * 1000).toISOString(),
-      is_unread: true,
-      status: "received",
-      direction: "inbound",
-      delivery_status: "delivered",
-      provider_message_id: String(msg.message_id),
-      thread_id: threadId,
-      metadata: { chat_id: chatId, telegram_user_id: senderId },
-      intent_score: intentScore,
-    } as never);
-    if (inboxError) throw inboxError;
-
-    await supabase
-      .from("integration_event_logs")
-      .update({ status: "processed", metadata: { lead_id: leadId, workspace_id: workspaceId, channel_id: channel.id } })
+    const { error: completionError } = await supabase.from("integration_event_logs")
+      .update({
+        status: "processed",
+        metadata: {
+          lead_id: leadId,
+          workspace_id: workspaceId,
+          channel_id: channel.id,
+          message_id: String(messageId),
+          update_id: String(updateId),
+          content_security: {
+            event_id: idempotencyKey,
+            category: security.decision.category,
+            risk_score: security.decision.risk_score,
+            action: security.decision.action,
+          },
+        },
+      })
       .eq("workspace_id", workspaceId)
-      .eq("idempotency_key", idempotencyKey);
+      .eq("idempotency_key", idempotencyKey)
+      .eq("status", "processing");
+    if (completionError) throw completionError;
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        processed: true,
-        lead_id: leadId,
-        suggested_reply: suggestedReply,
-      }),
-      { headers: { ...getCors(req), "Content-Type": "application/json" } },
-    );
+    return new Response(JSON.stringify({
+      ok: true,
+      processed: true,
+      event_id: idempotencyKey,
+      lead_id: leadId,
+      suggested_reply: suggestedReply,
+    }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
   } catch (e) {
     if (claimedWorkspaceId && claimedIdempotencyKey) {
       const { error: failureUpdateError } = await supabase
@@ -292,14 +553,14 @@ Keep suggested_reply under 200 chars. Language: detect from message.`,
         .eq("idempotency_key", claimedIdempotencyKey)
         .eq("status", "processing");
       if (failureUpdateError) {
-        console.error("[TELEGRAM-WEBHOOK] Failed to release processing claim:", failureUpdateError);
+        console.error("[TELEGRAM-WEBHOOK] Failed to release processing claim:", failureUpdateError.code ?? "unknown");
       }
     }
 
-    console.error("[TELEGRAM-WEBHOOK] Error:", e);
-    return new Response(
-      JSON.stringify({ ok: false, error: e instanceof Error ? e.message : "Unknown" }),
-      { status: 500, headers: { ...getCors(req), "Content-Type": "application/json" } },
-    );
+    console.error("[TELEGRAM-WEBHOOK] Error:", e instanceof Error ? e.message : "Unknown");
+    return new Response(JSON.stringify({ ok: false, error: "telegram_processing_failed" }), {
+      status: 500,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
   }
 });
