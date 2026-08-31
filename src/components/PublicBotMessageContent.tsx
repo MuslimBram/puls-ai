@@ -64,9 +64,7 @@ function isAllowedInternalRoute(value: string): boolean {
   if (!value.startsWith("/") || value.startsWith("//")) return false;
   try {
     const parsed = new URL(value, "https://pulse-bos.com");
-    return PUBLIC_INTERNAL_ROUTES.some((route) =>
-      route === "/" ? parsed.pathname === "/" : parsed.pathname === route,
-    );
+    return PUBLIC_INTERNAL_ROUTES.some((route) => parsed.pathname === route);
   } catch {
     return false;
   }
