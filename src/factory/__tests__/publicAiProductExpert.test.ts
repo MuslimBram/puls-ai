@@ -43,26 +43,17 @@ describe("Public AI Product Expert", () => {
       "external_integrations",
     ];
 
-    for (const key of requiredBaseKeys) {
-      expect(baseRegistry).toContain(`key: "${key}"`);
-    }
+    for (const key of requiredBaseKeys) expect(baseRegistry).toContain(`key: "${key}"`);
     expect(baseRegistry.match(/\bkey: "/g)?.length ?? 0).toBeGreaterThanOrEqual(27);
-
     for (const key of ["business_memory", "revenue_intelligence", "journey_intelligence", "multi_agent", "lead_scoring", "academy"]) {
       expect(expandedRegistry).toContain(`key: "${key}"`);
     }
   });
 
   it("stores explanation, benefit, status and public navigation data", () => {
-    expect(baseRegistry).toContain("summary_sq:");
-    expect(baseRegistry).toContain("summary_en:");
-    expect(baseRegistry).toContain("how_it_works_sq:");
-    expect(baseRegistry).toContain("how_it_works_en:");
-    expect(baseRegistry).toContain("benefit_sq:");
-    expect(baseRegistry).toContain("benefit_en:");
-    expect(baseRegistry).toContain("public_info_route:");
-    expect(baseRegistry).toContain("status_note_sq:");
-    expect(baseRegistry).toContain("status_note_en:");
+    for (const field of ["summary_sq:", "summary_en:", "how_it_works_sq:", "how_it_works_en:", "benefit_sq:", "benefit_en:", "public_info_route:", "status_note_sq:", "status_note_en:"]) {
+      expect(baseRegistry).toContain(field);
+    }
   });
 
   it("fails closed when source/UI existence is not runtime certification", () => {
@@ -146,11 +137,9 @@ describe("Public AI Product Expert", () => {
   it("enforces confidence and mandatory human handoff boundaries", () => {
     expect(helpBot).toContain("const MIN_GROUNDED_CONFIDENCE = 0.5");
     expect(helpBot).toContain('confidence_source: "grounded_evidence"');
-    expect(helpBot).toContain("billing_or_refund");
-    expect(helpBot).toContain("security_incident");
-    expect(helpBot).toContain("privacy_request");
-    expect(helpBot).toContain("technical_incident");
-    expect(helpBot).toContain("human_requested");
+    for (const category of ["billing_or_refund", "security_incident", "privacy_request", "technical_incident", "human_requested"]) {
+      expect(helpBot).toContain(category);
+    }
     expect(helpBot).toContain("assessment.confidence < MIN_GROUNDED_CONFIDENCE");
   });
 
