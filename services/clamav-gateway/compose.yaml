@@ -1,0 +1,45 @@
+services:
+  clamd:
+    image: ${CLAMAV_IMAGE:-clamav/clamav:stable}
+    restart: unless-stopped
+    expose:
+      - "3310"
+    volumes:
+      - clamav-db:/var/lib/clamav
+    networks:
+      - scanner-internal
+    healthcheck:
+      test: ["CMD-SHELL", "clamdscan --ping 3 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      clamd:
+        condition: service_healthy
+    environment:
+      CLAMD_HOST: clamd
+      CLAMD_PORT: "3310"
+      PORT: "8080"
+      MAX_SCAN_BYTES: "104857600"
+      CLAMD_TIMEOUT_MS: "60000"
+      SCANNER_SHARED_SECRET: ${SCANNER_SHARED_SECRET:?required}
+    # Local development only. In hosted environments expose the gateway through
+    # a private HTTPS ingress/mTLS service; never publish clamd:3310.
+    ports:
+      - "127.0.0.1:8088:8080"
+    networks:
+      - scanner-internal
+
+networks:
+  scanner-internal:
+    internal: true
+
+volumes:
+  clamav-db:

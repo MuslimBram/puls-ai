@@ -49,7 +49,15 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.webchat-ingest]
     verify_jwt = false
+  [functions.verify-email-connection]
+    verify_jwt = true
   [functions.ai-router-runtime-check]
+    verify_jwt = false
+  [functions.content-security-firewall]
+    verify_jwt = false
+  [functions.content-security-attachment-stage]
+    verify_jwt = false
+  [functions.content-security-malware-worker]
     verify_jwt = false
   [functions.community-profile]
     verify_jwt = true

@@ -11,14 +11,25 @@ export type WebchatPublicInput = {
   message?: unknown;
   page_url?: unknown;
   channel_id?: unknown;
+  event_id?: unknown;
   // Deliberately reject these — they must never come from the browser
   user_id?: unknown;
   workspace_id?: unknown;
 };
 
 export type WebchatInputValidation =
-  | { ok: true; channel_id: string; message: string; visitor_name?: string; visitor_email?: string; page_url?: string }
+  | {
+      ok: true;
+      channel_id: string;
+      message: string;
+      event_id: string;
+      visitor_name?: string;
+      visitor_email?: string;
+      page_url?: string;
+    }
   | { ok: false; status: number; error: string };
+
+const EVENT_ID_PATTERN = /^[A-Za-z0-9:_-]+$/;
 
 export function validatePublicWebchatInput(body: WebchatPublicInput): WebchatInputValidation {
   // user_id and workspace_id must never be trusted from the browser
@@ -37,11 +48,21 @@ export function validatePublicWebchatInput(body: WebchatPublicInput): WebchatInp
     return { ok: false, status: 400, error: "Message too long" };
   }
 
+  const rawEventId = typeof body.event_id === "string" ? body.event_id.trim() : "";
+  if (typeof body.event_id === "string" && rawEventId === "") {
+    return { ok: false, status: 400, error: "event_id is required" };
+  }
+  if (rawEventId && (rawEventId.length < 8 || rawEventId.length > 200 || !EVENT_ID_PATTERN.test(rawEventId))) {
+    return { ok: false, status: 400, error: "invalid event_id" };
+  }
+  // event_id is optional from the browser; the proxy generates a stable one server-side if absent
+  const event_id = rawEventId || `wc:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
+
   const visitor_name = typeof body.visitor_name === "string" ? body.visitor_name.trim().slice(0, 200) || undefined : undefined;
   const visitor_email = typeof body.visitor_email === "string" ? body.visitor_email.trim().slice(0, 320) || undefined : undefined;
   const page_url = typeof body.page_url === "string" ? body.page_url.trim().slice(0, 2048) || undefined : undefined;
 
-  return { ok: true, channel_id, message, visitor_name, visitor_email, page_url };
+  return { ok: true, channel_id, message, event_id, visitor_name, visitor_email, page_url };
 }
 
 export type WebchatChannelRow = {
