@@ -365,31 +365,54 @@ async function processMetaMessage(
 
   const attachments = normalizeMetaAttachments(rawAttachments);
   const securityEventId = `${params.platform === "instagram" ? "ig" : "fb"}:${messageId}`;
+
+  const downloadedAttachments: DownloadedMetaAttachment[] = [];
+  if (attachments.length > 0) {
+    let totalBytes = 0;
+    for (const attachment of attachments) {
+      const downloaded = await downloadMetaAttachment(attachment);
+      totalBytes += downloaded.bytes.byteLength;
+      if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error("META_ATTACHMENTS_TOTAL_TOO_LARGE");
+      downloadedAttachments.push(downloaded);
+    }
+  }
+
+  let aggregateAttachment: { mime_type: string; size_bytes: number; sha256: string } | null = null;
+  if (downloadedAttachments.length > 0) {
+    const manifest = downloadedAttachments.map((d) => ({
+      index: d.index,
+      mime_type: d.mimeType,
+      byte_size: d.bytes.byteLength,
+      sha256: d.sha256,
+    }));
+    aggregateAttachment = {
+      mime_type: downloadedAttachments.length === 1 ? downloadedAttachments[0].mimeType : "multipart/mixed",
+      size_bytes: downloadedAttachments.reduce((sum, d) => sum + d.bytes.byteLength, 0),
+      sha256: downloadedAttachments.length === 1 ? downloadedAttachments[0].sha256 : await sha256Text(JSON.stringify(manifest)),
+    };
+  }
+
   const security = await scanInboundContent({
     workspace_id: params.mapping.workspace_id,
     source: params.provider,
     event_id: securityEventId,
     content,
     urls: extractSecurityUrls(content),
-    attachment: attachments.length ? { mime_type: "application/octet-stream" } : null,
+    attachment: aggregateAttachment,
   });
   if (!security.ok) throw new Error("META_CONTENT_SECURITY_UNAVAILABLE");
 
   if (blocksNormalIngress(security.decision)) {
-    if (attachments.length > 0 && security.decision.action === "quarantine") {
-      let totalBytes = 0;
-      for (const attachment of attachments) {
-        const downloaded = await downloadMetaAttachment(attachment);
-        totalBytes += downloaded.bytes.byteLength;
-        if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) throw new Error("META_ATTACHMENTS_TOTAL_TOO_LARGE");
+    if (downloadedAttachments.length > 0 && security.decision.action === "quarantine") {
+      for (const attachment of downloadedAttachments) {
         const staged = await stageInboundAttachment({
           workspace_id: params.mapping.workspace_id,
           source: params.provider,
           event_id: securityEventId,
           attachment_key: `meta_media_${attachment.index}`,
-          expected_attachment_count: attachments.length,
-          bytes: downloaded.bytes,
-          mime_type: downloaded.mimeType,
+          expected_attachment_count: downloadedAttachments.length,
+          bytes: attachment.bytes,
+          mime_type: attachment.mimeType,
         });
         if (!staged.ok) throw new Error(`META_ATTACHMENT_STAGE_${staged.code}`);
       }
@@ -397,7 +420,7 @@ async function processMetaMessage(
     return "quarantined";
   }
 
-  if (attachments.length > 0) throw new Error("META_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
+  if (downloadedAttachments.length > 0 || rawAttachments.length > 0) throw new Error("META_ATTACHMENT_SECURITY_CONTRACT_VIOLATION");
 
   const claim = await claimEvent(sb, params.provider, messageId, params.mapping.workspace_id);
   if (claim === "error") throw new Error("META_PROVIDER_CLAIM_FAILED");

@@ -300,7 +300,7 @@ serve(async (req) => {
       });
     }
 
-    if (downloaded || tgMedia) {
+    if (downloaded || attachment) {
       return new Response(JSON.stringify({ ok: false, error: "attachment_security_contract_violation" }), {
         status: 500,
         headers: { ...getCors(req), "Content-Type": "application/json" },
