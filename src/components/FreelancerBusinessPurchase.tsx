@@ -15,16 +15,16 @@ import { Briefcase, Plus, Wallet, AlertTriangle, CheckCircle, Clock, Trash2, Glo
 import { toast } from "@/components/ui/sonner";
 import { PACKAGE_VARIANTS } from "@/config/plans";
 import { cn } from "@/lib/utils";
-
-const BASE_PRICES: Record<string, number> = {
-  standard: 49,
-  professional: 99,
-  advanced: 199,
-  enterprise: 399,
-};
-
 import { useFreelancerPricing } from "@/hooks/useFreelancerPricing";
-import { formatALL } from "@/lib/currency";
+import { usePricingSettings } from "@/hooks/usePricingSettings";
+import { formatCurrency, type SupportedCurrency } from "@/lib/currency";
+
+const PLAN_LABELS: Record<string, string> = {
+  standard: "Start",
+  professional: "Growth",
+  advanced: "Professional",
+  enterprise: "Enterprise",
+};
 
 const FREELANCER_DISCOUNT = 40;
 
@@ -59,6 +59,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
   const wallets = walletsQuery.data ?? [];
   const [open, setOpen] = useState(false);
   const freelancerPricing = useFreelancerPricing();
+  const pricingSettings = usePricingSettings();
 
   const [form, setForm] = useState({
     business_name: "",
@@ -105,14 +106,32 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
     enabled: !!user?.id && isFreelancer,
   });
 
+  const selectedCurrency = form.wallet_currency as SupportedCurrency;
+  const getConfiguredMonthlyPrice = (planKey: string): number | null => {
+    const plan = pricingSettings.plans.find((item) => item.plan_key === planKey);
+    if (!plan) return null;
+
+    const rawPrice = selectedCurrency === "ALL"
+      ? plan.monthly_price_all
+      : selectedCurrency === "USD"
+        ? plan.monthly_price_usd
+        : plan.monthly_price_eur;
+    if (rawPrice === null || rawPrice === undefined) return null;
+
+    const numericPrice = Number(rawPrice);
+    return Number.isFinite(numericPrice) ? numericPrice : null;
+  };
+
   const selectedVariant = PACKAGE_VARIANTS.find((v) => v.type === form.duration);
-  const basePrice = BASE_PRICES[form.plan] || 49;
+  const basePrice = getConfiguredMonthlyPrice(form.plan);
+  const hasConfiguredPrice = basePrice !== null;
+  const basePriceValue = basePrice ?? 0;
   const durationMonths = selectedVariant?.durationMonths || 1;
   const durationDiscount = selectedVariant?.discountPercent || 0;
 
-  // Apply 40% discount ONLY if freelancer has 3+ active paid referrals
+  // Apply 40% discount ONLY if freelancer has 3+ active paid referrals.
   const effectiveFreelancerDiscount = freelancerPricing.isEligibleForDiscount ? FREELANCER_DISCOUNT : 0;
-  const freelancerMonthlyPrice = basePrice * (1 - effectiveFreelancerDiscount / 100);
+  const freelancerMonthlyPrice = basePriceValue * (1 - effectiveFreelancerDiscount / 100);
   const finalMonthlyPrice = freelancerMonthlyPrice * (1 - durationDiscount / 100);
   const totalPrice = Number((finalMonthlyPrice * durationMonths).toFixed(2));
 
@@ -142,6 +161,9 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
       if (!form.business_name.trim()) throw new Error("Business name is required");
       if (!hasMinChannels) throw new Error("At least 2 channels must be filled");
       if (!selectedPaymentMethod) throw new Error("Select a payment method");
+      if (pricingSettings.isLoading || !hasConfiguredPrice) {
+        throw new Error(`Price is not configured for ${form.plan} in ${selectedCurrency}`);
+      }
 
       if (selectedPaymentMethod === "wallet") {
         if (!selectedWallet) throw new Error("Select a wallet");
@@ -154,7 +176,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
           user_id: user!.id,
           wallet_id: selectedWallet?.id || null,
           amount: totalPrice,
-          currency: form.wallet_currency,
+          currency: selectedCurrency,
           request_type: "business_purchase",
           status: "pending_ai_review",
           metadata: {
@@ -164,7 +186,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
             plan: form.plan,
             duration: form.duration,
             duration_months: durationMonths,
-            base_price: basePrice,
+            base_price: basePriceValue,
             freelancer_discount: FREELANCER_DISCOUNT,
             duration_discount: durationDiscount,
             monthly_price: finalMonthlyPrice,
@@ -179,7 +201,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
         body: {
           user_id: user!.id,
           amount: totalPrice,
-          currency: form.wallet_currency,
+          currency: selectedCurrency,
           request_type: "business_purchase",
         },
       });
@@ -305,10 +327,16 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                   <Select value={form.plan} onValueChange={(v) => setForm((f) => ({ ...f, plan: v }))}>
                     <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="standard">Start - {formatALL(BASE_PRICES.standard)}/mo</SelectItem>
-                      <SelectItem value="professional">Growth - {formatALL(BASE_PRICES.professional)}/mo</SelectItem>
-                      <SelectItem value="advanced">Pro - {formatALL(BASE_PRICES.advanced)}/mo</SelectItem>
-                      <SelectItem value="enterprise">Enterprise - {formatALL(BASE_PRICES.enterprise)}/mo</SelectItem>
+                      {Object.entries(PLAN_LABELS).map(([planKey, label]) => {
+                        const configuredPrice = getConfiguredMonthlyPrice(planKey);
+                        return (
+                          <SelectItem key={planKey} value={planKey}>
+                            {label} - {configuredPrice === null
+                              ? "Price unavailable"
+                              : `${formatCurrency(configuredPrice, selectedCurrency)}/mo`}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -327,6 +355,13 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 </div>
               </div>
 
+              {!hasConfiguredPrice && !pricingSettings.isLoading && (
+                <p className="text-xs text-destructive flex items-center gap-1">
+                  <AlertTriangle className="h-3 w-3" />
+                  This plan has no configured {selectedCurrency} price and cannot be purchased.
+                </p>
+              )}
+
               {/* Eligibility warning */}
               {!freelancerPricing.isEligibleForDiscount && (
                 <div className="rounded-lg border border-destructive/50 bg-destructive/5 p-3 space-y-1">
@@ -344,12 +379,12 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
               <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
                 <div className="flex justify-between text-sm">
                   <span>Base price:</span>
-                  <span>{formatALL(basePrice)}/mo</span>
+                  <span>{hasConfiguredPrice ? `${formatCurrency(basePriceValue, selectedCurrency)}/mo` : "Not configured"}</span>
                 </div>
                 {effectiveFreelancerDiscount > 0 ? (
                   <div className="flex justify-between text-sm text-primary">
                     <span>Freelancer discount ({effectiveFreelancerDiscount}%):</span>
-                    <span>-{formatALL((basePrice * effectiveFreelancerDiscount / 100))}</span>
+                    <span>-{formatCurrency((basePriceValue * effectiveFreelancerDiscount / 100), selectedCurrency)}</span>
                   </div>
                 ) : (
                   <div className="flex justify-between text-sm text-muted-foreground">
@@ -360,12 +395,12 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 {durationDiscount > 0 && (
                   <div className="flex justify-between text-sm text-primary">
                     <span>Duration discount ({durationDiscount}%):</span>
-                    <span>-{formatALL((freelancerMonthlyPrice * durationDiscount / 100))}/mo</span>
+                    <span>-{formatCurrency((freelancerMonthlyPrice * durationDiscount / 100), selectedCurrency)}/mo</span>
                   </div>
                 )}
                 <div className="border-t border-border pt-1 flex justify-between font-semibold">
                   <span>Total ({durationMonths} months):</span>
-                  <span>{formatALL(totalPrice)}</span>
+                  <span>{formatCurrency(totalPrice, selectedCurrency)}</span>
                 </div>
               </div>
 
@@ -417,13 +452,13 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                   <button
                     type="button"
                     onClick={() => setSelectedPaymentMethod("wallet")}
-                    disabled={!hasEnoughBalance}
+                    disabled={!hasEnoughBalance || !hasConfiguredPrice}
                     className={cn(
                       "flex items-center gap-3 w-full rounded-lg border-2 px-3 py-2.5 transition-all text-left",
                       selectedPaymentMethod === "wallet"
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/50",
-                      !hasEnoughBalance && "opacity-50"
+                      (!hasEnoughBalance || !hasConfiguredPrice) && "opacity-50"
                     )}
                   >
                     <div className={cn(
@@ -435,7 +470,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                     <Wallet className="h-4 w-4 text-primary" />
                     <span className="text-sm font-medium text-foreground">Wallet</span>
                     <Badge variant="secondary" className="ml-auto text-xs">
-                      {formatALL((selectedWallet?.current_balance ?? 0))}
+                      {formatCurrency((selectedWallet?.current_balance ?? 0), selectedCurrency)}
                     </Badge>
                   </button>
                 )}
@@ -452,6 +487,8 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                 onClick={() => purchaseBusiness.mutate()}
                 disabled={
                   purchaseBusiness.isPending ||
+                  pricingSettings.isLoading ||
+                  !hasConfiguredPrice ||
                   !form.business_name.trim() ||
                   !hasMinChannels ||
                   !selectedPaymentMethod ||
@@ -460,7 +497,9 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
               >
                 {purchaseBusiness.isPending
                   ? "Submitting..."
-                  : `Purchase Business — ${formatALL(totalPrice)}`}
+                  : !hasConfiguredPrice
+                    ? "Price not configured"
+                    : `Purchase Business — ${formatCurrency(totalPrice, selectedCurrency)}`}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
                 Payment is verified by AI and approved by Admin
