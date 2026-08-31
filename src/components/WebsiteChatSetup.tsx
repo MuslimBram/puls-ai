@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
 import { toast } from "@/components/ui/sonner";
 import { Globe, CheckCircle2, Copy, Loader2, AlertCircle, MessageCircle } from "lucide-react";
@@ -12,7 +11,8 @@ import { Globe, CheckCircle2, Copy, Loader2, AlertCircle, MessageCircle } from "
 export const WebsiteChatSetup = () => {
   const { channels, addChannel } = useChannels();
   const chatChannels = channels.filter((c) => c.channel_type === "website_chat");
-  const webchatProxyUrl = import.meta.env.VITE_WEBCHAT_PROXY_URL as string | undefined;
+  const webchatProxyUrl = (import.meta.env.VITE_WEBCHAT_PROXY_URL as string | undefined)
+    || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webchat-proxy`;
 
   const [config, setConfig] = useState({
     widgetColor: "#3b82f6",
@@ -32,7 +32,7 @@ export const WebsiteChatSetup = () => {
   var s = document.createElement('script');
   s.src = '${window.location.origin}/chat-widget.js';
   s.setAttribute('data-channel-id', '${activeChannelId || "YOUR_CHANNEL_ID"}');
-  s.setAttribute('data-proxy-url', '${webchatProxyUrl || "https://your-server.example.com/webchat-proxy"}');
+  s.setAttribute('data-proxy-url', '${webchatProxyUrl}');
   s.setAttribute('data-color', '${config.widgetColor}');
   s.setAttribute('data-welcome', '${config.welcomeMessage}');
   s.setAttribute('data-name', '${config.businessName}');
@@ -50,11 +50,6 @@ export const WebsiteChatSetup = () => {
       toast.error("Connect a Website Chat channel first");
       return;
     }
-    if (!webchatProxyUrl) {
-      setTestResult({ ok: false });
-      toast.error("Test blocked: VITE_WEBCHAT_PROXY_URL is not configured.");
-      return;
-    }
     setTestSending(true);
     setTestResult(null);
     try {
@@ -67,6 +62,7 @@ export const WebsiteChatSetup = () => {
           message: "This is a test message from the Website Chat setup page.",
           page_url: window.location.href,
           channel_id: activeChannelId,
+          event_id: `wc:${crypto.randomUUID()}`,
         }),
       });
       if (!response.ok) throw new Error("Test request failed");
@@ -112,7 +108,6 @@ export const WebsiteChatSetup = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Status */}
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-foreground">Status:</span>
           {chatChannels.length > 0 ? (
@@ -125,7 +120,6 @@ export const WebsiteChatSetup = () => {
           Embed a lightweight chat widget on your website. Messages are processed through keyword matching and AI analysis.
         </p>
 
-        {/* Connected */}
         {chatChannels.length > 0 && (
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground">Connected Chat Channels</p>
@@ -139,7 +133,6 @@ export const WebsiteChatSetup = () => {
           </div>
         )}
 
-        {/* Configuration */}
         <div className="space-y-3 rounded-lg border border-border p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
@@ -165,17 +158,15 @@ export const WebsiteChatSetup = () => {
             </div>
           </div>
 
-          {/* Embed snippet */}
           <div className="rounded-lg bg-muted p-3">
             <div className="flex items-center justify-between mb-2">
               <p className="text-xs font-medium text-foreground">Embed Snippet</p>
               <Button size="sm" variant="ghost" onClick={copySnippet}><Copy className="h-3 w-3 mr-1" /> Copy</Button>
             </div>
-            <p className="text-xs text-muted-foreground mb-2">Add this code to your website's HTML, before the closing &lt;/body&gt; tag, and route messages through your trusted server proxy.</p>
+            <p className="text-xs text-muted-foreground mb-2">Add this code to your website's HTML, before the closing &lt;/body&gt; tag. The widget routes messages through the tenant-safe Pulse AI proxy.</p>
             <pre className="text-xs text-muted-foreground bg-background rounded p-2 overflow-x-auto whitespace-pre-wrap">{embedSnippet}</pre>
           </div>
 
-          {/* Test */}
           {testResult && (
             <div className={`flex items-center gap-2 text-xs ${testResult.ok ? "text-[hsl(var(--success))]" : "text-destructive"}`}>
               {testResult.ok ? <CheckCircle2 className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}
