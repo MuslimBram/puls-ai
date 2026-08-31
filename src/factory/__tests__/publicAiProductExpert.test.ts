@@ -14,13 +14,13 @@ const register = read("src", "pages", "Register.tsx");
 describe("Public AI Product Expert", () => {
   it("covers the major Pulse AI surfaces plus expanded product knowledge", () => {
     const requiredBaseKeys = ["ai_os", "ai_assistant", "unified_inbox", "whatsapp", "telegram", "facebook_instagram", "email", "sms_voice", "crm", "leads_sales", "automations", "marketing", "media_studio", "analytics", "business_scanner", "knowledge_training", "payments_billing", "partners_referral", "white_label", "lidhjet", "public_api", "custom_webhooks", "web_chat", "security", "auth_mfa", "pwa_mobile", "external_integrations"];
-    for (const key of requiredBaseKeys) expect(baseRegistry).toContain(`key: "${key}"`);
+    requiredBaseKeys.forEach((key) => expect(baseRegistry).toContain(`key: "${key}"`));
     expect(baseRegistry.match(/\bkey: "/g)?.length ?? 0).toBeGreaterThanOrEqual(27);
-    for (const key of ["business_memory", "revenue_intelligence", "journey_intelligence", "multi_agent", "lead_scoring", "academy"]) expect(expandedRegistry).toContain(`key: "${key}"`);
+    ["business_memory", "revenue_intelligence", "journey_intelligence", "multi_agent", "lead_scoring", "academy"].forEach((key) => expect(expandedRegistry).toContain(`key: "${key}"`));
   });
 
   it("stores explanation, benefit, status and public navigation data", () => {
-    for (const field of ["summary_sq:", "summary_en:", "how_it_works_sq:", "how_it_works_en:", "benefit_sq:", "benefit_en:", "public_info_route:", "status_note_sq:", "status_note_en:"]) expect(baseRegistry).toContain(field);
+    ["summary_sq:", "summary_en:", "how_it_works_sq:", "how_it_works_en:", "benefit_sq:", "benefit_en:", "public_info_route:", "status_note_sq:", "status_note_en:"].forEach((field) => expect(baseRegistry).toContain(field));
   });
 
   it("fails closed when source/UI existence is not runtime certification", () => {
@@ -31,7 +31,7 @@ describe("Public AI Product Expert", () => {
     expect(helpBot).toContain('runtime_certification: "not_implied_by_source_or_ui"');
     expect(helpBot).toContain("Source/UI existence is not runtime E2E proof");
     expect(helpBot).toContain("Never claim a feature is LIVE, production-ready, connected, runtime-certified or universally available merely because UI/source/routes exist");
-    for (const key of ["google_workspace_drive", "ads_intelligence", "vicidial"]) expect(expandedRegistry).toContain(`key: "${key}"`);
+    ["google_workspace_drive", "ads_intelligence", "vicidial"].forEach((key) => expect(expandedRegistry).toContain(`key: "${key}"`));
   });
 
   it("locks brand identity to Pulse AI and keeps BOS wording as descriptor only", () => {
@@ -102,14 +102,14 @@ describe("Public AI Product Expert", () => {
   it("enforces confidence and mandatory human handoff boundaries", () => {
     expect(helpBot).toContain("const MIN_GROUNDED_CONFIDENCE = 0.5");
     expect(helpBot).toContain('confidence_source: "grounded_evidence"');
-    for (const category of ["billing_or_refund", "security_incident", "privacy_request", "technical_incident", "human_requested"]) expect(helpBot).toContain(category);
+    ["billing_or_refund", "security_incident", "privacy_request", "technical_incident", "human_requested"].forEach((category) => expect(helpBot).toContain(category));
     expect(helpBot).toContain("assessment.confidence < MIN_GROUNDED_CONFIDENCE");
   });
 
   it("renders only allowlisted public links and collapses long answers behind Read more", () => {
     expect(floatingBot).toContain('import { PublicBotMessageContent } from "@/components/PublicBotMessageContent"');
     expect(floatingBot).toContain('<PublicBotMessageContent content={msg.content} />');
-    for (const contract of ["PUBLIC_INTERNAL_ROUTES", "APPROVED_EXTERNAL_HOSTS", "isAllowedInternalRoute", "isAllowedExternalUrl", 'parsed.protocol === "https:"', "PUBLIC_INTERNAL_ROUTES.some((route) => parsed.pathname === route)"]) expect(messageRenderer).toContain(contract);
+    ["PUBLIC_INTERNAL_ROUTES", "APPROVED_EXTERNAL_HOSTS", "isAllowedInternalRoute", "isAllowedExternalUrl", 'parsed.protocol === "https:"', "PUBLIC_INTERNAL_ROUTES.some((route) => parsed.pathname === route)"].forEach((contract) => expect(messageRenderer).toContain(contract));
     expect(messageRenderer).toContain('!value.startsWith("/") || value.startsWith("//")');
     expect(messageRenderer).toContain("<Link to={link}");
     expect(messageRenderer).toContain('rel="noopener noreferrer"');
