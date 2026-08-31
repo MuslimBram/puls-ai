@@ -6,6 +6,30 @@ const TRAILING_PUNCTUATION = /[),.;!?]+$/;
 const PREVIEW_TARGET_CHARS = 280;
 const PREVIEW_MAX_CHARS = 360;
 
+const PUBLIC_INTERNAL_ROUTES = [
+  "/",
+  "/platform",
+  "/platform/ai",
+  "/platform/unified-inbox",
+  "/platform/crm",
+  "/platform/automation",
+  "/platform/marketing",
+  "/platform/analytics",
+  "/platform/partners",
+  "/platform/lidhjet",
+  "/platform/developers",
+  "/pricing",
+  "/register",
+  "/login",
+  "/security",
+  "/help-center",
+  "/contact",
+  "/white-label",
+  "/install",
+] as const;
+
+const APPROVED_EXTERNAL_HOSTS = new Set(["pulse-bos.com", "www.pulse-bos.com"]);
+
 function splitTrailingPunctuation(value: string): { link: string; trailing: string } {
   const match = value.match(TRAILING_PUNCTUATION);
   if (!match) return { link: value, trailing: "" };
@@ -36,6 +60,27 @@ function createPreview(content: string): { preview: string; collapsible: boolean
   };
 }
 
+function isAllowedInternalRoute(value: string): boolean {
+  if (!value.startsWith("/") || value.startsWith("//")) return false;
+  try {
+    const parsed = new URL(value, "https://pulse-bos.com");
+    return PUBLIC_INTERNAL_ROUTES.some((route) =>
+      route === "/" ? parsed.pathname === "/" : parsed.pathname === route,
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isAllowedExternalUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && APPROVED_EXTERNAL_HOSTS.has(parsed.hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 function LinkedContent({ content }: { content: string }) {
   const parts = content.split(LINK_PATTERN);
 
@@ -51,6 +96,7 @@ function LinkedContent({ content }: { content: string }) {
         if (!link) return <Fragment key={index}>{part}</Fragment>;
 
         if (isInternal) {
+          if (!isAllowedInternalRoute(link)) return <Fragment key={index}>{part}</Fragment>;
           return (
             <Fragment key={index}>
               <Link to={link} className="font-medium underline underline-offset-2 hover:opacity-80">
@@ -61,6 +107,7 @@ function LinkedContent({ content }: { content: string }) {
           );
         }
 
+        if (!isAllowedExternalUrl(link)) return <Fragment key={index}>{part}</Fragment>;
         return (
           <Fragment key={index}>
             <a
