@@ -6,7 +6,7 @@ import {
   PUBLIC_PRODUCT_REGISTRY,
   findPublicProductFeatures,
   type PublicProductFeature,
-} from "../_shared/public-product-registry.ts";
+} from "../_shared/public-product-knowledge.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -150,7 +150,7 @@ function buildSystemPrompt(pricingRows: PricingRow[], pricingOk: boolean, questi
     "Respond in the user's language when clear; support Albanian and English naturally.",
     "When giving a route, print the literal path such as /platform/crm or /pricing so the UI can render it as a clickable link.",
     "Channel truth: WhatsApp uses Meta WhatsApp Cloud API directly; Twilio is used for SMS/Voice, not WhatsApp.",
-    "For channel troubleshooting, identify the failing step, give one safe corrective action at a time, never ask for a token/password/secret in chat, and include the matching help link.",
+    "For channel troubleshooting, identify the failing step, give one safe corrective action at a time, never ask for a token/password/secret in chat, and include the matching public product link.",
     "If information is unavailable, not certified, account-specific, or conflicting, say so clearly instead of guessing.",
     "PRODUCT_KNOWLEDGE:",
     publicProductKnowledge(question),
@@ -200,36 +200,36 @@ function buildGroundedFallback(messages: ChatMessage[]): string {
 
   if (/whatsapp|waba|phone number id|meta cloud/.test(question) && /invalid.*token|token.*invalid|expired|revoked|webhook|no inbound|nuk (vjen|hy)|undelivered|delivery/.test(question)) {
     return answer(
-      "Kontrollo fillimisht hapin që dështoi: token/WABA/Phone Number ID, webhook subscription ose delivery status. WhatsApp në Pulse AI përdor Meta Cloud API direkt. Mos dërgo token në chat. Udhëzuesi: /help-center#channel-whatsapp",
-      "First identify the failing step: token/WABA/Phone Number ID, webhook subscription, or delivery status. Pulse AI WhatsApp uses Meta Cloud API directly. Never paste a token into chat. Guide: /help-center#channel-whatsapp",
+      "Kontrollo fillimisht hapin që dështoi: token/WABA/Phone Number ID, webhook subscription ose delivery status. WhatsApp në Pulse AI përdor Meta Cloud API direkt. Mos dërgo token në chat. Shpjegimi publik: /platform/unified-inbox · Konfigurimi pas hyrjes: /channels",
+      "First identify the failing step: token/WABA/Phone Number ID, webhook subscription, or delivery status. Pulse AI WhatsApp uses Meta Cloud API directly. Never paste a token into chat. Public overview: /platform/unified-inbox · Setup after sign-in: /channels",
     );
   }
 
   if (/telegram|botfather|bot token/.test(question) && /invalid|failed|error|nuk|webhook/.test(question)) {
     return answer(
-      "Kontrollo token-in te @BotFather, bëj Verify/Activate dhe pastaj provo /start. Mos dërgo token në chat. Udhëzuesi: /help-center#channel-telegram",
-      "Check the token in @BotFather, run Verify/Activate and then test /start. Never paste the token into chat. Guide: /help-center#channel-telegram",
+      "Kontrollo token-in te @BotFather, bëj Verify/Activate dhe pastaj provo /start. Mos dërgo token në chat. Shpjegimi publik: /platform/unified-inbox · Konfigurimi pas hyrjes: /channels",
+      "Check the token in @BotFather, run Verify/Activate and then test /start. Never paste the token into chat. Public overview: /platform/unified-inbox · Setup after sign-in: /channels",
     );
   }
 
   if (/email|imap|dkim|spf|dmarc/.test(question) && /error|failed|nuk|verify|connect/.test(question)) {
     return answer(
-      "Për Email kontrollo IMAP host/user/app-password dhe, për dërgim, domain-in plus DKIM/SPF/DMARC. Pastaj bëj provë reale dërgim+marrje. Udhëzuesi: /help-center#channel-email",
-      "For Email check the IMAP host/user/app-password and, for sending, the domain plus DKIM/SPF/DMARC. Then run a real send-and-receive proof. Guide: /help-center#channel-email",
+      "Për Email kontrollo IMAP host/user/app-password dhe, për dërgim, domain-in plus DKIM/SPF/DMARC. Pastaj bëj provë reale dërgim+marrje. Shpjegimi publik: /platform/unified-inbox · Konfigurimi pas hyrjes: /channels",
+      "For Email check the IMAP host/user/app-password and, for sending, the domain plus DKIM/SPF/DMARC. Then run a real send-and-receive proof. Public overview: /platform/unified-inbox · Setup after sign-in: /channels",
     );
   }
 
   if (/facebook|instagram|messenger|oauth/.test(question) && /error|failed|redirect|permission|nuk|connect/.test(question)) {
     return answer(
-      "Kontrollo Meta access te App/Page, lidhjen e Instagram Professional me Page, exact redirect URL dhe webhook permissions/subscriptions. Mos dërgo access token në chat. Udhëzuesi: /help-center#channel-facebook",
-      "Check Meta access to the App/Page, the Instagram Professional-to-Page link, exact redirect URL, and webhook permissions/subscriptions. Never paste an access token into chat. Guide: /help-center#channel-facebook",
+      "Kontrollo Meta access te App/Page, lidhjen e Instagram Professional me Page, exact redirect URL dhe webhook permissions/subscriptions. Mos dërgo access token në chat. Shpjegimi publik: /platform/unified-inbox · Konfigurimi pas hyrjes: /channels",
+      "Check Meta access to the App/Page, the Instagram Professional-to-Page link, exact redirect URL, and webhook permissions/subscriptions. Never paste an access token into chat. Public overview: /platform/unified-inbox · Setup after sign-in: /channels",
     );
   }
 
   if (/sms|twilio/.test(question) && /error|failed|nuk|delivery|connect/.test(question)) {
     return answer(
-      "Twilio përdoret për SMS/Voice. Kontrollo Account SID/Auth Token, numrin E.164, aftësinë SMS/Voice, balancën dhe callback-et. Mos dërgo Auth Token në chat. Udhëzuesi: /help-center#channel-sms",
-      "Twilio is used for SMS/Voice. Check Account SID/Auth Token, the E.164 number, SMS/Voice capability, balance and callbacks. Never paste the Auth Token into chat. Guide: /help-center#channel-sms",
+      "Twilio përdoret për SMS/Voice. Kontrollo Account SID/Auth Token, numrin E.164, aftësinë SMS/Voice, balancën dhe callback-et. Mos dërgo Auth Token në chat. Shpjegimi publik: /platform/unified-inbox · Konfigurimi pas hyrjes: /channels",
+      "Twilio is used for SMS/Voice. Check Account SID/Auth Token, the E.164 number, SMS/Voice capability, balance and callbacks. Never paste the Auth Token into chat. Public overview: /platform/unified-inbox · Setup after sign-in: /channels",
     );
   }
 
@@ -238,8 +238,8 @@ function buildGroundedFallback(messages: ChatMessage[]): string {
 
   if (/regjistr|register|sign up|account|llogari/.test(question)) {
     return answer(
-      "Për regjistrim hap /register. Zgjidh metodën dhe llojin e llogarisë, përfundo verifikimin dhe onboarding-un. Për udhëzime: /help-center",
-      "For registration open /register. Choose the method and account type, then complete verification and onboarding. Guide: /help-center",
+      "Për regjistrim hap /register. Zgjidh metodën dhe llojin e llogarisë, përfundo verifikimin dhe onboarding-un. Për sigurinë e llogarisë: /security",
+      "For registration open /register. Choose the method and account type, then complete verification and onboarding. Account security: /security",
     );
   }
 
@@ -251,8 +251,8 @@ function buildGroundedFallback(messages: ChatMessage[]): string {
   }
 
   return answer(
-    "Mund të shpjegoj funksionet e Pulse AI, si përdoren dhe ku gjenden. Shkruaj emrin e funksionit ose çfarë dëshiron të bësh. Katalogu i platformës: /platform · Ndihma: /help-center",
-    "I can explain Pulse AI capabilities, how they work and where to find them. Tell me the feature name or what you want to accomplish. Platform catalog: /platform · Help: /help-center",
+    "Mund të shpjegoj funksionet e Pulse AI, si përdoren dhe ku gjenden. Shkruaj emrin e funksionit ose çfarë dëshiron të bësh. Katalogu i platformës: /platform · Kontakt: /contact",
+    "I can explain Pulse AI capabilities, how they work and where to find them. Tell me the feature name or what you want to accomplish. Platform catalog: /platform · Contact: /contact",
   );
 }
 
