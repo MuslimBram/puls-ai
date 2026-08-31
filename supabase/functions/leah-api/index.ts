@@ -86,6 +86,10 @@ function errorStatus(message: string): number {
   return 500;
 }
 
+function publicError(message: string, status: number): string {
+  return status === 500 ? "Internal LEAH error" : message;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
   if (req.method !== "POST") return json(req, { error: "Method not allowed" }, 405);
@@ -436,6 +440,7 @@ serve(async (req) => {
     throw new Error("Unknown LEAH action");
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
-    return json(req, { error: message }, errorStatus(message));
+    const status = errorStatus(message);
+    return json(req, { error: publicError(message, status) }, status);
   }
 });
