@@ -1,8 +1,9 @@
 /**
  * _shared/webchat-channel-validator.ts
  *
- * Pure, side-effect-free validation logic for the webchat-proxy endpoint.
- * Extracted so it can be unit-tested without a Deno runtime.
+ * Pure, side-effect-free validation logic for the public webchat boundary.
+ * Browser input never supplies tenant identity; channel_id resolves the tenant
+ * server-side and the request Origin must match a server-stored allowlist.
  */
 
 export type WebchatPublicInput = {
@@ -12,9 +13,10 @@ export type WebchatPublicInput = {
   page_url?: unknown;
   channel_id?: unknown;
   event_id?: unknown;
-  // Deliberately reject these — they must never come from the browser
+  // Deliberately reject these — they must never come from the browser.
   user_id?: unknown;
   workspace_id?: unknown;
+  business_id?: unknown;
 };
 
 export type WebchatInputValidation =
@@ -30,10 +32,55 @@ export type WebchatInputValidation =
   | { ok: false; status: number; error: string };
 
 const EVENT_ID_PATTERN = /^[A-Za-z0-9:_-]+$/;
+const MAX_ALLOWED_ORIGINS = 20;
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function normalizeWebOrigin(value: string): string | null {
+  try {
+    const url = new URL(value.trim());
+    const isLocalhost = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    if (url.protocol !== "https:" && !(isLocalhost && url.protocol === "http:")) return null;
+    if (url.username || url.password || url.search || url.hash) return null;
+    if (url.pathname !== "/" && url.pathname !== "") return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
+export type WebchatAllowedOriginsValidation =
+  | { ok: true; origins: string[] }
+  | { ok: false; error: string };
+
+export function normalizeAllowedWebchatOrigins(value: unknown): WebchatAllowedOriginsValidation {
+  if (!Array.isArray(value) || value.length < 1 || value.length > MAX_ALLOWED_ORIGINS) {
+    return { ok: false, error: "At least one allowed website origin is required" };
+  }
+
+  const origins = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string" || item.length > 300) {
+      return { ok: false, error: "Invalid allowed website origin" };
+    }
+    const normalized = normalizeWebOrigin(item);
+    if (!normalized) return { ok: false, error: "Invalid allowed website origin" };
+    origins.add(normalized);
+  }
+
+  if (origins.size < 1 || origins.size > MAX_ALLOWED_ORIGINS) {
+    return { ok: false, error: "Invalid allowed website origin count" };
+  }
+  return { ok: true, origins: [...origins] };
+}
 
 export function validatePublicWebchatInput(body: WebchatPublicInput): WebchatInputValidation {
-  // user_id and workspace_id must never be trusted from the browser
-  if (body.user_id !== undefined || body.workspace_id !== undefined) {
+  // Tenant identity must never be trusted from a public browser/widget.
+  if (body.user_id !== undefined || body.workspace_id !== undefined || body.business_id !== undefined) {
     return { ok: false, status: 400, error: "Invalid request parameters" };
   }
 
@@ -69,6 +116,7 @@ export type WebchatChannelRow = {
   workspace_id: string | null;
   channel_type: string;
   is_enabled: boolean;
+  settings?: unknown;
 };
 
 export type WebchatChannelValidation =
@@ -97,15 +145,39 @@ export function validateWebchatChannel(
   if (!ch.is_enabled) {
     return { ok: false, status: 403, error: "Channel disabled" };
   }
-  if (!ch.workspace_id) {
+  if (!ch.workspace_id || !ch.user_id) {
     return { ok: false, status: 403, error: "Channel configuration error" };
   }
-  if (!ch.user_id) {
+
+  const allowed = normalizeAllowedWebchatOrigins(asRecord(ch.settings).allowed_origins);
+  if (!allowed.ok) {
     return { ok: false, status: 403, error: "Channel configuration error" };
   }
 
   return {
     ok: true,
-    channel: { ...ch, workspace_id: ch.workspace_id, user_id: ch.user_id },
+    channel: {
+      ...ch,
+      settings: { ...asRecord(ch.settings), allowed_origins: allowed.origins },
+      workspace_id: ch.workspace_id,
+      user_id: ch.user_id,
+    },
   };
+}
+
+export function validateWebchatRequestOrigin(
+  settings: unknown,
+  requestOrigin: string | null,
+): { ok: true; origin: string } | { ok: false; status: number; error: string } {
+  if (!requestOrigin) return { ok: false, status: 403, error: "Origin not allowed" };
+
+  const normalizedRequestOrigin = normalizeWebOrigin(requestOrigin);
+  if (!normalizedRequestOrigin) return { ok: false, status: 403, error: "Origin not allowed" };
+
+  const allowed = normalizeAllowedWebchatOrigins(asRecord(settings).allowed_origins);
+  if (!allowed.ok || !allowed.origins.includes(normalizedRequestOrigin)) {
+    return { ok: false, status: 403, error: "Origin not allowed" };
+  }
+
+  return { ok: true, origin: normalizedRequestOrigin };
 }
