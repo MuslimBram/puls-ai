@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { readMigrationByName } from "./readMigrationByName";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 const client = read("supabase/functions/_shared/content-security-client.ts");
 const whatsapp = read("supabase/functions/whatsapp-webhook/index.ts");
 const telegram = read("supabase/functions/telegram-webhook/index.ts");
 const meta = read("supabase/functions/meta-webhook/index.ts");
-const migration = read("supabase/migrations/20260830221000_content_security_wave1_inbox_idempotency.sql");
+const migration = readMigrationByName("content_security_wave1_inbox_idempotency.sql");
 
 describe("P0.6 content-security ingress wave 1", () => {
   it("uses one internal fail-closed firewall client and never logs raw content", () => {

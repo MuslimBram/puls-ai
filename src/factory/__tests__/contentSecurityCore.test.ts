@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { readMigrationByName } from "./readMigrationByName";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
-const migration = read("supabase/migrations/20260830184500_content_security_core.sql");
+const migration = readMigrationByName("content_security_core.sql");
 const firewall = read("supabase/functions/content-security-firewall/index.ts");
 const config = read("supabase/config.toml");
 
