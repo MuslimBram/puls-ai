@@ -28,7 +28,8 @@ describe("P0.6 webchat canonical event id", () => {
   });
 
   it("requires the internal ingress to receive and persist the canonical event id", () => {
-    expect(ingest).toContain('error: "channel_id, event_id and message are required"');
+    expect(ingest).toContain('error: "channel_id and message are required"');
+    expect(ingest).toContain('error: "event_id is required"');
     expect(ingest).toContain("provider_message_id: eventId");
     expect(ingest).toContain("external_event_id: eventId");
     expect(ingest).toContain('inboxErr.code === "23505"');
