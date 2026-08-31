@@ -163,6 +163,7 @@ describe("Public AI Product Expert", () => {
     expect(messageRenderer).toContain("isAllowedExternalUrl");
     expect(messageRenderer).toContain('!value.startsWith("/") || value.startsWith("//")');
     expect(messageRenderer).toContain('parsed.protocol === "https:"');
+    expect(messageRenderer).toContain("PUBLIC_INTERNAL_ROUTES.some((route) => parsed.pathname === route)");
     expect(messageRenderer).toContain("<Link to={link}");
     expect(messageRenderer).toContain('rel="noopener noreferrer"');
     expect(messageRenderer).toContain('expanded ? "Show less" : "Read more"');
