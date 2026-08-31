@@ -17,6 +17,38 @@ const MAX_MESSAGE_CHARS = 2_000;
 const ROUTER_TASK_TYPE = "customer_support";
 const MIN_GROUNDED_CONFIDENCE = 0.5;
 
+const PRODUCT_NAME = "Pulse AI";
+const POSITIONING_DESCRIPTOR = "The AI Business Operating System";
+const PUBLIC_ACCOUNT_TYPES = ["Business", "Freelancer", "Ambassador", "White-Label"] as const;
+const LIDHJET_CATEGORIES = ["Punë", "Shërbim", "Tregti", "Tjetër"] as const;
+
+const PUBLIC_ROUTE_ALLOWLIST = new Set([
+  "/",
+  "/platform",
+  "/platform/ai",
+  "/platform/unified-inbox",
+  "/platform/crm",
+  "/platform/automation",
+  "/platform/marketing",
+  "/platform/analytics",
+  "/platform/partners",
+  "/platform/lidhjet",
+  "/platform/developers",
+  "/pricing",
+  "/register",
+  "/login",
+  "/security",
+  "/help-center",
+  "/contact",
+  "/white-label",
+  "/install",
+]);
+
+// `available` in historical registries proves a product surface exists, not that its full
+// runtime/provider E2E has been certified. Only these public surfaces are safe to preserve
+// as directly observable public availability; everything else fails closed to limited.
+const PUBLICLY_VERIFIED_SURFACE_KEYS = new Set(["ai_os", "pwa_mobile"]);
+
 type ChatMessage = {
   role: "user" | "assistant";
   content: string;
@@ -37,6 +69,12 @@ type SupportAssessment = {
   confidence: number;
   mandatoryEscalation: boolean;
   category: string | null;
+};
+
+type PublicSafeFeature = PublicProductFeature & {
+  status: PublicProductFeature["status"];
+  public_info_route: string;
+  runtime_certification: "not_implied_by_source_or_ui";
 };
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -69,7 +107,7 @@ function latestUserQuestion(messages: ChatMessage[]): string {
 }
 
 function isAlbanian(question: string): boolean {
-  return /\b(si|sa|çfarë|cfare|lidh|regjistr|ndihm|nuk|kam|është|eshte|mund|kusht|gabim|biznes|funksion|për|per|dua|njeri|agjent|rimburs|siguri|privatësi|privatesi)\b/i.test(question);
+  return /\b(si|sa|çfarë|cfare|lidh|regjistr|ndihm|nuk|kam|është|eshte|mund|kusht|gabim|biznes|funksion|për|per|dua|njeri|agjent|rimburs|siguri|privatësi|privatesi|punë|sherbim|shërbim|tregti|tjetër)\b/i.test(question);
 }
 
 function isPricingIntent(question: string): boolean {
@@ -77,7 +115,49 @@ function isPricingIntent(question: string): boolean {
 }
 
 function isRegistrationIntent(question: string): boolean {
-  return /\b(register|sign up|registration|account|regjistr|llogari)\b/i.test(question);
+  return /\b(register|sign up|registration|account type|create account|regjistr|llogari|tip llogarie)\b/i.test(question);
+}
+
+function isLidhjetIntent(question: string): boolean {
+  return /\b(lidhjet|community|business network|opportunity|opportunities|mundësi|mundesi|punë|pune|shërbim|sherbim|tregti)\b/i.test(question);
+}
+
+function isReferralIntent(question: string): boolean {
+  return /\b(referral|partner commission|commission|ambassador earnings|freelancer commission|referim|komision|partner|ambasador)\b/i.test(question);
+}
+
+function isBrandIntent(question: string): boolean {
+  return /\b(pulse ai bos|ai business operating system|business os|what is pulse ai|çfarë është pulse ai|cfare eshte pulse ai)\b/i.test(question);
+}
+
+function publicRoute(value: string | undefined): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/platform";
+  try {
+    const parsed = new URL(value, "https://pulse-bos.com");
+    return PUBLIC_ROUTE_ALLOWLIST.has(parsed.pathname) ? value : "/platform";
+  } catch {
+    return "/platform";
+  }
+}
+
+function toPublicSafeFeature(feature: PublicProductFeature): PublicSafeFeature {
+  const status = feature.status === "available" && !PUBLICLY_VERIFIED_SURFACE_KEYS.has(feature.key)
+    ? "limited_or_not_certified"
+    : feature.status;
+  const wasDowngraded = status !== feature.status;
+
+  return {
+    ...feature,
+    status,
+    public_info_route: publicRoute(feature.public_info_route ?? feature.route),
+    status_note_sq: wasDowngraded
+      ? `${feature.status_note_sq} Ekzistenca në source/UI nuk është provë runtime E2E; mos e quaj universal LIVE pa certifikim.`
+      : feature.status_note_sq,
+    status_note_en: wasDowngraded
+      ? `${feature.status_note_en} Source/UI existence is not runtime E2E proof; do not call it universally LIVE without certification.`
+      : feature.status_note_en,
+    runtime_certification: "not_implied_by_source_or_ui",
+  };
 }
 
 async function loadPublicPricingRows(): Promise<{ rows: PricingRow[]; ok: boolean }> {
@@ -91,7 +171,7 @@ async function loadPublicPricingRows(): Promise<{ rows: PricingRow[]; ok: boolea
     .order("plan_key", { ascending: true });
 
   if (error || !Array.isArray(data)) {
-    console.error("ai-help-bot pricing_settings fetch failed");
+    console.error("ai_help_pricing_fetch_failed");
     return { rows: [], ok: false };
   }
 
@@ -112,15 +192,15 @@ async function loadPublicPricingRows(): Promise<{ rows: PricingRow[]; ok: boolea
 }
 
 function publicProductKnowledge(question: string): string {
-  const catalog = PUBLIC_PRODUCT_REGISTRY.map((feature) => ({
+  const catalog = PUBLIC_PRODUCT_REGISTRY.map(toPublicSafeFeature).map((feature) => ({
     key: feature.key,
     names: feature.names,
-    route: feature.route,
-    public_info_route: feature.public_info_route ?? feature.route,
+    public_info_route: feature.public_info_route,
     status: feature.status,
+    runtime_certification: feature.runtime_certification,
   }));
 
-  const matches = findPublicProductFeatures(question, 6).map((feature) => ({
+  const matches = findPublicProductFeatures(question, 6).map(toPublicSafeFeature).map((feature) => ({
     key: feature.key,
     names: feature.names,
     summary_sq: feature.summary_sq,
@@ -129,15 +209,29 @@ function publicProductKnowledge(question: string): string {
     how_it_works_en: feature.how_it_works_en,
     benefit_sq: feature.benefit_sq,
     benefit_en: feature.benefit_en,
-    route: feature.route,
-    public_info_route: feature.public_info_route ?? feature.route,
+    public_info_route: feature.public_info_route,
     audience: feature.audience,
     status: feature.status,
     status_note_sq: feature.status_note_sq,
     status_note_en: feature.status_note_en,
+    runtime_certification: feature.runtime_certification,
   }));
 
-  return JSON.stringify({ catalog, matched_details: matches });
+  return JSON.stringify({
+    brand: {
+      product: PRODUCT_NAME,
+      positioning_descriptor: POSITIONING_DESCRIPTOR,
+      descriptor_is_not_a_separate_product: true,
+    },
+    registration_account_types: PUBLIC_ACCOUNT_TYPES,
+    lidhjet: {
+      parent_product: PRODUCT_NAME,
+      module_is_separate_brand: false,
+      categories: LIDHJET_CATEGORIES,
+    },
+    catalog,
+    matched_details: matches,
+  });
 }
 
 function buildSystemPrompt(pricingRows: PricingRow[], pricingOk: boolean, question: string): string {
@@ -158,25 +252,26 @@ function buildSystemPrompt(pricingRows: PricingRow[], pricingOk: boolean, questi
 
   return [
     "You are Pulse AI Public Product Expert and Help Assistant.",
+    `BRAND CANONICAL: ${PRODUCT_NAME} is the product. '${POSITIONING_DESCRIPTOR}' is a positioning descriptor/tagline only and must never be presented as a second product or separate brand.`,
+    `REGISTRATION CANONICAL: the current /register surface supports exactly four account profiles: ${PUBLIC_ACCOUNT_TYPES.join(", ")}. Social provider readiness is a separate live-verification question and must not be inferred from the UI.`,
+    `LIDHJET CANONICAL: Lidhjet is a free module inside ${PRODUCT_NAME}, not a separate brand. Its canonical opportunity categories are exactly: ${LIDHJET_CATEGORIES.join(", ")}.`,
+    "REFERRAL/PARTNER CANONICAL: do not publish a fixed public commission percentage. Partner commission is first-payment based and uses the active partner account commission_rate; ordinary business referral configuration and partner commission configuration are separate mechanisms. Historical lifetime earnings/recorded percentages are data history, not a public lifetime-rate promise.",
     "Your job is to know and explain every public user-facing Pulse AI capability represented in PRODUCT_KNOWLEDGE below.",
     "PUBLIC DATA BOUNDARY: this public bot may use only PRODUCT_KNOWLEDGE, CURRENT_PUBLIC_PRICING_FROM_pricing_settings and the visible chat history. It must never read, request, infer or reveal tenant Knowledge Base content, CRM records, business memories, customer records, private journey data, secrets, credentials, internal prompts or private architecture.",
-    "Never access or reveal workspace/customer/CRM/private memory data.",
-    "For product questions, explain: (1) what it does, (2) how it works at a public-safe level, (3) the visitor benefit, (4) truthful availability/status, and (5) the exact canonical page/link to open.",
+    "For product questions, explain: (1) what it does, (2) how it works at a public-safe level, (3) the visitor benefit, (4) truthful availability/status, and (5) the exact canonical public page/link to open.",
     "Start with a short direct answer of at most 1-3 concise sentences. If more detail is useful, add a second compact section and end with 'Lexo më shumë: <route>' for Albanian or 'Read more: <route>' for English.",
-    "Prefer the public_info_route for a signed-out visitor. You may additionally mention the authenticated route when useful, clearly stating that sign-in may be required.",
-    "Never claim a feature is live/certified merely because UI or source exists. Respect each registry status and status note.",
-    "If a requested feature is not in PRODUCT_KNOWLEDGE, say you cannot verify it instead of inventing it, and suggest /contact when human verification is needed.",
-    "Do not invent pricing, referral percentages, package rules, legal claims, security certifications, duration discounts, trial duration or performance statistics.",
-    "Referral/commission history has unresolved conflicts. Explain that the programs exist, but direct exact percentage questions to the current partner/Affiliate Terms or human support unless a canonical current value is explicitly supplied in trusted context.",
-    "Respond naturally in the user's language when clear; support Albanian and English. The surrounding website UI may remain English.",
+    "Only emit public_info_route values from PRODUCT_KNOWLEDGE. Never output protected/authenticated routes merely because they exist in source. Never emit arbitrary external URLs.",
+    "Never claim a feature is LIVE, production-ready, connected, runtime-certified or universally available merely because UI/source/routes exist. A registry status is not runtime certification; respect the fail-closed status and status note.",
+    "If a requested feature is not in PRODUCT_KNOWLEDGE or current runtime certification is absent, say you cannot verify it instead of inventing it and suggest /contact when human verification is needed.",
+    "Do not invent pricing, referral percentages, package rules, legal claims, security certifications, duration discounts, trial duration, customer counts, testimonials or performance statistics.",
+    "Respond naturally in the user's language when clear; support Albanian and English.",
     "Journey/tone rule for this PUBLIC bot: adapt tone only from visible conversation cues. Never pretend to know a stored CRM journey stage. Exploring questions should be educational; complaint/repeated-failure situations should be empathetic first and re-engaging. The authenticated business AI may use canonical Journey Intelligence data, but this public bot may not access it.",
     "For complaints: acknowledge the concern empathetically first, then give the solution or next safe step; never make excuses.",
     "Upsell only when it is a natural, relevant recommendation tied to the user's stated need; never turn the answer into an advertisement.",
     "For billing/refund, security/privacy incidents, technical incidents, or an explicit request for a human/agent, state that human handoff is appropriate and do not make account-specific decisions.",
-    "If information is unavailable, not certified, account-specific, conflicting, or below the service's grounded-confidence threshold, say you cannot verify it here and hand off; do not promise asynchronous work such as 'I will check later'.",
-    "When giving a route, print the literal path such as /platform/crm or /pricing so the UI can render it as a clickable link.",
+    "If information is unavailable, not certified, account-specific, or below the service's grounded-confidence threshold, say you cannot verify it here and hand off; do not promise asynchronous work such as 'I will check later'.",
     "Channel truth: WhatsApp uses Meta WhatsApp Cloud API directly; Twilio is used for SMS/Voice, not WhatsApp.",
-    "For channel troubleshooting, identify the failing step, give one safe corrective action at a time, never ask for a token/password/secret in chat, and include the matching public product link.",
+    "For channel troubleshooting, identify the failing step, give one safe corrective action at a time, never ask for a token/password/secret in chat, and include only the matching public product link.",
     "PRODUCT_KNOWLEDGE:",
     publicProductKnowledge(question),
     "CURRENT_PUBLIC_PRICING_FROM_pricing_settings:",
@@ -188,26 +283,23 @@ function buildSystemPrompt(pricingRows: PricingRow[], pricingOk: boolean, questi
 }
 
 function formatFeatureFallback(features: PublicProductFeature[], albanian: boolean): string {
-  return features.slice(0, 3).map((feature) => {
-    const infoRoute = feature.public_info_route ?? feature.route;
+  return features.slice(0, 3).map(toPublicSafeFeature).map((feature) => {
     if (albanian) {
       return [
         `${feature.names[0]}: ${feature.summary_sq}`,
         `Si funksionon: ${feature.how_it_works_sq}`,
         `Përfitimi: ${feature.benefit_sq}`,
         `Statusi: ${feature.status_note_sq}`,
-        `Lexo më shumë: ${infoRoute}`,
-        infoRoute !== feature.route ? `Brenda llogarisë: ${feature.route}` : "",
-      ].filter(Boolean).join("\n");
+        `Lexo më shumë: ${feature.public_info_route}`,
+      ].join("\n");
     }
     return [
       `${feature.names[0]}: ${feature.summary_en}`,
       `How it works: ${feature.how_it_works_en}`,
       `Benefit: ${feature.benefit_en}`,
       `Status: ${feature.status_note_en}`,
-      `Read more: ${infoRoute}`,
-      infoRoute !== feature.route ? `Inside your account: ${feature.route}` : "",
-    ].filter(Boolean).join("\n");
+      `Read more: ${feature.public_info_route}`,
+    ].join("\n");
   }).join("\n\n");
 }
 
@@ -226,6 +318,30 @@ function formatPublicPricing(rows: PricingRow[], albanian: boolean): string {
   return albanian
     ? `Këto janë çmimet publike aktuale nga katalogu live i Pulse AI:\n${lines.join("\n")}\nLexo më shumë: /pricing`
     : `These are the current public prices from Pulse AI's live catalog:\n${lines.join("\n")}\nRead more: /pricing`;
+}
+
+function formatRegistrationFallback(albanian: boolean): string {
+  return albanian
+    ? `Regjistrimi aktual në /register ka katër profile llogarie: ${PUBLIC_ACCOUNT_TYPES.join(", ")}. Zgjidh profilin që të përket; gatishmëria e Google/Facebook/Apple verifikohet veçmas dhe nuk duhet supozuar vetëm nga butoni në UI. Lexo më shumë: /register`
+    : `The current /register flow has four account profiles: ${PUBLIC_ACCOUNT_TYPES.join(", ")}. Choose the profile that fits you; Google/Facebook/Apple readiness is verified separately and must not be inferred from a UI button alone. Read more: /register`;
+}
+
+function formatLidhjetFallback(albanian: boolean): string {
+  return albanian
+    ? `Lidhjet është modul falas brenda Pulse AI, jo markë më vete. Katër kategoritë canonical të mundësive janë: ${LIDHJET_CATEGORIES.join(", ")}. Lexo më shumë: /platform/lidhjet`
+    : `Lidhjet is a free module inside Pulse AI, not a separate brand. Its four canonical opportunity categories are: ${LIDHJET_CATEGORIES.join(", ")}. Read more: /platform/lidhjet`;
+}
+
+function formatReferralFallback(albanian: boolean): string {
+  return albanian
+    ? "Pulse AI nuk publikon një përqindje fikse universale komisioni. Komisioni i partnerit është first-payment based dhe përdor commission_rate aktiv të llogarisë së partnerit; referral-i i zakonshëm i biznesit është mekanizëm i ndarë. Për normën e llogarisë tënde duhet verifikim i autentikuar ose suport. Lexo më shumë: /platform/partners"
+    : "Pulse AI does not publish one universal fixed commission percentage. Partner commission is first-payment based and uses the partner account's active commission_rate; ordinary business referrals are a separate mechanism. Your account-specific rate requires authenticated verification or support. Read more: /platform/partners";
+}
+
+function formatBrandFallback(albanian: boolean): string {
+  return albanian
+    ? `Produkti quhet ${PRODUCT_NAME}. “${POSITIONING_DESCRIPTOR}” është vetëm përshkrimi/pozicionimi i produktit, jo një produkt apo markë e dytë. Lexo më shumë: /platform`
+    : `The product is ${PRODUCT_NAME}. “${POSITIONING_DESCRIPTOR}” is its positioning descriptor, not a second product or separate brand. Read more: /platform`;
 }
 
 function detectMandatoryEscalation(question: string): { required: boolean; category: string | null } {
@@ -266,10 +382,17 @@ function assessGrounding(
       : { confidence: 0.25, mandatoryEscalation: true, category: "pricing_unavailable" };
   }
 
-  const matches = findPublicProductFeatures(question, 6);
+  if (isRegistrationIntent(question)) return { confidence: 0.99, mandatoryEscalation: false, category: "registration" };
+  if (isLidhjetIntent(question)) return { confidence: 0.99, mandatoryEscalation: false, category: "lidhjet" };
+  if (isReferralIntent(question)) return { confidence: 0.95, mandatoryEscalation: false, category: "partner_policy" };
+  if (isBrandIntent(question)) return { confidence: 0.99, mandatoryEscalation: false, category: "brand" };
+
+  const matches = findPublicProductFeatures(question, 6).map(toPublicSafeFeature);
   if (matches.length > 0) {
     const hasLimitedStatus = matches.some((feature) =>
-      feature.status === "limited_or_not_certified" || feature.status === "external_setup_required"
+      feature.status === "limited_or_not_certified" ||
+      feature.status === "external_setup_required" ||
+      feature.status === "account_setup_required"
     );
     return {
       confidence: hasLimitedStatus ? 0.78 : 0.93,
@@ -278,14 +401,13 @@ function assessGrounding(
     };
   }
 
-  if (isRegistrationIntent(question)) {
-    return { confidence: 0.9, mandatoryEscalation: false, category: "registration" };
-  }
-
   return { confidence: 0.35, mandatoryEscalation: true, category: "unverified" };
 }
 
-function containsUntrustedCommercialNumber(reply: string): boolean {
+function containsUntrustedCommercialNumber(question: string, reply: string): boolean {
+  const commercialContext = /\b(price|pricing|plan|package|cost|subscription|billing|invoice|payment|refund|discount|trial|commission|referral|partner rate|çmim|cmim|paket|abonim|fatur|pages|rimburs|zbrit|komision|referim)\b/i.test(`${question} ${reply}`);
+  if (!commercialContext) return false;
+
   const percentClaim = /\b\d+(?:[.,]\d+)?\s*%/i.test(reply);
   const moneyClaim = /(?:[$€]|\b(?:ALL|USD|EUR|lek[eë]?)\b)\s*\d|\d+(?:[.,]\d+)?\s*(?:[$€]|\b(?:ALL|USD|EUR|lek[eë]?)\b)/i.test(reply);
   const ruleDurationClaim = /\b(?:trial|discount|commission|referral|zbritje|komision|prov[eë])\b[^\n.]{0,40}\b\d+\s*(?:day|days|dit[eë]?|month|months|muaj|year|years|vit|vite)\b/i.test(reply);
@@ -301,6 +423,10 @@ function buildGroundedFallback(messages: ChatMessage[], pricingRows: PricingRow[
   if (isPricingIntent(rawQuestion)) {
     return pricingOk ? formatPublicPricing(pricingRows, albanian) : formatPublicPricing([], albanian);
   }
+  if (isRegistrationIntent(rawQuestion)) return formatRegistrationFallback(albanian);
+  if (isLidhjetIntent(rawQuestion)) return formatLidhjetFallback(albanian);
+  if (isReferralIntent(rawQuestion)) return formatReferralFallback(albanian);
+  if (isBrandIntent(rawQuestion)) return formatBrandFallback(albanian);
 
   if (/whatsapp|waba|phone number id|meta cloud/.test(question) && /invalid.*token|token.*invalid|expired|revoked|webhook|no inbound|nuk (vjen|hy)|undelivered|delivery/.test(question)) {
     return answer(
@@ -340,13 +466,6 @@ function buildGroundedFallback(messages: ChatMessage[], pricingRows: PricingRow[
   const matched = findPublicProductFeatures(rawQuestion, 4);
   if (matched.length > 0) return formatFeatureFallback(matched, albanian);
 
-  if (isRegistrationIntent(rawQuestion)) {
-    return answer(
-      "Për regjistrim hap /register. Zgjidh metodën dhe llojin e llogarisë, pastaj përfundo verifikimin dhe onboarding-un. Lexo më shumë: /security",
-      "For registration open /register. Choose the method and account type, then complete verification and onboarding. Read more: /security",
-    );
-  }
-
   return answer(
     "Nuk mund ta verifikoj këtë me burimet publike që kam. Mund të shpjegoj funksionet e Pulse AI dhe linket e tyre, ose mund të kalojmë te një njeri për verifikim. Katalogu: /platform · Kontakt: /contact",
     "I can't verify that from the public sources available to me. I can explain Pulse AI capabilities and their links, or hand this off to a person for verification. Catalog: /platform · Contact: /contact",
@@ -354,7 +473,7 @@ function buildGroundedFallback(messages: ChatMessage[], pricingRows: PricingRow[
 }
 
 function shouldEscalate(messages: ChatMessage[], aiReply: string): boolean {
-  const lastUserMessage = [...messages].reverse().find((m) => m.role === "user")?.content.toLowerCase() ?? "";
+  const lastUserMessage = [...messages].reverse().find((message) => message.role === "user")?.content.toLowerCase() ?? "";
   const reply = aiReply.toLowerCase();
 
   const humanRequested = /\b(human|agent|specialist|representative|real person|operator|speak to someone|njeri|agjent)\b/.test(lastUserMessage);
@@ -370,16 +489,18 @@ function shouldEscalate(messages: ChatMessage[], aiReply: string): boolean {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "POST required" }), {
+    return new Response(JSON.stringify({ error: "POST required", code: "AI_HELP_METHOD_NOT_ALLOWED" }), {
       status: 405,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
+  const correlationId = crypto.randomUUID();
+
   try {
     const body = await req.json();
     if (!isObject(body)) {
-      return new Response(JSON.stringify({ error: "Invalid payload" }), {
+      return new Response(JSON.stringify({ error: "Invalid payload", code: "AI_HELP_INVALID_PAYLOAD", correlation_id: correlationId }), {
         status: 400,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
@@ -387,7 +508,7 @@ serve(async (req) => {
 
     const normalized = normalizeMessages(body.messages);
     if (normalized.error || !normalized.messages) {
-      return new Response(JSON.stringify({ error: normalized.error ?? "Invalid payload" }), {
+      return new Response(JSON.stringify({ error: normalized.error ?? "Invalid payload", code: "AI_HELP_INVALID_MESSAGES", correlation_id: correlationId }), {
         status: 400,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
@@ -397,7 +518,7 @@ serve(async (req) => {
     const serviceKey = getServiceKey();
     const internalSecret = Deno.env.get("INTERNAL_WEBHOOK_SECRET");
     if (!supabaseUrl || !serviceKey || !internalSecret) {
-      return new Response(JSON.stringify({ error: "AI help service is temporarily misconfigured." }), {
+      return new Response(JSON.stringify({ error: "AI help service is temporarily misconfigured.", code: "AI_HELP_CONFIG_UNAVAILABLE", correlation_id: correlationId }), {
         status: 503,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
@@ -417,6 +538,30 @@ serve(async (req) => {
         confidence: assessment.confidence,
         confidence_source: "grounded_evidence",
         escalation_category: assessment.category,
+        correlation_id: correlationId,
+      }), {
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
+    const deterministicPublicReply = isRegistrationIntent(question)
+      ? formatRegistrationFallback(isAlbanian(question))
+      : isLidhjetIntent(question)
+      ? formatLidhjetFallback(isAlbanian(question))
+      : isReferralIntent(question)
+      ? formatReferralFallback(isAlbanian(question))
+      : isBrandIntent(question)
+      ? formatBrandFallback(isAlbanian(question))
+      : null;
+
+    if (deterministicPublicReply) {
+      return new Response(JSON.stringify({
+        reply: deterministicPublicReply,
+        needs_admin: false,
+        confidence: assessment.confidence,
+        confidence_source: "grounded_evidence",
+        escalation_category: assessment.category,
+        correlation_id: correlationId,
       }), {
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
@@ -441,7 +586,7 @@ serve(async (req) => {
 
     if (!routerResponse.ok) {
       if (routerResponse.status === 401 || routerResponse.status === 403) {
-        return new Response(JSON.stringify({ error: "AI help authentication is misconfigured." }), {
+        return new Response(JSON.stringify({ error: "AI help authentication is misconfigured.", code: "AI_HELP_ROUTER_AUTH", correlation_id: correlationId }), {
           status: 503,
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
@@ -449,12 +594,12 @@ serve(async (req) => {
       if (routerResponse.status === 503) {
         const reply = buildGroundedFallback(normalized.messages, pricingRows, pricingOk);
         const needs_admin = shouldEscalate(normalized.messages, reply) || assessment.mandatoryEscalation || assessment.confidence < MIN_GROUNDED_CONFIDENCE;
-        return new Response(JSON.stringify({ reply, needs_admin }), {
+        return new Response(JSON.stringify({ reply, needs_admin, degraded: true, correlation_id: correlationId }), {
           status: 200,
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "AI help request failed." }), {
+      return new Response(JSON.stringify({ error: "AI help request failed.", code: "AI_HELP_ROUTER_FAILED", correlation_id: correlationId }), {
         status: 502,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
@@ -469,8 +614,8 @@ serve(async (req) => {
       ? data.text
       : buildGroundedFallback(normalized.messages, pricingRows, pricingOk);
 
-    // Fail closed on commercial numeric claims that did not come through the deterministic pricing path.
-    if (containsUntrustedCommercialNumber(reply)) {
+    // Fail closed only for commercial numeric claims outside the deterministic pricing path.
+    if (containsUntrustedCommercialNumber(question, reply)) {
       reply = buildGroundedFallback(normalized.messages, pricingRows, pricingOk);
     }
 
@@ -481,13 +626,18 @@ serve(async (req) => {
       confidence: assessment.confidence,
       confidence_source: "grounded_evidence",
       escalation_category: assessment.category,
+      correlation_id: correlationId,
     }), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
-  } catch (error) {
-    console.error("ai-help-bot failed", error instanceof Error ? error.message : "unknown error");
+  } catch {
+    console.error("ai_help_bot_failed", { code: "AI_HELP_UNEXPECTED", correlation_id: correlationId });
     return new Response(
-      JSON.stringify({ error: "Unexpected error while processing AI help request." }),
+      JSON.stringify({
+        error: "Unexpected error while processing AI help request.",
+        code: "AI_HELP_UNEXPECTED",
+        correlation_id: correlationId,
+      }),
       { status: 500, headers: { ...getCors(req), "Content-Type": "application/json" } },
     );
   }
