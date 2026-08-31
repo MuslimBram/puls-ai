@@ -78,7 +78,7 @@ export const useAdminFreelancers = () => {
           status: p.status,
           total_businesses: p.total_businesses || 0,
           monthly_revenue: p.monthly_revenue || 0,
-          commission_rate: p.commission_rate || 10,
+          commission_rate: Number(p.commission_rate ?? 0),
           stripe_connect_id: (p as any).stripe_connect_id || null,
           referral_code: p.referral_code || null,
           created_at: p.created_at,

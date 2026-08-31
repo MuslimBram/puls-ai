@@ -124,7 +124,7 @@ serve(async (req) => {
         .maybeSingle();
 
       const planName = sub?.plan || "standard";
-      const commissionPercent = partner.commission_rate || 10;
+      const commissionPercent = Number(partner.commission_rate ?? 0);
       const grossAmount = firstInvoice.amount;
       const commissionAmount = (grossAmount * commissionPercent) / 100;
       const sourceInvoiceId = firstInvoice.reference || firstInvoice.id;
