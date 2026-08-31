@@ -9,7 +9,12 @@ const steps = [
 ];
 
 export const HowItWorks = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isSq = i18n.resolvedLanguage?.toLowerCase().startsWith("sq") ?? false;
+
+  const registerDescription = isSq
+    ? "Krijo llogarinë dhe zgjidh Business, Freelancer, Ambassador ose White-Label."
+    : "Create your account and choose Business, Freelancer, Ambassador or White-Label.";
 
   return (
     <section className="container mx-auto px-4 py-16">
@@ -24,7 +29,6 @@ export const HowItWorks = () => {
       <div className="mx-auto grid max-w-4xl gap-8 md:grid-cols-4 stagger-children">
         {steps.map((step, i) => (
           <div key={step.key} className="relative flex flex-col items-center text-center animate-on-scroll">
-            {/* Connector line */}
             {i < steps.length - 1 && (
               <div className="absolute left-[calc(50%+2rem)] top-8 hidden h-0.5 w-[calc(100%-4rem)] bg-gradient-to-r from-primary/40 to-primary/10 md:block" />
             )}
@@ -38,7 +42,9 @@ export const HowItWorks = () => {
               {t(`landing.howItWorks.steps.${step.key}.title`)}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {t(`landing.howItWorks.steps.${step.key}.desc`)}
+              {step.key === "register"
+                ? registerDescription
+                : t(`landing.howItWorks.steps.${step.key}.desc`)}
             </p>
           </div>
         ))}
