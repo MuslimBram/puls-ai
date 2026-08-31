@@ -186,6 +186,18 @@ async function claimEvent(
   return "error";
 }
 
+async function releaseEventClaim(
+  sb: ReturnType<typeof createClient>,
+  eventId: string,
+  workspaceId: string,
+): Promise<void> {
+  await sb.from("processed_webhook_events")
+    .delete()
+    .eq("provider", "whatsapp")
+    .eq("event_id", `whatsapp:${eventId}`)
+    .eq("workspace_id", workspaceId);
+}
+
 async function ensureInboxMessage(
   sb: ReturnType<typeof createClient>,
   params: {
@@ -202,11 +214,12 @@ async function ensureInboxMessage(
     security: { category: string; risk_score: number; action: string };
   },
 ): Promise<string> {
+  const ch = params.channel;
   const { data: existing, error: lookupError } = await sb
     .from("inbox_messages")
     .select("id")
-    .eq("workspace_id", params.channel.workspace_id)
-    .eq("channel_id", params.channel.id)
+    .eq("workspace_id", ch.workspace_id)
+    .eq("channel_id", ch.id)
     .eq("provider_message_id", params.waId)
     .limit(1)
     .maybeSingle();
@@ -214,9 +227,9 @@ async function ensureInboxMessage(
   if (existing?.id) return existing.id;
 
   const { data: inserted, error: insertError } = await sb.from("inbox_messages").insert({
-    user_id: params.channel.user_id,
-    workspace_id: params.channel.workspace_id,
-    channel_id: params.channel.id,
+    user_id:            ch.user_id,
+    workspace_id:       ch.workspace_id,
+    channel_id:         ch.id,
     channel_type: "whatsapp",
     source_name: "WhatsApp",
     sender_name: params.senderName,
@@ -247,8 +260,8 @@ async function ensureInboxMessage(
     const { data: winner, error: winnerError } = await sb
       .from("inbox_messages")
       .select("id")
-      .eq("workspace_id", params.channel.workspace_id)
-      .eq("channel_id", params.channel.id)
+      .eq("workspace_id", ch.workspace_id)
+      .eq("channel_id", ch.id)
       .eq("provider_message_id", params.waId)
       .limit(1)
       .maybeSingle();
@@ -355,6 +368,7 @@ serve(async (req) => {
             || settings.waba_phone_number_id === phoneNumberId;
         });
         if (matches.length !== 1 || !matches[0].workspace_id || !matches[0].user_id) {
+          console.warn("[WA] Ambiguous channel mapping for phone_number_id", phoneNumberId, "matches:", matches.length);
           quarantined += messages.length || 1;
           continue;
         }
@@ -496,19 +510,25 @@ serve(async (req) => {
             ? new Date(timestampSeconds * 1000).toISOString()
             : new Date().toISOString();
 
-          await ensureInboxMessage(sb, {
-            channel,
-            waId,
-            senderId,
-            senderName,
-            content: normalized.content,
-            timestamp: messageTimestamp,
-            phoneNumberId,
-            messageType: String(msg.type || "unknown"),
-            threadId,
-            securityEventId,
-            security: security.decision,
-          });
+          try {
+            await ensureInboxMessage(sb, {
+              channel,
+              waId,
+              senderId,
+              senderName,
+              content: normalized.content,
+              timestamp: messageTimestamp,
+              phoneNumberId,
+              messageType: String(msg.type || "unknown"),
+              threadId,
+              securityEventId,
+              security: security.decision,
+            });
+          } catch (inboxErr) {
+            console.error("[WA] Inbox persistence failed", inboxErr instanceof Error ? inboxErr.message : "unknown");
+            await releaseEventClaim(sb, waId, channel.workspace_id);
+            throw inboxErr;
+          }
 
           const leadId = await ensureLead(sb, channel.workspace_id, senderId);
 
