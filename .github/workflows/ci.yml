@@ -35,7 +35,7 @@ jobs:
 
       - name: Full-history Gitleaks Scan
         run: |
-          docker run --rm -v ${{ github.workspace }}:/path ghcr.io/gitleaks/gitleaks:v8.30.0 git --redact --verbose --log-opts="--all" --config /path/.gitleaks.toml /path
+          docker run --rm -v ${{ github.workspace }}:/path ghcr.io/gitleaks/gitleaks:v8.30.0 git --redact --verbose --log-opts="--all" --config /path/.gitleaks.toml --gitleaks-ignore-path /path/.gitleaksignore /path
 
   build-and-test:
     name: Lint, Test, Validate, Build
