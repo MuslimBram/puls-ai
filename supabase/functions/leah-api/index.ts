@@ -226,7 +226,10 @@ serve(async (req) => {
       if (idempotencyKey) {
         const { data: existing, error: existingError } = await admin.from("leah_executions")
           .select("id, project_id, status, idempotency_key, attempt, created_at")
-          .eq("workspace_id", workspaceId).eq("idempotency_key", idempotencyKey).maybeSingle();
+          .eq("workspace_id", workspaceId)
+          .eq("project_id", projectId)
+          .eq("idempotency_key", idempotencyKey)
+          .maybeSingle();
         if (existingError) throw existingError;
         if (existing) return json(req, { execution: existing, idempotent_replay: true });
       }
@@ -244,7 +247,10 @@ serve(async (req) => {
       if (error?.code === "23505" && idempotencyKey) {
         const { data: existing, error: replayError } = await admin.from("leah_executions")
           .select("id, project_id, status, idempotency_key, attempt, created_at")
-          .eq("workspace_id", workspaceId).eq("idempotency_key", idempotencyKey).single();
+          .eq("workspace_id", workspaceId)
+          .eq("project_id", projectId)
+          .eq("idempotency_key", idempotencyKey)
+          .single();
         if (replayError) throw replayError;
         return json(req, { execution: existing, idempotent_replay: true });
       }
