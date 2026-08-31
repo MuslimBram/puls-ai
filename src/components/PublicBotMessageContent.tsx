@@ -1,8 +1,10 @@
-import { Fragment } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 const LINK_PATTERN = /(https?:\/\/[^\s]+|\/[A-Za-z0-9][A-Za-z0-9_\-\/.?#=&]*)/g;
 const TRAILING_PUNCTUATION = /[),.;!?]+$/;
+const PREVIEW_TARGET_CHARS = 280;
+const PREVIEW_MAX_CHARS = 360;
 
 function splitTrailingPunctuation(value: string): { link: string; trailing: string } {
   const match = value.match(TRAILING_PUNCTUATION);
@@ -10,7 +12,31 @@ function splitTrailingPunctuation(value: string): { link: string; trailing: stri
   return { link: value.slice(0, -match[0].length), trailing: match[0] };
 }
 
-export const PublicBotMessageContent = ({ content }: { content: string }) => {
+function createPreview(content: string): { preview: string; collapsible: boolean } {
+  if (content.length <= PREVIEW_MAX_CHARS && !content.includes("\n\n")) {
+    return { preview: content, collapsible: false };
+  }
+
+  const paragraphBreak = content.indexOf("\n\n");
+  if (paragraphBreak >= 80 && paragraphBreak <= PREVIEW_MAX_CHARS) {
+    return { preview: content.slice(0, paragraphBreak).trim(), collapsible: true };
+  }
+
+  const sentenceCandidates = [...content.matchAll(/[.!?](?:\s|$)/g)]
+    .map((match) => (match.index ?? 0) + 1)
+    .filter((index) => index >= PREVIEW_TARGET_CHARS && index <= PREVIEW_MAX_CHARS);
+  const sentenceEnd = sentenceCandidates[0];
+  if (sentenceEnd) {
+    return { preview: content.slice(0, sentenceEnd).trim(), collapsible: true };
+  }
+
+  return {
+    preview: `${content.slice(0, PREVIEW_TARGET_CHARS).trimEnd()}…`,
+    collapsible: true,
+  };
+}
+
+function LinkedContent({ content }: { content: string }) {
   const parts = content.split(LINK_PATTERN);
 
   return (
@@ -49,6 +75,28 @@ export const PublicBotMessageContent = ({ content }: { content: string }) => {
           </Fragment>
         );
       })}
+    </>
+  );
+}
+
+export const PublicBotMessageContent = ({ content }: { content: string }) => {
+  const [expanded, setExpanded] = useState(false);
+  const { preview, collapsible } = useMemo(() => createPreview(content), [content]);
+  const visibleContent = expanded || !collapsible ? content : preview;
+
+  return (
+    <>
+      <LinkedContent content={visibleContent} />
+      {collapsible && (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="mt-2 block text-xs font-medium underline underline-offset-2 hover:opacity-80"
+          aria-expanded={expanded}
+        >
+          {expanded ? "Show less" : "Read more"}
+        </button>
+      )}
     </>
   );
 };
