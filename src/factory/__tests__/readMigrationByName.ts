@@ -9,7 +9,9 @@ export function readMigrationByName(name: string) {
     .sort();
 
   if (matches.length !== 1) {
-    throw new Error(`Expected exactly one migration matching ${name}, found ${matches.length}`);
+    throw new Error(
+      `Expected exactly one migration matching ${name}, found ${matches.length}: ${matches.join(", ")}`,
+    );
   }
 
   return readFileSync(resolve(migrationsDir, matches[0]), "utf8");
