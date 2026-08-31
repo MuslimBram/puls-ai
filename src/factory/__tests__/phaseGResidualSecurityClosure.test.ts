@@ -6,7 +6,7 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 
 const metaTest = read("supabase/functions/meta-webhook-test/index.ts");
 const auditMigration = read(
-  "supabase/migrations/20260831204500_revoke_legacy_log_audit_authenticated_execute.sql",
+  "supabase/migrations/20260831205847_revoke_legacy_log_audit_authenticated_execute.sql",
 );
 
 describe("Phase G residual security closure", () => {
