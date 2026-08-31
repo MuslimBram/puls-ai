@@ -46,7 +46,7 @@ describe("P0.6 content-security ingress wave 3", () => {
   });
 
   it("authenticates and tenant-binds Voice before upgrade, then gates final prompts before handoff/AI/persistence", () => {
-    const resolver = voice.indexOf("resolveWorkspaceFromCalledNumber");
+    const resolver = voice.indexOf("const wsCreds = calledParam");
     const signature = voice.indexOf("const sigCheck = await verifyTwilioSignature(");
     const upgrade = voice.indexOf("Deno.upgradeWebSocket(req)");
     expect(resolver).toBeGreaterThan(-1);
@@ -54,24 +54,29 @@ describe("P0.6 content-security ingress wave 3", () => {
     expect(upgrade).toBeGreaterThan(signature);
 
     const promptBlock = voice.slice(voice.indexOf("socket.onmessage"));
-    const finalOnly = promptBlock.indexOf("if (msg.last !== true) return");
-    const scan = promptBlock.indexOf("const security = await scanInboundContent({");
-    const handoff = promptBlock.indexOf("const handoffPhrases = [");
-    const ai = promptBlock.indexOf("const aiResponse = await routeAI(");
-    const persist = promptBlock.indexOf('sb.from("voice_ai_sessions").update');
+    expect(promptBlock).toContain('if (msg.type === "setup")');
+    expect(promptBlock).toContain("setupCallSid !== callSid");
+    expect(promptBlock).toContain("ws_session_id: relaySessionId");
+    expect(promptBlock).toContain("if (msg.last !== true) return");
+    expect(promptBlock).toContain("if (!relaySessionId)");
 
-    for (const position of [finalOnly, scan, handoff, ai, persist]) expect(position).toBeGreaterThan(-1);
-    expect(finalOnly).toBeLessThan(scan);
+    const promptFlow = promptBlock.slice(promptBlock.indexOf("const userText = msg.voicePrompt.trim()"));
+    const scan = promptFlow.indexOf("const security = await scanInboundContent({");
+    const handoff = promptFlow.indexOf("const handoffPhrases = [");
+    const ai = promptFlow.indexOf("const aiResponse = await routeAI(");
+    const persist = promptFlow.indexOf('sb.from("voice_ai_sessions").update');
+
+    for (const position of [scan, handoff, ai, persist]) expect(position).toBeGreaterThan(-1);
     expect(scan).toBeLessThan(handoff);
     expect(scan).toBeLessThan(ai);
     expect(scan).toBeLessThan(persist);
-    expect(promptBlock).toContain('source: "voice"');
-    expect(promptBlock).toContain("if (blocksNormalIngress(security.decision))");
+    expect(promptFlow).toContain('source: "voice"');
+    expect(promptFlow).toContain("if (blocksNormalIngress(security.decision))");
   });
 
-  it("uses reconnect-stable Voice turn numbering and scrubs historical turns before AI", () => {
-    expect(voice).toContain('promptSequence = persistedTurns.filter((turn) => turn?.role === "user").length');
-    expect(voice).toContain('event_id: `voice:${callSid}:turn:${promptSequence}`');
+  it("uses Twilio session-scoped Voice turn IDs and scrubs historical turns before AI", () => {
+    expect(voice).toContain('const setupSessionId = typeof msg.sessionId === "string"');
+    expect(voice).toContain('event_id: `voice:${relaySessionId}:turn:${promptSequence}`');
     expect(voice).toContain('content: scrubSensitive(String(t.content ?? ""))');
     expect(voice).toContain("{ role: \"user\", content: scrubSensitive(userMessage) }");
   });
