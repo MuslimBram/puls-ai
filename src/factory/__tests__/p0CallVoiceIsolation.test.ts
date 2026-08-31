@@ -57,7 +57,9 @@ describe("P0.4 CALL and Voice workspace isolation", () => {
   it("preserves existing workspace-scoped Voice writers", () => {
     expect(callActions).toContain("user_id: user!.id, workspace_id: workspace!.id");
     expect(inboundCall).toContain("workspace_id: resolvedWorkspaceId");
-    expect(cdrSync).toContain("workspace_id: resolvedWorkspaceId");
+    expect(cdrSync).toContain('.eq("workspace_id", workspaceId)');
+    expect(cdrSync).toContain("workspace_id: workspaceId");
+    expect(cdrSync).toContain("external_call_id: externalCallId");
   });
 
   it("executes same-tenant positives and cross-tenant negatives in PostgreSQL", () => {
