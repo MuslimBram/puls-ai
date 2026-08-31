@@ -5,6 +5,7 @@ import { Bot, X, Send, Loader2, MessageCircle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { PublicBotMessageContent } from "@/components/PublicBotMessageContent";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
@@ -72,7 +73,6 @@ export const FloatingAIBot = () => {
       setAdminNotified(true);
       return true;
     } catch {
-      // silent fail — don't interrupt chat
       return false;
     }
   };
@@ -251,7 +251,11 @@ export const FloatingAIBot = () => {
                   : "bg-muted text-foreground"
               }`}
             >
-              {msg.content}
+              {msg.role === "assistant" ? (
+                <PublicBotMessageContent content={msg.content} />
+              ) : (
+                msg.content
+              )}
             </div>
           </div>
         ))}
