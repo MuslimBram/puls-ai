@@ -577,7 +577,7 @@ serve(async (req) => {
         }
         const mid = typeof event?.message?.mid === "string" ? event.message.mid.trim() : "";
         if (mid) {
-          await sb.from("inbox_messages").select("id")
+          void sb.from("inbox_messages").select("id")
             .eq("workspace_id", (mapping as WorkspaceMapping).workspace_id)
             .eq("provider_message_id", mid).limit(1).maybeSingle();
         }

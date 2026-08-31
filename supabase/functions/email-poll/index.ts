@@ -370,18 +370,11 @@ serve(async (req) => {
               const dateStr = typeof parsed.date === "string" && parsed.date.trim() ? parsed.date.trim() : null;
               const messageId = typeof parsed.messageId === "string" && parsed.messageId.trim() ? parsed.messageId.trim() : null;
               const inReplyTo = typeof parsed.inReplyTo === "string" && parsed.inReplyTo.trim() ? parsed.inReplyTo.trim() : null;
+              const rawAttachments = Array.isArray(parsed.attachments) ? parsed.attachments : [];
               const headers = {
                 inReplyTo,
                 hasAttachment: rawAttachments.length > 0,
               };
-              const plainText = typeof parsed.text === "string" ? parsed.text : "";
-              const htmlText = typeof parsed.html === "string" ? stripHtml(parsed.html) : "";
-              const textBody = (plainText || htmlText || subject).trim();
-              const messageContent = subject !== "(No Subject)"
-                ? `[${subject}] ${textBody.substring(0, 2000)}`
-                : textBody.substring(0, 2000);
-
-              const rawAttachments = Array.isArray(parsed.attachments) ? parsed.attachments : [];
               if (rawAttachments.length > MAX_ATTACHMENTS) throw new Error("EMAIL_ATTACHMENT_COUNT_LIMIT");
 
               const attachments: ParsedAttachment[] = [];
