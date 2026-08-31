@@ -21,6 +21,12 @@ describe("P0.6 content-security ingress wave 3", () => {
     expect(publicApi).toContain('if (error || !data || !data.workspace_id) throw new Error("Invalid or unscoped API key")');
   });
 
+  it("honors the documented resource query while preserving path-style routing", () => {
+    expect(publicApi).toContain('const pathResource = pathParts[pathParts.length - 1] ?? ""');
+    expect(publicApi).toContain('const resource = url.searchParams.get("resource") || (pathResource !== "public-api" ? pathResource : "")');
+    expect(publicApi).not.toContain('const resource = pathParts[pathParts.length - 1] || url.searchParams.get("resource")');
+  });
+
   it("gates Public API messages after API-key tenant binding and before Inbox/Zapier side effects", () => {
     const auth = publicApi.indexOf("apiKeyData = await authenticateApiKey(req)");
     const tenant = publicApi.indexOf("const { id: apiKeyId, user_id, workspace_id, permissions } = apiKeyData");
