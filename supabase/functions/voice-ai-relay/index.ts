@@ -1,19 +1,25 @@
 /**
- * PULSE AI VOICE BRAIN — ConversationRelay Handler v2
+ * PULSE AI VOICE BRAIN — ConversationRelay Handler v3
  *
  * SECURITY:
  *   1. Resolve workspace from provider-owned called-number mapping
  *   2. Validate Twilio WebSocket signature with that workspace token BEFORE upgrade
  *   3. Never accept query-string workspace_id as tenant identity
- *   4. Route AI through ai-router (NOT hardwired to Anthropic)
- *   5. Scrub sensitive data before any AI prompt
- *   6. Feature flag: voice_ai_enabled must be true on channel
- *   7. Session persistence for reconnect
+ *   4. Gate final caller transcripts through Content Security before handoff/AI/persistence
+ *   5. Route AI through ai-router (NOT hardwired to Anthropic)
+ *   6. Scrub sensitive data from current and historical turns before any AI prompt
+ *   7. Feature flag: voice_ai_enabled must be true on channel
+ *   8. Session persistence for reconnect
  */
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
 import { resolveWorkspaceFromCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import {
+  blocksNormalIngress,
+  extractSecurityUrls,
+  scanInboundContent,
+} from "../_shared/content-security-client.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = getServiceKey()!;
@@ -39,7 +45,7 @@ async function routeAI(
     const messages = [
       ...turns.slice(-10).map((t) => ({
         role: t.role === "ai" ? "assistant" : "user",
-        content: t.content,
+        content: scrubSensitive(String(t.content ?? "")),
       })),
       { role: "user", content: scrubSensitive(userMessage) },
     ];
@@ -93,6 +99,7 @@ Deno.serve(async (req) => {
       service: "pulse-ai-voice-brain",
       status: "ready",
       ai_routing: "via ai-router (provider not hardwired)",
+      content_security: "final caller prompts are gated before AI",
       feature_flag: "voice_ai_enabled (per channel)",
     }), { headers: { "Content-Type": "application/json" } });
   }
@@ -102,8 +109,6 @@ Deno.serve(async (req) => {
   const callSid = url.searchParams.get("CallSid") ?? "";
   const calledParam = url.searchParams.get("To") ?? url.searchParams.get("Called") ?? "";
 
-  // Tenant identity is provider-bound: the called Twilio number must uniquely map
-  // to one enabled workspace channel before any signature can be accepted.
   const wsCreds = calledParam
     ? await resolveWorkspaceFromCalledNumber(calledParam, ["voip", "voice"], sb)
     : null;
@@ -143,6 +148,7 @@ Deno.serve(async (req) => {
 
   let session: Record<string, any> | null = null;
   let systemPrompt = "";
+  let promptSequence = 0;
 
   socket.onopen = async () => {
     try {
@@ -179,6 +185,9 @@ RULES:
         conversation_turns: [],
       }).select().single()).data;
 
+      const persistedTurns = Array.isArray(session?.conversation_turns) ? session!.conversation_turns as Array<any> : [];
+      promptSequence = persistedTurns.filter((turn) => turn?.role === "user").length;
+
       const greeting = custName
         ? `Hello ${custName}, thank you for calling ${bizName}. How can I help you today?`
         : `Thank you for calling ${bizName}. How can I help you today?`;
@@ -186,15 +195,49 @@ RULES:
       socket.send(JSON.stringify({ type: "text", token: greeting, last: true }));
     } catch (e: any) {
       console.error("[voice-ai-relay] onopen:", e.message);
-      socket.close(1011, e.message);
+      socket.close(1011, "voice_session_initialization_failed");
     }
   };
 
   socket.onmessage = async (event) => {
     try {
       const msg = JSON.parse(event.data as string);
-      if (msg.type !== "prompt" || !msg.voicePrompt) return;
-      const userText = msg.voicePrompt as string;
+      if (msg.type !== "prompt" || typeof msg.voicePrompt !== "string") return;
+      // ConversationRelay can emit partial prompt messages. Only the provider-marked
+      // final transcript is a business/security event and may reach AI.
+      if (msg.last !== true) return;
+
+      const userText = msg.voicePrompt.trim();
+      if (!userText) return;
+      promptSequence += 1;
+
+      const security = await scanInboundContent({
+        workspace_id: workspaceId,
+        source: "voice",
+        event_id: `voice:${callSid}:turn:${promptSequence}`,
+        content: userText,
+        urls: extractSecurityUrls(userText),
+        attachment: null,
+      });
+
+      if (!security.ok) {
+        socket.send(JSON.stringify({
+          type: "text",
+          token: "I’m sorry, I can’t process that safely right now. Please try again in a moment.",
+          last: true,
+        }));
+        return;
+      }
+
+      if (blocksNormalIngress(security.decision)) {
+        socket.send(JSON.stringify({
+          type: "text",
+          token: "I can’t process that request. Please rephrase it or ask to speak with a human agent.",
+          last: true,
+        }));
+        return;
+      }
+
       const turns = (session?.conversation_turns as Array<any>) ?? [];
 
       const handoffPhrases = [
