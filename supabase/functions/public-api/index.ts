@@ -107,7 +107,8 @@ serve(async (req) => {
   const startTime = Date.now();
   const url = new URL(req.url);
   const pathParts = url.pathname.split("/").filter(Boolean);
-  const resource = pathParts[pathParts.length - 1] || url.searchParams.get("resource");
+  const pathResource = pathParts[pathParts.length - 1] ?? "";
+  const resource = url.searchParams.get("resource") || (pathResource !== "public-api" ? pathResource : "");
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("cf-connecting-ip");
 
   let apiKeyData: any;
