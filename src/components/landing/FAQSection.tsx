@@ -14,19 +14,28 @@ const FAQ_KEYS = [
   "referralEarnings",
   "installMobile",
   "afterTrial",
-];
+] as const;
 
 export const FAQSection = () => {
   const { t, i18n } = useTranslation();
   const isSq = i18n.resolvedLanguage?.toLowerCase().startsWith("sq") ?? false;
 
   const productTruthAnswers: Partial<Record<(typeof FAQ_KEYS)[number], string>> = {
+    howMuch: isSq
+      ? "Planet dhe çmimet publike merren nga katalogu aktiv i Pulse AI. Shih faqen Pricing për çmimet, emërtimet dhe kushtet që janë aktualisht në fuqi."
+      : "Public plans and prices come from Pulse AI's active product catalog. See the Pricing page for the plans, labels and terms that are currently in effect.",
+    freeTrial: isSq
+      ? "Pulse AI ofron provë 7-ditore sipas konfigurimit aktiv të regjistrimit dhe planit. Akseset dhe kufijtë realë përcaktohen nga konfigurimi aktiv i produktit."
+      : "Pulse AI provides a 7-day trial according to the active registration and plan configuration. Actual access and limits are governed by the active product configuration.",
     rolesDifference: isSq
-      ? "Biznes: menaxhon workspace-in e vet me mjetet e Pulse AI. Freelancer: mund të menaxhojë biznese klientësh dhe marrëdhënie të miratuara partneriteti. Ambasador: fokusohet te referimet. Çdo komision, shpërblim ose përfitim varet nga konfigurimi dhe kushtet aktive të llogarisë; Pulse AI nuk premton një përqindje fikse ose komision jetësor publik."
-      : "Business: manages its own workspace with Pulse AI tools. Freelancer: can manage client businesses and approved partner relationships. Ambassador: focuses on referrals. Any commission, reward, or benefit depends on the account's active configuration and terms; Pulse AI does not promise a fixed public percentage or lifetime commission.",
+      ? "Business: menaxhon biznesin dhe workspace-in e vet. Freelancer: menaxhon punën e vet dhe, kur është i autorizuar, biznese klientësh. Ambassador: fokusohet te referimet. White-Label: është për agjenci ose reseller që përdorin markën dhe domain-in e tyre pas konfigurimit komercial. Çdo komision ose përfitim varet nga kushtet dhe konfigurimi aktiv i llogarisë."
+      : "Business: manages its own business and workspace. Freelancer: manages independent work and, when authorized, client businesses. Ambassador: focuses on referrals. White-Label: is for agencies or resellers using their own brand and domain after commercial setup. Any commission or benefit depends on the account's active terms and configuration.",
     referralEarnings: isSq
-      ? "Ndani linkun ose kodin tuaj të referimit kur llogaria juaj është e pranueshme. Referimet e zakonshme të biznesit dhe komisionet e partnerëve janë programe të ndara. Komisionet e partnerëve në rrjedhën standarde lidhen me pagesën e parë të pranueshme dhe norma merret nga konfigurimi aktiv i partnerit."
-      : "Share your referral link or code when your account is eligible. Ordinary business referrals and partner commissions are separate programs. In the standard partner flow, commissions relate to the eligible first payment and the rate comes from the partner's active configuration.",
+      ? "Referimet e zakonshme dhe komisionet e partnerëve janë mekanizma të ndarë. Çdo pagesë ose komision përdor normën dhe kushtet aktive të llogarisë; Pulse AI nuk premton një përqindje fikse ose komision jetësor publik."
+      : "Ordinary referrals and partner commissions are separate mechanisms. Any payout or commission uses the account's active rate and terms; Pulse AI does not promise a fixed public percentage or lifetime commission.",
+    afterTrial: isSq
+      ? "Pas provës, vazhdimi i aksesit varet nga gjendja aktive e abonimit dhe planit. Metodat e pagesës shfaqen vetëm kur janë realisht të konfiguruara dhe të disponueshme."
+      : "After the trial, continued access depends on the active subscription and plan state. Payment methods are shown only when they are actually configured and available.",
   };
 
   return (
