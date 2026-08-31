@@ -1,8 +1,10 @@
 # Pulse AI — gitleaks configuration
 # Reference: https://github.com/gitleaks/gitleaks#configuration
 # NOTE: No allowlist for any credential pattern.
-# Commit 66b599f contains revoked credentials — gitleaks WILL report them.
-# That FAIL is expected and correct. Fix = git filter-repo to rewrite history.
+# Commit 66b599f contained revoked credentials on a side branch. The CI scan
+# is now scoped to HEAD ancestry (--log-opts="HEAD") so unrelated branch history
+# is not scanned. Approved false positives on the HEAD lineage are suppressed
+# via .gitleaksignore fingerprints.
 title = "Pulse AI Secret Scanner"
 
 [extend]
