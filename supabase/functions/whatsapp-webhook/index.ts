@@ -494,23 +494,23 @@ serve(async (req) => {
           }
 
           // Duplicate provider retries execute the same idempotent repair path.
-          const { data: threadId, error: threadError } = await sb.rpc("upsert_conversation_thread", {
-            _user_id: channel.user_id,
-            _workspace_id: channel.workspace_id,
-            _channel_type: "whatsapp",
-            _contact_identifier: senderId,
-            _contact_name: senderName,
-            _message_preview: normalized.content,
-            _direction: "inbound",
-          });
-          if (threadError || !threadId) throw new Error("WHATSAPP_THREAD_PERSIST_FAILED");
-
-          const timestampSeconds = Number(msg.timestamp);
-          const messageTimestamp = Number.isFinite(timestampSeconds) && timestampSeconds > 0
-            ? new Date(timestampSeconds * 1000).toISOString()
-            : new Date().toISOString();
-
           try {
+            const { data: threadId, error: threadError } = await sb.rpc("upsert_conversation_thread", {
+              _user_id: channel.user_id,
+              _workspace_id: channel.workspace_id,
+              _channel_type: "whatsapp",
+              _contact_identifier: senderId,
+              _contact_name: senderName,
+              _message_preview: normalized.content,
+              _direction: "inbound",
+            });
+            if (threadError || !threadId) throw new Error("WHATSAPP_THREAD_PERSIST_FAILED");
+
+            const timestampSeconds = Number(msg.timestamp);
+            const messageTimestamp = Number.isFinite(timestampSeconds) && timestampSeconds > 0
+              ? new Date(timestampSeconds * 1000).toISOString()
+              : new Date().toISOString();
+
             await ensureInboxMessage(sb, {
               channel,
               waId,
