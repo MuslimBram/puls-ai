@@ -46,14 +46,17 @@ describe("P0.6 content-security ingress wave 3", () => {
   });
 
   it("authenticates and tenant-binds Voice before upgrade, then gates final prompts before handoff/AI/persistence", () => {
-    const resolver = voice.indexOf("const wsCreds = calledParam");
-    const signature = voice.indexOf("const sigCheck = await verifyTwilioSignature(");
-    const upgrade = voice.indexOf("Deno.upgradeWebSocket(req)");
+    const requestHandlerStart = voice.indexOf("Deno.serve(async (req) => {");
+    expect(requestHandlerStart).toBeGreaterThan(-1);
+    const requestHandler = voice.slice(requestHandlerStart);
+    const resolver = requestHandler.indexOf("const wsCreds = calledParam");
+    const signature = requestHandler.indexOf("const sigCheck = await verifyTwilioSignature(");
+    const upgrade = requestHandler.indexOf("Deno.upgradeWebSocket(req)");
     expect(resolver).toBeGreaterThan(-1);
     expect(signature).toBeGreaterThan(resolver);
     expect(upgrade).toBeGreaterThan(signature);
 
-    const promptBlock = voice.slice(voice.indexOf("socket.onmessage"));
+    const promptBlock = requestHandler.slice(requestHandler.indexOf("socket.onmessage"));
     expect(promptBlock).toContain('if (msg.type === "setup")');
     expect(promptBlock).toContain("setupCallSid !== callSid");
     expect(promptBlock).toContain("ws_session_id: relaySessionId");
