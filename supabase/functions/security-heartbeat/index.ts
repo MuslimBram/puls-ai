@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const allowedOrigins = new Set(["https://pulse-bos.com", "https://www.pulse-bos.com"]);
 const cors = (req: Request) => ({ "Access-Control-Allow-Origin": allowedOrigins.has(req.headers.get("origin") || "") ? req.headers.get("origin")! : "https://pulse-bos.com", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS", "Vary": "Origin", "Content-Type": "application/json" });
-const serviceKey = () => { const keys = Deno.env.get("SUPABASE_SECRET_KEYS"); if (keys) { try { const parsed = JSON.parse(keys); if (parsed.default) return parsed.default; } catch {} } return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""; };
+const serviceKey = () => { const keys = Deno.env.get("SUPABASE_SECRET_KEYS"); if (keys) { try { const parsed = JSON.parse(keys); if (parsed.default) return parsed.default; } catch { /* ignore parse errors */ } } return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || ""; };
 const json = (req: Request, body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: cors(req) });
 const clientIp = (req: Request) => req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || null;
 const ruleScore = (s: Record<string, boolean>) => Math.min(100, (s.ip_changed ? 35 : 0) + (s.user_agent_changed ? 20 : 0) + (s.multiple_ips_15m ? 25 : 0) + (s.high_event_rate ? 30 : 0));
