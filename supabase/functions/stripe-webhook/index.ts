@@ -591,7 +591,7 @@ serve(async (req) => {
                     if (partner && partner.status === "active") {
                       await createCommission(
                         partner.id, userSub.workspace_id, subId,
-                        userSub.plan || "standard", partner.commission_rate || 10
+                        userSub.plan || "standard", Number(partner.commission_rate ?? 0)
                       );
                     }
                   }
