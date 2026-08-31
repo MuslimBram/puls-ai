@@ -142,7 +142,12 @@ serve(async (req) => {
     });
   }
 
-  const ingestBody = await ingestResp.json().catch(() => ({})) as { duplicate?: boolean };
+  let ingestBody: { duplicate?: boolean } = {};
+  try {
+    ingestBody = JSON.parse(await ingestResp.text()) as { duplicate?: boolean };
+  } catch {
+    // ignore parse errors — duplicate defaults to false
+  }
 
   return new Response(JSON.stringify({
     ok: true,
