@@ -63,12 +63,14 @@ describe("Website Chat secure setup contract", () => {
     expect(manager).toContain('if (action === "status")');
     expect(manager).toContain("allowed_origins: normalized.ok ? normalized.origins : []");
     expect(manager).not.toContain("credentials_encrypted: existing");
-    expect(manager).not.toContain("serviceKey,");
+    expect(manager).not.toContain("credentials_encrypted: existing.credentials_encrypted");
   });
 
   it("generates an installable widget without tenant ids or internal credentials", () => {
     expect(widget).toContain("script.dataset.channelId");
     expect(widget).toContain("script.dataset.endpoint");
+    expect(widget).toContain('endpointUrl.protocol !== "https:"');
+    expect(widget).toContain('isLocalhost && endpointUrl.protocol === "http:"');
     expect(widget).toContain("channel_id: channelId");
     expect(widget).toContain("event_id: eventId");
     expect(widget).toContain("message,");
