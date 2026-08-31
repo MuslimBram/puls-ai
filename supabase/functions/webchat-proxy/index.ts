@@ -108,9 +108,9 @@ serve(async (req) => {
   }
 
   const ingestUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/webchat-ingest`;
-  let ingestResp: Response;
+  let ingestResponse: Response;
   try {
-    ingestResp = await fetch(ingestUrl, {
+    ingestResponse = await fetch(ingestUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -133,14 +133,14 @@ serve(async (req) => {
     });
   }
 
-  if (!ingestResp.ok) {
+  if (!ingestResponse.ok) {
     return new Response(JSON.stringify({ error: "Failed to submit message" }), {
-      status: ingestResp.status >= 500 ? 502 : ingestResp.status,
+      status: ingestResponse.status >= 500 ? 502 : ingestResponse.status,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 
-  const ingestBody = await ingestResp.json().catch(() => ({})) as { duplicate?: boolean };
+  const ingestBody = await ingestResponse.json().catch(() => ({})) as { duplicate?: boolean };
 
   return new Response(JSON.stringify({
     ok: true,

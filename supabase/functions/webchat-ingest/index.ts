@@ -61,7 +61,7 @@ serve(async (req) => {
     const eventId = typeof body.event_id === "string" ? body.event_id.trim() : "";
 
     if (!channel_id || !message || !eventId) {
-      return new Response(JSON.stringify({ error: "channel_id, event_id and message are required" }), {
+      return new Response(JSON.stringify({ error: "channel_id and message are required" }), {
         status: 400,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });

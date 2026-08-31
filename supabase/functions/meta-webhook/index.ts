@@ -277,7 +277,9 @@ serve(async (req) => {
 
       const ws = await resolveWorkspaceFromPage(sb, pageId, platform);
       if (ws === "AMBIGUOUS") {
-        console.warn("[META-WEBHOOK] quarantining: ambiguous workspace for page", pageId);
+        // quarantining: ambiguous workspace
+        if (platform === "instagram") console.warn("[META-WEBHOOK] Ambiguous Instagram mapping for page", pageId);
+        else console.warn("[META-WEBHOOK] Ambiguous Facebook mapping for page", pageId);
         quarantined++;
         continue;
       }

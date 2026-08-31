@@ -362,13 +362,17 @@ serve(async (req) => {
           continue;
         }
 
-        const matches = (channels || []).filter((candidate) => {
+        const matches = (channels ?? []).filter((candidate) => {
           const settings = (candidate.settings as Record<string, unknown> | null) ?? {};
           return settings.phone_number_id === phoneNumberId
             || settings.waba_phone_number_id === phoneNumberId;
         });
-        if (matches.length !== 1 || !matches[0].workspace_id || !matches[0].user_id) {
+        if (matches.length > 1) {
           console.warn("[WA] Ambiguous channel mapping for phone_number_id", phoneNumberId, "matches:", matches.length);
+          quarantined += messages.length || 1;
+          continue;
+        }
+        if (!matches[0]?.workspace_id || !matches[0]?.user_id) {
           quarantined += messages.length || 1;
           continue;
         }

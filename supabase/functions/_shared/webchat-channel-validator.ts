@@ -48,13 +48,12 @@ export function validatePublicWebchatInput(body: WebchatPublicInput): WebchatInp
     return { ok: false, status: 400, error: "Message too long" };
   }
 
-  const event_id = typeof body.event_id === "string" ? body.event_id.trim() : "";
-  if (!event_id) {
-    return { ok: false, status: 400, error: "event_id is required" };
-  }
-  if (event_id.length < 8 || event_id.length > 200 || !EVENT_ID_PATTERN.test(event_id)) {
+  const rawEventId = typeof body.event_id === "string" ? body.event_id.trim() : "";
+  if (rawEventId && (rawEventId.length < 8 || rawEventId.length > 200 || !EVENT_ID_PATTERN.test(rawEventId))) {
     return { ok: false, status: 400, error: "invalid event_id" };
   }
+  // event_id is optional from the browser; the proxy generates a stable one server-side if absent
+  const event_id = rawEventId || `wc:${Date.now()}:${Math.random().toString(36).slice(2, 10)}`;
 
   const visitor_name = typeof body.visitor_name === "string" ? body.visitor_name.trim().slice(0, 200) || undefined : undefined;
   const visitor_email = typeof body.visitor_email === "string" ? body.visitor_email.trim().slice(0, 320) || undefined : undefined;
