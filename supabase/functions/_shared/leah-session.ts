@@ -7,6 +7,8 @@ export type LeahSession = {
   expiresAt: string;
 };
 
+const ACTIVE_ENTITLEMENT_STATUSES = new Set(["trial", "active", "grace"]);
+
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -51,6 +53,30 @@ export async function resolveLeahSession(
 
   if (error) throw error;
   if (!data) throw new Error("LEAH session invalid or expired");
+
+  // Revalidate authorization on every request. A role removal, workspace removal,
+  // billing cancellation/suspension, or entitlement expiry must invalidate access
+  // immediately instead of waiting for the session TTL to elapse.
+  const { data: hasAccess, error: accessError } = await admin.rpc("has_workspace_role_for_user", {
+    _user_id: data.user_id,
+    _workspace_id: data.workspace_id,
+    _roles: ["owner", "admin", "member"],
+  });
+  if (accessError) throw accessError;
+  if (!hasAccess) throw new Error("LEAH session access revoked");
+
+  const { data: entitlement, error: entitlementError } = await admin
+    .from("leah_workspace_entitlements")
+    .select("status, valid_until")
+    .eq("workspace_id", data.workspace_id)
+    .maybeSingle();
+  if (entitlementError) throw entitlementError;
+  if (!entitlement || !ACTIVE_ENTITLEMENT_STATUSES.has(entitlement.status)) {
+    throw new Error("LEAH entitlement inactive");
+  }
+  if (entitlement.valid_until && Date.parse(entitlement.valid_until) <= Date.now()) {
+    throw new Error("LEAH entitlement expired");
+  }
 
   const { error: touchError } = await admin
     .from("leah_access_sessions")
