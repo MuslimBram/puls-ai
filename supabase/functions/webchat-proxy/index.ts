@@ -5,10 +5,11 @@
  *   browser → [this proxy] → webchat-ingest (with x-internal-secret, server-side only)
  *
  * The browser never sees or sends INTERNAL_WEBHOOK_SECRET.
- * user_id and workspace_id are NEVER trusted from the browser.
+ * user_id/workspace_id/business_id are NEVER trusted from the browser.
  * Channel/workspace resolution remains entirely server-side via channel_id.
  * Every accepted logical message must arrive with a caller-stable event_id so
  * network retries reuse the same idempotency boundary.
+ * The browser Origin must match the channel's server-stored allowlist.
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -18,6 +19,7 @@ import { getServiceKey } from "../_shared/admin-client.ts";
 import {
   validatePublicWebchatInput,
   validateWebchatChannel,
+  validateWebchatRequestOrigin,
 } from "../_shared/webchat-channel-validator.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: true });
@@ -47,8 +49,7 @@ serve(async (req) => {
     });
   }
 
-  const clientIp =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
   if (!checkRateLimit(clientIp)) {
     return new Response(JSON.stringify({ error: "Too many requests" }), {
       status: 429,
@@ -87,7 +88,7 @@ serve(async (req) => {
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, getServiceKey()!);
   const { data: channelRows, error: channelErr } = await supabase
     .from("channels")
-    .select("id, user_id, workspace_id, channel_type, is_enabled")
+    .select("id, user_id, workspace_id, channel_type, is_enabled, settings")
     .eq("id", channel_id)
     .eq("channel_type", "website_chat");
 
@@ -103,6 +104,17 @@ serve(async (req) => {
   if (!channelResult.ok) {
     return new Response(JSON.stringify({ error: channelResult.error }), {
       status: channelResult.status,
+      headers: { ...getCors(req), "Content-Type": "application/json" },
+    });
+  }
+
+  const originResult = validateWebchatRequestOrigin(
+    channelResult.channel.settings,
+    req.headers.get("origin"),
+  );
+  if (!originResult.ok) {
+    return new Response(JSON.stringify({ error: originResult.error }), {
+      status: originResult.status,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
