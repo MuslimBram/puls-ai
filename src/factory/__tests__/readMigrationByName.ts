@@ -5,8 +5,9 @@ const migrationsDir = resolve(process.cwd(), "supabase/migrations");
 
 export function readMigrationByName(name: string) {
   const normalizedName = name.endsWith(".sql") ? name : `${name}.sql`;
+  const migrationNamePattern = new RegExp(`^\\d+_${normalizedName.replaceAll(".", "\\.")}$`);
   const matches = readdirSync(migrationsDir)
-    .filter((file) => file.endsWith(`_${normalizedName}`))
+    .filter((file) => migrationNamePattern.test(file))
     .sort();
 
   if (matches.length !== 1) {
