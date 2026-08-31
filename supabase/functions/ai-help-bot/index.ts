@@ -448,7 +448,7 @@ serve(async (req) => {
       }
       if (routerResponse.status === 503) {
         const reply = buildGroundedFallback(normalized.messages, pricingRows, pricingOk);
-        const needs_admin = assessment.mandatoryEscalation || assessment.confidence < MIN_GROUNDED_CONFIDENCE || shouldEscalate(normalized.messages, reply);
+        const needs_admin = shouldEscalate(normalized.messages, reply) || assessment.mandatoryEscalation || assessment.confidence < MIN_GROUNDED_CONFIDENCE;
         return new Response(JSON.stringify({ reply, needs_admin }), {
           status: 200,
           headers: { ...getCors(req), "Content-Type": "application/json" },
@@ -474,7 +474,7 @@ serve(async (req) => {
       reply = buildGroundedFallback(normalized.messages, pricingRows, pricingOk);
     }
 
-    const needs_admin = assessment.mandatoryEscalation || assessment.confidence < MIN_GROUNDED_CONFIDENCE || shouldEscalate(normalized.messages, reply);
+    const needs_admin = shouldEscalate(normalized.messages, reply) || assessment.mandatoryEscalation || assessment.confidence < MIN_GROUNDED_CONFIDENCE;
     return new Response(JSON.stringify({
       reply,
       needs_admin,
