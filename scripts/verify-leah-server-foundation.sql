@@ -11,10 +11,10 @@ insert into auth.users(
   ('b2000000-0000-0000-0000-000000000001','authenticated','authenticated','leah-owner-b@example.invalid','',now(),now(),now()),
   ('c2000000-0000-0000-0000-000000000001','authenticated','authenticated','leah-member-a@example.invalid','',now(),now(),now());
 
-insert into public.workspaces(id, owner_id, slug)
+insert into public.workspaces(id, name, slug, owner_id)
 values
-  ('a1000000-0000-0000-0000-000000000001','a2000000-0000-0000-0000-000000000001','leah-verify-a'),
-  ('b1000000-0000-0000-0000-000000000001','b2000000-0000-0000-0000-000000000001','leah-verify-b');
+  ('a1000000-0000-0000-0000-000000000001','LEAH Verify A','leah-verify-a','a2000000-0000-0000-0000-000000000001'),
+  ('b1000000-0000-0000-0000-000000000001','LEAH Verify B','leah-verify-b','b2000000-0000-0000-0000-000000000001');
 
 insert into public.workspace_members(workspace_id, user_id, role)
 values
