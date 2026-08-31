@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { readMigrationByName } from "./readMigrationByName";
 
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8");
 
@@ -15,10 +16,10 @@ const customWebhook = read("supabase/functions/webhook-ingest/index.ts");
 const webhookSetup = read("src/components/WebhookSetup.tsx");
 const sms = read("supabase/functions/sms-webhook/index.ts");
 const config = read("supabase/config.toml");
-const emailMigration = read("supabase/migrations/20260830194000_email_ingress_idempotency.sql");
-const webchatMigration = read("supabase/migrations/20260830193500_webchat_ingress_idempotency.sql");
-const smsMigration = read("supabase/migrations/20260830215500_sms_ingress_idempotency.sql");
-const customMigration = read("supabase/migrations/20260830193000_custom_webhook_ingress_idempotency.sql");
+const emailMigration = readMigrationByName("email_ingress_idempotency.sql");
+const webchatMigration = readMigrationByName("webchat_ingress_idempotency.sql");
+const smsMigration = readMigrationByName("sms_ingress_idempotency.sql");
+const customMigration = readMigrationByName("custom_webhook_ingress_idempotency.sql");
 
 describe("P0.6 content-security ingress wave 2", () => {
   it("keeps Email verification and cron runtime on the same public-IP-pinned TLS guard", () => {
