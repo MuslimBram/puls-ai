@@ -7,9 +7,20 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 const publicApi = read("supabase/functions/public-api/index.ts");
 const voice = read("supabase/functions/voice-ai-relay/index.ts");
 const meta = read("supabase/functions/meta-webhook/index.ts");
+const supabaseConfig = read("supabase/config.toml");
 const migration = readMigrationByName("public_api_ingress_idempotency.sql");
 
 describe("P0.6 content-security ingress wave 3", () => {
+  it("exposes Public API through its canonical x-api-key authentication boundary", () => {
+    expect(supabaseConfig).toMatch(/\[functions\.public-api\]\s+verify_jwt\s*=\s*false/);
+    expect(publicApi).toContain('const apiKey = req.headers.get("x-api-key")');
+    expect(publicApi).toContain('if (!apiKey) throw new Error("Missing x-api-key header")');
+    expect(publicApi).toContain('.eq("key_hash", keyHash)');
+    expect(publicApi).toContain('.eq("is_active", true)');
+    expect(publicApi).toContain('.is("revoked_at", null)');
+    expect(publicApi).toContain('if (error || !data || !data.workspace_id) throw new Error("Invalid or unscoped API key")');
+  });
+
   it("gates Public API messages after API-key tenant binding and before Inbox/Zapier side effects", () => {
     const auth = publicApi.indexOf("apiKeyData = await authenticateApiKey(req)");
     const tenant = publicApi.indexOf("const { id: apiKeyId, user_id, workspace_id, permissions } = apiKeyData");
