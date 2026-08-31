@@ -98,3 +98,5 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = true
   [functions.leah-api]
     verify_jwt = false
+  [functions.leah-worker]
+    verify_jwt = false
