@@ -384,7 +384,13 @@ serve(async (req) => {
         if (platform === "instagram") {
           // ── Instagram path ────────────────────────────────────────────────
           if (claim === "duplicate") {
-            await tryCanonicalInsert(sb, { ...canonicalParams, provider: "meta_ig" });
+            const igDupResult = await tryCanonicalInsert(sb, { ...canonicalParams, provider: "meta_ig" });
+            if (igDupResult.status === "error") {
+              return new Response(JSON.stringify({ error: "canonical_insert_failed" }), {
+                status: 500,
+                headers: { ...getCors(req), "Content-Type": "application/json" },
+              });
+            }
             continue;
           }
 
@@ -417,10 +423,11 @@ serve(async (req) => {
 
           if (igInboxErr && igInboxErr.code !== "23505") throw igInboxErr;
           if (igInboxErr?.code === "23505") {
-            await sb.from("inbox_messages").select("id")
+            const { data: igInboxWinner } = await sb.from("inbox_messages").select("id")
               .eq("workspace_id", ws.workspace_id)
               .eq("provider_message_id", messageId)
               .limit(1).maybeSingle();
+            if (!igInboxRow && igInboxWinner) (igInboxRow as any) = igInboxWinner;
           }
 
           // Leads upsert
@@ -437,7 +444,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `******
+              Authorization: `******`,
               "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
             },
             body: JSON.stringify({
@@ -469,7 +476,13 @@ serve(async (req) => {
         } else {
           // ── Facebook Messenger path ───────────────────────────────────────
           if (claim === "duplicate") {
-            await tryCanonicalInsert(sb, { ...canonicalParams, provider: "meta_fb" });
+            const fbDupResult = await tryCanonicalInsert(sb, { ...canonicalParams, provider: "meta_fb" });
+            if (fbDupResult.status === "error") {
+              return new Response(JSON.stringify({ error: "canonical_insert_failed" }), {
+                status: 500,
+                headers: { ...getCors(req), "Content-Type": "application/json" },
+              });
+            }
             continue;
           }
 
@@ -502,10 +515,11 @@ serve(async (req) => {
 
           if (fbInboxErr && fbInboxErr.code !== "23505") throw fbInboxErr;
           if (fbInboxErr?.code === "23505") {
-            await sb.from("inbox_messages").select("id")
+            const { data: fbInboxWinner } = await sb.from("inbox_messages").select("id")
               .eq("workspace_id", ws.workspace_id)
               .eq("provider_message_id", messageId)
               .limit(1).maybeSingle();
+            if (!fbInboxRow && fbInboxWinner) (fbInboxRow as any) = fbInboxWinner;
           }
 
           // Leads upsert
@@ -522,7 +536,7 @@ serve(async (req) => {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
-              Authorization: `******
+              Authorization: `******`,
               "x-internal-secret": Deno.env.get("INTERNAL_WEBHOOK_SECRET") ?? "",
             },
             body: JSON.stringify({
