@@ -410,7 +410,7 @@ serve(async (req) => {
     // Pricing is deterministic and DB-only. The model never gets a chance to invent amounts.
     if (isPricingIntent(question)) {
       const reply = formatPublicPricing(pricingOk ? pricingRows : [], isAlbanian(question));
-      const needs_admin = assessment.mandatoryEscalation || assessment.confidence < MIN_GROUNDED_CONFIDENCE;
+      const needs_admin = shouldEscalate(normalized.messages, reply) || assessment.mandatoryEscalation || assessment.confidence < MIN_GROUNDED_CONFIDENCE;
       return new Response(JSON.stringify({
         reply,
         needs_admin,
