@@ -26,7 +26,7 @@ insert into public.leah_schedules(
 ) values (
   'fb600000-0000-0000-0000-000000000001','fb100000-0000-0000-0000-000000000001',
   'fb300000-0000-0000-0000-000000000001','MR3 scheduled planner',60,true,
-  '{"goal":"scheduled build"}',clock_timestamp()-interval '1 second',
+  '{"goal":"scheduled build","source":"spoofed","orchestration_bootstrap":false}',clock_timestamp()-interval '1 second',
   'fb200000-0000-0000-0000-000000000001'
 );
 
@@ -45,6 +45,8 @@ declare
   task_count integer;
   role_name text;
   bootstrap text;
+  source_name text;
+  schedule_id text;
 begin
   select payload into one from mr3_scheduler_state where key='tick_one';
   select payload into two from mr3_scheduler_state where key='tick_two';
@@ -65,13 +67,15 @@ begin
     and idempotency_key like 'schedule:fb600000-0000-0000-0000-000000000001:%';
   if execution_count <> 1 then raise exception 'Scheduled execution truth mismatch'; end if;
 
-  select count(*), min(agent_role), min(input->>'scheduler_bootstrap')
-    into task_count, role_name, bootstrap
+  select count(*), min(agent_role), min(input->>'orchestration_bootstrap'), min(input->>'source'), min(input->>'schedule_id')
+    into task_count, role_name, bootstrap, source_name, schedule_id
   from public.leah_tasks
   where id=task_id and execution_id=execution_id;
   if task_count <> 1 then raise exception 'Scheduler bootstrap task missing'; end if;
   if role_name <> 'planner' then raise exception 'Scheduler bootstrap task is not planner work'; end if;
-  if bootstrap <> 'true' then raise exception 'Scheduler bootstrap marker missing'; end if;
+  if bootstrap <> 'true' then raise exception 'Canonical orchestration bootstrap marker missing'; end if;
+  if source_name <> 'schedule' then raise exception 'Scheduled bootstrap source marker mismatch'; end if;
+  if schedule_id <> 'fb600000-0000-0000-0000-000000000001' then raise exception 'Scheduled bootstrap lost schedule identity'; end if;
 end $$;
 
 insert into mr3_scheduler_state(key,payload)
