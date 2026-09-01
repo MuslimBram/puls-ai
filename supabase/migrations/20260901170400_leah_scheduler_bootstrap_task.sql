@@ -1,5 +1,7 @@
 -- MR3 scheduler bootstrap hardening.
 -- A scheduled execution is not real runnable work until it has a durable queue task.
+-- This intermediate definition is later replaced by the lifecycle-safe scheduler in
+-- 20260901170700, but it uses the same canonical bootstrap marker.
 
 create or replace function public.leah_scheduler_tick(_limit integer default 20)
 returns jsonb
@@ -40,7 +42,6 @@ begin
       _schedule.workspace_id, _schedule.project_id, _schedule.created_by,
       'queued', _idempotency_key,
       coalesce(_schedule.input, '{}'::jsonb) || jsonb_build_object(
-        'source', 'schedule',
         'schedule_id', _schedule.id,
         'scheduled_for', _schedule.next_run_at
       )
@@ -61,25 +62,22 @@ begin
       raise exception 'Scheduled execution could not be resolved';
     end if;
 
-    -- Scheduler row lock + execution row lock inside leah_enqueue_task make this
-    -- bootstrap idempotent even if the execution already existed from the same run key.
     if not exists (
       select 1
       from public.leah_tasks t
       where t.workspace_id = _schedule.workspace_id
         and t.execution_id = _execution_id
         and t.agent_role = 'planner'
-        and t.input->>'scheduler_bootstrap' = 'true'
+        and t.input->>'orchestration_bootstrap' = 'true'
     ) then
       _task := public.leah_enqueue_task(
         _execution_id,
         1000,
-        jsonb_build_object(
-          'scheduler_bootstrap', true,
+        coalesce(_schedule.input, '{}'::jsonb) || jsonb_build_object(
+          'orchestration_bootstrap', true,
           'source', 'schedule',
           'schedule_id', _schedule.id,
-          'scheduled_for', _schedule.next_run_at,
-          'input', coalesce(_schedule.input, '{}'::jsonb)
+          'scheduled_for', _schedule.next_run_at
         ),
         'planner',
         null,
@@ -93,7 +91,7 @@ begin
       where t.workspace_id = _schedule.workspace_id
         and t.execution_id = _execution_id
         and t.agent_role = 'planner'
-        and t.input->>'scheduler_bootstrap' = 'true'
+        and t.input->>'orchestration_bootstrap' = 'true'
       order by t.seq
       limit 1;
     end if;
