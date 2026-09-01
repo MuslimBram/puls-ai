@@ -152,7 +152,7 @@ begin
   if terminal_result->>'idempotent_replay' <> 'true' then raise exception 'Terminal replay not marked idempotent'; end if;
   if (terminal_result->'execution'->>'id')::uuid <> eid then raise exception 'Terminal replay changed execution identity'; end if;
   if terminal_result->'execution'->>'status' <> 'succeeded' then raise exception 'Terminal replay did not return persisted truth'; end if;
-  if terminal_result->'bootstrap_task' is not null then raise exception 'Terminal replay attempted to restart bootstrap work'; end if;
+  if terminal_result->>'bootstrap_task' is not null then raise exception 'Terminal replay attempted to restart bootstrap work'; end if;
 
   select count(*) into task_count from public.leah_tasks where execution_id=eid;
   if task_count <> 1 then raise exception 'Terminal replay changed task count'; end if;
