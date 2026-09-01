@@ -120,8 +120,8 @@ serve(async (req) => {
     const businessId = authority.business_id;
     const url = normalizeScanUrl(authority.scanned_url);
 
-    -- Compatibility fields from the current frontend are allowed only when
-    -- they exactly match server-derived authority. They never select tenant.
+    // Compatibility fields from the current frontend are allowed only when
+    // they exactly match server-derived authority. They never select tenant.
     if (body.workspace_id && body.workspace_id !== workspaceId) throw new Error("workspace_id is server-derived");
     if (body.business_id && body.business_id !== businessId) throw new Error("business_id is server-derived");
     if (body.url && normalizeScanUrl(String(body.url)) !== url) throw new Error("url is server-derived");
@@ -400,8 +400,8 @@ serve(async (req) => {
     console.error("business-scan-extract error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-    -- Never mutate caller-supplied identifiers on an authority failure. Only
-    -- records captured after resolve_business_scan_authority may be updated.
+    // Never mutate caller-supplied identifiers on an authority failure. Only
+    // records captured after resolve_business_scan_authority may be updated.
     if (authorized) {
       try {
         const sb = supabaseAdmin();
