@@ -9,7 +9,11 @@ async function sha256(v:string){return new Uint8Array(await crypto.subtle.digest
 function eq(a:Uint8Array,b:Uint8Array){if(a.length!==b.length)return false;let d=0;for(let i=0;i<a.length;i++)d|=a[i]^b[i];return d===0;}
 async function requireWorker(req:Request){const configured=Deno.env.get("LEAH_WORKER_SECRET")?.trim()??"";const supplied=req.headers.get("X-Leah-Worker-Secret")?.trim()??"";if(configured.length<32||supplied.length<32)throw new Error("Worker authentication failed");const[a,b]=await Promise.all([sha256(configured),sha256(supplied)]);if(!eq(a,b))throw new Error("Worker authentication failed");}
 function text(body:Record<string,unknown>,key:string,max:number){const v=body[key];if(typeof v!=="string"||!v.trim()||v.length>max)throw new Error(`${key} is required`);return v.trim();}
+function optionalText(body:Record<string,unknown>,key:string,max:number){const v=body[key];if(v===undefined||v===null||v==="")return null;if(typeof v!=="string"||!v.trim()||v.length>max)throw new Error(`Invalid ${key}`);return v.trim();}
 function uuid(body:Record<string,unknown>,key:string){const v=text(body,key,64);if(!UUID_RE.test(v))throw new Error(`${key} must be a UUID`);return v;}
+function nullableInteger(body:Record<string,unknown>,key:string,max=20_000_000){const v=body[key];if(v===undefined||v===null)return null;const n=Number(v);if(!Number.isSafeInteger(n)||n<0||n>max)throw new Error(`Invalid ${key}`);return n;}
+function bool(body:Record<string,unknown>,key:string){const v=body[key];if(typeof v!=="boolean")throw new Error(`Invalid ${key}`);return v;}
+function objectField(body:Record<string,unknown>,key:string){const v=body[key];if(v===undefined||v===null)return{};if(!v||typeof v!=="object"||Array.isArray(v))throw new Error(`Invalid ${key}`);return v as Record<string,unknown>;}
 function rejectAuthorityInjection(body:Record<string,unknown>){for(const key of ["workspace_id","workspaceId","user_id","userId","api_key","apiKey","base_url","baseUrl","secret_id","secretId","model","billing_mode","billingMode"]){if(Object.prototype.hasOwnProperty.call(body,key))throw new Error(`${key} is server-derived`);}}
 function usageArgs(u:{inputTokens:number|null;outputTokens:number|null;totalTokens:number|null;usageSource:string}){return {_usage_source:u.usageSource,_input_tokens:u.inputTokens,_output_tokens:u.outputTokens,_total_tokens:u.totalTokens};}
 
@@ -27,6 +31,31 @@ serve(async(req)=>{
       const {data,error}=await admin.rpc("leah_list_byok_providers_for_task",{_task_id:taskId,_lease_token:leaseToken});
       if(error)throw error;
       return json({providers:Array.isArray(data)?data:[]});
+    }
+
+    if(action==="settle"){
+      attemptId=uuid(body,"attempt_id");
+      const outcome=text(body,"outcome",20);
+      const usageSource=text(body,"usage_source",20);
+      if(!new Set(["succeeded","failed"]).has(outcome))throw new Error("Invalid provider settlement outcome");
+      if(!new Set(["provider","estimated","unavailable"]).has(usageSource))throw new Error("Invalid usage_source");
+      const {data,error}=await admin.rpc("leah_finalize_byok_provider_attempt",{
+        _task_id:taskId,
+        _lease_token:leaseToken,
+        _attempt_id:attemptId,
+        _outcome:outcome,
+        _provider_request_id:optionalText(body,"provider_request_id",500),
+        _usage_source:usageSource,
+        _input_tokens:nullableInteger(body,"input_tokens",10_000_000),
+        _output_tokens:nullableInteger(body,"output_tokens",10_000_000),
+        _total_tokens:nullableInteger(body,"total_tokens",20_000_000),
+        _error_code:optionalText(body,"error_code",120),
+        _latency_ms:nullableInteger(body,"latency_ms",86_400_000),
+        _canonical_result:bool(body,"canonical_result"),
+        _metadata:{...objectField(body,"metadata"),settled_by:"leah_application_validation"},
+      });
+      if(error)throw error;
+      return json({settlement:data});
     }
 
     if(action!=="generate")throw new Error("Unknown LEAH provider proxy action");
@@ -67,16 +96,10 @@ serve(async(req)=>{
       return json({error:"invalid_provider_output",provider,model,usage:result.usage,provider_request_id:result.providerRequestId},502);
     }
 
-    // A successful provider response is deliberately left `in_flight` until LEAH
-    // applies canonical application validation (e.g. generated-file parsing). If the
-    // response is lost between Pulse and LEAH, the durable in-flight row forces
-    // reconciliation and blocks unsafe automatic fallback.
     return json({ok:true,provider,model,text:result.text,usage:result.usage,provider_request_id:result.providerRequestId,finish_reason:result.finishReason,latency_ms:latency,settlement_pending:true});
   }catch(error){
     const message=error instanceof Error?error.message:"Unknown error";
-    if(admitted&&message!=="LEAH_PROVIDER_EVIDENCE_SETTLEMENT_FAILED"){
-      return json({error:"provider_attempt_reconciliation_required"},409);
-    }
+    if(admitted&&message!=="LEAH_PROVIDER_EVIDENCE_SETTLEMENT_FAILED")return json({error:"provider_attempt_reconciliation_required"},409);
     const status=message==="Worker authentication failed"?401:message.includes("BYOK_DISABLED")||message.includes("entitlement inactive")||message.includes("Forbidden")?403:message.includes("server-derived")||message.includes("required")||message.includes("UUID")||message.startsWith("Invalid")||message.startsWith("Unknown")?400:message.includes("unavailable")?404:500;
     return json({error:status===500?"Internal LEAH provider proxy error":message},status);
   }
