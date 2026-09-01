@@ -129,7 +129,7 @@ declare
   _quota record;
 begin
   if coalesce(auth.role(), '') <> 'service_role'
-     and not public.has_workspace_access(_workspace_id) then
+     and not public.has_workspace_role(_workspace_id, array['owner','admin','member','viewer']) then
     raise exception 'STORAGE_QUOTA_WORKSPACE_FORBIDDEN' using errcode = '42501';
   end if;
 

@@ -38,7 +38,9 @@ describe("MR6-A SECURITY DEFINER tenant privacy closure", () => {
     expect(migration).toContain("BUSINESS_LIMIT_SUBJECT_FORBIDDEN");
     expect(migration).toContain("_user_id is distinct from auth.uid()");
     expect(migration).toContain("coalesce(_user_id = auth.uid(), false)");
-    expect(migration).toContain("not public.has_workspace_access(_workspace_id)");
+    expect(migration).toContain(
+      "not public.has_workspace_role(_workspace_id, array['owner','admin','member','viewer'])",
+    );
     expect(migration).toContain("REFERRAL_COUNT_SUBJECT_FORBIDDEN");
     expect(migration).toContain("create or replace function public.community_workspace_authorized");
   });
