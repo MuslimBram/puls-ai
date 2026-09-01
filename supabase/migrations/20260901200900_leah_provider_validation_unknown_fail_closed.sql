@@ -1,5 +1,6 @@
--- MR7-A: an ambiguous Test Connection must immediately remove a provider from
--- the runtime catalog. `pending` is fail-closed and requires a later real PASS.
+-- MR7-A: provider validation evidence is authoritative for runtime eligibility.
+-- Any ambiguous Test Connection (`unknown`) immediately becomes `pending`, removing
+-- the binding from the runtime catalog until a later real validation succeeds.
 create or replace function public.leah_set_workspace_provider_validation(
   _workspace_id uuid,
   _provider text,
@@ -47,3 +48,41 @@ revoke all on function public.leah_set_workspace_provider_validation(uuid,text,t
   from public,anon,authenticated;
 grant execute on function public.leah_set_workspace_provider_validation(uuid,text,text,text)
   to service_role;
+
+create or replace function public.leah_apply_provider_validation_evidence()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  update public.leah_workspace_provider_bindings b
+  set validation_status = case
+        when new.status='valid' then 'valid'
+        when new.status='invalid' then 'invalid'
+        else 'pending'
+      end,
+      validation_error_code = new.error_code,
+      last_validated_at = new.created_at,
+      updated_at = clock_timestamp()
+  where b.id=new.binding_id
+    and b.workspace_id=new.workspace_id
+    and b.provider=new.provider
+    and b.model=new.model
+    and b.status='active';
+
+  if not found then
+    raise exception 'LEAH provider binding changed during validation';
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.leah_apply_provider_validation_evidence()
+  from public,anon,authenticated;
+grant execute on function public.leah_apply_provider_validation_evidence() to service_role;
+
+drop trigger if exists leah_provider_validation_evidence_state on public.leah_provider_validation_events;
+create trigger leah_provider_validation_evidence_state
+after insert on public.leah_provider_validation_events
+for each row execute function public.leah_apply_provider_validation_evidence();
