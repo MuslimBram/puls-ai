@@ -159,7 +159,7 @@ begin
     where s.workspace_id=_workspace_id and s.revoked_at is null;
     get diagnostics _revoked_sessions = row_count;
 
-    update public.leah_sso_handoffs h
+    update public.leah_handoff_tickets h
     set consumed_at=coalesce(h.consumed_at,_now)
     where h.workspace_id=_workspace_id and h.consumed_at is null;
 
