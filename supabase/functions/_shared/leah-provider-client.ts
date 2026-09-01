@@ -7,9 +7,9 @@ const PROVIDERS: Record<LeahProviderId,{protocol:"openai"|"anthropic"|"gemini";b
   anthropic: { protocol:"anthropic", baseUrl:"https://api.anthropic.com/v1" },
   gemini: { protocol:"gemini", baseUrl:"https://generativelanguage.googleapis.com/v1beta" },
   deepseek: { protocol:"openai", baseUrl:"https://api.deepseek.com" },
-  // Kimi Code documents exact model IDs but not a stable upstream model-list endpoint.
+  // Kimi Code canonical model IDs from the official Model Configuration page.
   // Test Connection remains authoritative for account/tier availability.
-  kimi: { protocol:"openai", baseUrl:"https://api.kimi.com/coding/v1", staticModels:["k3","k3-256k","kimi-k2.7","kimi-k2.7-thinking"] },
+  kimi: { protocol:"openai", baseUrl:"https://api.kimi.com/coding/v1", staticModels:["k3","k3-256k","kimi-for-coding","kimi-for-coding-highspeed"] },
   // Z.AI documents model IDs in the Chat Completion API; account availability is
   // still verified by a real Test Connection before validation_status becomes valid.
   zai: { protocol:"openai", baseUrl:"https://api.z.ai/api/paas/v4", staticModels:["glm-5.1","glm-5-turbo","glm-5","glm-4.7","glm-4.7-flash","glm-4.7-flashx","glm-4.6","glm-4.5","glm-4.5-air","glm-4.5-flash"] },
