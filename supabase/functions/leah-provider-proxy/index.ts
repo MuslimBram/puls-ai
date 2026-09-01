@@ -20,8 +20,18 @@ serve(async(req)=>{
     await requireWorker(req);
     const body=await req.json().catch(()=>({})) as Record<string,unknown>;
     rejectAuthorityInjection(body);
-    const action=text(body,"action",40);if(action!=="generate")throw new Error("Unknown LEAH provider proxy action");
-    taskId=uuid(body,"task_id");leaseToken=uuid(body,"lease_token");attemptId=uuid(body,"attempt_id");logicalRequestId=uuid(body,"logical_request_id");provider=parseProviderId(text(body,"provider",40));
+    const action=text(body,"action",40);
+    taskId=uuid(body,"task_id");leaseToken=uuid(body,"lease_token");
+
+    if(action==="catalog"){
+      const {data,error}=await admin.rpc("leah_list_byok_providers_for_task",{_task_id:taskId,_lease_token:leaseToken});
+      if(error)throw error;
+      const providers=Array.isArray(data)?data:[];
+      return json({providers});
+    }
+
+    if(action!=="generate")throw new Error("Unknown LEAH provider proxy action");
+    attemptId=uuid(body,"attempt_id");logicalRequestId=uuid(body,"logical_request_id");provider=parseProviderId(text(body,"provider",40));
     const system=text(body,"system",20000);const user=text(body,"user",250000);startedAt=Date.now();
 
     const {data:resolved,error:resolveError}=await admin.rpc("leah_resolve_byok_provider_for_task",{_task_id:taskId,_lease_token:leaseToken,_provider:provider});
