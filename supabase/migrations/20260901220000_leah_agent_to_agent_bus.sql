@@ -194,7 +194,7 @@ begin
   if found then
     if _existing.execution_id <> _task.execution_id
        or _existing.recipient_task_id is distinct from _recipient_task_id
-       or _existing.recipient_agent_role is distinct from case when _recipient_agent_role is null then null else trim(_recipient_agent_role) end
+       or _existing.recipient_agent_role is distinct from (case when _recipient_agent_role is null then null else trim(_recipient_agent_role) end)
        or _existing.topic <> trim(_topic)
        or _existing.kind <> _kind
        or _existing.payload <> _payload_value
