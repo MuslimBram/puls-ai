@@ -192,7 +192,7 @@ begin
   if (s->>'managed_tokens')::bigint <> 70 then raise exception 'Managed token summary mismatch'; end if;
   if (s->>'byok_tokens')::bigint <> 600 then raise exception 'BYOK token summary mismatch'; end if;
   if (s->>'deployments')::bigint <> 1 then raise exception 'Deployment summary mismatch'; end if;
-  if (s->>'storage_bytes')::bigint <> 4 then raise exception 'Storage summary mismatch'; end if;
+  if (s->>'storage_used_bytes')::bigint <> 4 then raise exception 'Storage summary mismatch'; end if;
 end $$;
 
 rollback;
