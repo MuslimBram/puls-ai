@@ -194,7 +194,7 @@ begin
     set status='released', finalized_at=coalesce(r.finalized_at,_now)
     where r.workspace_id=_workspace_id and r.status='reserved';
 
-    update public.leah_deploy_reservations r
+    update public.leah_deployment_reservations r
     set status='released', finalized_at=coalesce(r.finalized_at,_now)
     where r.workspace_id=_workspace_id and r.status='reserved';
   end if;
