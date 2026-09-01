@@ -28,7 +28,7 @@ const email = required("MR9_TEST_EMAIL");
 const password = required("MR9_TEST_PASSWORD");
 const workspaceId = required("MR9_WORKSPACE_ID");
 const workerSecret = required("MR9_WORKER_SECRET");
-const deploymentTargetId = process.env.MR9_DEPLOY_TARGET_ID?.trim() || null;
+const deploymentTargetId = required("MR9_DEPLOY_TARGET_ID");
 
 if (target !== "staging") throw new Error("MR9 harness is staging-only; MR9_TARGET must equal staging");
 if (supabaseUrl.includes(PRODUCTION_PROJECT_REF)) throw new Error("MR9 harness refuses the Pulse AI Production Supabase project");
@@ -43,7 +43,6 @@ let executionId = "";
 let claimedTaskId = "";
 let leaseToken = "";
 let recipientTaskId = "";
-let artifactId = "";
 
 function record(stage, verdict, details = {}) {
   evidence.push({ stage, verdict, ...details });
@@ -85,6 +84,19 @@ function nestedId(value, keys) {
   return null;
 }
 
+function providerIdFromCatalog(body) {
+  const providers = body?.providers;
+  assert.ok(Array.isArray(providers) && providers.length > 0, "task-bound provider catalog is empty");
+  const first = providers[0];
+  if (typeof first === "string" && first.trim()) return first.trim();
+  if (first && typeof first === "object") {
+    for (const key of ["provider", "provider_id", "id"]) {
+      if (typeof first[key] === "string" && first[key].trim()) return first[key].trim();
+    }
+  }
+  throw new Error(`provider catalog row has no provider id: ${JSON.stringify(first)}`);
+}
+
 try {
   // Negative: private session endpoint must reject missing JWT.
   expectStatus(await edge("leah-session", { workspace_id: workspaceId }), 401, "session rejects missing JWT");
@@ -123,11 +135,12 @@ try {
   assert.ok(projectId, "project id missing");
 
   const idem = `mr9-${uuid()}`;
+  const executionInput = { certification: "MR9", requested_at: new Date().toISOString() };
   const firstStart = await edge("leah-api", {
     action: "executions.start",
     project_id: projectId,
     idempotency_key: idem,
-    input: { certification: "MR9", requested_at: new Date().toISOString() },
+    input: executionInput,
   }, { "X-Leah-Session": leahSession });
   assert.equal(firstStart.status, 201, `first execution start must create: ${JSON.stringify(firstStart.body)}`);
   record("execution first start", "PASS", { status: firstStart.status });
@@ -136,9 +149,9 @@ try {
     action: "executions.start",
     project_id: projectId,
     idempotency_key: idem,
-    input: { certification: "MR9", requested_at: firstStart.body?.created_at ?? "replay" },
+    input: executionInput,
   }, { "X-Leah-Session": leahSession });
-  assert.ok([200, 201].includes(replayStart.status), `execution replay failed: ${JSON.stringify(replayStart.body)}`);
+  assert.equal(replayStart.status, 200, `execution replay must return 200: ${JSON.stringify(replayStart.body)}`);
   record("execution idempotent replay", "PASS", { status: replayStart.status });
 
   executionId = nestedId(firstStart.body, ["execution_id", "execution.id", "id"])
@@ -177,6 +190,7 @@ try {
   claimedTaskId = nestedId(claim.body, ["task.id"]);
   leaseToken = claim.body?.task?.lease_token;
   assert.ok(claimedTaskId && typeof leaseToken === "string", `claim did not expose task lease: ${JSON.stringify(claim.body)}`);
+  assert.equal(claim.body?.task?.execution_id, executionId, `worker claimed an unrelated staging task: ${JSON.stringify(claim.body?.task)}`);
 
   const tasks = await edge("leah-api", { action: "tasks.list", execution_id: executionId }, { "X-Leah-Session": leahSession });
   expect2xx(tasks, "task list after claim");
@@ -220,7 +234,7 @@ try {
     idempotency_key: busKey,
   }, { "X-Leah-Worker-Secret": workerSecret }), 409, "Agent Bus conflicting idempotency reuse rejected");
 
-  // Provider boundary: wrong authority injection rejected, then task-bound catalog succeeds.
+  // Provider boundary: caller cannot inject model/key/base URL; provider selection comes from server-owned catalog entries.
   expectStatus(await edge("leah-provider-proxy", {
     action: "catalog",
     task_id: claimedTaskId,
@@ -234,6 +248,39 @@ try {
     lease_token: leaseToken,
   }, { "X-Leah-Worker-Secret": workerSecret });
   expect2xx(catalog, "task-bound provider catalog");
+  const provider = providerIdFromCatalog(catalog.body);
+
+  const attemptId = uuid();
+  const logicalRequestId = uuid();
+  const generation = await edge("leah-provider-proxy", {
+    action: "generate",
+    task_id: claimedTaskId,
+    lease_token: leaseToken,
+    attempt_id: attemptId,
+    logical_request_id: logicalRequestId,
+    provider,
+    system: "Return a concise certification response. Do not execute tools.",
+    user: "Reply with the exact text MR9_PROVIDER_OK",
+  }, { "X-Leah-Worker-Secret": workerSecret });
+  expect2xx(generation, "real task-bound provider inference");
+  assert.ok(typeof generation.body?.text === "string" && generation.body.text.length > 0, "provider returned no text");
+
+  const usage = generation.body?.usage || {};
+  const usageSource = ["provider", "estimated", "unavailable"].includes(usage.usageSource) ? usage.usageSource : "unavailable";
+  expect2xx(await edge("leah-provider-proxy", {
+    action: "settle",
+    task_id: claimedTaskId,
+    lease_token: leaseToken,
+    attempt_id: attemptId,
+    outcome: "succeeded",
+    provider_request_id: generation.body?.provider_request_id || null,
+    usage_source: usageSource,
+    input_tokens: Number.isInteger(usage.inputTokens) ? usage.inputTokens : null,
+    output_tokens: Number.isInteger(usage.outputTokens) ? usage.outputTokens : null,
+    total_tokens: Number.isInteger(usage.totalTokens) ? usage.totalTokens : null,
+    canonical_result: true,
+    metadata: { certification: "MR9" },
+  }, { "X-Leah-Worker-Secret": workerSecret }), "provider attempt canonical settlement");
 
   // Semantic memory must reject caller tenant injection, then perform a real embedding.
   expectStatus(await edge("leah-semantic-memory", {
@@ -270,7 +317,7 @@ try {
     attributes: {},
   }, { "X-Leah-Worker-Secret": workerSecret }), 400, "observability rejects workspace injection");
 
-  const event = await edge("leah-observability", {
+  const rejectedEvent = await edge("leah-observability", {
     action: "events.emit",
     task_id: claimedTaskId,
     lease_token: leaseToken,
@@ -279,12 +326,11 @@ try {
     span_id: uuid(),
     category: "certification",
     severity: "info",
-    event_name: "mr9.golden_journey.live",
-    attributes: { phase: "positive", secret_material: "not-present" },
+    event_name: "mr9.golden_journey.secret_negative",
+    attributes: { phase: "negative", secret_material: "placeholder-only" },
   }, { "X-Leah-Worker-Secret": workerSecret });
-  // `secret_material` is intentionally a forbidden secret-like telemetry key; it must fail.
-  assert.ok(event.status >= 400, `secret-like telemetry key should be rejected: ${JSON.stringify(event.body)}`);
-  record("observability rejects secret-like attributes", "PASS", { status: event.status });
+  assert.ok(rejectedEvent.status >= 400, `secret-like telemetry key should be rejected: ${JSON.stringify(rejectedEvent.body)}`);
+  record("observability rejects secret-like attributes", "PASS", { status: rejectedEvent.status });
 
   const safeEvent = await edge("leah-observability", {
     action: "events.emit",
@@ -318,67 +364,63 @@ try {
   assert.ok(planId, "recovery plan id missing");
   expect2xx(await edge("leah-observability", { action: "recovery.plan.verify", plan_id: planId }, { "X-Leah-Session": leahSession }), "Preview recovery plan verify");
 
-  // Build/deploy control-plane positive path is enabled when a staging target is explicitly supplied.
-  if (deploymentTargetId) {
-    const artifact = await edge("leah-worker", {
-      action: "artifacts.put",
-      task_id: claimedTaskId,
-      lease_token: leaseToken,
-      kind: "source",
-      path: "mr9/index.txt",
-      content: "Macro-Run 9 staging build artifact",
-    }, { "X-Leah-Worker-Secret": workerSecret });
-    expectStatus(artifact, 201, "staging source artifact");
-    artifactId = nestedId(artifact.body, ["artifact.id", "artifact"]);
-    assert.ok(artifactId, "artifact id missing");
+  // Build/deploy control-plane positive path. This does not claim a physical provider deploy.
+  const artifact = await edge("leah-worker", {
+    action: "artifacts.put",
+    task_id: claimedTaskId,
+    lease_token: leaseToken,
+    kind: "source",
+    path: "mr9/index.txt",
+    content: "Macro-Run 9 staging build artifact",
+  }, { "X-Leah-Worker-Secret": workerSecret });
+  expectStatus(artifact, 201, "staging source artifact");
+  const artifactId = nestedId(artifact.body, ["artifact.id", "artifact"]);
+  assert.ok(artifactId, "artifact id missing");
 
-    const build = await edge("leah-build-deploy", {
-      action: "build.begin",
-      task_id: claimedTaskId,
-      lease_token: leaseToken,
-      build_key: `mr9-build-${uuid()}`,
-      artifact_ids: [artifactId],
-      builder: "mr9-certifier",
-      builder_version: "1",
-    }, { "X-Leah-Worker-Secret": workerSecret });
-    expectStatus(build, 201, "staging build admission");
-    const buildId = nestedId(build.body, ["build.id", "build"]);
-    assert.ok(buildId, "build id missing");
+  const build = await edge("leah-build-deploy", {
+    action: "build.begin",
+    task_id: claimedTaskId,
+    lease_token: leaseToken,
+    build_key: `mr9-build-${uuid()}`,
+    artifact_ids: [artifactId],
+    builder: "mr9-certifier",
+    builder_version: "1",
+  }, { "X-Leah-Worker-Secret": workerSecret });
+  expectStatus(build, 201, "staging build admission");
+  const buildId = nestedId(build.body, ["build.id", "build"]);
+  assert.ok(buildId, "build id missing");
 
-    const digest = crypto.createHash("sha256").update("Macro-Run 9 staging build output").digest("hex");
-    expect2xx(await edge("leah-build-deploy", {
-      action: "build.finish",
-      task_id: claimedTaskId,
-      lease_token: leaseToken,
-      build_id: buildId,
-      outcome: "succeeded",
-      output_digest: digest,
-      output_metadata: { certification: "MR9" },
-    }, { "X-Leah-Worker-Secret": workerSecret }), "staging build settlement");
+  const digest = crypto.createHash("sha256").update("Macro-Run 9 staging build output").digest("hex");
+  expect2xx(await edge("leah-build-deploy", {
+    action: "build.finish",
+    task_id: claimedTaskId,
+    lease_token: leaseToken,
+    build_id: buildId,
+    outcome: "succeeded",
+    output_digest: digest,
+    output_metadata: { certification: "MR9" },
+  }, { "X-Leah-Worker-Secret": workerSecret }), "staging build settlement");
 
-    const deployment = await edge("leah-build-deploy", {
-      action: "deployment.request",
-      task_id: claimedTaskId,
-      lease_token: leaseToken,
-      build_id: buildId,
-      target_id: deploymentTargetId,
-      request_key: `mr9-deploy-${uuid()}`,
-    }, { "X-Leah-Worker-Secret": workerSecret });
-    expectStatus(deployment, 201, "Preview deployment request");
-    const deploymentId = nestedId(deployment.body, ["deployment.id", "deployment"]);
-    assert.ok(deploymentId, "deployment id missing");
+  const deployment = await edge("leah-build-deploy", {
+    action: "deployment.request",
+    task_id: claimedTaskId,
+    lease_token: leaseToken,
+    build_id: buildId,
+    target_id: deploymentTargetId,
+    request_key: `mr9-deploy-${uuid()}`,
+  }, { "X-Leah-Worker-Secret": workerSecret });
+  expectStatus(deployment, 201, "Preview deployment request");
+  const deploymentId = nestedId(deployment.body, ["deployment.id", "deployment"]);
+  assert.ok(deploymentId, "deployment id missing");
 
-    const beginDeployment = await edge("leah-build-deploy", {
-      action: "deployment.begin",
-      task_id: claimedTaskId,
-      lease_token: leaseToken,
-      deployment_id: deploymentId,
-    }, { "X-Leah-Worker-Secret": workerSecret });
-    expect2xx(beginDeployment, "Preview deployment quota reservation");
-    record("physical cloud deploy remains external to MR8D control plane", "PASS");
-  } else {
-    record("build/deploy positive path", "SKIP", { reason: "MR9_DEPLOY_TARGET_ID not supplied" });
-  }
+  const beginDeployment = await edge("leah-build-deploy", {
+    action: "deployment.begin",
+    task_id: claimedTaskId,
+    lease_token: leaseToken,
+    deployment_id: deploymentId,
+  }, { "X-Leah-Worker-Secret": workerSecret });
+  expect2xx(beginDeployment, "Preview deployment quota reservation");
+  record("physical cloud deploy remains external to MR8D control plane", "PASS");
 
   // Finish the live lease and prove session revocation closes browser authority.
   expect2xx(await edge("leah-worker", {
