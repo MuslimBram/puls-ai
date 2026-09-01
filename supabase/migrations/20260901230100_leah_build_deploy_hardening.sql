@@ -1,22 +1,49 @@
 -- MR8D adversarial hardening: active deployment targets require a real Vault-backed
 -- credential; build/deploy evidence snapshots are immutable after admission.
 
+create or replace function public.leah_deployment_secret_is_real(
+  _workspace_id uuid,
+  _secret_id uuid,
+  _provider text
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path=public,vault,pg_temp
+as $$
+  select exists(
+    select 1
+    from public.leah_secret_registry s
+    join public.vault_secret_refs r
+      on r.id=s.vault_ref_id and r.workspace_id=s.workspace_id
+    join vault.decrypted_secrets d
+      on d.name=r.vault_secret_name
+    where s.id=_secret_id
+      and s.workspace_id=_workspace_id
+      and s.status='active'
+      and s.vault_ref_id is not null
+      and d.decrypted_secret is not null
+      and length(d.decrypted_secret) > 0
+      and (
+        (_provider='vercel' and lower(s.provider)='vercel')
+        or (_provider='cloudflare_pages' and lower(s.provider) in ('cloudflare','cloudflare_pages'))
+      )
+  );
+$$;
+
 create or replace function public.leah_enforce_deployment_target_credential()
 returns trigger
 language plpgsql
 security definer
 set search_path=public,pg_temp
 as $$
-declare _provider text; _vault_ref uuid;
 begin
   if new.status='active' then
     if new.credential_secret_id is null then raise exception 'Active deployment target requires credential'; end if;
-    select lower(s.provider),s.vault_ref_id into _provider,_vault_ref
-    from public.leah_secret_registry s
-    where s.id=new.credential_secret_id and s.workspace_id=new.workspace_id and s.status='active';
-    if not found or _vault_ref is null then raise exception 'Active deployment target requires Vault-backed credential'; end if;
-    if new.provider='vercel' and _provider<>'vercel' then raise exception 'Deployment credential provider mismatch'; end if;
-    if new.provider='cloudflare_pages' and _provider not in ('cloudflare','cloudflare_pages') then raise exception 'Deployment credential provider mismatch'; end if;
+    if not public.leah_deployment_secret_is_real(new.workspace_id,new.credential_secret_id,new.provider) then
+      raise exception 'Active deployment target requires real Vault-backed provider credential';
+    end if;
   end if;
   return new;
 end;
@@ -74,7 +101,6 @@ set search_path=public,pg_temp
 as $$
 declare
   _target public.leah_deployment_targets%rowtype;
-  _secret public.leah_secret_registry%rowtype;
   _build public.leah_builds%rowtype;
 begin
   if tg_op='UPDATE' then
@@ -105,12 +131,9 @@ begin
       and t.credential_secret_id=new.credential_secret_id;
     if not found then raise exception 'Deployment target snapshot is stale or disabled'; end if;
 
-    select s.* into _secret from public.leah_secret_registry s
-    where s.id=new.credential_secret_id and s.workspace_id=new.workspace_id
-      and s.status='active' and s.vault_ref_id is not null;
-    if not found then raise exception 'Deployment credential is not Vault-backed and active'; end if;
-    if new.provider='vercel' and lower(_secret.provider)<>'vercel' then raise exception 'Deployment credential provider mismatch'; end if;
-    if new.provider='cloudflare_pages' and lower(_secret.provider) not in ('cloudflare','cloudflare_pages') then raise exception 'Deployment credential provider mismatch'; end if;
+    if not public.leah_deployment_secret_is_real(new.workspace_id,new.credential_secret_id,new.provider) then
+      raise exception 'Deployment credential is not backed by live Vault material';
+    end if;
   end if;
 
   if new.environment='production' and new.status in ('queued','deploying','succeeded','failed','unknown') then
@@ -130,7 +153,9 @@ create trigger leah_deployment_snapshot_truth_trigger
 before insert or update on public.leah_deployments
 for each row execute function public.leah_enforce_deployment_snapshot_truth();
 
+revoke all on function public.leah_deployment_secret_is_real(uuid,uuid,text) from public,anon,authenticated;
 revoke all on function public.leah_enforce_deployment_target_credential() from public,anon,authenticated;
 revoke all on function public.leah_enforce_build_snapshot_immutable() from public,anon,authenticated;
 revoke all on function public.leah_enforce_build_source_immutable() from public,anon,authenticated;
 revoke all on function public.leah_enforce_deployment_snapshot_truth() from public,anon,authenticated;
+grant execute on function public.leah_deployment_secret_is_real(uuid,uuid,text) to service_role;
