@@ -24,10 +24,10 @@ values ('fc300000-0000-0000-0000-000000000001','fc100000-0000-0000-0000-00000000
 -- Internal start RPC must never be directly browser-executable.
 do $$
 begin
-  if has_function_privilege('anon','public.leah_start_execution(uuid,uuid,uuid,text,jsonb)','EXECUTE') then
+  if has_function_privilege('anon','public.leah_start_execution(uuid,uuid,uuid,text,jsonb,text)','EXECUTE') then
     raise exception 'anon can start internal LEAH execution RPC';
   end if;
-  if has_function_privilege('authenticated','public.leah_start_execution(uuid,uuid,uuid,text,jsonb)','EXECUTE') then
+  if has_function_privilege('authenticated','public.leah_start_execution(uuid,uuid,uuid,text,jsonb,text)','EXECUTE') then
     raise exception 'authenticated can start internal LEAH execution RPC';
   end if;
 end $$;
@@ -38,7 +38,8 @@ values ('first', public.leah_start_execution(
   'fc300000-0000-0000-0000-000000000001',
   'fc200000-0000-0000-0000-000000000001',
   'manual-idempotent-one',
-  '{"goal":"build once"}'::jsonb
+  '{"goal":"build once","source":"spoofed","orchestration_bootstrap":false}'::jsonb,
+  'manual'
 ));
 
 insert into mr3_manual_state(key,payload)
@@ -47,7 +48,8 @@ values ('replay', public.leah_start_execution(
   'fc300000-0000-0000-0000-000000000001',
   'fc200000-0000-0000-0000-000000000001',
   'manual-idempotent-one',
-  '{"goal":"build once"}'::jsonb
+  '{"goal":"build once"}'::jsonb,
+  'manual'
 ));
 
 do $$
@@ -60,6 +62,8 @@ declare
   replay_task uuid;
   execution_count integer;
   task_count integer;
+  marker text;
+  source_name text;
 begin
   select payload into first_result from mr3_manual_state where key='first';
   select payload into replay_result from mr3_manual_state where key='replay';
@@ -72,6 +76,7 @@ begin
   if first_execution is null or first_task is null then raise exception 'Manual start did not return execution + bootstrap task'; end if;
   if first_result->>'idempotent_replay' <> 'false' then raise exception 'First manual start was falsely marked replay'; end if;
   if replay_result->>'idempotent_replay' <> 'true' then raise exception 'Second manual start was not marked replay'; end if;
+  if first_result->>'source' <> 'manual' or replay_result->>'source' <> 'manual' then raise exception 'Manual source truth mismatch'; end if;
   if first_execution <> replay_execution then raise exception 'Idempotent manual replay created another execution'; end if;
   if first_task <> replay_task then raise exception 'Idempotent manual replay created another planner task'; end if;
 
@@ -82,12 +87,14 @@ begin
     and idempotency_key='manual-idempotent-one';
   if execution_count <> 1 then raise exception 'Manual execution idempotency count mismatch'; end if;
 
-  select count(*) into task_count
+  select count(*), min(input->>'orchestration_bootstrap'), min(input->>'source')
+    into task_count, marker, source_name
   from public.leah_tasks
   where execution_id=first_execution
-    and agent_role='planner'
-    and input->>'manual_bootstrap'='true';
+    and agent_role='planner';
   if task_count <> 1 then raise exception 'Manual bootstrap planner task count mismatch'; end if;
+  if marker <> 'true' then raise exception 'Canonical orchestration bootstrap marker missing'; end if;
+  if source_name <> 'manual' then raise exception 'Manual bootstrap source marker mismatch'; end if;
 end $$;
 
 -- Bootstrap work must be claimable and claiming it is what starts the execution.
@@ -127,7 +134,8 @@ values ('terminal_replay', public.leah_start_execution(
   'fc300000-0000-0000-0000-000000000001',
   'fc200000-0000-0000-0000-000000000001',
   'manual-idempotent-one',
-  '{"goal":"build once"}'::jsonb
+  '{"goal":"build once"}'::jsonb,
+  'manual'
 ));
 
 do $$
@@ -154,12 +162,12 @@ end $$;
 insert into mr3_manual_state(key,payload)
 values ('free_one', public.leah_start_execution(
   'fc100000-0000-0000-0000-000000000001','fc300000-0000-0000-0000-000000000001',
-  'fc200000-0000-0000-0000-000000000001',null,'{"run":1}'::jsonb
+  'fc200000-0000-0000-0000-000000000001',null,'{"run":1}'::jsonb,'manual'
 ));
 insert into mr3_manual_state(key,payload)
 values ('free_two', public.leah_start_execution(
   'fc100000-0000-0000-0000-000000000001','fc300000-0000-0000-0000-000000000001',
-  'fc200000-0000-0000-0000-000000000001',null,'{"run":2}'::jsonb
+  'fc200000-0000-0000-0000-000000000001',null,'{"run":2}'::jsonb,'manual'
 ));
 
 do $$
@@ -170,13 +178,23 @@ begin
   if a is null or b is null or a=b then raise exception 'Non-idempotent starts did not create independent executions'; end if;
 end $$;
 
--- Overlength keys are rejected, never silently truncated into collisions.
+-- Invalid source and overlength keys are rejected, never normalized into fake truth.
 do $$
 begin
   begin
     perform public.leah_start_execution(
       'fc100000-0000-0000-0000-000000000001','fc300000-0000-0000-0000-000000000001',
-      'fc200000-0000-0000-0000-000000000001',repeat('x',201),'{}'::jsonb
+      'fc200000-0000-0000-0000-000000000001','bad-source','{}'::jsonb,'provider'
+    );
+    raise exception 'Unsupported execution source was accepted';
+  exception when others then
+    if sqlerrm = 'Unsupported execution source was accepted' then raise; end if;
+  end;
+
+  begin
+    perform public.leah_start_execution(
+      'fc100000-0000-0000-0000-000000000001','fc300000-0000-0000-0000-000000000001',
+      'fc200000-0000-0000-0000-000000000001',repeat('x',201),'{}'::jsonb,'manual'
     );
     raise exception 'Overlength idempotency key was accepted';
   exception when others then
