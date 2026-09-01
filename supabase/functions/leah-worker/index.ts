@@ -5,14 +5,15 @@ import { createAdminClient } from "../_shared/admin-client.ts";
 const admin = createAdminClient();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-const EXECUTION_TRANSITIONS: Record<string, Set<string>> = {
-  queued: new Set(["running", "failed", "cancelled"]),
+// Entering `running` is exclusively performed by the atomic DB claim primitive.
+// Terminal execution states are completed by the DB after validating task/swarm truth.
+const EXECUTION_TERMINAL_TRANSITIONS: Record<string, Set<string>> = {
+  queued: new Set(["failed", "cancelled"]),
   running: new Set(["succeeded", "failed", "cancelled"]),
 };
 
-// Once MR3 is active, entering or leaving `running` is lease-authoritative.
-// The compatibility transition action is therefore intentionally limited to
-// non-running administrative state changes.
+// Entering or leaving task `running` is lease-authoritative. Compatibility transitions
+// are intentionally limited to non-running administrative state changes.
 const TASK_COMPAT_TRANSITIONS: Record<string, Set<string>> = {
   queued: new Set(["cancelled"]),
   retry_wait: new Set(["queued", "cancelled"]),
@@ -92,16 +93,6 @@ async function contentHash(value: string): Promise<string> {
   return Array.from(digest).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function executionById(executionId: string) {
-  const { data, error } = await admin.from("leah_executions")
-    .select("id, workspace_id, project_id, requested_by, status")
-    .eq("id", executionId)
-    .maybeSingle();
-  if (error) throw error;
-  if (!data) throw new Error("Execution not found");
-  return data;
-}
-
 async function taskById(taskId: string) {
   const { data, error } = await admin.from("leah_tasks")
     .select("id, workspace_id, execution_id, project_id, status, attempt")
@@ -127,34 +118,28 @@ serve(async (req) => {
       const executionId = uuidField(body, "execution_id");
       const fromStatus = stringField(body, "from_status", 40);
       const toStatus = stringField(body, "to_status", 40);
-      if (!EXECUTION_TRANSITIONS[fromStatus]?.has(toStatus)) throw new Error("Invalid execution transition");
-      const execution = await executionById(executionId);
-      if (execution.status !== fromStatus) throw new Error("Execution state conflict");
-
-      const now = new Date().toISOString();
-      const patch: Record<string, unknown> = { status: toStatus, updated_at: now };
-      if (toStatus === "running") patch.started_at = now;
-      if (["succeeded", "failed", "cancelled"].includes(toStatus)) patch.ended_at = now;
-      if (toStatus === "failed") {
-        patch.error_code = typeof body.error_code === "string" ? body.error_code.slice(0, 100) : "execution_failed";
-        patch.error_detail = body.error_detail && typeof body.error_detail === "object" ? body.error_detail : { message: "Execution failed" };
+      if (!EXECUTION_TERMINAL_TRANSITIONS[fromStatus]?.has(toStatus)) {
+        throw new Error("Invalid execution transition; running state is claim-derived");
       }
-
-      const { data, error } = await admin.from("leah_executions").update(patch)
-        .eq("id", execution.id)
-        .eq("workspace_id", execution.workspace_id)
-        .eq("status", fromStatus)
-        .select("id, project_id, status, error_code, error_detail, started_at, ended_at, updated_at")
-        .maybeSingle();
+      const errorCode = typeof body.error_code === "string" ? body.error_code.slice(0, 100) : null;
+      const errorDetail = body.error_detail && typeof body.error_detail === "object" && !Array.isArray(body.error_detail)
+        ? body.error_detail
+        : null;
+      const { data, error } = await admin.rpc("leah_finish_execution", {
+        _execution_id: executionId,
+        _from_status: fromStatus,
+        _to_status: toStatus,
+        _error_code: errorCode,
+        _error_detail: errorDetail,
+      });
       if (error) throw error;
-      if (!data) throw new Error("Execution state conflict");
       return json({ execution: data });
     }
 
     if (action === "swarms.create") {
       const executionId = uuidField(body, "execution_id");
       const mode = typeof body.mode === "string" ? body.mode : "parallel";
-      if (!new Set(["parallel", "sequential", "consensus"]).has(mode)) throw new Error("Invalid swarm mode");
+      if (mode !== "parallel") throw new Error("Invalid swarm mode: only parallel is supported in MR3");
       const maxConcurrency = boundedInteger(body.max_concurrency, 1, 1, 128, "swarm concurrency");
       const { data, error } = await admin.rpc("leah_create_swarm", {
         _execution_id: executionId,
@@ -282,118 +267,79 @@ serve(async (req) => {
     }
 
     if (action === "artifacts.put") {
-      const executionId = uuidField(body, "execution_id");
-      const execution = await executionById(executionId);
-      if (execution.status !== "running") throw new Error("Execution is not producing artifacts");
+      const taskId = uuidField(body, "task_id");
+      const leaseToken = uuidField(body, "lease_token");
       const kind = stringField(body, "kind", 80);
       const path = stringField(body, "path", 500);
       const content = typeof body.content === "string" ? body.content : "";
       if (content.length > 1_000_000) throw new Error("Artifact content exceeds 1 MB; use object storage");
       const hash = await contentHash(content);
-
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const { data: latest, error: latestError } = await admin.from("leah_project_artifacts")
-          .select("id, version")
-          .eq("workspace_id", execution.workspace_id)
-          .eq("project_id", execution.project_id)
-          .eq("path", path)
-          .order("version", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (latestError) throw latestError;
-        const nextVersion = (latest?.version ?? 0) + 1;
-        const { data, error } = await admin.from("leah_project_artifacts").insert({
-          workspace_id: execution.workspace_id,
-          project_id: execution.project_id,
-          kind,
-          path,
-          content,
-          content_hash: hash,
-          version: nextVersion,
-          supersedes_id: latest?.id ?? null,
-          created_by: execution.requested_by,
-        }).select("id, project_id, kind, path, content_hash, version, supersedes_id, created_at").single();
-        if (!error) return json({ artifact: data }, 201);
-        if (error.code !== "23505" || attempt === 4) throw error;
-      }
-      throw new Error("Artifact version allocation failed");
+      const { data, error } = await admin.rpc("leah_put_artifact_for_task", {
+        _task_id: taskId,
+        _lease_token: leaseToken,
+        _kind: kind,
+        _path: path,
+        _content: content,
+        _content_hash: hash,
+      });
+      if (error) throw error;
+      return json({ artifact: data }, 201);
     }
 
     if (action === "projects.transition") {
-      const executionId = uuidField(body, "execution_id");
+      const taskId = uuidField(body, "task_id");
+      const leaseToken = uuidField(body, "lease_token");
       const fromStatus = stringField(body, "from_status", 40);
       const toStatus = stringField(body, "to_status", 40);
       if (!PROJECT_TRANSITIONS[fromStatus]?.has(toStatus)) throw new Error("Invalid project transition");
-      const execution = await executionById(executionId);
-      const { data: current, error: currentError } = await admin.from("leah_projects")
-        .select("id, status, version")
-        .eq("id", execution.project_id)
-        .eq("workspace_id", execution.workspace_id)
-        .is("archived_at", null)
-        .maybeSingle();
-      if (currentError) throw currentError;
-      if (!current) throw new Error("Project not found");
-      if (current.status !== fromStatus) throw new Error("Project state conflict");
-      const now = new Date().toISOString();
-      const { data, error } = await admin.from("leah_projects").update({
-        status: toStatus,
-        version: current.version + 1,
-        updated_at: now,
-      })
-        .eq("id", current.id)
-        .eq("workspace_id", execution.workspace_id)
-        .eq("status", fromStatus)
-        .eq("version", current.version)
-        .is("archived_at", null)
-        .select("id, status, version, updated_at")
-        .maybeSingle();
+      const { data, error } = await admin.rpc("leah_transition_project_for_task", {
+        _task_id: taskId,
+        _lease_token: leaseToken,
+        _from_status: fromStatus,
+        _to_status: toStatus,
+      });
       if (error) throw error;
-      if (!data) throw new Error("Project state conflict");
       return json({ project: data });
     }
 
     if (action === "semantic.mark") {
+      const taskId = uuidField(body, "task_id");
+      const leaseToken = uuidField(body, "lease_token");
       const semanticId = uuidField(body, "semantic_id");
       const status = stringField(body, "status", 20);
       if (!new Set(["embedded", "failed"]).has(status)) throw new Error("Invalid semantic status");
-      const { data: row, error: rowError } = await admin.from("leah_semantic_memory")
-        .select("id, workspace_id, project_id, status")
-        .eq("id", semanticId)
-        .maybeSingle();
-      if (rowError) throw rowError;
-      if (!row) throw new Error("Semantic memory not found");
-      if (row.status !== "pending") throw new Error("Semantic memory state conflict");
-
-      const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
-      if (status === "embedded") {
-        patch.provider = stringField(body, "provider", 100);
-        patch.provider_ref = stringField(body, "provider_ref", 500);
-        patch.embedding_ref = stringField(body, "embedding_ref", 1000);
-        patch.error = null;
-      } else {
-        patch.error = body.error && typeof body.error === "object" ? body.error : { message: "Embedding failed" };
-      }
-      const { data, error } = await admin.from("leah_semantic_memory").update(patch)
-        .eq("id", row.id)
-        .eq("workspace_id", row.workspace_id)
-        .eq("status", "pending")
-        .select("id, project_id, status, provider, provider_ref, embedding_ref, error, updated_at")
-        .maybeSingle();
+      const provider = status === "embedded" ? stringField(body, "provider", 100) : null;
+      const providerRef = status === "embedded" ? stringField(body, "provider_ref", 500) : null;
+      const embeddingRef = status === "embedded" ? stringField(body, "embedding_ref", 1000) : null;
+      const semanticError = status === "failed" && body.error && typeof body.error === "object" && !Array.isArray(body.error)
+        ? body.error
+        : null;
+      const { data, error } = await admin.rpc("leah_mark_semantic_for_task", {
+        _task_id: taskId,
+        _lease_token: leaseToken,
+        _semantic_id: semanticId,
+        _status: status,
+        _provider: provider,
+        _provider_ref: providerRef,
+        _embedding_ref: embeddingRef,
+        _error: semanticError,
+      });
       if (error) throw error;
-      if (!data) throw new Error("Semantic memory state conflict");
       return json({ memory: data });
     }
 
     if (action === "secrets.read_for_execution") {
-      const executionId = uuidField(body, "execution_id");
+      throw new Error("Unsupported worker action: use secrets.read_for_task with an active lease");
+    }
+
+    if (action === "secrets.read_for_task") {
+      const taskId = uuidField(body, "task_id");
+      const leaseToken = uuidField(body, "lease_token");
       const secretId = uuidField(body, "secret_id");
-      const execution = await executionById(executionId);
-      if (execution.status !== "running") throw new Error("Execution is not running");
-      const { data, error } = await admin.rpc("leah_vault_read_for_runtime", {
-        _workspace_id: execution.workspace_id,
-        _user_id: execution.requested_by,
+      const { data, error } = await admin.rpc("leah_vault_read_for_task", {
+        _task_id: taskId,
+        _lease_token: leaseToken,
         _secret_id: secretId,
-        _execution_id: execution.id,
       });
       if (error) throw error;
       if (typeof data !== "string" || !data) throw new Error("Secret unavailable");
@@ -405,8 +351,8 @@ serve(async (req) => {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = message === "Worker authentication failed" ? 401 :
       message.toLowerCase().includes("not found") ? 404 :
-      message.toLowerCase().includes("conflict") || message.toLowerCase().includes("terminal") || message.includes("lease invalid") ? 409 :
-      message.includes("required") || message.includes("Invalid") || message.includes("must") || message.includes("exceeds") || message.includes("not producing") || message.includes("not running") ? 400 : 500;
+      message.toLowerCase().includes("conflict") || message.toLowerCase().includes("terminal") || message.includes("lease invalid") || message.includes("unfinished") ? 409 :
+      message.includes("required") || message.includes("Invalid") || message.includes("must") || message.includes("exceeds") || message.includes("not producing") || message.includes("not running") || message.includes("Unsupported") ? 400 : 500;
     return json({ error: status === 500 ? "Internal LEAH worker error" : message }, status);
   }
 });
