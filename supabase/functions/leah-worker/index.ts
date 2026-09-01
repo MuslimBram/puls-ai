@@ -10,9 +10,11 @@ const EXECUTION_TRANSITIONS: Record<string, Set<string>> = {
   running: new Set(["succeeded", "failed", "cancelled"]),
 };
 
-const TASK_TRANSITIONS: Record<string, Set<string>> = {
-  queued: new Set(["running", "cancelled"]),
-  running: new Set(["succeeded", "failed", "retry_wait", "cancelled"]),
+// Once MR3 is active, entering or leaving `running` is lease-authoritative.
+// The compatibility transition action is therefore intentionally limited to
+// non-running administrative state changes.
+const TASK_COMPAT_TRANSITIONS: Record<string, Set<string>> = {
+  queued: new Set(["cancelled"]),
   retry_wait: new Set(["queued", "cancelled"]),
 };
 
@@ -41,6 +43,28 @@ function uuidField(body: Record<string, unknown>, key: string): string {
   const value = stringField(body, key, 64);
   if (!UUID_RE.test(value)) throw new Error(`${key} must be a UUID`);
   return value;
+}
+
+function optionalUuid(value: unknown, label: string): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !UUID_RE.test(value)) throw new Error(`${label} must be a UUID`);
+  return value;
+}
+
+function uuidArray(value: unknown, label: string): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value)) throw new Error(`${label} must be an array`);
+  if (value.length > 200) throw new Error(`${label} exceeds 200 items`);
+  return value.map((entry) => {
+    if (typeof entry !== "string" || !UUID_RE.test(entry)) throw new Error(`${label} contains an invalid UUID`);
+    return entry;
+  });
+}
+
+function boundedInteger(value: unknown, fallback: number, min: number, max: number, label: string): number {
+  const parsed = value === undefined ? fallback : Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) throw new Error(`Invalid ${label}`);
+  return parsed;
 }
 
 async function sha256Bytes(value: string): Promise<Uint8Array> {
@@ -127,65 +151,103 @@ serve(async (req) => {
       return json({ execution: data });
     }
 
+    if (action === "swarms.create") {
+      const executionId = uuidField(body, "execution_id");
+      const mode = typeof body.mode === "string" ? body.mode : "parallel";
+      if (!new Set(["parallel", "sequential", "consensus"]).has(mode)) throw new Error("Invalid swarm mode");
+      const maxConcurrency = boundedInteger(body.max_concurrency, 1, 1, 128, "swarm concurrency");
+      const { data, error } = await admin.rpc("leah_create_swarm", {
+        _execution_id: executionId,
+        _mode: mode,
+        _max_concurrency: maxConcurrency,
+      });
+      if (error) throw error;
+      return json({ swarm: data }, 201);
+    }
+
     if (action === "tasks.add") {
       const executionId = uuidField(body, "execution_id");
-      const execution = await executionById(executionId);
-      if (["succeeded", "failed", "cancelled"].includes(execution.status)) throw new Error("Execution is terminal");
       const input = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? body.input : {};
-      const priorityNumber = Number(body.priority ?? 100);
-      const priority = Number.isInteger(priorityNumber) ? Math.max(-10_000, Math.min(10_000, priorityNumber)) : 100;
+      const priority = boundedInteger(body.priority, 100, -10_000, 10_000, "task priority");
+      const agentRole = typeof body.agent_role === "string" && body.agent_role.trim() ? body.agent_role.trim() : "worker";
+      if (agentRole.length > 80) throw new Error("Invalid agent role");
+      const swarmId = optionalUuid(body.swarm_id, "swarm_id");
+      const parentTaskId = optionalUuid(body.parent_task_id, "parent_task_id");
+      const dependsOn = uuidArray(body.depends_on, "depends_on");
+      const maxAttempts = boundedInteger(body.max_attempts, 3, 1, 20, "max attempts");
 
-      for (let attempt = 0; attempt < 5; attempt++) {
-        const { data: latest, error: latestError } = await admin.from("leah_tasks")
-          .select("seq")
-          .eq("workspace_id", execution.workspace_id)
-          .eq("execution_id", execution.id)
-          .order("seq", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (latestError) throw latestError;
-        const seq = (latest?.seq ?? -1) + 1;
-        const { data, error } = await admin.from("leah_tasks").insert({
-          workspace_id: execution.workspace_id,
-          execution_id: execution.id,
-          project_id: execution.project_id,
-          seq,
-          priority,
-          input,
-        }).select("id, execution_id, project_id, seq, priority, status, attempt, available_at, created_at").single();
-        if (!error) return json({ task: data }, 201);
-        if (error.code !== "23505" || attempt === 4) throw error;
-      }
-      throw new Error("Task sequence allocation failed");
+      const { data, error } = await admin.rpc("leah_enqueue_task", {
+        _execution_id: executionId,
+        _priority: priority,
+        _input: input,
+        _agent_role: agentRole,
+        _swarm_id: swarmId,
+        _parent_task_id: parentTaskId,
+        _depends_on: dependsOn,
+        _max_attempts: maxAttempts,
+      });
+      if (error) throw error;
+      return json({ task: data }, 201);
+    }
+
+    if (action === "tasks.claim") {
+      const workerId = stringField(body, "worker_id", 160);
+      const leaseSeconds = boundedInteger(body.lease_seconds, 60, 15, 900, "lease duration");
+      const { data, error } = await admin.rpc("leah_claim_next_task", {
+        _worker_id: workerId,
+        _lease_seconds: leaseSeconds,
+      });
+      if (error) throw error;
+      return json({ task: data ?? null });
+    }
+
+    if (action === "tasks.heartbeat") {
+      const taskId = uuidField(body, "task_id");
+      const leaseToken = uuidField(body, "lease_token");
+      const extendSeconds = boundedInteger(body.extend_seconds, 60, 15, 900, "lease duration");
+      const { data, error } = await admin.rpc("leah_heartbeat_task", {
+        _task_id: taskId,
+        _lease_token: leaseToken,
+        _extend_seconds: extendSeconds,
+      });
+      if (error) throw error;
+      if (!data) throw new Error("Task lease invalid or expired");
+      return json({ success: true });
+    }
+
+    if (action === "tasks.finish") {
+      const taskId = uuidField(body, "task_id");
+      const leaseToken = uuidField(body, "lease_token");
+      const status = stringField(body, "status", 40);
+      if (!new Set(["succeeded", "failed", "retry_wait", "cancelled"]).has(status)) throw new Error("Invalid task finish status");
+      const retryDelayMs = boundedInteger(body.retry_delay_ms, 1000, 0, 86_400_000, "retry delay");
+      const output = body.output === undefined ? null : body.output;
+      const errorBody = body.error === undefined ? null : body.error;
+      const { data, error } = await admin.rpc("leah_finish_task", {
+        _task_id: taskId,
+        _lease_token: leaseToken,
+        _status: status,
+        _output: output,
+        _error: errorBody,
+        _retry_delay_ms: retryDelayMs,
+      });
+      if (error) throw error;
+      return json({ task: data });
     }
 
     if (action === "tasks.transition") {
       const taskId = uuidField(body, "task_id");
       const fromStatus = stringField(body, "from_status", 40);
       const toStatus = stringField(body, "to_status", 40);
-      if (!TASK_TRANSITIONS[fromStatus]?.has(toStatus)) throw new Error("Invalid task transition");
+      if (!TASK_COMPAT_TRANSITIONS[fromStatus]?.has(toStatus)) {
+        throw new Error("Invalid task transition; running tasks require claim/finish lease flow");
+      }
       const task = await taskById(taskId);
       if (task.status !== fromStatus) throw new Error("Task state conflict");
 
       const now = new Date().toISOString();
       const patch: Record<string, unknown> = { status: toStatus, updated_at: now };
-      if (toStatus === "running") {
-        patch.started_at = now;
-        patch.ended_at = null;
-        patch.attempt = task.attempt + 1;
-      }
-      if (["succeeded", "failed", "cancelled"].includes(toStatus)) patch.ended_at = now;
-      if (toStatus === "succeeded") {
-        patch.output = body.output === undefined ? {} : body.output;
-        patch.error = null;
-      }
-      if (toStatus === "failed") patch.error = body.error === undefined ? { message: "Task failed" } : body.error;
-      if (toStatus === "retry_wait") {
-        const rawDelay = Number(body.retry_delay_ms ?? 1000);
-        const delayMs = Number.isFinite(rawDelay) ? Math.max(0, Math.min(86_400_000, rawDelay)) : 1000;
-        patch.available_at = new Date(Date.now() + delayMs).toISOString();
-        patch.error = body.error === undefined ? { message: "Retry scheduled" } : body.error;
-      }
+      if (toStatus === "cancelled") patch.ended_at = now;
       if (toStatus === "queued") {
         patch.available_at = now;
         patch.started_at = null;
@@ -201,6 +263,22 @@ serve(async (req) => {
       if (error) throw error;
       if (!data) throw new Error("Task state conflict");
       return json({ task: data });
+    }
+
+    if (action === "queue.reap") {
+      const limit = boundedInteger(body.limit, 100, 1, 1000, "reap limit");
+      const { data: expired, error: expiredError } = await admin.rpc("leah_reap_expired_task_leases", { _limit: limit });
+      if (expiredError) throw expiredError;
+      const { data: blocked, error: blockedError } = await admin.rpc("leah_fail_blocked_tasks", { _limit: limit });
+      if (blockedError) throw blockedError;
+      return json({ expired_reaped: expired ?? 0, dependency_failed: blocked ?? 0 });
+    }
+
+    if (action === "scheduler.tick") {
+      const limit = boundedInteger(body.limit, 20, 1, 200, "scheduler limit");
+      const { data, error } = await admin.rpc("leah_scheduler_tick", { _limit: limit });
+      if (error) throw error;
+      return json({ scheduler: data });
     }
 
     if (action === "artifacts.put") {
@@ -327,8 +405,8 @@ serve(async (req) => {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = message === "Worker authentication failed" ? 401 :
       message.toLowerCase().includes("not found") ? 404 :
-      message.toLowerCase().includes("conflict") || message.toLowerCase().includes("terminal") ? 409 :
+      message.toLowerCase().includes("conflict") || message.toLowerCase().includes("terminal") || message.includes("lease invalid") ? 409 :
       message.includes("required") || message.includes("Invalid") || message.includes("must") || message.includes("exceeds") || message.includes("not producing") || message.includes("not running") ? 400 : 500;
-    return json({ error: message }, status);
+    return json({ error: status === 500 ? "Internal LEAH worker error" : message }, status);
   }
 });
