@@ -26,8 +26,7 @@ serve(async(req)=>{
     if(action==="catalog"){
       const {data,error}=await admin.rpc("leah_list_byok_providers_for_task",{_task_id:taskId,_lease_token:leaseToken});
       if(error)throw error;
-      const providers=Array.isArray(data)?data:[];
-      return json({providers});
+      return json({providers:Array.isArray(data)?data:[]});
     }
 
     if(action!=="generate")throw new Error("Unknown LEAH provider proxy action");
@@ -50,27 +49,32 @@ serve(async(req)=>{
     catch(error){
       const latency=Date.now()-startedAt;
       if(error instanceof ProviderUnknownOutcomeError){
-        const {error:settleError}=await admin.rpc("leah_finalize_byok_provider_attempt",{_task_id:taskId,_lease_token:leaseToken,_attempt_id:attemptId,_outcome:"unknown",_provider_request_id:null,_usage_source:"unavailable",_input_tokens:null,_output_tokens:null,_total_tokens:null,_error_code:"outcome_unknown",_latency_ms:latency,_canonical_result:false,_metadata:{proxy:"pulse"}});
+        const {error:settleError}=await admin.rpc("leah_finalize_byok_provider_attempt",{_task_id:taskId,_lease_token:leaseToken,_attempt_id:attemptId,_outcome:"unknown",_provider_request_id:null,_usage_source:"unavailable",_input_tokens:null,_output_tokens:null,_total_tokens:null,_error_code:"outcome_unknown",_latency_ms:latency,_canonical_result:false,_metadata:{proxy:"pulse",settled_by:"proxy"}});
         if(settleError)throw new Error("LEAH_PROVIDER_EVIDENCE_SETTLEMENT_FAILED");
         return json({error:"provider_outcome_unknown",provider,model},409);
       }
       const code=error instanceof ProviderKnownError?error.code:"provider_failure";
-      const {error:settleError}=await admin.rpc("leah_finalize_byok_provider_attempt",{_task_id:taskId,_lease_token:leaseToken,_attempt_id:attemptId,_outcome:"failed",_provider_request_id:null,_usage_source:"unavailable",_input_tokens:null,_output_tokens:null,_total_tokens:null,_error_code:code,_latency_ms:latency,_canonical_result:false,_metadata:{proxy:"pulse"}});
+      const {error:settleError}=await admin.rpc("leah_finalize_byok_provider_attempt",{_task_id:taskId,_lease_token:leaseToken,_attempt_id:attemptId,_outcome:"failed",_provider_request_id:null,_usage_source:"unavailable",_input_tokens:null,_output_tokens:null,_total_tokens:null,_error_code:code,_latency_ms:latency,_canonical_result:false,_metadata:{proxy:"pulse",settled_by:"proxy"}});
       if(settleError)throw new Error("LEAH_PROVIDER_EVIDENCE_SETTLEMENT_FAILED");
       const status=error instanceof ProviderKnownError&&[400,401,402,403,404,408,429].includes(error.status)?error.status:502;
       return json({error:code,provider,model},status);
     }
 
-    const latency=Date.now()-startedAt;const outcome=result.valid?"succeeded":"failed";
-    const {error:settleError}=await admin.rpc("leah_finalize_byok_provider_attempt",{_task_id:taskId,_lease_token:leaseToken,_attempt_id:attemptId,_outcome:outcome,_provider_request_id:result.providerRequestId,...usageArgs(result.usage),_error_code:result.valid?null:"invalid_generated_output",_latency_ms:latency,_canonical_result:result.valid,_metadata:{proxy:"pulse",finish_reason:result.finishReason,generated_output_valid:result.valid}});
-    if(settleError)throw new Error("LEAH_PROVIDER_EVIDENCE_SETTLEMENT_FAILED");
-    if(!result.valid)return json({error:"invalid_generated_output",provider,model,usage:result.usage,provider_request_id:result.providerRequestId},502);
-    return json({ok:true,provider,model,text:result.text,usage:result.usage,provider_request_id:result.providerRequestId,finish_reason:result.finishReason,latency_ms:latency});
+    const latency=Date.now()-startedAt;
+    if(!result.valid){
+      const {error:settleError}=await admin.rpc("leah_finalize_byok_provider_attempt",{_task_id:taskId,_lease_token:leaseToken,_attempt_id:attemptId,_outcome:"failed",_provider_request_id:result.providerRequestId,...usageArgs(result.usage),_error_code:"invalid_provider_output",_latency_ms:latency,_canonical_result:false,_metadata:{proxy:"pulse",finish_reason:result.finishReason,provider_response_valid:false,settled_by:"proxy"}});
+      if(settleError)throw new Error("LEAH_PROVIDER_EVIDENCE_SETTLEMENT_FAILED");
+      return json({error:"invalid_provider_output",provider,model,usage:result.usage,provider_request_id:result.providerRequestId},502);
+    }
+
+    // A successful provider response is deliberately left `in_flight` until LEAH
+    // applies canonical application validation (e.g. generated-file parsing). If the
+    // response is lost between Pulse and LEAH, the durable in-flight row forces
+    // reconciliation and blocks unsafe automatic fallback.
+    return json({ok:true,provider,model,text:result.text,usage:result.usage,provider_request_id:result.providerRequestId,finish_reason:result.finishReason,latency_ms:latency,settlement_pending:true});
   }catch(error){
     const message=error instanceof Error?error.message:"Unknown error";
     if(admitted&&message!=="LEAH_PROVIDER_EVIDENCE_SETTLEMENT_FAILED"){
-      // No automatic second settlement here: unexpected post-admission failures need
-      // reconciliation rather than risking an incorrect known-failure classification.
       return json({error:"provider_attempt_reconciliation_required"},409);
     }
     const status=message==="Worker authentication failed"?401:message.includes("BYOK_DISABLED")||message.includes("entitlement inactive")||message.includes("Forbidden")?403:message.includes("server-derived")||message.includes("required")||message.includes("UUID")||message.startsWith("Invalid")||message.startsWith("Unknown")?400:message.includes("unavailable")?404:500;
