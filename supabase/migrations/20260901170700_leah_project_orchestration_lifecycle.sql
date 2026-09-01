@@ -83,7 +83,7 @@ $$;
 revoke all on function public.leah_archive_project(uuid,uuid,integer) from public, anon, authenticated;
 grant execute on function public.leah_archive_project(uuid,uuid,integer) to service_role;
 
--- Scheduler now uses the same atomic manual-start primitive and consistent lock order:
+-- Scheduler uses the same atomic execution-start primitive and consistent lock order:
 -- project first, schedule second. Archived projects are never turned into new work.
 create or replace function public.leah_scheduler_tick(_limit integer default 20)
 returns jsonb
@@ -156,10 +156,10 @@ begin
       _schedule.created_by,
       _idempotency_key,
       coalesce(_schedule.input,'{}'::jsonb) || jsonb_build_object(
-        'source','schedule',
         'schedule_id',_schedule.id,
         'scheduled_for',_schedule.next_run_at
-      )
+      ),
+      'schedule'
     );
 
     _execution_id := (_start->'execution'->>'id')::uuid;
