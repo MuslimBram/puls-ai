@@ -47,8 +47,7 @@ begin
   if length(_content) > 1000000 then raise exception 'Artifact content exceeds 1 MB; use object storage'; end if;
   if _content_hash is null or _content_hash !~ '^[0-9a-f]{64}$' then raise exception 'Invalid artifact content hash'; end if;
 
-  select t.*, e.requested_by
-    into _task, _requested_by
+  select t.* into _task
   from public.leah_tasks t
   join public.leah_executions e
     on e.id = t.execution_id
@@ -60,6 +59,13 @@ begin
     and e.status = 'running'
   for update of t;
   if not found then raise exception 'Task lease invalid or expired'; end if;
+
+  select e.requested_by into _requested_by
+  from public.leah_executions e
+  where e.id = _task.execution_id
+    and e.workspace_id = _task.workspace_id
+    and e.status = 'running';
+  if not found then raise exception 'Execution is not running'; end if;
 
   -- Serialize version allocation only for this artifact path.
   perform pg_advisory_xact_lock(
