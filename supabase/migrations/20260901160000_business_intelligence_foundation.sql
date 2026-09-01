@@ -3,6 +3,8 @@
 -- Phase 1: normalized, tenant-scoped business knowledge foundation
 -- ============================================================
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
 CREATE TYPE public.business_knowledge_item_type AS ENUM (
   'business_identity',
   'product',
@@ -43,7 +45,7 @@ CREATE TABLE public.business_knowledge_items (
   source_id uuid REFERENCES public.business_knowledge_sources(id) ON DELETE SET NULL,
   scan_history_id uuid REFERENCES public.business_scan_history(id) ON DELETE SET NULL,
   item_type public.business_knowledge_item_type NOT NULL,
-  external_id text,
+  external_id text NOT NULL,
   canonical_url text,
   title text,
   summary text,
@@ -67,7 +69,7 @@ CREATE TABLE public.business_knowledge_snapshots (
   scan_history_id uuid REFERENCES public.business_scan_history(id) ON DELETE SET NULL,
   snapshot_kind text NOT NULL CHECK (snapshot_kind IN ('website_scan','source_scan','business_profile','knowledge_refresh','other')),
   captured_at timestamptz NOT NULL DEFAULT now(),
-  content_hash text,
+  content_hash text NOT NULL,
   payload jsonb NOT NULL DEFAULT '{}'::jsonb,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -82,8 +84,8 @@ CREATE INDEX idx_bks_workspace_business_time
 CREATE INDEX idx_bks_scan_history ON public.business_knowledge_snapshots(scan_history_id);
 CREATE INDEX idx_bks_source ON public.business_knowledge_snapshots(source_id);
 
--- Enforce the two tenant parents. The client cannot pair a business/source/scan
--- from different workspaces merely by supplying matching UUIDs.
+-- Enforce the tenant parent relationships. The client cannot pair a business,
+-- source or scan from different workspaces merely by supplying matching UUIDs.
 CREATE OR REPLACE FUNCTION public.enforce_business_knowledge_workspace()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -153,7 +155,7 @@ BEFORE INSERT OR UPDATE ON public.business_knowledge_items
 FOR EACH ROW EXECUTE FUNCTION public.enforce_business_knowledge_workspace();
 
 CREATE TRIGGER trg_business_knowledge_snapshot_workspace
-BEFORE INSERT OR UPDATE ON public.business_knowledge_snapshots
+BEFORE INSERT ON public.business_knowledge_snapshots
 FOR EACH ROW EXECUTE FUNCTION public.enforce_business_knowledge_workspace();
 
 ALTER TABLE public.business_knowledge_sources ENABLE ROW LEVEL SECURITY;
@@ -197,13 +199,6 @@ USING (public.has_workspace_access(workspace_id));
 CREATE POLICY business_knowledge_snapshots_insert
 ON public.business_knowledge_snapshots FOR INSERT TO authenticated
 WITH CHECK (public.has_workspace_access(workspace_id));
-CREATE POLICY business_knowledge_snapshots_update
-ON public.business_knowledge_snapshots FOR UPDATE TO authenticated
-USING (public.has_workspace_access(workspace_id))
-WITH CHECK (public.has_workspace_access(workspace_id));
-CREATE POLICY business_knowledge_snapshots_delete
-ON public.business_knowledge_snapshots FOR DELETE TO authenticated
-USING (public.has_workspace_access(workspace_id));
 
 REVOKE ALL ON FUNCTION public.enforce_business_knowledge_workspace() FROM PUBLIC, anon, authenticated, service_role;
 REVOKE ALL ON FUNCTION public.enforce_business_knowledge_source_workspace() FROM PUBLIC, anon, authenticated, service_role;
