@@ -64,7 +64,7 @@ BEGIN
     NEW.id,
     'website_scan',
     COALESCE(NEW.completed_at, now()),
-    md5(COALESCE(NEW.summary_json::text, '{}') || '|' || COALESCE(NEW.products_found::text, '[]') || '|' || COALESCE(NEW.services_found::text, '[]')),
+    encode(digest(COALESCE(NEW.summary_json::text, '{}') || '|' || COALESCE(NEW.products_found::text, '[]') || '|' || COALESCE(NEW.services_found::text, '[]'), 'sha256'), 'hex'),
     jsonb_build_object(
       'url', NEW.scanned_url,
       'summary', COALESCE(NEW.summary_json, '{}'::jsonb),
