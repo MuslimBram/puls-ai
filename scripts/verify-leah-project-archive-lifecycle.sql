@@ -83,7 +83,7 @@ declare
   tid uuid;
   execution_status text;
   task_status text;
-  lease_token uuid;
+  v_lease_token uuid;
   schedule_enabled boolean;
   project_status text;
   project_archived timestamptz;
@@ -92,14 +92,14 @@ begin
   eid := (start_result->'execution'->>'id')::uuid;
   tid := (start_result->'bootstrap_task'->>'id')::uuid;
 
-  select status into execution_status from public.leah_executions where id=eid;
-  select status, lease_token into task_status, lease_token from public.leah_tasks where id=tid;
-  select enabled into schedule_enabled from public.leah_schedules where id='fd600000-0000-0000-0000-000000000001';
-  select status, archived_at into project_status, project_archived from public.leah_projects where id='fd300000-0000-0000-0000-000000000001';
+  select e.status into execution_status from public.leah_executions e where e.id=eid;
+  select t.status, t.lease_token into task_status, v_lease_token from public.leah_tasks t where t.id=tid;
+  select s.enabled into schedule_enabled from public.leah_schedules s where s.id='fd600000-0000-0000-0000-000000000001';
+  select p.status, p.archived_at into project_status, project_archived from public.leah_projects p where p.id='fd300000-0000-0000-0000-000000000001';
 
   if execution_status <> 'cancelled' then raise exception 'Project archive did not cancel active execution'; end if;
   if task_status <> 'cancelled' then raise exception 'Project archive did not cancel active task'; end if;
-  if lease_token is not null then raise exception 'Project archive left active task lease material'; end if;
+  if v_lease_token is not null then raise exception 'Project archive left active task lease material'; end if;
   if schedule_enabled then raise exception 'Project archive did not disable schedule'; end if;
   if project_status <> 'archived' or project_archived is null then raise exception 'Project archive truth mismatch'; end if;
 end $$;
