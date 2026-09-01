@@ -39,8 +39,8 @@ do $$
 declare
   one jsonb;
   two jsonb;
-  execution_id uuid;
-  task_id uuid;
+  v_execution_id uuid;
+  v_task_id uuid;
   execution_count integer;
   task_count integer;
   role_name text;
@@ -54,23 +54,23 @@ begin
   if (one->>'processed')::integer <> 1 then raise exception 'Due schedule was not processed once'; end if;
   if (two->>'processed')::integer <> 0 then raise exception 'Schedule replayed before next_run_at'; end if;
 
-  execution_id := ((one->'executions'->0)->>'execution_id')::uuid;
-  task_id := ((one->'executions'->0)->>'task_id')::uuid;
-  if execution_id is null or task_id is null then raise exception 'Scheduler did not return execution/task identity'; end if;
+  v_execution_id := ((one->'executions'->0)->>'execution_id')::uuid;
+  v_task_id := ((one->'executions'->0)->>'task_id')::uuid;
+  if v_execution_id is null or v_task_id is null then raise exception 'Scheduler did not return execution/task identity'; end if;
 
   select count(*) into execution_count
-  from public.leah_executions
-  where id=execution_id
-    and workspace_id='fb100000-0000-0000-0000-000000000001'
-    and project_id='fb300000-0000-0000-0000-000000000001'
-    and status='queued'
-    and idempotency_key like 'schedule:fb600000-0000-0000-0000-000000000001:%';
+  from public.leah_executions e
+  where e.id=v_execution_id
+    and e.workspace_id='fb100000-0000-0000-0000-000000000001'
+    and e.project_id='fb300000-0000-0000-0000-000000000001'
+    and e.status='queued'
+    and e.idempotency_key like 'schedule:fb600000-0000-0000-0000-000000000001:%';
   if execution_count <> 1 then raise exception 'Scheduled execution truth mismatch'; end if;
 
-  select count(*), min(agent_role), min(input->>'orchestration_bootstrap'), min(input->>'source'), min(input->>'schedule_id')
+  select count(*), min(t.agent_role), min(t.input->>'orchestration_bootstrap'), min(t.input->>'source'), min(t.input->>'schedule_id')
     into task_count, role_name, bootstrap, source_name, schedule_id
-  from public.leah_tasks
-  where id=task_id and execution_id=execution_id;
+  from public.leah_tasks t
+  where t.id=v_task_id and t.execution_id=v_execution_id;
   if task_count <> 1 then raise exception 'Scheduler bootstrap task missing'; end if;
   if role_name <> 'planner' then raise exception 'Scheduler bootstrap task is not planner work'; end if;
   if bootstrap <> 'true' then raise exception 'Canonical orchestration bootstrap marker missing'; end if;
