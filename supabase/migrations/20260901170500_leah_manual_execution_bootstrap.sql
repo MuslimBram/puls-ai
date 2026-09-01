@@ -1,12 +1,13 @@
--- MR3 manual execution bootstrap.
--- User/API execution start must either persist runnable planner work atomically or fail.
+-- MR3 execution bootstrap.
+-- User/API and scheduler starts must either persist runnable planner work atomically or fail.
 
 create or replace function public.leah_start_execution(
   _workspace_id uuid,
   _project_id uuid,
   _requested_by uuid,
   _idempotency_key text default null,
-  _input jsonb default '{}'::jsonb
+  _input jsonb default '{}'::jsonb,
+  _source text default 'manual'
 )
 returns jsonb
 language plpgsql
@@ -19,11 +20,18 @@ declare
   _task jsonb;
   _replay boolean := false;
   _key text := nullif(trim(_idempotency_key),'');
+  _normalized_source text := lower(trim(coalesce(_source,'')));
+  _bootstrap_input jsonb;
 begin
   if _workspace_id is null or _project_id is null or _requested_by is null then
     raise exception 'workspace, project and requester are required';
   end if;
-  if _key is not null and length(_key) > 200 then raise exception 'Idempotency key exceeds 200 characters'; end if;
+  if _key is not null and length(_key) > 200 then
+    raise exception 'Idempotency key exceeds 200 characters';
+  end if;
+  if _normalized_source not in ('manual','schedule') then
+    raise exception 'Invalid execution source';
+  end if;
   if _input is null then _input := '{}'::jsonb; end if;
 
   select p.* into _project
@@ -64,6 +72,13 @@ begin
     end;
   end if;
 
+  -- System markers are authoritative and override any caller-supplied keys with the
+  -- same names. The same marker is used for manual and scheduled bootstrap work.
+  _bootstrap_input := _input || jsonb_build_object(
+    'orchestration_bootstrap', true,
+    'source', _normalized_source
+  );
+
   -- A terminal idempotent replay is returned as truth; it is never restarted.
   if _execution.status in ('queued','running') then
     select to_jsonb(t) into _task
@@ -71,7 +86,7 @@ begin
     where t.workspace_id=_workspace_id
       and t.execution_id=_execution.id
       and t.agent_role='planner'
-      and t.input->>'manual_bootstrap'='true'
+      and t.input->>'orchestration_bootstrap'='true'
     order by t.seq
     limit 1;
 
@@ -79,11 +94,7 @@ begin
       _task := public.leah_enqueue_task(
         _execution.id,
         1000,
-        jsonb_build_object(
-          'manual_bootstrap', true,
-          'source', 'manual',
-          'input', _input
-        ),
+        _bootstrap_input,
         'planner',
         null,
         null,
@@ -103,10 +114,11 @@ begin
       'created_at', _execution.created_at
     ),
     'bootstrap_task', _task,
-    'idempotent_replay', _replay
+    'idempotent_replay', _replay,
+    'source', _normalized_source
   );
 end;
 $$;
 
-revoke all on function public.leah_start_execution(uuid,uuid,uuid,text,jsonb) from public, anon, authenticated;
-grant execute on function public.leah_start_execution(uuid,uuid,uuid,text,jsonb) to service_role;
+revoke all on function public.leah_start_execution(uuid,uuid,uuid,text,jsonb,text) from public, anon, authenticated;
+grant execute on function public.leah_start_execution(uuid,uuid,uuid,text,jsonb,text) to service_role;
