@@ -175,7 +175,7 @@ begin
 end $$;
 
 -- A later explicit activation may restore entitlement, but old sessions/leases stay dead.
-perform public.leah_apply_billing_entitlement_event(
+select public.leah_apply_billing_entitlement_event(
   'ff100000-0000-4000-8000-000000000001','paypal','evt-leah-reactivate','activate',
   clock_timestamp()+interval '30 days','pp-leah-1','payer-leah-1','{}'::jsonb
 );
