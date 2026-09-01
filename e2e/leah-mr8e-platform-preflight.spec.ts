@@ -5,10 +5,6 @@ function baseOrigin(baseURL: string | undefined): string {
   return new URL(baseURL).origin;
 }
 
-async function expectNoServerFailure(response: Awaited<ReturnType<Parameters<typeof test>[1]>> | unknown) {
-  void response;
-}
-
 test.describe("MR8E browser release preflight", () => {
   test("public landing renders on the configured deployment origin", async ({ page }, testInfo) => {
     const response = await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -42,7 +38,7 @@ test.describe("MR8E browser release preflight", () => {
     expect(new URL(page.url()).origin).toBe(baseOrigin(testInfo.project.use.baseURL));
   });
 
-  test("browser preflight never requires secret environment variables", async ({ page }) => {
+  test("browser preflight never exposes LEAH server secret names", async ({ page }) => {
     const response = await page.goto("/login", { waitUntil: "domcontentloaded" });
     expect(response).not.toBeNull();
     const html = await page.locator("html").innerHTML();
