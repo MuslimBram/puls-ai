@@ -11,7 +11,11 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 function json(req: Request, body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...getCors(req), "Content-Type": "application/json" },
+    headers: {
+      ...getCors(req),
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
   });
 }
 
@@ -33,6 +37,26 @@ function optionalString(value: unknown, max: number): string | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "string" || value.length > max) throw new Error("Invalid string value");
   return value;
+}
+
+function boundedInteger(value: unknown, min: number, max: number, label: string): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < min || parsed > max) throw new Error(`Invalid ${label}`);
+  return parsed;
+}
+
+function objectField(value: unknown, label: string): Record<string, unknown> {
+  if (value === undefined || value === null) return {};
+  if (typeof value !== "object" || Array.isArray(value)) throw new Error(`${label} must be an object`);
+  return value as Record<string, unknown>;
+}
+
+function futureIso(value: unknown, label: string): string {
+  if (typeof value !== "string" || !value.trim()) throw new Error(`${label} is required`);
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) throw new Error(`Invalid ${label}`);
+  if (time <= Date.now()) throw new Error(`${label} must be in the future`);
+  return new Date(time).toISOString();
 }
 
 function slugify(name: string): string {
@@ -80,6 +104,7 @@ function errorStatus(message: string): number {
     message.includes("required") ||
     message.includes("Invalid") ||
     message.includes("must not") ||
+    message.includes("must be") ||
     message.includes("exceeds") ||
     message.includes("unsupported")
   ) return 400;
@@ -212,7 +237,7 @@ serve(async (req) => {
       const projectId = uuidField(body, "project_id");
       await requireProject(workspaceId, projectId);
       const { data, error } = await admin.from("leah_project_artifacts")
-        .select("id, project_id, kind, path, content, content_hash, storage_ref, version, supersedes_id, created_at")
+        .select("id, project_id, execution_id, task_id, kind, path, content, content_hash, storage_ref, version, supersedes_id, created_at")
         .eq("workspace_id", workspaceId).eq("project_id", projectId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -222,44 +247,24 @@ serve(async (req) => {
     if (action === "executions.start") {
       const projectId = uuidField(body, "project_id");
       await requireProject(workspaceId, projectId);
-      const idempotencyKey = typeof body.idempotency_key === "string" && body.idempotency_key.trim()
-        ? body.idempotency_key.trim().slice(0, 200)
-        : null;
-      const input = body.input && typeof body.input === "object" && !Array.isArray(body.input) ? body.input : {};
-
-      if (idempotencyKey) {
-        const { data: existing, error: existingError } = await admin.from("leah_executions")
-          .select("id, project_id, status, idempotency_key, attempt, created_at")
-          .eq("workspace_id", workspaceId)
-          .eq("project_id", projectId)
-          .eq("idempotency_key", idempotencyKey)
-          .maybeSingle();
-        if (existingError) throw existingError;
-        if (existing) return json(req, { execution: existing, idempotent_replay: true });
+      let idempotencyKey: string | null = null;
+      if (body.idempotency_key !== undefined && body.idempotency_key !== null) {
+        if (typeof body.idempotency_key !== "string" || body.idempotency_key.length > 200) {
+          throw new Error("Invalid idempotency_key");
+        }
+        idempotencyKey = body.idempotency_key.trim() || null;
       }
-
-      const row = {
-        workspace_id: workspaceId,
-        project_id: projectId,
-        requested_by: userId,
-        status: "queued",
-        idempotency_key: idempotencyKey,
-        input,
-      };
-      const { data, error } = await admin.from("leah_executions").insert(row)
-        .select("id, project_id, status, idempotency_key, attempt, created_at").single();
-      if (error?.code === "23505" && idempotencyKey) {
-        const { data: existing, error: replayError } = await admin.from("leah_executions")
-          .select("id, project_id, status, idempotency_key, attempt, created_at")
-          .eq("workspace_id", workspaceId)
-          .eq("project_id", projectId)
-          .eq("idempotency_key", idempotencyKey)
-          .single();
-        if (replayError) throw replayError;
-        return json(req, { execution: existing, idempotent_replay: true });
-      }
+      const input = objectField(body.input, "input");
+      const { data, error } = await admin.rpc("leah_start_execution", {
+        _workspace_id: workspaceId,
+        _project_id: projectId,
+        _requested_by: userId,
+        _idempotency_key: idempotencyKey,
+        _input: input,
+      });
       if (error) throw error;
-      return json(req, { execution: data, idempotent_replay: false }, 201);
+      const replay = Boolean(data && typeof data === "object" && (data as Record<string, unknown>).idempotent_replay);
+      return json(req, data, replay ? 200 : 201);
     }
 
     if (action === "executions.list") {
@@ -284,12 +289,94 @@ serve(async (req) => {
       if (executionError) throw executionError;
       if (!execution) throw new Error("Execution not found");
       const { data, error } = await admin.from("leah_tasks")
-        .select("id, execution_id, project_id, seq, priority, status, attempt, available_at, started_at, ended_at, output, error, created_at, updated_at")
+        .select("id, execution_id, project_id, parent_task_id, swarm_id, agent_role, seq, priority, status, attempt, max_attempts, available_at, started_at, ended_at, output, error, created_at, updated_at")
         .eq("workspace_id", workspaceId)
         .eq("execution_id", executionId)
         .order("seq");
       if (error) throw error;
       return json(req, { tasks: data ?? [] });
+    }
+
+    if (action === "schedules.list") {
+      const projectId = body.project_id === undefined ? null : uuidField(body, "project_id");
+      let query = admin.from("leah_schedules")
+        .select("id, project_id, name, cadence_seconds, enabled, input, next_run_at, last_run_at, last_execution_id, created_by, created_at, updated_at")
+        .eq("workspace_id", workspaceId)
+        .order("next_run_at", { ascending: true });
+      if (projectId) query = query.eq("project_id", projectId);
+      const { data, error } = await query;
+      if (error) throw error;
+      return json(req, { schedules: data ?? [] });
+    }
+
+    if (action === "schedules.create") {
+      await requireWorkspaceAdmin(userId, workspaceId);
+      const projectId = uuidField(body, "project_id");
+      await requireProject(workspaceId, projectId);
+      const name = stringField(body, "name", 120);
+      const cadenceSeconds = boundedInteger(body.cadence_seconds, 60, 31_536_000, "cadence_seconds");
+      const input = objectField(body.input, "input");
+      const nextRunAt = body.next_run_at === undefined
+        ? new Date(Date.now() + cadenceSeconds * 1000).toISOString()
+        : futureIso(body.next_run_at, "next_run_at");
+      const { data, error } = await admin.from("leah_schedules").insert({
+        workspace_id: workspaceId,
+        project_id: projectId,
+        name,
+        cadence_seconds: cadenceSeconds,
+        enabled: body.enabled === undefined ? true : body.enabled === true,
+        input,
+        next_run_at: nextRunAt,
+        created_by: userId,
+      }).select("id, project_id, name, cadence_seconds, enabled, input, next_run_at, last_run_at, last_execution_id, created_by, created_at, updated_at").single();
+      if (error) throw error;
+      return json(req, { schedule: data }, 201);
+    }
+
+    if (action === "schedules.update") {
+      await requireWorkspaceAdmin(userId, workspaceId);
+      const scheduleId = uuidField(body, "schedule_id");
+      const patchRaw = body.patch;
+      if (!patchRaw || typeof patchRaw !== "object" || Array.isArray(patchRaw)) throw new Error("patch is required");
+      const patch = patchRaw as Record<string, unknown>;
+      const forbidden = ["workspace_id", "workspaceId", "project_id", "created_by", "last_run_at", "last_execution_id", "created_at"];
+      if (forbidden.some((key) => Object.prototype.hasOwnProperty.call(patch, key))) {
+        throw new Error("unsupported server-managed schedule field");
+      }
+      const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
+      if (patch.name !== undefined) update.name = stringField(patch, "name", 120);
+      if (patch.cadence_seconds !== undefined) {
+        update.cadence_seconds = boundedInteger(patch.cadence_seconds, 60, 31_536_000, "cadence_seconds");
+      }
+      if (patch.enabled !== undefined) {
+        if (typeof patch.enabled !== "boolean") throw new Error("Invalid enabled value");
+        update.enabled = patch.enabled;
+      }
+      if (patch.input !== undefined) update.input = objectField(patch.input, "input");
+      if (patch.next_run_at !== undefined) update.next_run_at = futureIso(patch.next_run_at, "next_run_at");
+      if (Object.keys(update).length === 1) throw new Error("No supported fields in patch");
+
+      const { data, error } = await admin.from("leah_schedules").update(update)
+        .eq("id", scheduleId)
+        .eq("workspace_id", workspaceId)
+        .select("id, project_id, name, cadence_seconds, enabled, input, next_run_at, last_run_at, last_execution_id, created_by, created_at, updated_at")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Schedule not found");
+      return json(req, { schedule: data });
+    }
+
+    if (action === "schedules.delete") {
+      await requireWorkspaceAdmin(userId, workspaceId);
+      const scheduleId = uuidField(body, "schedule_id");
+      const { data, error } = await admin.from("leah_schedules").delete()
+        .eq("id", scheduleId)
+        .eq("workspace_id", workspaceId)
+        .select("id")
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Schedule not found");
+      return json(req, { success: true });
     }
 
     if (action === "memory.project.list") {
@@ -341,7 +428,7 @@ serve(async (req) => {
         source_ref: sourceRef,
         chunk,
         status: "pending",
-        metadata: body.metadata && typeof body.metadata === "object" ? body.metadata : {},
+        metadata: body.metadata && typeof body.metadata === "object" && !Array.isArray(body.metadata) ? body.metadata : {},
       }).select("id, project_id, source_ref, status, created_at").single();
       if (error) throw error;
       return json(req, { memory: data, vector_ready: false }, 201);
