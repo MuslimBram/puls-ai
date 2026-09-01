@@ -19,6 +19,8 @@ describe("Business Intelligence Foundation", () => {
     expect(migration).toContain("REFERENCES public.workspaces(id)");
     expect(migration).toContain("REFERENCES public.business_profiles(id)");
     expect(migration).toContain("REFERENCES public.business_scan_history(id)");
+    expect(migration).toMatch(/external_id text NOT NULL[\s\S]*UNIQUE \(workspace_id, business_id, item_type, external_id\)/);
+    expect(migration).toContain("content_hash text NOT NULL");
   });
 
   it("forces RLS and workspace-aware access on all foundation tables", () => {
@@ -31,6 +33,15 @@ describe("Business Intelligence Foundation", () => {
       expect(migration).toContain(`ALTER TABLE public.${table} FORCE ROW LEVEL SECURITY`);
       expect(migration).toContain(`public.has_workspace_access(workspace_id)`);
     }
+  });
+
+  it("keeps historical snapshots insert-only", () => {
+    expect(migration).toContain("CREATE POLICY business_knowledge_snapshots_insert");
+    expect(migration).toContain("ON public.business_knowledge_snapshots FOR INSERT TO authenticated");
+    expect(migration).not.toContain("business_knowledge_snapshots_update");
+    expect(migration).not.toContain("business_knowledge_snapshots_delete");
+    expect(migration).toContain("BEFORE INSERT ON public.business_knowledge_snapshots");
+    expect(migration).not.toContain("BEFORE INSERT OR UPDATE ON public.business_knowledge_snapshots");
   });
 
   it("rejects cross-workspace business, scan and source relationships", () => {
@@ -50,6 +61,9 @@ describe("Business Intelligence Foundation", () => {
     expect(bridge).toContain("'contact'");
     expect(bridge).toContain("'link'");
     expect(bridge).toContain("WHEN (NEW.status = 'completed')");
+    expect(bridge).toContain("OLD.status IS NOT DISTINCT FROM NEW.status");
+    expect(bridge).toContain("encode(digest(");
+    expect(bridge).toContain("'sha256'");
   });
 
   it("keeps tenant bridge functions non-executable by client roles", () => {
