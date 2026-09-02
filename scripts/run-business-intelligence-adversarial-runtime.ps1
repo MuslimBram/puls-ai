@@ -26,7 +26,6 @@ function Resolve-PostgresExecutable([string]$Name) {
       Select-Object -First 1
     if ($candidate) { return $candidate.FullName }
   }
-
   throw "Could not find $Name. Install PostgreSQL locally or add its bin directory to PATH."
 }
 
@@ -72,7 +71,7 @@ function Invoke-PsqlCommand([string]$Database, [string]$Sql) {
   if ($LASTEXITCODE -ne 0) { throw "psql command failed" }
 }
 
-$migrations = @(
+$baseMigrations = @(
   "supabase/migrations/20260901160000_business_intelligence_foundation.sql",
   "supabase/migrations/20260901161000_business_knowledge_scan_bridge.sql",
   "supabase/migrations/20260901161500_business_scan_authority.sql",
@@ -81,14 +80,17 @@ $migrations = @(
   "supabase/migrations/20260901162600_business_deep_scan_pgcrypto_schema_fix.sql",
   "supabase/migrations/20260902100500_business_intelligence_adversarial_closure.sql"
 )
+$integrationMigration = "supabase/migrations/20260902135000_business_intelligence_integration_closure.sql"
 
 $baseline = Join-Path $repoRoot "scripts/verify-business-intelligence-adversarial-runtime-baseline.sql"
+$integrationBaseline = Join-Path $repoRoot "scripts/verify-business-intelligence-integration-runtime-baseline.sql"
 $localParity = Join-Path $repoRoot "scripts/verify-business-intelligence-adversarial-runtime-local-grants.sql"
 $verifier = Join-Path $repoRoot "scripts/verify-business-intelligence-adversarial-runtime.sql"
-foreach ($path in @($baseline, $localParity, $verifier)) {
+$integrationVerifier = Join-Path $repoRoot "scripts/verify-business-intelligence-integration-runtime.sql"
+foreach ($path in @($baseline, $integrationBaseline, $localParity, $verifier, $integrationVerifier)) {
   if (-not (Test-Path $path)) { throw "Missing verifier file: $path" }
 }
-foreach ($relative in $migrations) {
+foreach ($relative in @($baseMigrations + $integrationMigration)) {
   $path = Join-Path $repoRoot $relative
   if (-not (Test-Path $path)) { throw "Missing exact PR migration: $path" }
 }
@@ -112,11 +114,17 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "createdb failed" }
 
   Invoke-PsqlFile $dbName $baseline
+  Invoke-PsqlFile $dbName $integrationBaseline
   Invoke-PsqlFile $dbName $localParity
-  foreach ($relative in $migrations) {
+  foreach ($relative in $baseMigrations) {
     Invoke-PsqlFile $dbName (Join-Path $repoRoot $relative)
   }
+
+  # Preserve the already-certified adversarial contract on its original source
+  # state, then layer the final integration closure and certify the new fences.
   Invoke-PsqlFile $dbName $verifier
+  Invoke-PsqlFile $dbName (Join-Path $repoRoot $integrationMigration)
+  Invoke-PsqlFile $dbName $integrationVerifier
 
   Write-Host ""
   Write-Host "PR #218 local PostgreSQL runtime certification: PASS"

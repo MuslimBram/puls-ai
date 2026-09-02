@@ -9,7 +9,6 @@ import {
   clampInt,
   crawlWebsiteDeep,
   extractMedia,
-  getCrawlPageTitle,
   getCrawlPageUrl,
   lightweightExtract,
   normalizeScanUrl,
@@ -33,11 +32,8 @@ type AuthorizedScan = {
   business_id: string;
   scanned_url: string;
   triggered_by: string;
+  execution_claim_version: number;
 };
-
-function withAutomationSummary(summaryJson: Record<string, unknown>, automation: Record<string, unknown>) {
-  return { ...summaryJson, automation };
-}
 
 async function resolveAuthority(
   authHeader: string,
@@ -62,29 +58,11 @@ async function resolveAuthority(
   if (error) throw new Error("Business scan authority denied");
 
   const row = Array.isArray(data) ? data[0] : data;
-  if (!row?.workspace_id || !row?.business_id || !row?.scanned_url || !row?.triggered_by) {
+  const claimVersion = Number(row?.execution_claim_version);
+  if (!row?.workspace_id || !row?.business_id || !row?.scanned_url || !row?.triggered_by || !Number.isInteger(claimVersion) || claimVersion < 1) {
     throw new Error("Business scan authority denied");
   }
-  return row as AuthorizedScan;
-}
-
-async function triggerJobWorker() {
-  const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const serviceRoleKey = getServiceKey() ?? Deno.env.get("SUPABASE_ANON_KEY");
-  if (!supabaseUrl || !serviceRoleKey) return;
-
-  try {
-    await fetch(`${supabaseUrl}/functions/v1/job-worker`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${serviceRoleKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ trigger: "business-scan-extract" }),
-    });
-  } catch (error) {
-    console.error("Failed to trigger job-worker after scan completion:", error);
-  }
+  return { ...row, execution_claim_version: claimVersion } as AuthorizedScan;
 }
 
 serve(async (req) => {
@@ -96,6 +74,7 @@ serve(async (req) => {
     source_scan_id: string;
     workspace_id: string;
     business_id: string;
+    execution_claim_version: number;
   } | null = null;
 
   try {
@@ -118,10 +97,9 @@ serve(async (req) => {
     const authority = await resolveAuthority(authHeader, scanHistoryId, sourceId, sourceScanId);
     const workspaceId = authority.workspace_id;
     const businessId = authority.business_id;
+    const claimVersion = authority.execution_claim_version;
     const url = normalizeScanUrl(authority.scanned_url);
 
-    // Compatibility fields from the current frontend are allowed only when
-    // they exactly match server-derived authority. They never select tenant.
     if (body.workspace_id && body.workspace_id !== workspaceId) throw new Error("workspace_id is server-derived");
     if (body.business_id && body.business_id !== businessId) throw new Error("business_id is server-derived");
     if (body.url && normalizeScanUrl(String(body.url)) !== url) throw new Error("url is server-derived");
@@ -132,23 +110,32 @@ serve(async (req) => {
       source_scan_id: sourceScanId,
       workspace_id: workspaceId,
       business_id: businessId,
+      execution_claim_version: claimVersion,
     };
 
     const startedAt = new Date().toISOString();
     const startTime = Date.now();
+
     const syncStatus = async (
-      status: "pending" | "scanning" | "completed" | "failed",
+      status: "scanning" | "completed" | "failed",
       phase: string,
       extraHistory: Record<string, unknown> = {},
       extraSourceScan: Record<string, unknown> = {},
       extraSource: Record<string, unknown> = {},
     ) => {
-      await Promise.all([
-        sb.from("business_scan_history")
-          .update({ status, scan_phase: phase, ...extraHistory } as any)
-          .eq("id", scanHistoryId)
-          .eq("workspace_id", workspaceId)
-          .eq("business_id", businessId),
+      const { data: historyRow, error: historyError } = await sb
+        .from("business_scan_history")
+        .update({ status, scan_phase: phase, ...extraHistory } as any)
+        .eq("id", scanHistoryId)
+        .eq("workspace_id", workspaceId)
+        .eq("business_id", businessId)
+        .eq("execution_claim_version", claimVersion)
+        .select("id")
+        .maybeSingle();
+      if (historyError) throw historyError;
+      if (!historyRow) throw new Error("Business scan execution claim lost");
+
+      const [{ error: sourceScanError }, { error: sourceError }] = await Promise.all([
         sb.from("source_scans")
           .update({ business_id: businessId, status, scan_phase: phase, ...extraSourceScan } as any)
           .eq("id", sourceScanId)
@@ -161,6 +148,8 @@ serve(async (req) => {
           .eq("workspace_id", workspaceId)
           .eq("business_id", businessId),
       ]);
+      if (sourceScanError) throw sourceScanError;
+      if (sourceError) throw sourceError;
     };
 
     await syncStatus("scanning", "crawling", { error_message: null }, { started_at: startedAt, error_message: null });
@@ -181,27 +170,28 @@ serve(async (req) => {
     for (let index = 0; index < crawledPages.length; index += 1) {
       const page = crawledPages[index] ?? {};
       const canonicalUrl = getCrawlPageUrl(page, url);
-      const title = getCrawlPageTitle(page);
       const markdown = typeof page.markdown === "string" ? page.markdown.slice(0, 100_000) : "";
       const links = Array.isArray(page.links)
-        ? page.links.filter((value): value is string => typeof value === "string").slice(0, 250)
+        ? page.links.filter((value): value is string => typeof value === "string").slice(0, 249)
         : [];
+      const screenedLinks = links.slice(0, 49);
 
-      const security = await runKnowledgeFirewall(workspaceId, scanHistoryId, canonicalUrl, markdown, links);
+      const security = await runKnowledgeFirewall(workspaceId, scanHistoryId, canonicalUrl, markdown, screenedLinks);
       const eligible = security.action === "allow" || security.action === "tag";
-
       securityEvents.push({ url: canonicalUrl, ...security });
+
       const { error: pageError } = await sb.from("business_scan_pages").upsert({
         workspace_id: workspaceId,
         business_id: businessId,
         scan_history_id: scanHistoryId,
+        execution_claim_version: claimVersion,
         canonical_url: canonicalUrl,
-        title,
+        title: null,
         crawl_index: index,
         content_sha256: await sha256Hex(markdown),
         content_markdown: eligible ? markdown : null,
-        links,
-        metadata: page.metadata ?? {},
+        links: screenedLinks,
+        metadata: {},
         security_category: security.category,
         security_risk_score: security.risk_score,
         security_action: security.action,
@@ -212,7 +202,7 @@ serve(async (req) => {
       if (pageError) throw pageError;
 
       if (eligible && markdown.trim()) {
-        safePages.push({ url: canonicalUrl, title, markdown, links, metadata: page.metadata ?? {} });
+        safePages.push({ url: canonicalUrl, title: "", markdown, links: screenedLinks, metadata: {} });
         media.push(...extractMedia(markdown, canonicalUrl));
       }
     }
@@ -222,7 +212,6 @@ serve(async (req) => {
     await syncStatus("scanning", "extracting");
     const combinedMarkdown = safePages.map((page) => page.markdown).join("\n");
     const { contacts, socialLinks, ctas, pricingSignals } = lightweightExtract(combinedMarkdown);
-
     await syncStatus("scanning", "analyzing");
 
     let products: any[] = [];
@@ -316,26 +305,10 @@ serve(async (req) => {
       }
     }
 
-    const insightRows: any[] = [];
-    const addInsight = (type: string, title: string, description: string, raw: Record<string, unknown>, confidence: number) => {
-      insightRows.push({ source_id: sourceId, business_id: businessId, workspace_id: workspaceId, scan_id: sourceScanId, user_id: userData.user.id, insight_type: type, title, description, raw_value_json: raw, confidence_score: confidence });
-    };
-    products.slice(0, 20).forEach((item) => addInsight("product", item.title, item.description, item, 0.85));
-    services.slice(0, 20).forEach((item) => addInsight("service", item.title, item.description, item, 0.85));
-    if (contacts.length) addInsight("contact", "Contact Methods", `Found ${contacts.length} contact method(s)`, { contacts }, 0.95);
-    if (Object.keys(socialLinks).length) addInsight("social", "Social Media Links", `Found on ${Object.keys(socialLinks).join(", ")}`, socialLinks, 0.95);
-    if (ctas.length) addInsight("cta", "Call-to-Action Phrases", `Found ${ctas.length} CTA(s)`, { ctas }, 0.85);
-    if (summaryJson.business_summary) addInsight("business_info", safePages[0]?.title || "Business Summary", String(summaryJson.business_summary), summaryJson, 0.85);
-    if (insightRows.length) {
-      const { error: insightError } = await sb.from("scan_insights").insert(insightRows);
-      if (insightError) throw insightError;
-    }
-
     const completedAt = new Date().toISOString();
     const durationMs = Date.now() - startTime;
     const quarantinedCount = securityEvents.filter((event) => event.action === "quarantine" || event.action === "reject").length;
-    const automationSummary = { status: "queued", profile_sync: "pending", knowledge_sync: "pending", queued_at: completedAt, job_type: "scan_post_process" };
-    const finalSummaryJson = withAutomationSummary({
+    const finalSummaryJson = {
       ...summaryJson,
       posts,
       faqs,
@@ -343,13 +316,28 @@ serve(async (req) => {
       reviews,
       comments,
       business_facts: businessFacts,
-      crawl: { provider: "firecrawl", api_version: "v2", requested_page_limit: pageLimit, pages_scanned: crawledPages.length, pages_knowledge_eligible: safePages.length, pages_quarantined: quarantinedCount, root_url: url },
+      crawl: {
+        provider: "firecrawl",
+        api_version: "v2",
+        requested_page_limit: pageLimit,
+        pages_scanned: crawledPages.length,
+        pages_knowledge_eligible: safePages.length,
+        pages_quarantined: quarantinedCount,
+        root_url: url,
+      },
       knowledge_security: { status: quarantinedCount ? "partial_quarantine" : "passed", events: securityEvents },
-    }, automationSummary);
+      automation: {
+        status: "completed",
+        profile_sync: "completed",
+        knowledge_sync: "completed",
+        job_type: "canonical_inline",
+        completed_at: completedAt,
+      },
+    };
 
     await syncStatus("completed", "completed", {
       pages_scanned: crawledPages.length,
-      insights_count: insightRows.length,
+      insights_count: products.length + services.length + posts.length + faqs.length + reviews.length + comments.length + businessFacts.length,
       duration_ms: durationMs,
       completed_at: completedAt,
       error_message: null,
@@ -365,58 +353,55 @@ serve(async (req) => {
       competitor_hints: competitorHints,
     }, {
       completed_at: completedAt,
-      items_found: insightRows.length,
-      insights_found: insightRows.length,
+      items_found: safePages.length,
+      insights_found: products.length + services.length,
       pages_scanned: crawledPages.length,
       duration_ms: durationMs,
       error_message: null,
     }, { last_scan_at: completedAt });
 
-    try {
-      await sb.from("job_queue").insert({
-        user_id: userData.user.id,
-        workspace_id: workspaceId,
-        job_type: "scan_post_process",
-        job_payload: { business_id: businessId, scan_history_id: scanHistoryId, source_id: sourceId, source_scan_id: sourceScanId, workspace_id: workspaceId, user_id: userData.user.id },
-        status: "pending",
-        attempts: 0,
-        max_attempts: 3,
-        priority: 70,
-        scheduled_for: completedAt,
-      } as any);
-      await triggerJobWorker();
-    } catch (queueError) {
-      const message = queueError instanceof Error ? queueError.message : "Failed to queue scan post-processing";
-      console.error("scan post-process queue error:", queueError);
-      await sb.from("business_scan_history").update({
-        summary_json: withAutomationSummary(finalSummaryJson, { ...automationSummary, status: "failed", profile_sync: "failed", knowledge_sync: "failed", failed_at: new Date().toISOString(), error: message }),
-      } as any).eq("id", scanHistoryId).eq("workspace_id", workspaceId).eq("business_id", businessId);
-    }
-
-    return new Response(JSON.stringify({ success: true, insights_count: insightRows.length, pages_scanned: crawledPages.length, pages_knowledge_eligible: safePages.length, pages_quarantined: quarantinedCount, duration_ms: durationMs, automation_status: automationSummary.status }), {
+    return new Response(JSON.stringify({
+      success: true,
+      insights_count: products.length + services.length + posts.length + faqs.length + reviews.length + comments.length + businessFacts.length,
+      pages_scanned: crawledPages.length,
+      pages_knowledge_eligible: safePages.length,
+      pages_quarantined: quarantinedCount,
+      duration_ms: durationMs,
+      automation_status: "completed",
+    }), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (error) {
     console.error("business-scan-extract error:", error);
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-    // Never mutate caller-supplied identifiers on an authority failure. Only
-    // records captured after resolve_business_scan_authority may be updated.
     if (authorized) {
       try {
         const sb = supabaseAdmin();
-        await Promise.all([
-          sb.from("business_scan_history").update({ status: "failed", scan_phase: "failed", error_message: errorMessage } as any).eq("id", authorized.scan_history_id).eq("workspace_id", authorized.workspace_id).eq("business_id", authorized.business_id),
-          sb.from("source_scans").update({ business_id: authorized.business_id, status: "failed", scan_phase: "failed", error_message: errorMessage } as any).eq("id", authorized.source_scan_id).eq("source_id", authorized.source_id).eq("workspace_id", authorized.workspace_id).eq("business_id", authorized.business_id),
-          sb.from("scan_sources").update({ business_id: authorized.business_id, scan_status: "failed" } as any).eq("id", authorized.source_id).eq("workspace_id", authorized.workspace_id).eq("business_id", authorized.business_id),
-        ]);
+        const { data: failedRow } = await sb.from("business_scan_history")
+          .update({ status: "failed", scan_phase: "failed", error_message: errorMessage } as any)
+          .eq("id", authorized.scan_history_id)
+          .eq("workspace_id", authorized.workspace_id)
+          .eq("business_id", authorized.business_id)
+          .eq("execution_claim_version", authorized.execution_claim_version)
+          .select("id")
+          .maybeSingle();
+
+        if (failedRow) {
+          await Promise.all([
+            sb.from("source_scans").update({ business_id: authorized.business_id, status: "failed", scan_phase: "failed", error_message: errorMessage } as any)
+              .eq("id", authorized.source_scan_id).eq("source_id", authorized.source_id).eq("workspace_id", authorized.workspace_id).eq("business_id", authorized.business_id),
+            sb.from("scan_sources").update({ business_id: authorized.business_id, scan_status: "failed" } as any)
+              .eq("id", authorized.source_id).eq("workspace_id", authorized.workspace_id).eq("business_id", authorized.business_id),
+          ]);
+        }
       } catch {
-        // Fail closed without touching unverified tenant records.
+        // A lost execution fence must never mutate a newer claimant's state.
       }
     }
 
     return new Response(JSON.stringify({ error: errorMessage }), {
-      status: errorMessage.includes("authority") || errorMessage.includes("server-derived") ? 403 : 500,
+      status: errorMessage.includes("authority") || errorMessage.includes("server-derived") || errorMessage.includes("claim lost") ? 403 : 500,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }

@@ -64,6 +64,14 @@ export function normalizeScanUrl(value: string): string {
   return parsed.toString();
 }
 
+export function normalizePublicAssetUrl(value: string): string | null {
+  try {
+    return normalizeScanUrl(value);
+  } catch {
+    return null;
+  }
+}
+
 export function getCrawlPageUrl(page: CrawlPage, fallback: string): string {
   const root = normalizeScanUrl(fallback);
   const metadata = page.metadata ?? {};
@@ -131,15 +139,16 @@ export function extractMedia(markdown: string, sourceUrl: string) {
   const seen = new Set<string>();
 
   for (const match of markdown.matchAll(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+)(?:\s+"[^"]*")?\)/gi)) {
-    const url = match[2];
-    if (seen.has(url)) continue;
+    const url = normalizePublicAssetUrl(match[2]);
+    if (!url || seen.has(url)) continue;
     seen.add(url);
     media.push({ url, media_type: "image", alt_text: match[1] || undefined, source_url: sourceUrl });
     if (media.length >= 100) break;
   }
 
-  for (const url of markdown.match(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be|vimeo\.com|tiktok\.com)\/[^\s)"\]]+/gi) || []) {
-    if (seen.has(url)) continue;
+  for (const raw of markdown.match(/https?:\/\/(?:www\.)?(?:youtube\.com|youtu\.be|vimeo\.com|tiktok\.com)\/[^\s)"\]]+/gi) || []) {
+    const url = normalizePublicAssetUrl(raw);
+    if (!url || seen.has(url)) continue;
     seen.add(url);
     media.push({ url, media_type: "video", source_url: sourceUrl });
     if (media.length >= 120) break;
@@ -152,9 +161,6 @@ export function buildEvidenceInput(pages: SafePage[]): string {
   const maxTotal = 48_000;
   let output = "";
   for (const page of pages) {
-    // Only the exact page URL and Markdown that passed the knowledge firewall
-    // are admitted to the extraction model. Provider-controlled metadata/title
-    // are intentionally excluded from AI evidence.
     const block = [`--- PAGE URL: ${page.url}`, page.markdown.slice(0, 8_000), ""].join("\n");
     if (output.length + block.length > maxTotal) break;
     output += block;
@@ -187,14 +193,12 @@ export async function crawlWebsiteDeep(apiKey: string, rootUrl: string, limit: n
   }
 
   if (started?.status === "completed" && Array.isArray(started?.data)) return started.data.slice(0, limit) as CrawlPage[];
-
   const crawlId = started?.id ?? started?.data?.id;
   if (typeof crawlId !== "string" || !crawlId) throw new Error("Firecrawl crawl id missing");
 
   const timeoutMs = clampInt(Deno.env.get("BUSINESS_SCAN_CRAWL_TIMEOUT_MS"), 70_000, 10_000, 120_000);
   const deadline = Date.now() + timeoutMs;
   let latestPages: CrawlPage[] = [];
-
   while (Date.now() < deadline) {
     await sleep(2_000);
     const statusResponse = await fetch(`https://api.firecrawl.dev/v2/crawl/${encodeURIComponent(crawlId)}`, {
@@ -202,12 +206,10 @@ export async function crawlWebsiteDeep(apiKey: string, rootUrl: string, limit: n
     });
     const status = await statusResponse.json().catch(() => ({}));
     if (!statusResponse.ok) throw new Error(typeof status?.error === "string" ? status.error : "Website crawl status failed");
-
     if (Array.isArray(status?.data)) latestPages = status.data.slice(0, limit) as CrawlPage[];
     if (status?.status === "completed") return latestPages;
     if (status?.status === "failed" || status?.status === "cancelled") throw new Error(`Website crawl ${String(status.status)}`);
   }
-
   throw new Error("Website crawl timed out before completion");
 }
 
@@ -225,7 +227,8 @@ export async function runKnowledgeFirewall(
     return { category: "unknown", risk_score: 100, action: "quarantine", reason_code: "KNOWLEDGE_FIREWALL_NOT_CONFIGURED" };
   }
 
-  const eventId = `website-scan:${scanHistoryId}:${(await sha256Hex(url)).slice(0, 24)}`.slice(0, 200);
+  const normalizedPageUrl = normalizeScanUrl(url);
+  const eventId = `website-scan:${scanHistoryId}:${(await sha256Hex(normalizedPageUrl)).slice(0, 24)}`.slice(0, 200);
   const response = await fetch(`${supabaseUrl}/functions/v1/content-security-firewall`, {
     method: "POST",
     headers: { "Content-Type": "application/json", apikey: serviceKey, "x-internal-secret": internalSecret },
@@ -234,7 +237,7 @@ export async function runKnowledgeFirewall(
       source: "website_scan",
       event_id: eventId,
       content: content.slice(0, 100_000),
-      urls: links.filter((item) => typeof item === "string").slice(0, 50),
+      urls: [normalizedPageUrl, ...links.filter((item) => typeof item === "string")].slice(0, 50),
     }),
   });
 
@@ -242,13 +245,11 @@ export async function runKnowledgeFirewall(
   if (!response.ok || !payload?.decision) {
     return { category: "unknown", risk_score: 100, action: "quarantine", reason_code: "KNOWLEDGE_FIREWALL_UNAVAILABLE" };
   }
-
   const decision = payload.decision as Record<string, unknown>;
   const action = String(decision.action ?? "");
   if (!["allow", "tag", "quarantine", "reject"].includes(action)) {
     return { category: "unknown", risk_score: 100, action: "quarantine", reason_code: "KNOWLEDGE_FIREWALL_INVALID_DECISION" };
   }
-
   return {
     category: typeof decision.category === "string" ? decision.category : "unknown",
     risk_score: Number.isFinite(Number(decision.risk_score)) ? Number(decision.risk_score) : 100,
