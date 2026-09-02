@@ -62,7 +62,7 @@ const PartnerDashboard = () => {
             <Handshake className="mx-auto h-16 w-16 text-primary mb-4" />
             <h1 className="text-2xl font-bold text-foreground mb-2">Partner Program</h1>
             <p className="text-muted-foreground">
-              Manage multiple businesses with discounted pricing. Apply to become a partner and enjoy 30-40% savings on all managed subscriptions.
+              Manage multiple businesses with partner pricing. Any discount or benefit depends on your active account terms, eligibility, and configuration.
             </p>
           </div>
           <Card>
@@ -76,7 +76,7 @@ const PartnerDashboard = () => {
               </div>
               <div className="space-y-2 text-sm text-muted-foreground">
                 <p>✓ Manage unlimited business accounts</p>
-                <p>✓ 30-40% discount on subscription plans</p>
+                <p>✓ Partner pricing based on active account terms and eligibility</p>
                 <p>✓ Centralized billing dashboard</p>
                 <p>✓ Priority support</p>
               </div>

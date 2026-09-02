@@ -225,12 +225,12 @@ export default {
           a: "Yes! Every account gets a 7-day free trial with full access to all features. No credit card required.",
         },
         rolesDifference: {
-          q: "What's the difference between Business, Freelancer, and Ambassador?",
-          a: "Business: You own a company and want to grow it with AI tools. Freelancer: You manage other businesses — earn 35% referral commission + 40% from management fees. Ambassador: Referral-only — earn 35% lifetime commission (minimum 3 referrals/month required).",
+          q: "What's the difference between Business, Freelancer, Ambassador, and White-Label?",
+          a: "Business: manages its own business and workspace. Freelancer: manages independent work and, when authorized, client businesses. Ambassador: focuses on referrals. White-Label: is for agencies or resellers using their own brand and domain after commercial setup. Any commission or benefit depends on active account terms and configuration.",
         },
         referralEarnings: {
           q: "How do I earn money with referrals?",
-          a: "Share your unique referral link. You earn a lifetime commission on every payment made by users you refer. Freelancers earn 35% on referrals + 40% on management. Ambassadors earn 35% on referrals.",
+          a: "Ordinary referrals and partner commissions are separate mechanisms. Any payout or commission uses the active account rate and terms; Pulse AI does not promise a fixed public percentage or lifetime commission.",
         },
         installMobile: {
           q: "Can I install it on my phone?",
