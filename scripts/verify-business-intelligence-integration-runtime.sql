@@ -34,6 +34,7 @@ SELECT pg_catalog.set_config('pr218.atomic_source_id', :'atomic_source_id', fals
 SELECT pg_catalog.set_config('pr218.atomic_source_scan_id', :'atomic_source_scan_id', false);
 SELECT pg_catalog.set_config('pr218.atomic_workspace_id', :'atomic_workspace_id', false);
 SELECT pg_catalog.set_config('pr218.atomic_business_id', :'atomic_business_id', false);
+RESET ROLE;
 
 DO $$
 BEGIN
@@ -65,6 +66,7 @@ BEGIN
 END
 $$;
 
+SET ROLE authenticated;
 DO $$
 BEGIN
   BEGIN

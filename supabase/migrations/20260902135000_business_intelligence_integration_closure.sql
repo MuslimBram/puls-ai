@@ -15,7 +15,9 @@ alter table public.business_scan_history
 alter table public.business_scan_pages
   add column if not exists execution_claim_version bigint not null default 0;
 
-create or replace function public.resolve_business_scan_authority(
+drop function if exists public.resolve_business_scan_authority(uuid,uuid,uuid);
+
+create function public.resolve_business_scan_authority(
   p_scan_history_id uuid,
   p_source_id uuid,
   p_source_scan_id uuid
