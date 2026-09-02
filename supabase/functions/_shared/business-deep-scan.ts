@@ -29,19 +29,52 @@ export function clampInt(raw: string | undefined, fallback: number, min: number,
   return Math.min(max, Math.max(min, parsed));
 }
 
+function isIpLiteral(hostname: string): boolean {
+  const bare = hostname.replace(/^\[/, "").replace(/\]$/, "");
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(bare)) return true;
+  return bare.includes(":");
+}
+
+function publicSiteKey(hostname: string): string {
+  return hostname.toLowerCase().replace(/\.$/, "").replace(/^www\./, "");
+}
+
 export function normalizeScanUrl(value: string): string {
   const trimmed = value.trim();
   const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
   const parsed = new URL(withProtocol);
   if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("Unsupported scan URL scheme");
+  if (parsed.username || parsed.password) throw new Error("Scan URL credentials are not allowed");
+
+  const hostname = parsed.hostname.toLowerCase().replace(/\.$/, "");
+  if (!hostname
+      || hostname === "localhost"
+      || hostname.endsWith(".localhost")
+      || hostname.endsWith(".local")
+      || hostname.endsWith(".internal")
+      || isIpLiteral(hostname)) {
+    throw new Error("Scan URL must use a public DNS hostname");
+  }
+
+  const defaultPort = parsed.protocol === "http:" ? "80" : "443";
+  if (parsed.port && parsed.port !== defaultPort) throw new Error("Non-standard scan URL ports are not allowed");
+
+  parsed.hostname = hostname;
   parsed.hash = "";
   return parsed.toString();
 }
 
 export function getCrawlPageUrl(page: CrawlPage, fallback: string): string {
+  const root = normalizeScanUrl(fallback);
   const metadata = page.metadata ?? {};
-  const candidate = metadata.url ?? metadata.sourceURL ?? metadata.sourceUrl ?? metadata.canonicalUrl ?? fallback;
-  return typeof candidate === "string" ? normalizeScanUrl(candidate) : fallback;
+  const candidate = metadata.url ?? metadata.sourceURL ?? metadata.sourceUrl ?? metadata.canonicalUrl ?? root;
+  if (typeof candidate !== "string") return root;
+
+  const normalized = normalizeScanUrl(candidate);
+  if (publicSiteKey(new URL(normalized).hostname) !== publicSiteKey(new URL(root).hostname)) {
+    throw new Error("Crawl page escaped the authorized website hostname");
+  }
+  return normalized;
 }
 
 export function getCrawlPageTitle(page: CrawlPage): string {
@@ -119,7 +152,10 @@ export function buildEvidenceInput(pages: SafePage[]): string {
   const maxTotal = 48_000;
   let output = "";
   for (const page of pages) {
-    const block = [`--- PAGE URL: ${page.url}`, `TITLE: ${page.title}`, page.markdown.slice(0, 8_000), ""].join("\n");
+    // Only the exact page URL and Markdown that passed the knowledge firewall
+    // are admitted to the extraction model. Provider-controlled metadata/title
+    // are intentionally excluded from AI evidence.
+    const block = [`--- PAGE URL: ${page.url}`, page.markdown.slice(0, 8_000), ""].join("\n");
     if (output.length + block.length > maxTotal) break;
     output += block;
   }
@@ -127,11 +163,12 @@ export function buildEvidenceInput(pages: SafePage[]): string {
 }
 
 export async function crawlWebsiteDeep(apiKey: string, rootUrl: string, limit: number): Promise<CrawlPage[]> {
+  const normalizedRoot = normalizeScanUrl(rootUrl);
   const startResponse = await fetch("https://api.firecrawl.dev/v2/crawl", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
-      url: rootUrl,
+      url: normalizedRoot,
       limit,
       crawlEntireDomain: true,
       allowExternalLinks: false,
