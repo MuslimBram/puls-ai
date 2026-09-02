@@ -191,6 +191,8 @@ revoke all on function public.enforce_business_scan_page_workspace()
 
 -- AI-extracted records are admitted only when their claimed source_url maps to
 -- a security-approved page from the same exact scan/business/workspace.
+-- Legacy contact/social extraction currently loses exact per-page provenance;
+-- fail closed for those item types until that provenance is implemented.
 create or replace function public.enforce_business_knowledge_scan_provenance()
 returns trigger
 language plpgsql
@@ -206,7 +208,7 @@ begin
 
   if new.item_type = 'page' then
     v_source_url := nullif(pg_catalog.btrim(coalesce(new.canonical_url, '')), '');
-  elsif new.item_type = 'media' then
+  elsif new.item_type in ('media','contact','link') then
     v_source_url := nullif(pg_catalog.btrim(coalesce(new.structured_data ->> 'source_url', '')), '');
   elsif new.item_type in ('product','service','post','faq','review','comment','business_fact') then
     v_source_url := nullif(pg_catalog.btrim(coalesce(
@@ -247,5 +249,42 @@ drop trigger if exists trg_a_business_knowledge_scan_provenance
 create trigger trg_a_business_knowledge_scan_provenance
 before insert or update on public.business_knowledge_items
 for each row execute function public.enforce_business_knowledge_scan_provenance();
+
+-- #218 is Phase 1 canonical knowledge capture. The older scan_post_process
+-- worker also writes synthesized scan summaries into legacy knowledge_chunks,
+-- which can feed the main AI outside the new evidence/provenance layer. Block
+-- only that legacy business_scan chunk bridge. Phase 2 will consume the new
+-- canonical business_knowledge_* layer deliberately.
+create or replace function public.block_legacy_business_scan_knowledge_chunk()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.content_type = 'business_scan'
+     and exists (
+       select 1
+       from public.knowledge_sources s
+       where s.id = new.source_id
+         and coalesce(s.metadata ->> 'origin', '') = 'business_scan'
+     ) then
+    return null;
+  end if;
+  return new;
+end
+$$;
+
+revoke all on function public.block_legacy_business_scan_knowledge_chunk()
+  from public, anon, authenticated, service_role;
+
+drop trigger if exists trg_block_legacy_business_scan_knowledge_chunk
+  on public.knowledge_chunks;
+create trigger trg_block_legacy_business_scan_knowledge_chunk
+before insert on public.knowledge_chunks
+for each row execute function public.block_legacy_business_scan_knowledge_chunk();
+
+comment on function public.block_legacy_business_scan_knowledge_chunk() is
+  'Fail-closed Phase 1 guard: prevents website-scan summaries from bypassing canonical Business Intelligence evidence/provenance through legacy knowledge_chunks.';
 
 commit;
