@@ -7,6 +7,7 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), "utf8"
 const authority = read("supabase/migrations/20260901161500_business_scan_authority.sql");
 const freshness = read("supabase/migrations/20260901162000_business_knowledge_freshness_diff.sql");
 const deepBridge = read("supabase/migrations/20260901162500_business_knowledge_deep_scan_bridge.sql");
+const deepBridgePgcryptoFix = read("supabase/migrations/20260901162600_business_deep_scan_pgcrypto_schema_fix.sql");
 const extractor = read("supabase/functions/business-scan-extract/index.ts");
 const helper = read("supabase/functions/_shared/business-deep-scan.ts");
 
@@ -61,7 +62,7 @@ describe("Business deep website scan", () => {
     expect(freshness).toContain("REVOKE INSERT, UPDATE, DELETE ON public.business_scan_pages FROM anon, authenticated");
   });
 
-  it("preserves freshness and append-only change evidence", () => {
+  it("preserves freshness, change evidence, and trusted pgcrypto lookup", () => {
     expect(freshness).toContain("ADD COLUMN IF NOT EXISTS content_hash text");
     expect(freshness).toContain("ADD COLUMN IF NOT EXISTS source_trust_score");
     expect(freshness).toContain("ADD COLUMN IF NOT EXISTS valid_from");
@@ -72,6 +73,8 @@ describe("Business deep website scan", () => {
     expect(freshness).toContain("trg_log_business_knowledge_item_change");
     expect(freshness).toContain("REVOKE INSERT, UPDATE, DELETE ON public.business_knowledge_changes FROM anon, authenticated");
     expect(freshness).toContain("SET search_path TO pg_catalog, extensions");
+    expect(deepBridgePgcryptoFix).toContain("ALTER FUNCTION public.sync_deep_business_scan_to_knowledge()");
+    expect(deepBridgePgcryptoFix).toContain("SET search_path TO pg_catalog, extensions");
   });
 
   it("normalizes the full deep-scan knowledge categories with page provenance", () => {
