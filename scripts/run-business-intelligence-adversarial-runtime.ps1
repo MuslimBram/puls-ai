@@ -62,7 +62,9 @@ function Invoke-PsqlFile([string]$Database, [string]$FilePath) {
 function Invoke-PsqlScalar([string]$Database, [string]$Sql) {
   $output = & $psql -X -v ON_ERROR_STOP=1 -h $PgHost -p $PgPort -U $PgUser -d $Database -Atqc $Sql
   if ($LASTEXITCODE -ne 0) { throw "psql query failed" }
-  return ($output | Select-Object -Last 1).Trim()
+  $last = $output | Select-Object -Last 1
+  if ($null -eq $last) { return "" }
+  return ([string]$last).Trim()
 }
 
 function Invoke-PsqlCommand([string]$Database, [string]$Sql) {
@@ -81,8 +83,9 @@ $migrations = @(
 )
 
 $baseline = Join-Path $repoRoot "scripts/verify-business-intelligence-adversarial-runtime-baseline.sql"
+$localParity = Join-Path $repoRoot "scripts/verify-business-intelligence-adversarial-runtime-local-grants.sql"
 $verifier = Join-Path $repoRoot "scripts/verify-business-intelligence-adversarial-runtime.sql"
-foreach ($path in @($baseline, $verifier)) {
+foreach ($path in @($baseline, $localParity, $verifier)) {
   if (-not (Test-Path $path)) { throw "Missing verifier file: $path" }
 }
 foreach ($relative in $migrations) {
@@ -109,6 +112,7 @@ try {
   if ($LASTEXITCODE -ne 0) { throw "createdb failed" }
 
   Invoke-PsqlFile $dbName $baseline
+  Invoke-PsqlFile $dbName $localParity
   foreach ($relative in $migrations) {
     Invoke-PsqlFile $dbName (Join-Path $repoRoot $relative)
   }
@@ -121,8 +125,14 @@ finally {
   Write-Host "Cleaning disposable database/roles..."
   & $dropdb -h $PgHost -p $PgPort -U $PgUser --if-exists --force $dbName 2>$null
 
-  foreach ($role in ($createdRoles | Select-Object -Reverse)) {
-    try { Invoke-PsqlCommand $MaintenanceDatabase "drop role if exists $role" } catch { Write-Warning $_ }
+  for ($i = $createdRoles.Count - 1; $i -ge 0; $i--) {
+    $role = $createdRoles[$i]
+    try {
+      Invoke-PsqlCommand $MaintenanceDatabase "drop role if exists $role"
+    }
+    catch {
+      Write-Warning $_
+    }
   }
 
   if ($ownsPgPassword) {
