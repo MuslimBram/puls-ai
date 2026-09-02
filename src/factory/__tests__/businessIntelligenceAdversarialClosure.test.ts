@@ -59,6 +59,7 @@ describe("Business Intelligence adversarial closure", () => {
 
   it("drops AI records whose source_url is not a security-approved page", () => {
     expect(closure).toContain("enforce_business_knowledge_scan_provenance");
+    expect(closure).toContain("new.item_type in ('media','contact','link')");
     expect(closure).toContain("p.is_knowledge_eligible = true");
     expect(closure).toContain("p.scan_history_id = new.scan_history_id");
     expect(closure).toContain("p.workspace_id = new.workspace_id");
@@ -74,6 +75,14 @@ describe("Business Intelligence adversarial closure", () => {
     expect(closure).toContain("x.ordinality <= 50");
     expect(closure).toContain("new.content_markdown := null");
     expect(helper).toContain("urls: links.filter((item) => typeof item === \"string\").slice(0, 50)");
+  });
+
+  it("blocks the legacy scan summary bridge from feeding main-AI knowledge chunks", () => {
+    expect(closure).toContain("block_legacy_business_scan_knowledge_chunk");
+    expect(closure).toContain("new.content_type = 'business_scan'");
+    expect(closure).toContain("coalesce(s.metadata ->> 'origin', '') = 'business_scan'");
+    expect(closure).toContain("trg_block_legacy_business_scan_knowledge_chunk");
+    expect(closure).toContain("prevents website-scan summaries from bypassing canonical Business Intelligence evidence/provenance");
   });
 
   it("rejects local/IP/credential/non-standard-port roots and provider hostname escape", () => {
