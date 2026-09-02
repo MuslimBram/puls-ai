@@ -144,6 +144,7 @@ describe("SOCIAL-0 security correction pass", () => {
     it("valid public input passes validation", () => {
       const result = validatePublicWebchatInput({
         channel_id: "ch_web_1",
+        event_id: "webchat:test-event-0001",
         message: "Hello, I need help",
         visitor_name: "Alice",
         visitor_email: "alice@example.com",
@@ -152,6 +153,7 @@ describe("SOCIAL-0 security correction pass", () => {
       expect(result.ok).toBe(true);
       if (result.ok) {
         expect(result.channel_id).toBe("ch_web_1");
+        expect(result.event_id).toBe("webchat:test-event-0001");
         expect(result.message).toBe("Hello, I need help");
         expect(result.visitor_name).toBe("Alice");
       }
@@ -185,6 +187,15 @@ describe("SOCIAL-0 security correction pass", () => {
 
     it("missing message fails closed — status 400", () => {
       const result = validatePublicWebchatInput({ channel_id: "ch_web_1" });
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.status).toBe(400);
+    });
+
+    it("missing event_id fails closed — status 400", () => {
+      const result = validatePublicWebchatInput({
+        channel_id: "ch_web_1",
+        message: "Hello",
+      });
       expect(result.ok).toBe(false);
       if (!result.ok) expect(result.status).toBe(400);
     });
