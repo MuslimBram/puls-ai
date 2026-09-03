@@ -94,3 +94,9 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.save-telegram-credentials]
     verify_jwt = true
+  [functions.leah-session]
+    verify_jwt = true
+  [functions.leah-api]
+    verify_jwt = false
+  [functions.leah-worker]
+    verify_jwt = false
