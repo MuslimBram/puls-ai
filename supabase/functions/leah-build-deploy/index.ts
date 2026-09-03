@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
         _builder_version: builderVersion,
       });
       if (error) throw error;
-      return json({ build: data }, Boolean((data as Record<string, unknown> | null)?.idempotent_replay) ? 200 : 201);
+      return json({ build: data }, (data as Record<string, unknown> | null)?.idempotent_replay ? 200 : 201);
     }
 
     if (action === "build.finish") {
@@ -128,7 +128,7 @@ Deno.serve(async (req) => {
         _request_key: requestKey,
       });
       if (error) throw error;
-      return json({ deployment: data }, Boolean((data as Record<string, unknown> | null)?.idempotent_replay) ? 200 : 201);
+      return json({ deployment: data }, (data as Record<string, unknown> | null)?.idempotent_replay ? 200 : 201);
     }
 
     if (action === "deployment.begin") {
