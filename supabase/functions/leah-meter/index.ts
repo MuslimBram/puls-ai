@@ -37,9 +37,23 @@ function stringField(body: Record<string, unknown>, key: string, max = 1000): st
   return value.trim();
 }
 
+function optionalStringField(body: Record<string, unknown>, key: string, max = 1000): string | null {
+  const value = body[key];
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !value.trim() || value.length > max) throw new Error(`Invalid ${key}`);
+  return value.trim();
+}
+
 function uuidField(body: Record<string, unknown>, key: string): string {
   const value = stringField(body, key, 64);
   if (!UUID_RE.test(value)) throw new Error(`${key} must be a UUID`);
+  return value;
+}
+
+function optionalUuidField(body: Record<string, unknown>, key: string): string | null {
+  const value = body[key];
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string" || !UUID_RE.test(value)) throw new Error(`${key} must be a UUID`);
   return value;
 }
 
@@ -48,6 +62,21 @@ function integerField(body: Record<string, unknown>, key: string, min: number, m
   const value = raw === undefined && fallback !== undefined ? fallback : Number(raw);
   if (!Number.isSafeInteger(value) || value < min || value > max) throw new Error(`Invalid ${key}`);
   return value;
+}
+
+function nullableIntegerField(body: Record<string, unknown>, key: string, min = 0, max = Number.MAX_SAFE_INTEGER): number | null {
+  const raw = body[key];
+  if (raw === undefined || raw === null) return null;
+  const value = Number(raw);
+  if (!Number.isSafeInteger(value) || value < min || value > max) throw new Error(`Invalid ${key}`);
+  return value;
+}
+
+function booleanField(body: Record<string, unknown>, key: string, fallback = false): boolean {
+  const raw = body[key];
+  if (raw === undefined) return fallback;
+  if (typeof raw !== "boolean") throw new Error(`Invalid ${key}`);
+  return raw;
 }
 
 function metadata(value: unknown): Record<string, unknown> {
@@ -65,6 +94,72 @@ serve(async (req) => {
       throw new Error("workspace_id is derived from authoritative parent records");
     }
     const action = stringField(body, "action", 80);
+
+    if (action === "provider.begin") {
+      const billingMode = stringField(body, "billing_mode", 20);
+      if (!new Set(["byok", "managed"]).has(billingMode)) throw new Error("Invalid provider billing_mode");
+      const { data, error } = await admin.rpc("leah_begin_provider_attempt", {
+        _task_id: uuidField(body, "task_id"),
+        _lease_token: uuidField(body, "lease_token"),
+        _logical_request_id: uuidField(body, "logical_request_id"),
+        _attempt_id: uuidField(body, "attempt_id"),
+        _billing_mode: billingMode,
+        _provider: stringField(body, "provider", 100),
+        _model: stringField(body, "model", 200),
+        _reservation_id: optionalUuidField(body, "reservation_id"),
+        _metadata: metadata(body.metadata),
+      });
+      if (error) throw error;
+      return json({ attempt: data }, 201);
+    }
+
+    if (action === "provider.finish") {
+      const outcome = stringField(body, "outcome", 20);
+      const usageSource = stringField(body, "usage_source", 20);
+      if (!new Set(["succeeded", "failed", "unknown"]).has(outcome)) throw new Error("Invalid provider outcome");
+      if (!new Set(["provider", "estimated", "unavailable"]).has(usageSource)) throw new Error("Invalid usage_source");
+      const { data, error } = await admin.rpc("leah_finish_provider_attempt", {
+        _task_id: uuidField(body, "task_id"),
+        _lease_token: uuidField(body, "lease_token"),
+        _attempt_id: uuidField(body, "attempt_id"),
+        _outcome: outcome,
+        _provider_request_id: optionalStringField(body, "provider_request_id", 500),
+        _usage_source: usageSource,
+        _input_tokens: nullableIntegerField(body, "input_tokens", 0, 10_000_000),
+        _output_tokens: nullableIntegerField(body, "output_tokens", 0, 10_000_000),
+        _total_tokens: nullableIntegerField(body, "total_tokens", 0, 20_000_000),
+        _cost_micros: nullableIntegerField(body, "cost_micros"),
+        _error_code: optionalStringField(body, "error_code", 120),
+        _latency_ms: nullableIntegerField(body, "latency_ms", 0, 86_400_000),
+        _canonical_result: booleanField(body, "canonical_result", false),
+        _metadata: metadata(body.metadata),
+      });
+      if (error) throw error;
+      return json({ attempt: data });
+    }
+
+    if (action === "provider.materialization.claim") {
+      const { data, error } = await admin.rpc("leah_claim_provider_materialization", {
+        _task_id: uuidField(body, "task_id"),
+        _lease_token: uuidField(body, "lease_token"),
+        _attempt_id: uuidField(body, "attempt_id"),
+        _materialization_key: stringField(body, "materialization_key", 200),
+      });
+      if (error) throw error;
+      return json({ materialization: data });
+    }
+
+    if (action === "provider.materialization.finalize") {
+      const { data, error } = await admin.rpc("leah_finalize_provider_materialization", {
+        _task_id: uuidField(body, "task_id"),
+        _lease_token: uuidField(body, "lease_token"),
+        _attempt_id: uuidField(body, "attempt_id"),
+        _materialization_key: stringField(body, "materialization_key", 200),
+        _materialized_ref: stringField(body, "materialized_ref", 1000),
+      });
+      if (error) throw error;
+      return json({ materialization: data });
+    }
 
     if (action === "managed.reserve") {
       const { data, error } = await admin.rpc("leah_reserve_managed_tokens", {
@@ -183,8 +278,8 @@ serve(async (req) => {
     const message = error instanceof Error ? error.message : "Unknown error";
     const status = message === "Worker authentication failed" ? 401 :
       message.includes("QUOTA_EXCEEDED") || message.includes("_DISABLED") || message.includes("entitlement inactive") ? 403 :
-      message.toLowerCase().includes("conflict") ? 409 :
-      message.includes("required") || message.includes("Invalid") || message.includes("must be") || message.includes("workspace_id") ? 400 : 500;
+      message.toLowerCase().includes("conflict") || message.includes("ALREADY_CLAIMED") ? 409 :
+      message.includes("required") || message.includes("Invalid") || message.includes("must be") || message.includes("workspace_id") || message.includes("not active") || message.includes("not canonical") ? 400 : 500;
     return json({ error: status === 500 ? "Internal LEAH meter error" : message }, status);
   }
 });
