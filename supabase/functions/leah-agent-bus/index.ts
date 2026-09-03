@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
         _max_delivery_attempts: maxDeliveryAttempts,
       });
       if (error) throw error;
-      return json({ message: data }, Boolean((data as Record<string, unknown> | null)?.idempotent_replay) ? 200 : 201);
+      return json({ message: data }, (data as Record<string, unknown> | null)?.idempotent_replay ? 200 : 201);
     }
 
     if (action === "receive") {
