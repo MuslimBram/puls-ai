@@ -5,6 +5,20 @@ import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
+const RELATION_TYPES = new Set(["referral", "management"]);
+
+function duplicateSummary(value: unknown): { is_duplicate: boolean; message?: string } {
+  const duplicate = Boolean(
+    value && typeof value === "object" &&
+      (value as Record<string, unknown>).is_duplicate === true,
+  );
+  return duplicate
+    ? {
+      is_duplicate: true,
+      message: "This value is already registered. Contact support if you believe this is incorrect.",
+    }
+    : { is_duplicate: false };
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -17,14 +31,14 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
 
     const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...getCors(req), "Content-Type": "application/json" },
       });
     }
 
-    const token = authHeader.replace("Bearer ", "");
+    const token = authHeader.slice("Bearer ".length);
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -33,81 +47,94 @@ Deno.serve(async (req) => {
       });
     }
 
-    const body = await req.json();
-    const { asset_type, asset_identifier, business_name, freelancer_user_id, business_workspace_id, relation_type } = body;
+    const body = await req.json().catch(() => ({})) as Record<string, unknown>;
+    const assetType = typeof body.asset_type === "string" ? body.asset_type.trim() : "";
+    const assetIdentifier = typeof body.asset_identifier === "string" ? body.asset_identifier.trim() : "";
+    const businessName = typeof body.business_name === "string" ? body.business_name.trim() : "";
+    const businessWorkspaceId = typeof body.business_workspace_id === "string"
+      ? body.business_workspace_id.trim()
+      : "";
+    const relationType = typeof body.relation_type === "string" ? body.relation_type.trim() : "";
 
     const results: Record<string, unknown> = {};
 
-    // 1. Check asset duplicate
-    if (asset_type && asset_identifier) {
-      const { data: assetCheck } = await supabase.rpc("check_asset_duplicate", {
-        _asset_type: asset_type,
-        _asset_identifier: asset_identifier.trim().toLowerCase(),
+    // Global duplicate checks are intentionally performed server-side because RLS
+    // must not reveal which tenant owns a matching asset. Only a generic boolean is returned.
+    if (assetType && assetIdentifier) {
+      const { data: assetCheck, error } = await supabase.rpc("check_asset_duplicate", {
+        _asset_type: assetType,
+        _asset_identifier: assetIdentifier.toLowerCase(),
       });
-      results.asset_check = assetCheck;
+      if (error) throw error;
+      results.asset_check = duplicateSummary(assetCheck);
     }
 
-    // 2. Check business name duplicate
-    if (business_name) {
-      const { data: nameCheck } = await supabase.rpc("check_asset_duplicate", {
+    if (businessName) {
+      const { data: nameCheck, error } = await supabase.rpc("check_asset_duplicate", {
         _asset_type: "business_name",
-        _asset_identifier: business_name.trim().toLowerCase(),
+        _asset_identifier: businessName.toLowerCase(),
       });
-      results.business_name_check = nameCheck;
+      if (error) throw error;
+      results.business_name_check = duplicateSummary(nameCheck);
     }
 
-    // 3. Check freelancer relation eligibility (referral vs management exclusivity)
-    if (freelancer_user_id && business_workspace_id && relation_type) {
-      const { data: relationCheck } = await supabase.rpc("check_freelancer_relation_eligibility", {
-        _freelancer_id: freelancer_user_id,
-        _business_workspace_id: business_workspace_id,
-        _requested_type: relation_type,
+    // The freelancer subject is always derived from the authenticated JWT. A caller
+    // cannot probe another user's referral/management relationship by supplying an ID.
+    if (businessWorkspaceId && relationType) {
+      if (!RELATION_TYPES.has(relationType)) {
+        return new Response(JSON.stringify({ error: "Invalid relation_type" }), {
+          status: 400,
+          headers: { ...getCors(req), "Content-Type": "application/json" },
+        });
+      }
+      const { data: relationCheck, error } = await supabase.rpc("check_freelancer_relation_eligibility", {
+        _freelancer_id: user.id,
+        _business_workspace_id: businessWorkspaceId,
+        _requested_type: relationType,
       });
+      if (error) throw error;
       results.relation_check = relationCheck;
     }
 
-    // 4. AI analysis for suspicious patterns
     const suspiciousSignals: string[] = [];
 
-    if (asset_identifier) {
-      // Check for slight variations of existing assets (typosquatting)
-      const { data: similarAssets } = await supabase
+    if (assetIdentifier) {
+      const { data: similarAssets, error } = await supabase
         .from("registered_assets")
-        .select("asset_identifier, asset_type, workspace_id")
+        .select("asset_identifier")
         .eq("is_active", true)
-        .eq("asset_type", asset_type || "website")
+        .eq("asset_type", assetType || "website")
         .limit(100);
+      if (error) throw error;
 
-      if (similarAssets && similarAssets.length > 0) {
-        const normalizedInput = asset_identifier.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (similarAssets?.length) {
+        const normalizedInput = assetIdentifier.toLowerCase().replace(/[^a-z0-9]/g, "");
         for (const existing of similarAssets) {
           const normalizedExisting = existing.asset_identifier.toLowerCase().replace(/[^a-z0-9]/g, "");
-          // Simple Levenshtein-like similarity check
           if (normalizedInput !== normalizedExisting && isSimilar(normalizedInput, normalizedExisting)) {
-            suspiciousSignals.push(
-              `Identifikues i ngjashëm me "${existing.asset_identifier}" (tashmë i regjistruar)`
-            );
+            suspiciousSignals.push("A similar asset is already registered.");
+            break;
           }
         }
       }
     }
 
-    if (business_name) {
-      const { data: similarNames } = await supabase
+    if (businessName) {
+      const { data: similarNames, error } = await supabase
         .from("registered_assets")
         .select("asset_identifier")
         .eq("is_active", true)
         .eq("asset_type", "business_name")
         .limit(100);
+      if (error) throw error;
 
-      if (similarNames) {
-        const normalizedInput = business_name.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (similarNames?.length) {
+        const normalizedInput = businessName.toLowerCase().replace(/[^a-z0-9]/g, "");
         for (const existing of similarNames) {
           const normalizedExisting = existing.asset_identifier.toLowerCase().replace(/[^a-z0-9]/g, "");
           if (normalizedInput !== normalizedExisting && isSimilar(normalizedInput, normalizedExisting)) {
-            suspiciousSignals.push(
-              `Emër biznesi i ngjashëm me "${existing.asset_identifier}" (tashmë i regjistruar)`
-            );
+            suspiciousSignals.push("A similar business name is already registered.");
+            break;
           }
         }
       }
@@ -119,15 +146,15 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify(results), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: (err as Error).message }), {
+  } catch {
+    return new Response(JSON.stringify({ error: "Internal duplicate check error" }), {
       status: 500,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   }
 });
 
-// Simple string similarity check (Levenshtein distance <= 2)
+// Simple string similarity check (Levenshtein-like distance <= 2)
 function isSimilar(a: string, b: string): boolean {
   if (Math.abs(a.length - b.length) > 2) return false;
   let diff = 0;
