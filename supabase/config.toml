@@ -110,3 +110,5 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.leah-semantic-memory]
     verify_jwt = false
+  [functions.leah-agent-bus]
+    verify_jwt = false
