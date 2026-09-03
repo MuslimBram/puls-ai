@@ -106,3 +106,5 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.leah-meter]
     verify_jwt = false
+  [functions.leah-provider-proxy]
+    verify_jwt = false
