@@ -112,3 +112,7 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.leah-agent-bus]
     verify_jwt = false
+  [functions.leah-build-deploy]
+    verify_jwt = false
+  [functions.leah-developer-hub]
+    verify_jwt = false
