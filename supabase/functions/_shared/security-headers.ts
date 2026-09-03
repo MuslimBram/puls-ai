@@ -3,9 +3,9 @@
  *
  * CORS policy:
  *  - Production custom domains: alfis.re, kohablerjeve.top, pulse-bos.com (+ www)
+ *  - Optional first-party LEAH app origins from LEAH_APP_ORIGINS (comma-separated HTTPS origins)
  *  - Local dev: http://localhost:* and http://127.0.0.1:*
- *  - Public webhooks (PayPal/Meta/integration) MUST set `allowAnyOrigin: true`
- *    when calling buildCorsHeaders, since they are invoked by 3rd-party servers.
+ *  - Public webhooks MUST explicitly set allowAnyOrigin: true.
  */
 
 const ALLOWED_ORIGINS = new Set<string>([
@@ -17,9 +17,34 @@ const ALLOWED_ORIGINS = new Set<string>([
   "https://www.pulse-bos.com",
 ]);
 
+function configuredLeahOrigins(): Set<string> {
+  const result = new Set<string>();
+  const raw = Deno.env.get("LEAH_APP_ORIGINS")?.trim() ?? "";
+  if (!raw) return result;
+
+  for (const item of raw.split(",")) {
+    const value = item.trim();
+    if (!value) continue;
+    try {
+      const u = new URL(value);
+      if (
+        u.protocol !== "https:" ||
+        u.username || u.password ||
+        u.pathname !== "/" || u.search || u.hash ||
+        u.origin !== value.replace(/\/$/, "")
+      ) continue;
+      result.add(u.origin);
+    } catch {
+      // Invalid configured origins are ignored fail-closed.
+    }
+  }
+  return result;
+}
+
 function isOriginAllowed(origin: string): boolean {
   if (!origin) return false;
   if (ALLOWED_ORIGINS.has(origin)) return true;
+  if (configuredLeahOrigins().has(origin)) return true;
   try {
     const u = new URL(origin);
     if (u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1")) {
@@ -55,8 +80,7 @@ export function buildCorsHeaders(
   } else if (isOriginAllowed(origin)) {
     allowOrigin = origin;
   } else {
-    // Safe default: first production domain — blocks the browser request
-    // when origin isn't allowed (browser will reject mismatch).
+    // Safe mismatch causes browsers to block unauthorized origins.
     allowOrigin = "https://alfis.re";
   }
 
@@ -68,25 +92,18 @@ export function buildCorsHeaders(
   };
 }
 
-/**
- * Legacy export. Kept for backwards compatibility with functions still
- * importing the static object. Returns restrictive defaults (no wildcard).
- * Prefer buildCorsHeaders(req) for new code.
- */
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "https://alfis.re",
   "Access-Control-Allow-Headers": CORS_ALLOW_HEADERS,
   "Vary": "Origin",
 };
 
-/** Combined headers for JSON responses (legacy). */
 export const jsonResponseHeaders = {
   ...corsHeaders,
   ...securityHeaders,
   "Content-Type": "application/json",
 };
 
-/** Safe OPTIONS preflight handler with dynamic origin. */
 export function handleCors(
   req: Request,
   options: { allowAnyOrigin?: boolean } = {},
