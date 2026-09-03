@@ -67,9 +67,17 @@ export interface BusinessAIContent {
   created_at: string;
 }
 
+type AtomicScanRequest = {
+  scan_history_id: string;
+  source_id: string;
+  source_scan_id: string;
+  workspace_id: string;
+  business_id: string;
+  scanned_url: string;
+};
+
 export const useBusinessScanHistory = (businessId?: string) => {
   const { user } = useAuth();
-
   return useQuery({
     queryKey: ["business-scan-history", businessId],
     enabled: !!user && !!businessId,
@@ -89,7 +97,6 @@ export const useBusinessScanHistory = (businessId?: string) => {
 
 export const useBusinessAIContent = (businessId?: string) => {
   const { user } = useAuth();
-
   return useQuery({
     queryKey: ["business-ai-content", businessId],
     enabled: !!user && !!businessId,
@@ -107,121 +114,43 @@ export const useBusinessAIContent = (businessId?: string) => {
 };
 
 export const useTriggerBusinessScan = () => {
-  const { user } = useAuth();
   const qc = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ businessId, workspaceId, url }: { businessId: string; workspaceId: string; url: string }) => {
       const normalizedUrl = url.trim();
+      if (!normalizedUrl) throw new Error("Website URL is required");
 
-      const { data: scanRecord, error: insertErr } = await supabase
-        .from("business_scan_history")
-        .insert({
-          business_id: businessId,
-          workspace_id: workspaceId,
-          triggered_by: user!.id,
-          scanned_url: normalizedUrl,
-          status: "pending",
-          scan_phase: "queued",
-          error_message: null,
-        } as any)
-        .select()
-        .single();
-      if (insertErr) throw insertErr;
+      // One caller-bound database transaction creates the source, history row,
+      // and source-scan. workspaceId is retained only as a UI consistency hint;
+      // tenant authority is resolved from businessId on the server.
+      const { data: requestRows, error: requestError } = await (supabase as any).rpc("create_business_scan_request", {
+        p_business_id: businessId,
+        p_scanned_url: normalizedUrl,
+      });
+      if (requestError) throw requestError;
 
-      const scan = scanRecord as unknown as BusinessScanHistory;
-
-      const { data: existingSource, error: sourceLookupError } = await supabase
-        .from("scan_sources")
-        .select("id")
-        .eq("workspace_id", workspaceId)
-        .eq("business_id", businessId)
-        .eq("url_or_identifier", normalizedUrl)
-        .maybeSingle();
-      if (sourceLookupError) throw sourceLookupError;
-
-      let sourceId = existingSource?.id as string | undefined;
-
-      if (!sourceId) {
-        const { data: createdSource, error: createSourceError } = await supabase
-          .from("scan_sources")
-          .insert({
-            user_id: user!.id,
-            workspace_id: workspaceId,
-            business_id: businessId,
-            platform: "web",
-            source_type: "website",
-            url_or_identifier: normalizedUrl,
-            label: normalizedUrl,
-            is_active: true,
-            scan_status: "pending",
-          } as any)
-          .select("id")
-          .single();
-
-        if (createSourceError) throw createSourceError;
-        sourceId = createdSource.id;
-      } else {
-        const { error: updateSourceError } = await supabase
-          .from("scan_sources")
-          .update({ scan_status: "pending", business_id: businessId } as any)
-          .eq("id", sourceId);
-        if (updateSourceError) throw updateSourceError;
+      const request = (Array.isArray(requestRows) ? requestRows[0] : requestRows) as AtomicScanRequest | null;
+      if (!request?.scan_history_id || !request.source_id || !request.source_scan_id || !request.workspace_id) {
+        throw new Error("Atomic business scan request was not created");
+      }
+      if (workspaceId && request.workspace_id !== workspaceId) {
+        throw new Error("Workspace mismatch for server-derived scan authority");
       }
 
-      const { data: sourceScanRecord, error: sourceScanError } = await supabase
-        .from("source_scans")
-        .insert({
-          source_id: sourceId,
-          business_id: businessId,
-          user_id: user!.id,
-          workspace_id: workspaceId,
-          status: "pending",
-          scan_phase: "queued",
-          items_found: 0,
-          insights_found: 0,
-          pages_scanned: 0,
-          error_message: null,
-        } as any)
-        .select("id")
-        .single();
-      if (sourceScanError) throw sourceScanError;
-
-      try {
-        const { data, error } = await supabase.functions.invoke("business-scan-extract", {
-          body: {
-            business_id: businessId,
-            scan_history_id: scan.id,
-            source_id: sourceId,
-            source_scan_id: sourceScanRecord.id,
-            workspace_id: workspaceId,
-            url: normalizedUrl,
-          },
-        });
-
-        if (error) throw error;
-        if (data?.error) throw new Error(data.error);
-        return data;
-      } catch (invokeError: any) {
-        const errorMessage = invokeError?.message || "Unknown scan failure";
-
-        await Promise.all([
-          supabase
-            .from("business_scan_history")
-            .update({ status: "failed", scan_phase: "failed", error_message: errorMessage } as any)
-            .eq("id", scan.id),
-          supabase
-            .from("source_scans")
-            .update({ status: "failed", scan_phase: "failed", error_message: errorMessage } as any)
-            .eq("id", sourceScanRecord.id),
-          supabase
-            .from("scan_sources")
-            .update({ scan_status: "failed", business_id: businessId } as any)
-            .eq("id", sourceId),
-        ]);
-
-        throw invokeError;
-      }
+      const { data, error } = await supabase.functions.invoke("business-scan-extract", {
+        body: {
+          business_id: request.business_id,
+          scan_history_id: request.scan_history_id,
+          source_id: request.source_id,
+          source_scan_id: request.source_scan_id,
+          workspace_id: request.workspace_id,
+          url: request.scanned_url,
+        },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: ["business-scan-history", variables.businessId] });
@@ -248,7 +177,6 @@ export const useTriggerBusinessScan = () => {
 
 export const useGenerateBusinessContent = () => {
   const qc = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ businessId, workspaceId, scanHistoryId }: { businessId: string; workspaceId: string; scanHistoryId?: string }) => {
       const { data, error } = await supabase.functions.invoke("generate-business-content", {
@@ -274,18 +202,19 @@ export const useGenerateBusinessContent = () => {
 
 export const useSaveBusinessScanToKnowledgeBase = () => {
   const qc = useQueryClient();
-
   return useMutation({
     mutationFn: async ({ businessId, scanHistoryId }: { businessId: string; scanHistoryId: string }) => {
       const { data, error } = await supabase.functions.invoke("save-scan-to-knowledge-base", {
-        body: {
-          business_id: businessId,
-          scan_history_id: scanHistoryId,
-        },
+        body: { business_id: businessId, scan_history_id: scanHistoryId },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      return data as { source_id: string; chunks_created: number; source_name: string };
+      return data as {
+        source_id: string;
+        source_name: string;
+        canonical_items: number;
+        chunks_created: number;
+      };
     },
     onSuccess: (data, variables) => {
       qc.invalidateQueries({ queryKey: ["business-scan-history", variables.businessId] });
@@ -293,12 +222,12 @@ export const useSaveBusinessScanToKnowledgeBase = () => {
       qc.invalidateQueries({ queryKey: ["knowledge-sources"] });
       qc.invalidateQueries({ queryKey: ["knowledge-chunks"] });
       toast({
-        title: "Saved to Knowledge Base",
-        description: `${data.chunks_created} chunks saved for AI usage.`,
+        title: "Canonical knowledge verified",
+        description: `${data.canonical_items} security-approved knowledge items are available to Pulse AI.`,
       });
     },
     onError: (e: any) => {
-      toast({ title: "Knowledge save failed", description: e.message, variant: "destructive" });
+      toast({ title: "Knowledge verification failed", description: e.message, variant: "destructive" });
     },
   });
 };
