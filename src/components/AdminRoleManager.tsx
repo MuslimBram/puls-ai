@@ -24,10 +24,6 @@ const ASSIGNABLE_ROLES: { value: AppRole; label: string; icon: React.ReactNode }
   { value: "moderator", label: "Moderator", icon: <Shield className="h-3 w-3" /> },
 ];
 
-// Platform admins may manage operational platform roles only.
-// Admin elevation itself stays behind the canonical request/approval workflow.
-const ADMIN_MANAGEABLE_ROLES: AppRole[] = ["admin", "controller", "worker", "moderator"];
-
 const ROLE_COLORS: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   super_admin: "destructive",
   admin: "default",
@@ -42,12 +38,10 @@ const ROLE_COLORS: Record<string, "default" | "secondary" | "destructive" | "out
 export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
   const queryClient = useQueryClient();
   const { log } = useAuditLog();
-  const { isAdmin, isSuperAdmin } = useRolePermissions();
+  const { isSuperAdmin } = useRolePermissions();
   const [selectedRole, setSelectedRole] = useState<AppRole>("admin");
-  const canManageRoles = isAdmin;
-  const canManageRole = (role: AppRole) =>
-    isSuperAdmin || (isAdmin && ADMIN_MANAGEABLE_ROLES.includes(role));
-  const visibleRoleOptions = ASSIGNABLE_ROLES;
+  const canManageRoles = isSuperAdmin;
+  const canManageRole = (role: AppRole) => isSuperAdmin && ASSIGNABLE_ROLES.some((r) => r.value === role);
 
   const rolesQuery = useQuery({
     queryKey: ["admin-all-user-roles"],
@@ -56,6 +50,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
       if (error) throw error;
       return data || [];
     },
+    enabled: canManageRoles,
   });
 
   const allRoles = rolesQuery.data ?? [];
@@ -63,7 +58,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
 
   const assignRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
-      if (!canManageRole(role)) throw new Error("You don't have permission to assign this role");
+      if (!canManageRole(role)) throw new Error("Only the platform owner can manage platform roles");
 
       if (role === "admin") {
         const { error } = await supabase.rpc("request_admin_role" as any, {
@@ -73,7 +68,7 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
         return "requested" as const;
       }
 
-      if (!(["controller", "worker", "moderator"] as AppRole[]).includes(role)) {
+      if (!( ["controller", "worker", "moderator"] as AppRole[]).includes(role)) {
         throw new Error("This role is not assignable from the platform admin UI");
       }
 
@@ -88,24 +83,14 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
       await log(result === "requested" ? "role_assignment_requested" : "role_assigned", "user", userId, { role });
       queryClient.invalidateQueries({ queryKey: ["admin-all-user-roles"] });
       queryClient.invalidateQueries({ queryKey: ["admin-audit-logs"] });
-      if (result === "requested") {
-        toast.success("Admin request submitted for approval");
-      } else {
-        toast.success(`Role "${role}" assigned successfully`);
-      }
+      toast.success(result === "requested" ? "Admin request submitted for approval" : `Role "${role}" assigned successfully`);
     },
-    onError: (e: Error) => {
-      if (e.message?.includes("duplicate") || e.message?.includes("already")) {
-        toast.error("User already has this role or a request is already pending");
-      } else {
-        toast.error(`Failed: ${e.message}`);
-      }
-    },
+    onError: (e: Error) => toast.error(`Failed: ${e.message}`),
   });
 
   const removeRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
-      if (!canManageRole(role as AppRole)) throw new Error("You don't have permission to remove this role");
+      if (!canManageRole(role as AppRole)) throw new Error("Only the platform owner can manage platform roles");
       const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", role as any);
       if (error) throw error;
     },
@@ -126,15 +111,15 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
           Role Management
         </CardTitle>
         <CardDescription>
-          {isAdmin
-            ? "Assign operational platform roles. Admin elevation requires the protected approval workflow."
-            : "Only platform admins can assign or remove platform roles."}
+          {isSuperAdmin
+            ? "Manage platform roles and protected admin elevation."
+            : "Platform role management is restricted to the platform owner."}
         </CardDescription>
       </CardHeader>
       <CardContent>
         {!canManageRoles ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
-            Platform role changes are restricted to platform administrators.
+            Platform role changes are restricted to the platform owner.
           </p>
         ) : profiles.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">No users found</p>
@@ -179,11 +164,9 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {visibleRoleOptions.map((r) => (
+                        {ASSIGNABLE_ROLES.map((r) => (
                           <SelectItem key={r.value} value={r.value}>
-                            <span className="flex items-center gap-1.5">
-                              {r.icon} {r.label}
-                            </span>
+                            <span className="flex items-center gap-1.5">{r.icon} {r.label}</span>
                           </SelectItem>
                         ))}
                       </SelectContent>
