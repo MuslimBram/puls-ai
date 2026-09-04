@@ -116,3 +116,5 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.leah-developer-hub]
     verify_jwt = false
+  [functions.leah-observability]
+    verify_jwt = false
