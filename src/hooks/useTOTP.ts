@@ -63,7 +63,7 @@ export const useTOTP = () => {
     mutationFn: async (token: string): Promise<VerifyResponse> => {
       if (!enrollData?.factorId) throw new Error("No pending authenticator enrollment");
       const { data, error } = await supabase.functions.invoke("totp-manage", {
-        body: { action: "verify_enroll", token },
+        body: { action: "verify_enroll", token, factor_id: enrollData.factorId },
       });
       if (error) {
         const context = (error as { context?: Response }).context;
