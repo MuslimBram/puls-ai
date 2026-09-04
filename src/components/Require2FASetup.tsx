@@ -1,11 +1,10 @@
 // Enforce mandatory MFA at the protected-app boundary.
-// The login page handles the interactive challenge; this guard closes
-// session-restore/OAuth/email-confirmation paths that could otherwise enter
-// the protected app at AAL1.
+// A verified TOTP factor is challenged in the existing browser session.
 
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { MandatoryMFAChallenge } from "@/components/MandatoryMFAChallenge";
 
 interface Props {
   children: React.ReactNode;
@@ -19,16 +18,19 @@ export const Require2FASetup = ({ children, requiredForRoles }: Props) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [checked, setChecked] = useState(false);
+  const [needsChallenge, setNeedsChallenge] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     if (EXEMPT_PATHS.some((path) => location.pathname.startsWith(path))) {
       setChecked(true);
+      setNeedsChallenge(false);
       return;
     }
 
     setChecked(false);
+    setNeedsChallenge(false);
 
     const check = async () => {
       try {
@@ -64,14 +66,11 @@ export const Require2FASetup = ({ children, requiredForRoles }: Props) => {
         }
 
         if (aal.nextLevel === "aal2") {
-          // A verified factor exists, but this session has not completed MFA.
-          // Return to the login challenge instead of rendering protected UI.
-          await supabase.auth.signOut();
+          // Keep the authenticated AAL1 session alive. Sign-out here destroys
+          // the very session that Supabase MFA challenge/verify needs.
           if (!cancelled) {
-            navigate(
-              `/login?next=${encodeURIComponent(location.pathname + location.search)}&reason=mfa_required`,
-              { replace: true },
-            );
+            setNeedsChallenge(true);
+            setChecked(true);
           }
           return;
         }
@@ -109,6 +108,17 @@ export const Require2FASetup = ({ children, requiredForRoles }: Props) => {
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
+    );
+  }
+
+  if (needsChallenge) {
+    return (
+      <MandatoryMFAChallenge
+        onVerified={() => {
+          setNeedsChallenge(false);
+          setChecked(true);
+        }}
+      />
     );
   }
 
