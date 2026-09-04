@@ -16,18 +16,6 @@ interface EnrollData {
   otpauthUrl: string;
 }
 
-interface VerifyResponse {
-  verified?: boolean;
-  enrolled?: boolean;
-  restart_required?: boolean;
-  reason?: string;
-  message?: string;
-  factorId?: string;
-  qrCode?: string;
-  secret?: string;
-  otpauthUrl?: string;
-}
-
 export const useTOTP = () => {
   const queryClient = useQueryClient();
   const [enrollData, setEnrollData] = useState<EnrollData | null>(null);
@@ -35,22 +23,39 @@ export const useTOTP = () => {
   const { data: status, isLoading } = useQuery<TotpStatus>({
     queryKey: ["totp-status"],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("totp-manage", {
-        body: { action: "status" },
-      });
+      const { data, error } = await supabase.auth.mfa.listFactors();
       if (error) throw error;
-      return data as TotpStatus;
+      const verified = data?.totp?.some((factor) => factor.status === "verified") ?? false;
+      return { enrolled: verified, verified, enrolledAt: null };
     },
   });
 
   const enroll = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.functions.invoke("totp-manage", {
-        body: { action: "enroll" },
+      const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+
+      const verified = factors?.totp?.find((factor) => factor.status === "verified");
+      if (verified) throw new Error("TOTP tashmë i konfiguruar");
+
+      const pending = factors?.totp?.find((factor) => factor.status === "unverified");
+      if (pending) {
+        const { error } = await supabase.auth.mfa.unenroll({ factorId: pending.id });
+        if (error) throw error;
+      }
+
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: "Pulse AI Authenticator",
       });
       if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data as EnrollData;
+
+      return {
+        factorId: data.id,
+        qrCode: data.totp.qr_code,
+        secret: data.totp.secret,
+        otpauthUrl: data.totp.uri,
+      } as EnrollData;
     },
     onSuccess: (data) => {
       setEnrollData(data);
@@ -60,32 +65,25 @@ export const useTOTP = () => {
   });
 
   const verify = useMutation({
-    mutationFn: async (token: string): Promise<VerifyResponse> => {
-      if (!enrollData?.factorId) throw new Error("No pending authenticator enrollment");
-      const { data, error } = await supabase.functions.invoke("totp-manage", {
-        body: { action: "verify_enroll", token, factor_id: enrollData.factorId },
+    mutationFn: async (token: string) => {
+      const factorId = enrollData?.factorId;
+      if (!factorId) throw new Error("No pending authenticator enrollment");
+      if (!/^\d{6}$/.test(token)) throw new Error("Kodi duhet të jetë 6 shifra");
+
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId });
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId,
+        challengeId: challenge.id,
+        code: token,
       });
-      if (error) {
-        const context = (error as { context?: Response }).context;
-        if (context) {
-          try {
-            const payload = await context.clone().json();
-            if (payload?.error) throw new Error(payload.error);
-          } catch (parseError) {
-            if (parseError instanceof Error && parseError.message !== "Unexpected end of JSON input") throw parseError;
-          }
-        }
-        throw error;
-      }
-      if (data?.error) throw new Error(data.error);
-      return data as VerifyResponse;
+      if (verifyError) throw verifyError;
+
+      await supabase.auth.refreshSession();
+      return { verified: true, enrolled: true };
     },
-    onSuccess: (data) => {
-      if (data?.restart_required && data.factorId && data.qrCode && data.secret && data.otpauthUrl) {
-        setEnrollData({ factorId: data.factorId, qrCode: data.qrCode, secret: data.secret, otpauthUrl: data.otpauthUrl });
-        toast.warning(data.message || "Rrjeti ndryshoi gjatë konfigurimit. Skano QR-në e re dhe provo përsëri.");
-        return;
-      }
+    onSuccess: () => {
       toast.success("2FA enabled successfully!");
       setEnrollData(null);
       queryClient.invalidateQueries({ queryKey: ["totp-status"] });
@@ -95,12 +93,26 @@ export const useTOTP = () => {
 
   const disable = useMutation({
     mutationFn: async (token: string) => {
-      const { data, error } = await supabase.functions.invoke("totp-manage", {
-        body: { action: "disable", token },
+      if (!/^\d{6}$/.test(token)) throw new Error("Kodi duhet të jetë 6 shifra");
+
+      const { data: factors, error: factorsError } = await supabase.auth.mfa.listFactors();
+      if (factorsError) throw factorsError;
+      const factor = factors?.totp?.find((item) => item.status === "verified");
+      if (!factor) throw new Error("TOTP nuk është konfiguruar");
+
+      const { data: challenge, error: challengeError } = await supabase.auth.mfa.challenge({ factorId: factor.id });
+      if (challengeError) throw challengeError;
+
+      const { error: verifyError } = await supabase.auth.mfa.verify({
+        factorId: factor.id,
+        challengeId: challenge.id,
+        code: token,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
+      if (verifyError) throw verifyError;
+
+      const { error: unenrollError } = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+      if (unenrollError) throw unenrollError;
+      return true;
     },
     onSuccess: () => {
       toast.success("2FA disabled");
