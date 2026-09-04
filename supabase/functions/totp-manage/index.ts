@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ factorId: enrollData.id, qrCode: enrollData.totp.qr_code, secret: enrollData.totp.secret, otpauthUrl: enrollData.totp.uri }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
-    if (action === "verify_enroll") return await verifyTotpFactor(req, supabaseClient, token, true);
+    if (action === "verify_enroll") return await verifyTotpFactor(req, supabaseClient, token, true, factor_id);
 
     if (action === "send_code") {
       const code = generateCode();
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ verified: true }), { headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
-    if (action === "verify_totp" || action === "verify") return await verifyTotpFactor(req, supabaseClient, token, false);
+    if (action === "verify_totp" || action === "verify") return await verifyTotpFactor(req, supabaseClient, token, false, factor_id);
 
     if (action === "check_totp_status") {
       const { data: factorsData } = await supabaseClient.auth.mfa.listFactors();
@@ -112,24 +112,23 @@ Deno.serve(async (req) => {
   }
 });
 
-async function verifyTotpFactor(req: Request, supabaseClient: ReturnType<typeof createClient>, token: string | undefined, allowUnverified: boolean): Promise<Response> {
+async function verifyTotpFactor(req: Request, supabaseClient: ReturnType<typeof createClient>, token: string | undefined, allowUnverified: boolean, requestedFactorId?: string): Promise<Response> {
   const headers = { ...getCors(req), "Content-Type": "application/json" };
   if (!token || token.length !== 6) return new Response(JSON.stringify({ error: "Kodi duhet të jetë 6 shifra" }), { status: 400, headers });
+
   const { data: factorsData, error: factorsError } = await supabaseClient.auth.mfa.listFactors();
   if (factorsError) throw factorsError;
+
   const unverified = factorsData?.totp?.find((f) => f.status === "unverified");
   const verified = factorsData?.totp?.find((f) => f.status === "verified");
-  const factor = allowUnverified && unverified ? unverified : verified;
+  const factor = requestedFactorId || (allowUnverified ? unverified?.id : verified?.id);
   if (!factor) return new Response(JSON.stringify({ error: "TOTP nuk është konfiguruar.", not_enrolled: true }), { status: 400, headers });
 
-  const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId: factor.id });
+  const { data: challengeData, error: challengeError } = await supabaseClient.auth.mfa.challenge({ factorId: factor });
   if (challengeError) {
     const errorCode = (challengeError as { code?: string }).code;
     if (allowUnverified && errorCode === "mfa_ip_address_mismatch") {
-      // Supabase binds MFA enrollment to the IP used when enrollment began.
-      // If the user's network changes, discard the stale unverified factor and
-      // issue a fresh QR/secret so setup can continue without a dead-end.
-      await supabaseClient.auth.mfa.unenroll({ factorId: factor.id });
+      await supabaseClient.auth.mfa.unenroll({ factorId: factor });
       const { data: reEnrollData, error: reEnrollError } = await supabaseClient.auth.mfa.enroll({ factorType: "totp", friendlyName: "Pulse AI Authenticator" });
       if (reEnrollError) throw reEnrollError;
       return new Response(JSON.stringify({
@@ -145,7 +144,7 @@ async function verifyTotpFactor(req: Request, supabaseClient: ReturnType<typeof 
     return new Response(JSON.stringify({ error: challengeError.message, code: errorCode ?? "mfa_challenge_failed" }), { status: 400, headers });
   }
 
-  const { error: verifyError } = await supabaseClient.auth.mfa.verify({ factorId: factor.id, challengeId: challengeData.id, code: token });
+  const { error: verifyError } = await supabaseClient.auth.mfa.verify({ factorId: factor, challengeId: challengeData.id, code: token });
   if (verifyError) return new Response(JSON.stringify({ error: verifyError.message, code: (verifyError as { code?: string }).code ?? "mfa_verification_failed" }), { status: 400, headers });
   return new Response(JSON.stringify({ verified: true, enrolled: true }), { headers });
 }
