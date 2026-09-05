@@ -188,6 +188,7 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/business-profile", label: "Business Profile", icon: Building2 },
       { href: "/branding", label: "Branding", icon: Paintbrush, requiredPermission: "canAccessBilling" },
       { href: "/session-security", label: "Security", icon: Shield },
+      { href: "/leah/providers", label: "LEAH Providers", icon: Key },
       { href: "/help-center", label: "Help", icon: HelpCircle },
     ],
   },
