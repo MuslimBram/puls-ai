@@ -14,7 +14,7 @@ function uuid(body:Record<string,unknown>,key:string){const v=text(body,key,64);
 function nullableInteger(body:Record<string,unknown>,key:string,max=20_000_000){const v=body[key];if(v===undefined||v===null)return null;const n=Number(v);if(!Number.isSafeInteger(n)||n<0||n>max)throw new Error(`Invalid ${key}`);return n;}
 function bool(body:Record<string,unknown>,key:string){const v=body[key];if(typeof v!=="boolean")throw new Error(`Invalid ${key}`);return v;}
 function objectField(body:Record<string,unknown>,key:string){const v=body[key];if(v===undefined||v===null)return{};if(!v||typeof v!=="object"||Array.isArray(v))throw new Error(`Invalid ${key}`);return v as Record<string,unknown>;}
-function rejectAuthorityInjection(body:Record<string,unknown>){for(const key of ["workspace_id","workspaceId","user_id","userId","api_key","apiKey","base_url","baseUrl","secret_id","secretId","model","billing_mode","billingMode"]){if(Object.prototype.hasOwnProperty.call(body,key))throw new Error(`${key} is server-derived`);}}
+function rejectAuthorityInjection(body:Record<string,unknown>){for(const key of ["workspace_id","workspaceId","user_id","userId","api_key","apiKey","base_url","baseUrl","secret_id","secretId","provider","model","billing_mode","billingMode"]){if(Object.prototype.hasOwnProperty.call(body,key))throw new Error(`${key} is server-derived`);}}
 function usageArgs(u:{inputTokens:number|null;outputTokens:number|null;totalTokens:number|null;usageSource:string}){return {_usage_source:u.usageSource,_input_tokens:u.inputTokens,_output_tokens:u.outputTokens,_total_tokens:u.totalTokens};}
 
 serve(async(req)=>{
@@ -59,8 +59,35 @@ serve(async(req)=>{
     }
 
     if(action!=="generate")throw new Error("Unknown LEAH provider proxy action");
-    attemptId=uuid(body,"attempt_id");logicalRequestId=uuid(body,"logical_request_id");provider=parseProviderId(text(body,"provider",40));
-    const system=text(body,"system",20000);const user=text(body,"user",250000);startedAt=Date.now();
+    attemptId=uuid(body,"attempt_id");logicalRequestId=uuid(body,"logical_request_id");
+    const system=text(body,"system",20000);const user=text(body,"user",250000);
+    const capability=optionalText(body,"capability",80)??"general";
+    const estimatedInputTokens=nullableInteger(body,"estimated_input_tokens",10_000_000)??Math.max(1,Math.ceil(user.length/4));
+    const estimatedOutputTokens=nullableInteger(body,"estimated_output_tokens",10_000_000)??1024;
+    startedAt=Date.now();
+
+    // Orchestration is authoritative: the worker cannot choose a provider/model.
+    const {data:routed,error:routeError}=await admin.rpc("leah_route_provider_for_task",{
+      _task_id:taskId,
+      _lease_token:leaseToken,
+      _logical_request_id:logicalRequestId,
+      _capability:capability,
+      _estimated_input_tokens:estimatedInputTokens,
+      _estimated_output_tokens:estimatedOutputTokens,
+    });
+    if(routeError)throw routeError;
+    if(!routed||typeof routed!=="object")throw new Error("LEAH routing decision unavailable");
+    const decision=routed as Record<string,unknown>;
+    if(decision.decision==="approval_required"){
+      return json({
+        error:"ai_spend_approval_required",
+        approval_request_id:typeof decision.approval_request_id==="string"?decision.approval_request_id:null,
+        provider:typeof decision.provider==="string"?decision.provider:null,
+        model:typeof decision.model==="string"?decision.model:null,
+        estimated_cost_micros:typeof decision.estimated_cost_micros==="number"?decision.estimated_cost_micros:null,
+      },402);
+    }
+    provider=parseProviderId(typeof decision.provider==="string"?decision.provider:"");
 
     const {data:resolved,error:resolveError}=await admin.rpc("leah_resolve_byok_provider_for_task",{_task_id:taskId,_lease_token:leaseToken,_provider:provider});
     if(resolveError)throw resolveError;
@@ -70,7 +97,7 @@ serve(async(req)=>{
     const apiKey=typeof credential.secret_value==="string"?credential.secret_value:"";
     if(!model||!apiKey)throw new Error("Secret unavailable");
 
-    const {error:beginError}=await admin.rpc("leah_begin_provider_attempt",{_task_id:taskId,_lease_token:leaseToken,_logical_request_id:logicalRequestId,_attempt_id:attemptId,_billing_mode:"byok",_provider:provider,_model:model,_reservation_id:null,_metadata:{proxy:"pulse",credential_scope:"task-derived"}});
+    const {error:beginError}=await admin.rpc("leah_begin_provider_attempt",{_task_id:taskId,_lease_token:leaseToken,_logical_request_id:logicalRequestId,_attempt_id:attemptId,_billing_mode:"byok",_provider:provider,_model:model,_reservation_id:null,_metadata:{proxy:"pulse",credential_scope:"task-derived",orchestration:"leah"}});
     if(beginError)throw beginError;admitted=true;
 
     let result;

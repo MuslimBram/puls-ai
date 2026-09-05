@@ -125,6 +125,7 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
       { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
       { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
+      { href: "/leah/providers", label: "LEAH", icon: Brain, allowedRoles: ["admin", "super_admin"] },
     ],
   },
   {
@@ -359,4 +360,3 @@ export function getNavGroupsForRoles(roles: string[]): NavGroup[] {
   // This is deliberately least-privilege; route guards remain authoritative.
   return sets.length > 0 ? mergeGroups(...sets) : [];
 }
-
