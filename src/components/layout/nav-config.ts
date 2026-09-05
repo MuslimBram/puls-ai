@@ -125,7 +125,7 @@ export const businessNavGroups: NavGroup[] = [
       { href: "/leads", label: "Leads", icon: Target, requiredPermission: "canViewCRM" },
       { href: "/crm", label: "CRM", icon: Briefcase, requiredPermission: "canViewCRM" },
       { href: "/lidhjet", label: "Lidhjet", icon: Globe, badge: "FREE" },
-      { href: "/leah/providers", label: "LEAH", icon: Brain, allowedRoles: ["admin", "super_admin"] },
+      { href: "/leah", label: "LEAH", icon: Brain },
     ],
   },
   {
