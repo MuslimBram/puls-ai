@@ -82,9 +82,9 @@ CREATE POLICY "Users can update own subscription" ON public.subscriptions FOR UP
 CREATE TRIGGER update_subscriptions_updated_at BEFORE UPDATE ON public.subscriptions FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
 
 -- User roles for admin panel (Phase 7)
-CREATE TYPE public.app_role AS ENUM ('admin', 'moderator', 'user');
+-- app_role is created by the staging compatibility baseline.
 
-CREATE TABLE public.user_roles (
+CREATE TABLE IF NOT EXISTS public.user_roles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   role app_role NOT NULL,
