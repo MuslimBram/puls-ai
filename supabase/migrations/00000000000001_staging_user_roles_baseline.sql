@@ -7,6 +7,8 @@ EXCEPTION WHEN duplicate_object THEN
   NULL;
 END $$;
 
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'super_admin';
+
 CREATE TABLE IF NOT EXISTS public.user_roles (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
