@@ -258,60 +258,32 @@ const App = () => (
                 <Route path="/complete-payment" element={<ProtectedRoute><Suspense fallback={<LazyFallback />}><CompletePayment /></Suspense></ProtectedRoute>} />
 
                 <Route path="/:locale" element={<PublicLocaleLayout />}>
-                  <Route index element={<Index />} />
-                  <Route path="pricing" element={<Pricing />} />
+                  <Route path="privacy" element={<PrivacyPolicy />} />
+                  <Route path="terms" element={<TermsOfService />} />
+                  <Route path="security" element={<SecurityOverview />} />
+                  <Route path="cookies" element={<CookiePolicy />} />
+                  <Route path="refund" element={<RefundPolicy />} />
+                  <Route path="affiliate-terms" element={<AffiliateTerms />} />
+                  <Route path="dpa" element={<DPA />} />
+                  <Route path="terms-and-payments" element={<TermsAndPayments />} />
                   <Route path="white-label" element={<WhiteLabel />} />
-                  <Route path="about" element={<Suspense fallback={<LazyFallback />}><About /></Suspense>} />
-                  <Route path="contact" element={<Suspense fallback={<LazyFallback />}><Contact /></Suspense>} />
-                  <Route path="platform" element={<Suspense fallback={<LazyFallback />}><PlatformHub /></Suspense>} />
-                  <Route path="platform/ai" element={<Suspense fallback={<LazyFallback />}><PlatformAi /></Suspense>} />
-                  <Route path="platform/unified-inbox" element={<Suspense fallback={<LazyFallback />}><PlatformInbox /></Suspense>} />
-                  <Route path="platform/crm" element={<Suspense fallback={<LazyFallback />}><PlatformCrm /></Suspense>} />
-                  <Route path="platform/marketing" element={<Suspense fallback={<LazyFallback />}><PlatformMarketing /></Suspense>} />
-                  <Route path="platform/automation" element={<Suspense fallback={<LazyFallback />}><PlatformAutomation /></Suspense>} />
-                  <Route path="platform/analytics" element={<Suspense fallback={<LazyFallback />}><PlatformAnalytics /></Suspense>} />
-                  <Route path="platform/developers" element={<Suspense fallback={<LazyFallback />}><PlatformDevelopers /></Suspense>} />
-                  <Route path="platform/partners" element={<Suspense fallback={<LazyFallback />}><PlatformPartners /></Suspense>} />
-                  <Route path="platform/lidhjet" element={<Suspense fallback={<LazyFallback />}><PlatformLidhjet /></Suspense>} />
-                  <Route path="privacy" element={<Suspense fallback={<LazyFallback />}><PrivacyPolicy /></Suspense>} />
-                  <Route path="terms" element={<Suspense fallback={<LazyFallback />}><TermsOfService /></Suspense>} />
-                  <Route path="security" element={<Suspense fallback={<LazyFallback />}><SecurityOverview /></Suspense>} />
-                  <Route path="cookies" element={<Suspense fallback={<LazyFallback />}><CookiePolicy /></Suspense>} />
-                  <Route path="refund" element={<Suspense fallback={<LazyFallback />}><RefundPolicy /></Suspense>} />
-                  <Route path="affiliate-terms" element={<Suspense fallback={<LazyFallback />}><AffiliateTerms /></Suspense>} />
-                  <Route path="dpa" element={<Suspense fallback={<LazyFallback />}><DPA /></Suspense>} />
-                  <Route path="terms-and-payments" element={<Suspense fallback={<LazyFallback />}><TermsAndPayments /></Suspense>} />
-                  <Route path="*" element={<NotFound />} />
+                  <Route path="about" element={<About />} />
+                  <Route path="contact" element={<Contact />} />
+                  <Route path="pricing" element={<Pricing />} />
                 </Route>
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-                <Route path="/inbox" element={<PermissionPage permission="canRespondInbox"><Inbox /></PermissionPage>} />
+                <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
                 <Route path="/leads" element={<PermissionPage permission="canViewCRM"><Leads /></PermissionPage>} />
-                <Route path="/crm" element={<PermissionPage permission="canViewCRM"><CRM /></PermissionPage>} />
-                <Route path="/campaigns" element={<PermissionPage permission="canManageCampaigns"><Campaigns /></PermissionPage>} />
-                <Route path="/analytics" element={<PermissionPage permission="canViewAnalytics"><Analytics /></PermissionPage>} />
                 <Route path="/keywords" element={<PermissionPage permission="canViewAnalytics"><Keywords /></PermissionPage>} />
-                <Route path="/automations" element={<PermissionPage permission="canConfigureAutomations"><Automations /></PermissionPage>} />
-                <Route path="/competitor-intelligence" element={<PermissionPage permission="canViewAnalytics"><CompetitorIntelligence /></PermissionPage>} />
-                <Route path="/seo-audit" element={<PermissionPage permission="canViewAnalytics"><SEOAudit /></PermissionPage>} />
-                <Route path="/knowledge-base" element={<PermissionPage permission="canViewAnalytics"><KnowledgeBase /></PermissionPage>} />
-                <Route path="/media-studio" element={<PermissionPage permission="canManageCampaigns"><MediaStudio /></PermissionPage>} />
-                <Route path="/ai-marketplace" element={<PermissionPage permission="canConfigureAutomations"><AIMarketplace /></PermissionPage>} />
-                <Route path="/ai-training" element={<PermissionPage permission="canConfigureAutomations"><AITrainingCenter /></PermissionPage>} />
-                <Route path="/ai-setup" element={<PermissionPage permission="canConfigureAutomations"><AISetupAssistant /></PermissionPage>} />
-                <Route path="/integration-wizard" element={<PermissionPage permission="canConnectChannels"><IntegrationWizard /></PermissionPage>} />
-                <Route path="/broadcast" element={<PermissionPage permission="canManageCampaigns"><BroadcastMessaging /></PermissionPage>} />
-                <Route path="/helpdesk" element={<PermissionPage permission="canRespondInbox"><Helpdesk /></PermissionPage>} />
-                <Route path="/telephony" element={<PermissionPage permission="canRespondInbox"><Telephony /></PermissionPage>} />
                 <Route path="/channels" element={<PermissionPage permission="canConnectChannels"><Channels /></PermissionPage>} />
-                <Route path="/oauth/callback" element={<Suspense fallback={<LazyFallback />}><OAuthCallback /></Suspense>} />
                 <Route path="/connections" element={<PermissionPage permission="canConnectChannels"><ConnectionsHub /></PermissionPage>} />
                 <Route path="/connected-accounts" element={<PermissionPage permission="canConnectChannels"><ConnectedAccounts /></PermissionPage>} />
-                <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
+                <Route path="/analytics" element={<PermissionPage permission="canViewAnalytics"><Analytics /></PermissionPage>} />
                 <Route path="/subscription" element={<PermissionPage permission="canAccessBilling"><Subscription /></PermissionPage>} />
                 <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
                 <Route path="/session-security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
-                <Route path="/leah/providers" element={<ProtectedPage><LeahProviderSettings /></ProtectedPage>} />
+                <Route path="/leah/providers" element={<AdminPage><LeahProviderSettings /></AdminPage>} />
                 <Route path="/branding" element={<PermissionPage permission="canAccessBilling"><Branding /></PermissionPage>} />
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
                 <Route path="/admin/lidhjet" element={<AdminPage><LidhjetAdminModeration /></AdminPage>} />
@@ -360,7 +332,6 @@ const App = () => (
                 <Route path="/system-status" element={<ProtectedPage><SystemStatus /></ProtectedPage>} />
                 <Route path="/wallet" element={<ProtectedPage><WalletPage /></ProtectedPage>} />
                 <Route path="/external-integrations" element={<Navigate to="/connected-accounts?tab=integrations" replace />} />
-
                 <Route path="/contact-hub" element={<Navigate to="/crm?tab=contacts" replace />} />
                 <Route path="/call-history" element={<Navigate to="/crm?tab=calls" replace />} />
                 <Route path="/content-calendar" element={<PermissionPage permission="canManageCampaigns"><Suspense fallback={<LazyFallback />}><ContentCalendar /></Suspense></PermissionPage>} />
@@ -377,10 +348,9 @@ const App = () => (
                 <Route path="/admin/support-tickets" element={<AdminPage><AdminSupportTickets /></AdminPage>} />
                 <Route path="/partner-clients" element={<Navigate to="/partner" replace />} />
                 <Route path="/business-insights" element={<Navigate to="/deep-analytics?tab=insights" replace />} />
-
                 <Route path="/waiting-approval" element={<Suspense fallback={<LazyFallback />}><WaitingApproval /></Suspense>} />
-        <Route path="/landing" element={<Suspense fallback={<LazyFallback />}><Landing /></Suspense>} />
-        <Route path="*" element={<NotFound />} />
+                <Route path="/landing" element={<Suspense fallback={<LazyFallback />}><Landing /></Suspense>} />
+                <Route path="*" element={<NotFound />} />
               </Routes>
                 </main>
                 <GlobalFooter />
