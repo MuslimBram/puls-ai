@@ -1,5 +1,5 @@
 
-CREATE TABLE public.admin_saved_scans (
+CREATE TABLE IF NOT EXISTS public.admin_saved_scans (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL,
   scan_name text NOT NULL,
@@ -16,12 +16,16 @@ CREATE TABLE public.admin_saved_scans (
 
 ALTER TABLE public.admin_saved_scans ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Admins can manage saved scans" ON public.admin_saved_scans;
+
 CREATE POLICY "Admins can manage saved scans"
   ON public.admin_saved_scans
   FOR ALL
   TO authenticated
   USING (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'business_owner'))
   WITH CHECK (public.has_role(auth.uid(), 'admin') OR public.has_role(auth.uid(), 'business_owner'));
+
+DROP TRIGGER IF EXISTS set_updated_at_admin_saved_scans ON public.admin_saved_scans;
 
 CREATE TRIGGER set_updated_at_admin_saved_scans
   BEFORE UPDATE ON public.admin_saved_scans
