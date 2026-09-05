@@ -2,6 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { localizePublicPath, normalizePublicLocale } from "@/lib/publicLocale";
+import LeahChatRuntime from "./LeahChatRuntime";
 
 const NotFound = () => {
   const location = useLocation();
@@ -10,8 +11,12 @@ const NotFound = () => {
   const homeHref = localizePublicPath("/", normalizePublicLocale(localeMatch?.[1]));
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    if (location.pathname !== "/leah") {
+      console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    }
   }, [location.pathname]);
+
+  if (location.pathname === "/leah") return <LeahChatRuntime />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted">
