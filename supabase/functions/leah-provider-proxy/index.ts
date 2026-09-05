@@ -66,7 +66,7 @@ serve(async(req)=>{
     const estimatedOutputTokens=nullableInteger(body,"estimated_output_tokens",10_000_000)??1024;
     startedAt=Date.now();
 
-    -- orchestration is authoritative: the worker cannot choose a provider/model.
+    // Orchestration is authoritative: the worker cannot choose a provider/model.
     const {data:routed,error:routeError}=await admin.rpc("leah_route_provider_for_task",{
       _task_id:taskId,
       _lease_token:leaseToken,
