@@ -1,0 +1,47 @@
+-- STAGING-ONLY compatibility baseline for migration replay.
+-- Production already has this relation; this creates it only when a fresh
+-- preview branch replays migrations without the historical baseline.
+CREATE TABLE IF NOT EXISTS public.pricing_settings (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  plan_key text NOT NULL UNIQUE,
+  monthly_price numeric NOT NULL DEFAULT 0,
+  annual_price numeric NOT NULL DEFAULT 0,
+  is_donation boolean NOT NULL DEFAULT false,
+  donation_label text,
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by uuid,
+  daily_image_limit integer NOT NULL DEFAULT 5,
+  daily_video_limit integer NOT NULL DEFAULT 3,
+  max_video_seconds integer NOT NULL DEFAULT 10,
+  social_profiles_limit integer,
+  channels_limit integer,
+  keywords_limit integer,
+  keywords_per_group_limit integer,
+  ai_replies_per_day_limit integer,
+  team_members_limit integer,
+  conversation_history_days integer,
+  leads_per_month_limit integer,
+  automation_rules_limit integer,
+  feature_entitlements jsonb NOT NULL DEFAULT '{}'::jsonb,
+  plan_name text,
+  plan_label text,
+  plan_description text,
+  cta_label text,
+  badge_label text,
+  sort_order integer,
+  highlight_plan boolean NOT NULL DEFAULT false,
+  is_public boolean NOT NULL DEFAULT true,
+  stripe_price_id text,
+  stripe_product_id text,
+  billing_interval text NOT NULL DEFAULT 'month',
+  daily_video_seconds_limit integer NOT NULL DEFAULT 0,
+  currency text NOT NULL DEFAULT 'EUR',
+  monthly_price_eur numeric,
+  monthly_price_usd numeric,
+  monthly_price_all numeric,
+  annual_price_eur numeric,
+  annual_price_usd numeric,
+  annual_price_all numeric
+);
+
+ALTER TABLE public.pricing_settings ENABLE ROW LEVEL SECURITY;
