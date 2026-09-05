@@ -65,6 +65,7 @@ const CompetitorIntelligence = lazy(() => import("./pages/CompetitorIntelligence
 const PartnerDashboard = lazy(() => import("./pages/PartnerDashboard"));
 const SessionSecurity = lazy(() => import("./pages/SessionSecurity"));
 const LeahProviderSettings = lazy(() => import("./pages/LeahProviderSettings"));
+const LeahChatRuntime = lazy(() => import("./pages/LeahChatRuntime"));
 const CRM = lazy(() => import("./pages/CRM"));
 const Helpdesk = lazy(() => import("./pages/Helpdesk"));
 const BroadcastMessaging = lazy(() => import("./pages/BroadcastMessaging"));
@@ -283,6 +284,7 @@ const App = () => (
                 <Route path="/subscription" element={<PermissionPage permission="canAccessBilling"><Subscription /></PermissionPage>} />
                 <Route path="/partner" element={<ProtectedPage><PartnerDashboard /></ProtectedPage>} />
                 <Route path="/session-security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
+                <Route path="/leah" element={<ProtectedPage><LeahChatRuntime /></ProtectedPage>} />
                 <Route path="/leah/providers" element={<AdminPage><LeahProviderSettings /></AdminPage>} />
                 <Route path="/branding" element={<PermissionPage permission="canAccessBilling"><Branding /></PermissionPage>} />
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
