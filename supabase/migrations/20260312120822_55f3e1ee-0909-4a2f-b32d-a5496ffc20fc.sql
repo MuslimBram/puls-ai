@@ -1,6 +1,6 @@
 
 -- Pipeline stages (customizable per workspace)
-CREATE TABLE public.pipeline_stages (
+CREATE TABLE IF NOT EXISTS public.pipeline_stages (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
   user_id UUID NOT NULL,
@@ -19,7 +19,7 @@ CREATE POLICY "Users can manage own pipeline_stages" ON public.pipeline_stages
   WITH CHECK (auth.uid() = user_id);
 
 -- Deals table
-CREATE TABLE public.deals (
+CREATE TABLE IF NOT EXISTS public.deals (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
   user_id UUID NOT NULL,
@@ -51,7 +51,7 @@ CREATE POLICY "Users can manage own deals" ON public.deals
   WITH CHECK (auth.uid() = user_id);
 
 -- Deal notes
-CREATE TABLE public.deal_notes (
+CREATE TABLE IF NOT EXISTS public.deal_notes (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   deal_id UUID NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
   user_id UUID NOT NULL,
@@ -68,7 +68,7 @@ CREATE POLICY "Users can manage own deal_notes" ON public.deal_notes
   WITH CHECK (auth.uid() = user_id);
 
 -- Deal tasks (follow-ups, reminders)
-CREATE TABLE public.deal_tasks (
+CREATE TABLE IF NOT EXISTS public.deal_tasks (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   deal_id UUID NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
   user_id UUID NOT NULL,
@@ -89,7 +89,7 @@ CREATE POLICY "Users can manage own deal_tasks" ON public.deal_tasks
   WITH CHECK (auth.uid() = user_id);
 
 -- Deal activity log
-CREATE TABLE public.deal_activities (
+CREATE TABLE IF NOT EXISTS public.deal_activities (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   deal_id UUID NOT NULL REFERENCES public.deals(id) ON DELETE CASCADE,
   user_id UUID NOT NULL,
