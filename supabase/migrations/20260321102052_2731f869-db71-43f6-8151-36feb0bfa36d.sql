@@ -30,4 +30,5 @@ INSERT INTO pricing_settings (
   399, 3120, false, true, false, 4, 'Na kontakto', null,
   -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
   '{"basicPublishing":true,"basicAnalytics":true,"unifiedInbox":true,"keywordMonitoring":true,"coreIntegrations":true,"savedReplies":true,"mediaGeneration":true,"bulkScheduling":true,"instagramGridPlanning":true,"aiContentEnhancement":true,"campaignTagging":true,"approvalWorkflow":true,"messageTagging":true,"engagementReporting":true,"competitorReports":true,"customBrandingReports":true,"ecommerceIntegrations":true,"advancedPermissions":true,"automationWorkflows":true,"chatbotAutomation":true,"sentimentClassification":true,"caseRouting":true,"teamProductivityReports":true,"automationRuleBuilder":true,"biIntegrations":true,"scheduledReportsDelivery":true,"crmIntegrations":true,"apiAccess":true,"advancedSecurity":true,"ipWhitelisting":true,"customOnboarding":true,"slaSupport":true,"dedicatedSuccessManager":true,"whiteLabel":true,"advancedAnalytics":true,"fullReporting":true,"prioritySupport":true}'::jsonb
-);
+ )
+ON CONFLICT (plan_key) DO NOTHING;
