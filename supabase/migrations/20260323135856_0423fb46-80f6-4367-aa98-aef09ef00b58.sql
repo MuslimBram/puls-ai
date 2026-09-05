@@ -36,5 +36,9 @@ CREATE POLICY "Admins can delete roles" ON public.user_roles
 
 -- Bootstrap: assign admin role to user Muslim Brami
 INSERT INTO public.user_roles (user_id, role)
-VALUES ('7eea0089-cb78-4b95-ba86-8d6c6ca00798', 'admin')
+SELECT '7eea0089-cb78-4b95-ba86-8d6c6ca00798'::uuid, 'admin'::public.app_role
+WHERE EXISTS (
+  SELECT 1 FROM auth.users
+  WHERE id = '7eea0089-cb78-4b95-ba86-8d6c6ca00798'::uuid
+)
 ON CONFLICT (user_id, role) DO NOTHING;
