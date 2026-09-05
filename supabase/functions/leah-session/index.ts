@@ -59,12 +59,16 @@ serve(async (req) => {
     if (accessError) throw accessError;
     if (!hasAccess) return json(req, { error: "Workspace access denied" }, 403);
 
-    const { data: role, error: roleError } = await admin.rpc("leah_role_for_user", {
+    const { data: resolvedRole, error: roleError } = await admin.rpc("leah_role_for_user", {
       _user_id: user.id,
       _workspace_id: workspaceId,
     });
     if (roleError) throw roleError;
-    if (!role) return json(req, { error: "Workspace access denied" }, 403);
+    if (!resolvedRole) return json(req, { error: "Workspace access denied" }, 403);
+    const { data: globalRoles, error: globalRoleError } = await admin.from("user_roles").select("role").eq("user_id", user.id);
+    if (globalRoleError) throw globalRoleError;
+    const role = (globalRoles ?? []).some((row) => row.role === "super_admin") ? "super_admin" :
+      (globalRoles ?? []).some((row) => row.role === "admin") ? "admin" : resolvedRole;
 
     const isAdmin = ADMIN_ROLES.has(role);
     const { data: entitlement, error: entitlementError } = await admin
