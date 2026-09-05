@@ -17,3 +17,16 @@ CREATE TABLE IF NOT EXISTS public.user_roles (
 );
 
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
+
+-- Minimal tenant compatibility table required by later staging migrations.
+-- This table is intentionally empty; production schema is not changed.
+CREATE TABLE IF NOT EXISTS public.workspaces (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  name text NOT NULL DEFAULT 'Staging workspace',
+  slug text,
+  plan text NOT NULL DEFAULT 'free',
+  status text NOT NULL DEFAULT 'active',
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
