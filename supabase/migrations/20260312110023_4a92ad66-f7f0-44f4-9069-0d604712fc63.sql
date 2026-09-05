@@ -56,7 +56,9 @@ CREATE POLICY "Users can update own knowledge_chunks" ON public.knowledge_chunks
 CREATE POLICY "Users can delete own knowledge_chunks" ON public.knowledge_chunks FOR DELETE TO authenticated USING (auth.uid() = user_id);
 
 -- Storage bucket for document uploads
-INSERT INTO storage.buckets (id, name, public, file_size_limit) VALUES ('knowledge-documents', 'knowledge-documents', false, 20971520);
+INSERT INTO storage.buckets (id, name, public, file_size_limit)
+VALUES ('knowledge-documents', 'knowledge-documents', false, 20971520)
+ON CONFLICT (id) DO NOTHING;
 
 -- Storage RLS: users can upload/read/delete their own files
 CREATE POLICY "Users can upload knowledge documents" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'knowledge-documents' AND (storage.foldername(name))[1] = auth.uid()::text);
