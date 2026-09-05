@@ -4,7 +4,7 @@
 -- =============================================
 
 -- Create workspaces table
-CREATE TABLE public.workspaces (
+CREATE TABLE IF NOT EXISTS public.workspaces (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   slug TEXT UNIQUE,
@@ -16,7 +16,7 @@ CREATE TABLE public.workspaces (
 ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
 
 -- Create workspace_members table
-CREATE TABLE public.workspace_members (
+CREATE TABLE IF NOT EXISTS public.workspace_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -97,20 +97,20 @@ CREATE POLICY "Admins can view all members" ON public.workspace_members
   USING (public.has_role(auth.uid(), 'admin'));
 
 -- Add workspace_id to all core tables (nullable for backward compatibility)
-ALTER TABLE public.leads ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.inbox_messages ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.channels ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.keywords ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.business_profiles ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.content_posts ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.content_ideas ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.content_knowledge ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.knowledge_sources ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.knowledge_chunks ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.ai_conversations ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.reply_drafts ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.reply_templates ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
-ALTER TABLE public.subscriptions ADD COLUMN workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.leads ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.inbox_messages ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.channels ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.keywords ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.business_profiles ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.content_posts ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.content_ideas ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.content_knowledge ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.knowledge_sources ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.knowledge_chunks ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.ai_conversations ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.reply_drafts ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.reply_templates ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
+ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE;
 
 -- Create indexes for workspace_id on high-traffic tables
 CREATE INDEX idx_leads_workspace ON public.leads(workspace_id);
@@ -157,7 +157,7 @@ $$;
 -- PRIORITY 5: Audit Logging
 -- =============================================
 
-CREATE TABLE public.audit_logs (
+CREATE TABLE IF NOT EXISTS public.audit_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   actor_id UUID NOT NULL,
   action TEXT NOT NULL,
