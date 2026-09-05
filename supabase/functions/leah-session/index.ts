@@ -8,6 +8,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const SESSION_TTL_MS = 60 * 60 * 1000;
 const HANDOFF_TTL_MS = 60 * 1000;
 const ACTIVE_ENTITLEMENT_STATUSES = new Set(["trial", "active", "grace"]);
+const ADMIN_ROLES = new Set(["owner", "admin", "super_admin"]);
 
 const admin = createAdminClient();
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
@@ -65,29 +66,31 @@ serve(async (req) => {
     if (roleError) throw roleError;
     if (!role) return json(req, { error: "Workspace access denied" }, 403);
 
+    const isAdmin = ADMIN_ROLES.has(role);
     const { data: entitlement, error: entitlementError } = await admin
       .from("leah_workspace_entitlements")
       .select("status, valid_until, concurrency_limit, included_monthly_tokens, storage_bytes_limit")
       .eq("workspace_id", workspaceId)
       .maybeSingle();
     if (entitlementError) throw entitlementError;
-    if (!entitlement || !ACTIVE_ENTITLEMENT_STATUSES.has(entitlement.status)) {
-      return json(req, { error: "LEAH entitlement is not active" }, 403);
-    }
-    if (entitlement.valid_until && Date.parse(entitlement.valid_until) <= Date.now()) {
-      return json(req, { error: "LEAH entitlement has expired" }, 403);
+
+    if (!isAdmin) {
+      if (!entitlement || !ACTIVE_ENTITLEMENT_STATUSES.has(entitlement.status)) {
+        return json(req, { error: "LEAH entitlement is not active" }, 403);
+      }
+      if (entitlement.valid_until && Date.parse(entitlement.valid_until) <= Date.now()) {
+        return json(req, { error: "LEAH entitlement has expired" }, 403);
+      }
     }
 
     const now = new Date().toISOString();
     const limits = {
-      concurrency: entitlement.concurrency_limit,
-      included_monthly_tokens: entitlement.included_monthly_tokens,
-      storage_bytes: entitlement.storage_bytes_limit,
+      concurrency: entitlement?.concurrency_limit ?? null,
+      included_monthly_tokens: entitlement?.included_monthly_tokens ?? null,
+      storage_bytes: entitlement?.storage_bytes_limit ?? null,
     };
 
     if (mode === "handoff") {
-      // Expired tickets are disposable. Consumed tickets remain as a short audit trace
-      // until their normal retention cleanup is introduced.
       const { error: cleanupError } = await admin
         .from("leah_handoff_tickets")
         .delete()
