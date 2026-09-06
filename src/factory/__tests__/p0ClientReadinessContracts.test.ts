@@ -67,7 +67,7 @@ describe("P0 client-readiness contracts", () => {
     const currency = read("src/lib/currency.ts");
 
     expect(completePayment).toContain("<ManualPaymentFlow");
-    expect(completePayment).toContain("Bank Transfer / Payoneer / Courier");
+    expect(completePayment).toContain("Bank transfer · Payoneer · Courier / COD");
     expect(completePayment).toContain("Card (Stripe)");
     expect(completePayment).toContain("Not configured");
     expect(manualPayment).toContain("cash_on_delivery_ALL");
@@ -81,6 +81,8 @@ describe("P0 client-readiness contracts", () => {
     const duration = read("src/components/pricing/PricingDurationSelector.tsx");
     const payment = read("src/pages/CompletePayment.tsx");
     const adminPricing = read("src/components/AdminPricingManager.tsx");
+    const adminRoleManager = read("src/components/AdminRoleManager.tsx");
+    const workspaceTeamRoles = read("src/components/WorkspaceTeamRoles.tsx");
 
     expect(subscription).toContain("No charge · Admin access");
     expect(subscription).toContain("/complete-payment?plan=");
@@ -90,6 +92,10 @@ describe("P0 client-readiness contracts", () => {
     expect(payment).toContain('["ALL", "EUR", "USD"]');
     expect(adminPricing).toContain("Monthly (EUR)");
     expect(adminPricing).toContain("Monthly (USD)");
+    expect(adminRoleManager).toContain("approve_admin_role");
+    expect(adminRoleManager).toContain("AI: {request.ai_status}");
+    expect(workspaceTeamRoles).toContain("const canManagePlatformAdmins = isSuperAdmin;");
+    expect(workspaceTeamRoles).toContain("Only the Owner can submit or change platform Admin roles");
   });
 
   it("resolves platform admins to the Enterprise capability tier", () => {
