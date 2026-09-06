@@ -75,7 +75,7 @@ serve(async (req) => {
     ]);
 
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin") || roles.includes("business_owner");
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
 
     const planMap: Record<string, string> = { free: "standard", pro: "professional" };
     const plan = hasPrivilegedBypass ? "enterprise" : (planMap[sub?.plan || "standard"] || sub?.plan || "standard");
