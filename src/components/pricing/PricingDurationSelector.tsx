@@ -34,6 +34,7 @@ export const PricingDurationSelector = ({ value, onChange }: PricingDurationSele
       onSelect={onChange}
       ariaLabel="Commitment term"
       rotationInterval={2500}
+      direction="reverse"
       centralContent={(focusedItem) => (
         <div className="flex flex-col items-center gap-2 px-2 text-center">
           <span className="text-[10px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
