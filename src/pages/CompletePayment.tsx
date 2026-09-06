@@ -177,7 +177,6 @@ const CompletePayment = () => {
 
   const walletBalance = wallets?.[0]?.current_balance ?? 0;
   const canPayFromWallet = walletBalance >= discountedPrice && discountedPrice > 0;
-  const hasReferralEarnings = walletBalance > 0;
   const stripeConfigured = Boolean(currentTier?.stripePriceId);
 
   const handleTrialStart = async () => {
