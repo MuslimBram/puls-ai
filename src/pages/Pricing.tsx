@@ -16,7 +16,7 @@ import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useMonetizationCatalog, useEnterpriseLeadSubmission } from "@/hooks/useMonetizationCatalog";
 import { useSubscription } from "@/hooks/useSubscription";
 import { useConversionTracking } from "@/hooks/useConversionTracking";
-import { getPackageVariant, getPackageTotalPrice, formatCommitmentLabel } from "@/lib/packagePricing";
+import { getPackageVariant } from "@/lib/packagePricing";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Building2, Heart, Loader2, Mail, ShieldCheck, Sparkles } from "lucide-react";
