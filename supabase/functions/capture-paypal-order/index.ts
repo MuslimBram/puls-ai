@@ -103,6 +103,7 @@ async function fulfillPlanPurchase(
       user_id: userId,
       workspace_id: txn.workspace_id,
       plan: txn.plan_key,
+      payment_status: "paid",
       subscription_status: "active",
       package_type: packageType,
       qualifying_package_type: ["3-month", "6-month"].includes(packageType) ? packageType : null,
@@ -200,6 +201,27 @@ serve(async (req) => {
       // Deterministic fulfillment first. If anything below fails, the local transaction
       // remains pending and a retry resumes from PayPal's already-COMPLETED order.
       await fulfillPlanPurchase(supabase, txn, user.id, completedAt);
+
+      if (txn.payment_type !== "donation" && txn.workspace_id) {
+        const packageType = typeof txn.metadata?.package_type === "string" ? txn.metadata.package_type : "";
+        const entitlementWindow = packageWindow(packageType, completedAt);
+        const { error: entitlementError } = await supabase.rpc("leah_apply_billing_entitlement_event", {
+          _workspace_id: txn.workspace_id,
+          _provider: "paypal",
+          _provider_event_id: `capture:${captureId}`,
+          _action: "activate",
+          _valid_until: entitlementWindow.end,
+          _provider_subscription_ref: orderId,
+          _provider_customer_ref: payer?.payer_id ?? null,
+          _metadata: {
+            order_id: orderId,
+            capture_id: captureId,
+            plan_key: txn.plan_key,
+            package_type: packageType,
+          },
+        });
+        if (entitlementError) throw entitlementError;
+      }
 
       const { data: existingBill, error: billLookupError } = await supabase
         .from("billing_history")
