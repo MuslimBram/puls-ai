@@ -310,17 +310,18 @@ serve(async (req) => {
       const { error } = await supabase.from("subscriptions").update(updateData).eq("user_id", user.id);
       if (error) throw error;
 
-      if (workspaceId && providerEventId) {
-        const action = ["canceled", "unpaid"].includes(status)
-          ? "cancel"
-          : status === "past_due"
-            ? "grace"
-            : ["active", "trialing"].includes(status)
-              ? "activate"
-              : "suspend";
-        const validUntil = action === "grace"
+      const lifecycleAction = ["canceled", "unpaid"].includes(status)
+        ? "cancel"
+        : status === "past_due"
+          ? "grace"
+          : ["active", "trialing"].includes(status)
+            ? "activate"
+            : null;
+
+      if (workspaceId && providerEventId && lifecycleAction) {
+        const validUntil = lifecycleAction === "grace"
           ? String(updateData.grace_period_end)
-          : action === "activate"
+          : lifecycleAction === "activate"
             ? status === "trialing" && subscription.trial_end
               ? new Date(subscription.trial_end * 1000).toISOString()
               : packageEndAt
@@ -329,7 +330,7 @@ serve(async (req) => {
           _workspace_id: workspaceId,
           _provider: "stripe",
           _provider_event_id: providerEventId,
-          _action: action,
+          _action: lifecycleAction,
           _valid_until: validUntil,
           _provider_subscription_ref: subscription.id,
           _provider_customer_ref: customerId,
@@ -341,6 +342,8 @@ serve(async (req) => {
           },
         });
         if (entitlementError) throw entitlementError;
+      } else if (workspaceId && providerEventId) {
+        console.log("[STRIPE-WEBHOOK] Status " + status + " does not change LEAH entitlement");
       } else {
         console.warn("[STRIPE-WEBHOOK] Subscription has no workspace binding; LEAH entitlement was not changed");
       }
