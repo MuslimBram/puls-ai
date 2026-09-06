@@ -155,12 +155,7 @@ serve(async (req) => {
 
     const user = userData.user;
 
-    // Privileged roles (super_admin, admin, business_owner) always read back
-    // as the top-tier plan here too — matching enforce-limits and
-    // generate-media, which already bypass for these roles. Without this,
-    // an admin with no live Stripe subscription would still see "standard"
-    // in the UI badge even though every limit-enforcing function treats
-    // them as unlimited.
+    // Platform admins may read the operational top-tier view; customer accounts follow billing.
     const { data: roleRows, error: roleError } = await supabaseClient
       .from("user_roles")
       .select("role")
