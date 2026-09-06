@@ -75,8 +75,18 @@ export async function resolveLeahSession(
   const isPlatformAdmin = (globalRoles ?? []).some(
     (row) => row.role === "admin" || row.role === "super_admin",
   );
+  const { data: workspaceAdmin, error: workspaceRoleError } = await admin.rpc(
+    "has_workspace_role_for_user",
+    {
+      _user_id: data.user_id,
+      _workspace_id: data.workspace_id,
+      _roles: ["owner", "admin"],
+    },
+  );
+  if (workspaceRoleError) throw workspaceRoleError;
+  const isLeahAdmin = isPlatformAdmin || Boolean(workspaceAdmin);
 
-  if (!isPlatformAdmin) {
+  if (!isLeahAdmin) {
     const { data: entitlement, error: entitlementError } = await admin
       .from("leah_workspace_entitlements")
       .select("status, valid_until")
