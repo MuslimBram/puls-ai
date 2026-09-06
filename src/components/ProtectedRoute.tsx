@@ -55,7 +55,8 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) return <Navigate to="/login" replace />;
 
-  // Platform admins bypass billing banners; business_owner is a customer role and must follow its subscription.\n  const bypassRoles = ["admin", "super_admin"];
+  // Platform admins bypass billing banners; business_owner is a customer role and must follow its subscription.
+  const bypassRoles = ["admin", "super_admin"];
   const hasBypassRole = userRoles?.some((role) => bypassRoles.includes(role)) ?? false;
 
   let showBanner = false;
