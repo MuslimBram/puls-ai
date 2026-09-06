@@ -44,6 +44,11 @@ describe("P0 client-readiness contracts", () => {
     expect(stripe).toContain('status: "failed"');
     expect(paypal).toContain('payment_status: "paid"');
     expect(paypal).toContain('supabase.rpc("leah_apply_billing_entitlement_event"');
+    const paypalWebhook = read("supabase/functions/paypal-webhook/index.ts");
+    expect(paypalWebhook).toContain("PAYMENT.CAPTURE.REFUNDED");
+    expect(paypalWebhook).toContain("PAYMENT.CAPTURE.REVERSED");
+    expect(paypalWebhook).toContain('_action: "refund"');
+    expect(paypalWebhook).toContain("PAYMENT.CAPTURE.DENIED");
   });
 
   it("pins PayPal order, capture, and webhook verification to one explicit environment", () => {
