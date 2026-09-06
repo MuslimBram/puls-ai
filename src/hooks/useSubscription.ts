@@ -46,7 +46,7 @@ const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = 
 
 export const useSubscription = () => {
   const { user } = useAuth();
-  const { isAdmin, isSuperAdmin, hasRole, permissions } = useRolePermissions();
+  const { isAdmin, isSuperAdmin, permissions } = useRolePermissions();
   const { plansByKey, planOrder, defaultPlanKey } = useMonetizationCatalog();
 
   const dbQuery = useQuery({
@@ -87,12 +87,15 @@ export const useSubscription = () => {
 
   const stripeData = stripeQuery.data;
   const fallbackPlanKey = defaultPlanKey;
-  // Owner + any admin the Owner appoints have lifetime access — never trial-limited, never billed.
-  const privilegedBypass = isSuperAdmin || isAdmin || hasRole("business_owner") || permissions.bypassSubscription;
+  // Only platform Admin roles bypass billing. Business owners are customer accounts and follow their subscription.
+  const privilegedBypass = isSuperAdmin || isAdmin || permissions.bypassSubscription;
   const selectedPlan = normalizePlanKey(stripeData?.selected_plan ?? stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
 
   if (privilegedBypass) {
-    const adminPlanKey = (planOrder[planOrder.length - 1] as PlanKey | undefined) ?? fallbackPlanKey;
+    // Admins test the complete product for free; Enterprise is the explicit capability tier.
+    const adminPlanKey: PlanKey = plansByKey.enterprise
+      ? "enterprise"
+      : ((planOrder[planOrder.length - 1] as PlanKey | undefined) ?? fallbackPlanKey);
     return {
       subscription: dbQuery.data,
       isLoading: dbQuery.isLoading || stripeQuery.isLoading,

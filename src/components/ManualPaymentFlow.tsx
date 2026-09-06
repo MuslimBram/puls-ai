@@ -3,7 +3,6 @@ import { useManualPayment } from "@/hooks/useManualPayment";
 import type { ManualPaymentMethod, PaymentMethodConfig } from "@/hooks/useManualPayment";
 import {
   type SupportedCurrency,
-  formatCurrency,
   getPaymentMethodPriority,
 } from "@/lib/currency";
 import { FeeDisclosure } from "@/components/FeeDisclosure";
@@ -25,12 +24,19 @@ interface ManualPaymentFlowProps {
   onSuccess?: (referenceId: string) => void;
 }
 
-const METHOD_META: Record<string, { label: string; icon: string; category: "bank" | "payoneer" }> = {
-  bank_transfer_ALL: { label: "Transfertë Bankare (ALL)", icon: "🏦", category: "bank" },
-  bank_transfer_EUR: { label: "Bank Transfer / SEPA (EUR)", icon: "🏦", category: "bank" },
-  bank_transfer_USD: { label: "Wire Transfer (USD)",        icon: "🏦", category: "bank" },
-  payoneer_EUR:      { label: "Payoneer (EUR)",              icon: "💳", category: "payoneer" },
-  payoneer_USD:      { label: "Payoneer (USD)",              icon: "💳", category: "payoneer" },
+const METHOD_META: Record<string, {
+  label: string;
+  icon: string;
+  category: "bank" | "payoneer" | "courier";
+}> = {
+  bank_transfer_ALL:      { label: "Transfertë Bankare (ALL)",       icon: "🏦", category: "bank" },
+  bank_transfer_EUR:      { label: "Bank Transfer / SEPA (EUR)",     icon: "🏦", category: "bank" },
+  bank_transfer_USD:      { label: "Wire Transfer (USD)",            icon: "🏦", category: "bank" },
+  payoneer_EUR:           { label: "Payoneer (EUR)",                 icon: "💳", category: "payoneer" },
+  payoneer_USD:           { label: "Payoneer (USD)",                 icon: "💳", category: "payoneer" },
+  cash_on_delivery_ALL:   { label: "Pagesë me korier (ALL)",         icon: "🚚", category: "courier" },
+  cash_on_delivery_EUR:   { label: "Courier / cash on delivery (EUR)", icon: "🚚", category: "courier" },
+  cash_on_delivery_USD:   { label: "Courier / cash on delivery (USD)", icon: "🚚", category: "courier" },
 };
 
 export function ManualPaymentFlow({
@@ -41,6 +47,7 @@ export function ManualPaymentFlow({
 
   const [availableMethods, setAvailableMethods] = useState<PaymentMethodConfig[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(true);
+  const [optionsError, setOptionsError] = useState<string | null>(null);
   const [selectedMethod, setSelectedMethod] = useState<ManualPaymentMethod | null>(null);
   const [step, setStep] = useState<"select" | "confirm" | "instructions" | "submitted">("select");
   const [paymentResult, setPaymentResult] = useState<{
@@ -52,6 +59,7 @@ export function ManualPaymentFlow({
   // Load available methods filtered and ordered by currency
   useEffect(() => {
     setOptionsLoading(true);
+    setOptionsError(null);
     getOptions(chargedCurrency).then(({ available }) => {
       // Priority order for this currency
       const priority = getPaymentMethodPriority(chargedCurrency);
@@ -68,7 +76,9 @@ export function ManualPaymentFlow({
       });
       setAvailableMethods(sorted);
       if (sorted.length > 0) setSelectedMethod(sorted[0].method_type as ManualPaymentMethod);
-    }).catch(() => {}).finally(() => setOptionsLoading(false));
+    }).catch((error: unknown) => {
+      setOptionsError(error instanceof Error ? error.message : "Could not load payment methods");
+    }).finally(() => setOptionsLoading(false));
   }, [chargedCurrency]);
 
   const selectedConfig = availableMethods.find(m => m.method_type === selectedMethod);
@@ -117,7 +127,9 @@ export function ManualPaymentFlow({
   };
 
   // No methods available for this currency
-  const noBankAccount = !optionsLoading && availableMethods.length === 0;
+  const noAvailableMethod = !optionsLoading && !optionsError && availableMethods.length === 0;
+  const selectedMethodMeta = selectedMethod ? METHOD_META[selectedMethod] : null;
+  const hasCourierOption = availableMethods.some((method) => method.method_type.startsWith("cash_on_delivery"));
 
   if (step === "submitted") {
     return (
@@ -194,7 +206,7 @@ export function ManualPaymentFlow({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Bank Transfer / Payoneer</CardTitle>
+        <CardTitle>{hasCourierOption ? "Bank Transfer / Payoneer / Courier" : "Bank Transfer / Payoneer"}</CardTitle>
         <CardDescription>
           Zero Pulse AI fees — direct payment in {chargedCurrency}.
         </CardDescription>
@@ -204,12 +216,18 @@ export function ManualPaymentFlow({
           <div className="space-y-2">
             {[1,2].map(i => <Skeleton key={i} className="h-14 w-full rounded-lg" />)}
           </div>
-        ) : noBankAccount ? (
+        ) : optionsError ? (
+          <div className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <p>Payment methods could not be loaded. Please try again.</p>
+          </div>
+        ) : noAvailableMethod ? (
           <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-3 text-sm text-amber-700 dark:text-amber-300">
             <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
             <p>
-              A direct bank account in <strong>{chargedCurrency}</strong> is not yet configured.
-              Please use <strong>PayPal</strong> or <strong>Payoneer</strong> for this currency.
+              No verified manual payment method is configured for <strong>{chargedCurrency}</strong>.
+              An administrator must enable a bank transfer, Payoneer, or courier/COD option
+              with real receiving details before it can be used. PayPal remains separate where supported.
             </p>
           </div>
         ) : (
@@ -227,7 +245,11 @@ export function ManualPaymentFlow({
                   <div className="flex-1">
                     <p className="font-medium text-sm">{m.display_name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {meta.category === "bank" ? "No commission from Pulse AI" : "Low commission from provider"}
+                      {meta.category === "bank"
+                        ? "No commission from Pulse AI"
+                        : meta.category === "courier"
+                          ? "Cash on delivery — courier terms apply"
+                          : "Provider fees may apply"}
                       {showConversionHint && " · Conversion may apply"}
                     </p>
                   </div>
@@ -262,7 +284,11 @@ export function ManualPaymentFlow({
               {loading
                 ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 : <Landmark className="mr-2 h-4 w-4" />}
-              Get Bank Details &amp; Reference ID
+              {selectedMethodMeta?.category === "courier"
+                ? "Continue with courier"
+                : selectedMethodMeta?.category === "payoneer"
+                  ? "Get Payoneer instructions & reference ID"
+                  : "Get bank details & reference ID"}
             </Button>
           </>
         )}

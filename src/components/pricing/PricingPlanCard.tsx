@@ -32,6 +32,8 @@ interface PricingPlanCardProps {
   packageType: PackageVariant["type"];
   plan: MonetizationPlan;
   planOrder: PlanKey[];
+  /** When true, delegate to the page-level currency/payment flow. */
+  continueToPayment?: boolean;
 }
 
 export const PricingPlanCard = ({
@@ -43,6 +45,7 @@ export const PricingPlanCard = ({
   packageType,
   plan,
   planOrder,
+  continueToPayment = false,
 }: PricingPlanCardProps) => {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<"manual" | "paypal">("manual");
@@ -63,7 +66,7 @@ export const PricingPlanCard = ({
   const badgeText = plan.badgeLabel || (plan.highlighted ? "Recommended" : null);
 
   const handleSelect = () => {
-    if (plan.key === "enterprise") {
+    if (plan.key === "enterprise" || continueToPayment) {
       onSelect(plan.key);
       return;
     }

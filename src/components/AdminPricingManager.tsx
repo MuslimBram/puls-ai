@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +9,12 @@ import { toast } from "@/components/ui/sonner";
 import { usePricingSettings, type PricingSetting } from "@/hooks/usePricingSettings";
 
 interface DraftSetting {
-  monthly: string;
-  annual: string;
+  monthlyALL: string;
+  annualALL: string;
+  monthlyEUR: string;
+  annualEUR: string;
+  monthlyUSD: string;
+  annualUSD: string;
   label: string;
   socialProfiles: string;
   channels: string;
@@ -31,8 +35,12 @@ const getDraft = (setting: PricingSetting, overrides?: DraftSetting): DraftSetti
   if (overrides) return overrides;
 
   return {
-    monthly: String(setting.monthly_price),
-    annual: String(setting.annual_price),
+    monthlyALL: String(setting.monthly_price_all ?? setting.monthly_price),
+    annualALL: String(setting.annual_price_all ?? setting.annual_price),
+    monthlyEUR: setting.monthly_price_eur == null ? "" : String(setting.monthly_price_eur),
+    annualEUR: setting.annual_price_eur == null ? "" : String(setting.annual_price_eur),
+    monthlyUSD: setting.monthly_price_usd == null ? "" : String(setting.monthly_price_usd),
+    annualUSD: setting.annual_price_usd == null ? "" : String(setting.annual_price_usd),
     label: setting.donation_label || "",
     socialProfiles: String(setting.social_profiles_limit ?? ""),
     channels: String(setting.channels_limit ?? ""),
@@ -77,6 +85,9 @@ export const AdminPricingManager = () => {
           <DollarSign className="h-4 w-4" />
           Pricing Management
         </CardTitle>
+        <CardDescription>
+          ALL is the primary catalog currency. EUR and USD are explicit settlement prices; leave a field blank to keep that currency unavailable.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
@@ -84,8 +95,12 @@ export const AdminPricingManager = () => {
             const draft = getDraft(setting, drafts[setting.id]);
             const serializedCurrentFeatures = JSON.stringify(setting.feature_entitlements || {}, null, 2);
             const hasChanges =
-              draft.monthly !== String(setting.monthly_price) ||
-              draft.annual !== String(setting.annual_price) ||
+              draft.monthlyALL !== String(setting.monthly_price_all ?? setting.monthly_price) ||
+              draft.annualALL !== String(setting.annual_price_all ?? setting.annual_price) ||
+              draft.monthlyEUR !== (setting.monthly_price_eur == null ? "" : String(setting.monthly_price_eur)) ||
+              draft.annualEUR !== (setting.annual_price_eur == null ? "" : String(setting.annual_price_eur)) ||
+              draft.monthlyUSD !== (setting.monthly_price_usd == null ? "" : String(setting.monthly_price_usd)) ||
+              draft.annualUSD !== (setting.annual_price_usd == null ? "" : String(setting.annual_price_usd)) ||
               draft.label !== (setting.donation_label || "") ||
               draft.socialProfiles !== String(setting.social_profiles_limit ?? "") ||
               draft.channels !== String(setting.channels_limit ?? "") ||
@@ -121,8 +136,14 @@ export const AdminPricingManager = () => {
                           id: setting.id,
                           plan_key: setting.plan_key,
                           is_donation: setting.is_donation,
-                          monthly_price: Number(draft.monthly || 0),
-                          annual_price: Number(draft.annual || 0),
+                          monthly_price: Number(draft.monthlyALL || 0),
+                          annual_price: Number(draft.annualALL || 0),
+                          monthly_price_all: numericOrNull(draft.monthlyALL),
+                          monthly_price_eur: numericOrNull(draft.monthlyEUR),
+                          monthly_price_usd: numericOrNull(draft.monthlyUSD),
+                          annual_price_all: numericOrNull(draft.annualALL),
+                          annual_price_eur: numericOrNull(draft.annualEUR),
+                          annual_price_usd: numericOrNull(draft.annualUSD),
                           donation_label: draft.label || undefined,
                           social_profiles_limit: numericOrNull(draft.socialProfiles),
                           channels_limit: numericOrNull(draft.channels),
@@ -149,13 +170,33 @@ export const AdminPricingManager = () => {
 
                 <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Monthly $</span>
-                    <Input type="number" value={draft.monthly} onChange={(e) => setField(setting.id, setting, "monthly", e.target.value)} />
+                    <span className="text-xs text-muted-foreground">Monthly (ALL)</span>
+                    <Input type="number" value={draft.monthlyALL} onChange={(e) => setField(setting.id, setting, "monthlyALL", e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <span className="text-xs text-muted-foreground">Annual $</span>
-                    <Input type="number" value={draft.annual} onChange={(e) => setField(setting.id, setting, "annual", e.target.value)} />
+                    <span className="text-xs text-muted-foreground">Annual (ALL)</span>
+                    <Input type="number" value={draft.annualALL} onChange={(e) => setField(setting.id, setting, "annualALL", e.target.value)} />
                   </div>
+                  {!setting.is_donation && (
+                    <>
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Monthly (EUR)</span>
+                        <Input type="number" value={draft.monthlyEUR} onChange={(e) => setField(setting.id, setting, "monthlyEUR", e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Annual (EUR)</span>
+                        <Input type="number" value={draft.annualEUR} onChange={(e) => setField(setting.id, setting, "annualEUR", e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Monthly (USD)</span>
+                        <Input type="number" value={draft.monthlyUSD} onChange={(e) => setField(setting.id, setting, "monthlyUSD", e.target.value)} />
+                      </div>
+                      <div className="space-y-1">
+                        <span className="text-xs text-muted-foreground">Annual (USD)</span>
+                        <Input type="number" value={draft.annualUSD} onChange={(e) => setField(setting.id, setting, "annualUSD", e.target.value)} />
+                      </div>
+                    </>
+                  )}
                   {setting.is_donation ? (
                     <div className="space-y-1 md:col-span-2 xl:col-span-4">
                       <span className="text-xs text-muted-foreground">Donation label</span>

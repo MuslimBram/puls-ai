@@ -39,6 +39,12 @@ interface UpdatePricingParams {
   is_donation?: boolean;
   monthly_price: number;
   annual_price: number;
+  monthly_price_all?: number | null;
+  monthly_price_eur?: number | null;
+  monthly_price_usd?: number | null;
+  annual_price_all?: number | null;
+  annual_price_eur?: number | null;
+  annual_price_usd?: number | null;
   donation_label?: string;
   daily_image_limit?: number | null;
   daily_video_limit?: number | null;
@@ -76,6 +82,12 @@ export const usePricingSettings = () => {
       const pricingUpdate = {
         monthly_price: params.monthly_price,
         annual_price: params.annual_price,
+        monthly_price_all: params.monthly_price_all,
+        monthly_price_eur: params.monthly_price_eur,
+        monthly_price_usd: params.monthly_price_usd,
+        annual_price_all: params.annual_price_all,
+        annual_price_eur: params.annual_price_eur,
+        annual_price_usd: params.annual_price_usd,
         donation_label: params.donation_label,
         daily_image_limit: params.daily_image_limit,
         daily_video_limit: params.daily_video_limit,

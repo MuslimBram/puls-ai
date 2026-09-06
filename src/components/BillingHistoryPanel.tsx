@@ -5,6 +5,10 @@ import { useBillingHistory, usePaymentNotifications } from "@/hooks/useBillingHi
 import { useSubscription } from "@/hooks/useSubscription";
 import { Receipt, ExternalLink, AlertTriangle, FileText, Download, CreditCard, Loader2 } from "lucide-react";
 import { format } from "date-fns";
+import { formatCurrency, type SupportedCurrency } from "@/lib/currency";
+
+const normalizeCurrency = (value: unknown): SupportedCurrency =>
+  value === "EUR" || value === "USD" || value === "ALL" ? value : "EUR";
 
 const statusColors: Record<string, string> = {
   paid: "bg-green-500/10 text-green-700",
@@ -82,10 +86,10 @@ export const BillingHistoryPanel = () => {
                     <FileText className="h-4 w-4 text-muted-foreground" />
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        ${Number(record.amount).toFixed(2)} {record.currency.toUpperCase()}
+                        {formatCurrency(Number(record.amount), normalizeCurrency(record.currency))}
                         {record.discount_amount > 0 && (
                           <span className="text-xs text-green-600 ml-2">
-                            -${Number(record.discount_amount).toFixed(2)} discount
+                            -{formatCurrency(Number(record.discount_amount), normalizeCurrency(record.currency))} discount
                           </span>
                         )}
                       </p>
@@ -98,7 +102,7 @@ export const BillingHistoryPanel = () => {
                   <div className="flex items-center gap-2">
                     {record.refund_amount > 0 && (
                       <Badge variant="outline" className="text-xs">
-                        Refunded ${Number(record.refund_amount).toFixed(2)}
+                        Refunded {formatCurrency(Number(record.refund_amount), normalizeCurrency(record.currency))}
                       </Badge>
                     )}
                     <Badge className={statusColors[record.status] || ""}>{record.status}</Badge>

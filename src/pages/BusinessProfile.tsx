@@ -205,14 +205,14 @@ const BusinessProfile = () => {
           </div>
         </div>
 
-        {socialChannelCount < 2 && (
+        {socialChannelCount < 1 && (
           <Card className="border-destructive/30 bg-destructive/5">
             <CardContent className="flex items-start gap-3 py-4">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
               <div>
-                <p className="text-sm font-medium text-foreground">Connect at least 2 social channels</p>
+                <p className="text-sm font-medium text-foreground">Connect one channel to enable automated features</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  To enable AI suggestions for posts, competitors and audience, connect at least 2 social networks (e.g. Instagram & LinkedIn).
+                  Connect at least one channel to enable automated inbox, AI replies and channel-specific suggestions.
                   You currently have {socialChannelCount} channel{socialChannelCount !== 1 ? "s" : ""}.
                 </p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.href = "/channels"}>
@@ -345,10 +345,8 @@ const BusinessProfile = () => {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full" disabled={upsert.isPending || socialChannelCount < 2}>
-              {socialChannelCount < 2
-                ? "Connect at least 2 channels to save"
-                : upsert.isPending ? "Saving..." : profile ? "Update Profile" : "Create Profile"}
+            <Button type="submit" className="w-full" disabled={upsert.isPending}>
+              {upsert.isPending ? "Saving..." : profile ? "Update Profile" : "Create Profile"}
             </Button>
           </form>
         </Form>

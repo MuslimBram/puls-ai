@@ -18,6 +18,9 @@ const METHOD_LABELS: Record<string, string> = {
   bank_transfer_USD: "Wire Transfer (USD)",
   payoneer_EUR:      "Payoneer (EUR)",
   payoneer_USD:      "Payoneer (USD)",
+  cash_on_delivery_ALL: "Courier / cash on delivery (ALL)",
+  cash_on_delivery_EUR: "Courier / cash on delivery (EUR)",
+  cash_on_delivery_USD: "Courier / cash on delivery (USD)",
   paypal:            "PayPal",
   wallet:            "Wallet",
 };

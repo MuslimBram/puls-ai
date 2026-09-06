@@ -109,10 +109,10 @@ export const getCurrencyForCountry = (
  */
 export const getPaymentMethodPriority = (currency: SupportedCurrency): string[] => {
   switch (currency) {
-    case "ALL": return ["bank_transfer_ALL", "payoneer_EUR", "paypal"];
-    case "EUR": return ["bank_transfer_EUR", "payoneer_EUR", "paypal"];
-    case "USD": return ["bank_transfer_USD", "payoneer_USD", "paypal"];
-    default:    return ["paypal", "payoneer_EUR", "bank_transfer_EUR"];
+    case "ALL": return ["bank_transfer_ALL", "cash_on_delivery_ALL", "payoneer_EUR", "paypal"];
+    case "EUR": return ["bank_transfer_EUR", "cash_on_delivery_EUR", "payoneer_EUR", "paypal"];
+    case "USD": return ["bank_transfer_USD", "cash_on_delivery_USD", "payoneer_USD", "paypal"];
+    default:    return ["paypal", "bank_transfer_EUR", "cash_on_delivery_EUR", "payoneer_EUR"];
   }
 };
 

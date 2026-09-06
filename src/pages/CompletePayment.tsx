@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign, AlertCircle } from "lucide-react";
+import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, Landmark, CreditCard, AlertCircle } from "lucide-react";
 import { useUserWallets } from "@/hooks/useUserWallet";
 import { useCountryCurrency } from "@/hooks/useCountryCurrency";
 import { FeeDisclosure } from "@/components/FeeDisclosure";
@@ -14,7 +14,7 @@ import { ManualPaymentFlow } from "@/components/ManualPaymentFlow";
 import { formatCurrency, formatALL, type SupportedCurrency } from "@/lib/currency";
 import { usePricingSettings } from "@/hooks/usePricingSettings";
 import { cn } from "@/lib/utils";
-import type { PlanKey } from "@/types/monetization";
+import { isPlanKey, type PlanKey } from "@/types/monetization";
 
 interface PlanTier {
   key: PlanKey;
@@ -24,6 +24,7 @@ interface PlanTier {
   priceEUR: number | null;    // null = not yet configured → payment blocked
   priceUSD: number | null;    // null = not yet configured → payment blocked
   highlighted?: boolean;
+  stripePriceId: string | null;   // null = card checkout not configured
 }
 
 /** Return the configured payment price for a currency, or null if not set. */
@@ -55,7 +56,7 @@ const DURATION_OPTIONS: DurationOption[] = [
 const getDiscountedPrice = (base: number, discountPercent: number) =>
   Math.round(base * (1 - discountPercent / 100) * 100) / 100;
 
-type PaymentMethod = "paypal" | "payoneer" | "wallet" | "bank_transfer";
+type PaymentMethod = "paypal" | "payoneer" | "wallet" | "bank_transfer" | "stripe";
 
 const CompletePayment = () => {
   const navigate = useNavigate();
@@ -76,6 +77,7 @@ const CompletePayment = () => {
       priceALL: Number((p as any).monthly_price_all ?? p.monthly_price), // always set
       priceEUR: (p as any).monthly_price_eur != null ? Number((p as any).monthly_price_eur) : null,
       priceUSD: (p as any).monthly_price_usd != null ? Number((p as any).monthly_price_usd) : null,
+      stripePriceId: (p as any).stripe_price_id ?? null,
       highlighted: i === 1,
     })), [dbPlans]);
 
@@ -83,19 +85,30 @@ const CompletePayment = () => {
   const metaDuration = user?.user_metadata?.billing_duration;
   const accountType = user?.user_metadata?.account_type;
   const isAmbassador = accountType === "ambassador";
+  const requestedPlan = searchParams.get("plan");
+  const requestedDuration = searchParams.get("packageType") ?? searchParams.get("duration");
+  const initialPlan: PlanKey = requestedPlan && isPlanKey(requestedPlan)
+    ? requestedPlan
+    : (metaPlan && isPlanKey(metaPlan) ? metaPlan : "standard");
+  const initialDuration = requestedDuration && DURATION_OPTIONS.some((option) => option.key === requestedDuration)
+    ? requestedDuration
+    : (isAmbassador ? "trial" : (metaDuration || "monthly"))
 
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey>(
-    metaPlan && ["standard", "professional", "advanced", "enterprise"].includes(metaPlan)
-      ? (metaPlan as PlanKey)
-      : "standard"
-  );
-  const [selectedDuration, setSelectedDuration] = useState<string>(
-    isAmbassador ? "trial" : (metaDuration || "monthly")
-  );
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey>(initialPlan);
+  const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const { currency: detectedCurrency, countryCode, isExplicitMatch, setCurrency } = useCountryCurrency();
   const [paymentCurrency, setPaymentCurrency] = useState<SupportedCurrency>("EUR");
   const [loading, setLoading] = useState(false);
+
+  // A plan card sends the selection here so the payment screen opens on the
+  // exact package term the customer chose.
+  useEffect(() => {
+    if (requestedPlan && isPlanKey(requestedPlan)) setSelectedPlan(requestedPlan);
+    if (requestedDuration && DURATION_OPTIONS.some((option) => option.key === requestedDuration)) {
+      setSelectedDuration(requestedDuration);
+    }
+  }, [requestedPlan, requestedDuration]);
 
   // Sync geo-detected currency once loaded (country routing active)
   useEffect(() => {
@@ -164,7 +177,7 @@ const CompletePayment = () => {
 
   const walletBalance = wallets?.[0]?.current_balance ?? 0;
   const canPayFromWallet = walletBalance >= discountedPrice && discountedPrice > 0;
-  const hasReferralEarnings = walletBalance > 0;
+  const stripeConfigured = Boolean(currentTier?.stripePriceId);
 
   const handleTrialStart = async () => {
     try {
@@ -231,7 +244,8 @@ const CompletePayment = () => {
       }
 
       if (method === "bank_transfer" || method === "payoneer") {
-        // Route to ManualPaymentFlow — handled by the UI component rendered below
+        // ManualPaymentFlow owns the configured bank, Payoneer and courier steps.
+        setLoading(false);
         setSelectedPaymentMethod(method);
         return;
       }
@@ -521,6 +535,34 @@ const CompletePayment = () => {
               Start 7-Day Free Trial
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
+          ) : (selectedPaymentMethod === "bank_transfer" || selectedPaymentMethod === "payoneer") ? (
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start text-muted-foreground"
+                onClick={() => setSelectedPaymentMethod(null)}
+              >
+                ← Change payment method
+              </Button>
+
+              {totalPrice === null ? (
+                <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-4">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    A price is not configured for {paymentCurrency}; manual payment cannot be started yet.
+                  </p>
+                </div>
+              ) : (
+                <ManualPaymentFlow
+                  planKey={selectedPlan}
+                  planName={currentTier?.name ?? selectedPlan}
+                  packageType={currentDuration?.key ?? "monthly"}
+                  chargedCurrency={paymentCurrency}
+                  chargedAmount={totalPrice}
+                />
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               <p className="text-sm font-medium text-foreground">Choose Payment Method:</p>
@@ -547,82 +589,123 @@ const CompletePayment = () => {
 
               <button
                 type="button"
-                onClick={() => setSelectedPaymentMethod("payoneer")}
+                onClick={() => setSelectedPaymentMethod("stripe")}
+                disabled={!stripeConfigured}
                 className={cn(
                   "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
-                  selectedPaymentMethod === "payoneer"
+                  selectedPaymentMethod === "stripe"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50",
+                  !stripeConfigured && "cursor-not-allowed opacity-60"
+                )}
+              >
+                <div className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                  selectedPaymentMethod === "stripe" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                )}>
+                  {selectedPaymentMethod === "stripe" && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <CreditCard className="h-5 w-5 text-violet-600" />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">Card (Stripe)</span>
+                  <p className="text-xs text-muted-foreground">
+                    {stripeConfigured ? "Secure card checkout" : "Not configured for this plan yet."}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {stripeConfigured ? "Available" : "Not configured"}
+                </Badge>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("bank_transfer")}
+                className={cn(
+                  "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
+                  selectedPaymentMethod === "bank_transfer"
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/50"
                 )}
               >
                 <div className={cn(
                   "flex h-5 w-5 items-center justify-center rounded-full border-2",
-                  selectedPaymentMethod === "payoneer" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                  selectedPaymentMethod === "bank_transfer" ? "border-primary bg-primary" : "border-muted-foreground/40"
                 )}>
-                  {selectedPaymentMethod === "payoneer" && <Check className="h-3 w-3 text-primary-foreground" />}
+                  {selectedPaymentMethod === "bank_transfer" && <Check className="h-3 w-3 text-primary-foreground" />}
                 </div>
-                <DollarSign className="h-5 w-5 text-orange-500" />
-                <span className="text-sm font-medium text-foreground">Payoneer</span>
+                <Landmark className="h-5 w-5 text-slate-600" />
+                <div>
+                  <span className="text-sm font-medium text-foreground">Bank transfer · Payoneer · Courier / COD</span>
+                  <p className="text-xs text-muted-foreground">Includes cash-on-delivery when courier is enabled; availability depends on verified admin configuration for ALL, EUR or USD.</p>
+                </div>
               </button>
 
-              {hasReferralEarnings && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedPaymentMethod("wallet")}
-                  className={cn(
-                    "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
-                    selectedPaymentMethod === "wallet"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50",
-                    !canPayFromWallet && "opacity-50"
-                  )}
-                  disabled={!canPayFromWallet}
-                >
-                  <div className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-full border-2",
-                    selectedPaymentMethod === "wallet" ? "border-primary bg-primary" : "border-muted-foreground/40"
-                  )}>
-                    {selectedPaymentMethod === "wallet" && <Check className="h-3 w-3 text-primary-foreground" />}
-                  </div>
-                  <Wallet className="h-5 w-5 text-emerald-500" />
-                  <span className="text-sm font-medium text-foreground">Wallet</span>
-                  <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance)} ALL</Badge>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("wallet")}
+                className={cn(
+                  "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
+                  selectedPaymentMethod === "wallet"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50",
+                  !canPayFromWallet && "opacity-50"
+                )}
+                disabled={!canPayFromWallet}
+              >
+                <div className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                  selectedPaymentMethod === "wallet" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                )}>
+                  {selectedPaymentMethod === "wallet" && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <Wallet className="h-5 w-5 text-emerald-500" />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">Pulse Wallet / local online</span>
+                  <p className="text-xs text-muted-foreground">
+                    {canPayFromWallet ? "Use your available wallet balance." : "Unavailable until the wallet has enough ALL credit."}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance)} ALL</Badge>
+              </button>
 
-              {hasReferralEarnings && !canPayFromWallet && selectedPaymentMethod === "wallet" && (
+              {!canPayFromWallet && selectedPaymentMethod === "wallet" && (
                 <p className="text-xs text-destructive text-center">
-                  Wallet balance insufficient. Choose PayPal or Payoneer.
+                  Wallet balance insufficient. Choose PayPal, Card, or a configured manual payment method.
                 </p>
               )}
 
               <Button
                 className="w-full h-14 text-base"
                 onClick={() => selectedPaymentMethod && handlePayment(selectedPaymentMethod)}
-                disabled={loading || !selectedPaymentMethod || !priceConfigured || paypalBlockedForALL}
+                disabled={
+                  loading ||
+                  !selectedPaymentMethod ||
+                  !priceConfigured ||
+                  paypalBlockedForALL ||
+                  (selectedPaymentMethod === "stripe" && !stripeConfigured)
+                }
               >
                 {selectedPaymentMethod === "paypal" && <Globe className="mr-2 h-5 w-5" />}
-                {selectedPaymentMethod === "payoneer" && <DollarSign className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod === "wallet" && <Wallet className="mr-2 h-5 w-5" />}
+                {selectedPaymentMethod === "stripe" && <CreditCard className="mr-2 h-5 w-5" />}
                 {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod
-                  ? (totalPrice !== null
-                      ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
-                      : "Price not configured — select another currency")
+                  ? (selectedPaymentMethod === "bank_transfer" || selectedPaymentMethod === "payoneer"
+                      ? "Continue to payment instructions"
+                      : totalPrice !== null
+                        ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "stripe" ? "Card" : "Wallet"}`
+                        : "Price not configured — select another currency")
                   : "Choose payment method"
                 }
                 <ArrowRight className="ml-auto h-4 w-4" />
               </Button>
 
-              {!hasReferralEarnings && (
-                <p className="text-xs text-muted-foreground text-center">
-                  <Wallet className="inline h-3 w-3 mr-1" />
-                  Wallet payment is available only if you have referral earnings (commissions).
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground text-center">
+                <Wallet className="inline h-3 w-3 mr-1" />
+                Wallet is shown for every customer; it becomes selectable when the balance covers this payment.
+              </p>
             </div>
           )}
-
           <p className="text-xs text-muted-foreground text-center">
             Every plan includes a personal wallet for withdrawals and top-ups.
           </p>

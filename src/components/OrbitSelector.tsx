@@ -10,6 +10,8 @@ type OrbitSelectorProps<T extends string = string> = {
   items: OrbitSelectorItem<T>[]; selectedValue?: T; onSelect: (value: T) => void;
   ariaLabel: string; rotationInterval?: number; autoRotate?: boolean; pauseOnInteractionMs?: number;
   centralContent?: (item: OrbitSelectorItem<T> | undefined) => ReactNode; className?: string;
+  /** Reverses autoplay, keyboard, swipe, and orbit placement when requested. */
+  direction?: "forward" | "reverse";
 };
 
 function useMediaQuery(query: string) {
@@ -26,8 +28,9 @@ function useMediaQuery(query: string) {
 
 export function OrbitSelector<T extends string = string>({
   items, selectedValue, onSelect, ariaLabel, rotationInterval = 2500, autoRotate = true,
-  pauseOnInteractionMs = 5000, centralContent, className,
+  pauseOnInteractionMs = 5000, centralContent, className, direction = "forward",
 }: OrbitSelectorProps<T>) {
+  const directionSign = direction === "reverse" ? -1 : 1;
   const initialIndex = Math.max(0, items.findIndex((item) => item.value === selectedValue));
   const [focusedIndex, setFocusedIndex] = useState(initialIndex);
   const [pausedUntil, setPausedUntil] = useState(0);
@@ -45,16 +48,16 @@ export function OrbitSelector<T extends string = string>({
   useEffect(() => {
     if (!items.length || !autoRotate || reducedMotion) return;
     const id = window.setInterval(() => {
-      if (Date.now() >= pausedUntil) setFocusedIndex((index) => (index + 1) % items.length);
+      if (Date.now() >= pausedUntil) setFocusedIndex((index) => (index + directionSign + items.length) % items.length);
     }, rotationInterval);
     return () => window.clearInterval(id);
-  }, [autoRotate, items.length, pausedUntil, reducedMotion, rotationInterval]);
+  }, [autoRotate, directionSign, items.length, pausedUntil, reducedMotion, rotationInterval]);
 
   const pauseFromInteraction = () => setPausedUntil(Date.now() + pauseOnInteractionMs);
   const moveFocus = (delta: number) => {
     if (!items.length) return;
     pauseFromInteraction();
-    setFocusedIndex((index) => (index + delta + items.length) % items.length);
+    setFocusedIndex((index) => (index + (delta * directionSign) + items.length) % items.length);
   };
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
@@ -96,7 +99,7 @@ export function OrbitSelector<T extends string = string>({
 
         {items.map((item, index) => {
           const count = Math.max(items.length, 1);
-          const slot = ((index - focusedIndex + count) % count + count) % count;
+          const slot = (((index - focusedIndex) * directionSign) % count + count) % count;
           const angle = optionAngles[slot % optionAngles.length] * Math.PI / 180;
           const x = Math.cos(angle) * radiusX;
           const y = Math.sin(angle) * radiusY;

@@ -155,12 +155,7 @@ serve(async (req) => {
 
     const user = userData.user;
 
-    // Privileged roles (super_admin, admin, business_owner) always read back
-    // as the top-tier plan here too — matching enforce-limits and
-    // generate-media, which already bypass for these roles. Without this,
-    // an admin with no live Stripe subscription would still see "standard"
-    // in the UI badge even though every limit-enforcing function treats
-    // them as unlimited.
+    // Platform admins may read the operational top-tier view; customer accounts follow billing.
     const { data: roleRows, error: roleError } = await supabaseClient
       .from("user_roles")
       .select("role")
@@ -168,7 +163,8 @@ serve(async (req) => {
     if (roleError) logStep("Role lookup failed, continuing without bypass", { message: roleError.message });
 
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin") || roles.includes("business_owner");
+    // Platform admin roles may use the operational top-tier view; customer accounts follow billing.
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
 
     const catalogRows = await loadPricingCatalogRows(supabaseClient);
     const productMap = indexPricingCatalogByProductId(catalogRows);

@@ -109,6 +109,27 @@ describe("OrbitSelector", () => {
     expect(onSelect).toHaveBeenCalledWith("connections");
   });
 
+  it("reverses the visual and keyboard movement when requested", () => {
+    const onSelect = vi.fn();
+
+    render(
+      <OrbitSelector
+        items={[...items]}
+        selectedValue="profile"
+        onSelect={onSelect}
+        ariaLabel="Reverse setup steps"
+        autoRotate={false}
+        direction="reverse"
+      />,
+    );
+
+    const listbox = screen.getByRole("listbox");
+    fireEvent.keyDown(listbox, { key: "ArrowRight" });
+    fireEvent.keyDown(listbox, { key: "Enter" });
+
+    expect(onSelect).toHaveBeenCalledWith("crm");
+  });
+
   it("syncs visual focus when the controlled selected value changes", () => {
     const { rerender } = render(
       <OrbitSelector

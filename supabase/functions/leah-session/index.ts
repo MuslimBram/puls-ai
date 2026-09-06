@@ -8,7 +8,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const SESSION_TTL_MS = 60 * 60 * 1000;
 const HANDOFF_TTL_MS = 60 * 1000;
 const ACTIVE_ENTITLEMENT_STATUSES = new Set(["trial", "active", "grace"]);
-const ADMIN_ROLES = new Set(["owner", "admin", "super_admin"]);
+const ADMIN_ROLES = new Set(["admin", "super_admin"]);
 
 const admin = createAdminClient();
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
