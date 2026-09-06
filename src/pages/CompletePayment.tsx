@@ -635,8 +635,8 @@ const CompletePayment = () => {
                 </div>
                 <Landmark className="h-5 w-5 text-slate-600" />
                 <div>
-                  <span className="text-sm font-medium text-foreground">Bank Transfer / Payoneer / Courier</span>
-                  <p className="text-xs text-muted-foreground">Available methods depend on verified admin configuration in ALL, EUR or USD.</p>
+                  <span className="text-sm font-medium text-foreground">Bank transfer · Payoneer · Courier / COD</span>
+                  <p className="text-xs text-muted-foreground">Includes cash-on-delivery when courier is enabled; availability depends on verified admin configuration for ALL, EUR or USD.</p>
                 </div>
               </button>
 
@@ -690,9 +690,11 @@ const CompletePayment = () => {
                 {selectedPaymentMethod === "stripe" && <CreditCard className="mr-2 h-5 w-5" />}
                 {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod
-                  ? (totalPrice !== null
-                      ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "stripe" ? "Card" : "Wallet"}`
-                      : "Price not configured — select another currency")
+                  ? (selectedPaymentMethod === "bank_transfer" || selectedPaymentMethod === "payoneer"
+                      ? "Continue to payment instructions"
+                      : totalPrice !== null
+                        ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "stripe" ? "Card" : "Wallet"}`
+                        : "Price not configured — select another currency")
                   : "Choose payment method"
                 }
                 <ArrowRight className="ml-auto h-4 w-4" />
