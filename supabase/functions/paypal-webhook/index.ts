@@ -27,6 +27,165 @@ const json = (body: unknown, status = 200) =>
     status, headers: { ...CORS, "Content-Type": "application/json" },
   });
 
+
+type PayPalTransaction = {
+  id: string;
+  user_id: string;
+  workspace_id: string | null;
+  paypal_order_id: string;
+  paypal_capture_id: string | null;
+  paypal_payer_id: string | null;
+  payment_type: string;
+  status: string;
+  metadata: Record<string, unknown> | null;
+};
+
+const REFUND_EVENT_TYPES = new Set([
+  "PAYMENT.CAPTURE.REFUNDED",
+  "PAYMENT.CAPTURE.REVERSED",
+]);
+
+const FAILED_PAYMENT_EVENT_TYPES = new Set([
+  "PAYMENT.CAPTURE.DENIED",
+  "PAYMENT.CAPTURE.DECLINED",
+  "CHECKOUT.ORDER.VOIDED",
+  "CHECKOUT.ORDER.EXPIRED",
+]);
+
+const stringOrNull = (value: unknown): string | null =>
+  typeof value === "string" && value.trim() ? value.trim() : null;
+
+function resolvePayPalReferences(
+  eventType: string,
+  resource: Record<string, unknown>,
+): { captureId: string | null; orderId: string | null } {
+  const supplementary = (resource.supplementary_data as Record<string, unknown> | undefined) ?? {};
+  const relatedIds = (supplementary.related_ids as Record<string, unknown> | undefined) ?? {};
+  const purchaseUnits = Array.isArray(resource.purchase_units) ? resource.purchase_units : [];
+  const firstPurchaseUnit = (purchaseUnits[0] as Record<string, unknown> | undefined) ?? {};
+
+  return {
+    captureId: eventType.startsWith("PAYMENT.CAPTURE.") ? stringOrNull(resource.id) : null,
+    orderId: stringOrNull(relatedIds.order_id)
+      ?? stringOrNull(firstPurchaseUnit.reference_id)
+      ?? (eventType.startsWith("CHECKOUT.ORDER.") ? stringOrNull(resource.id) : null),
+  };
+}
+
+async function findPayPalTransaction(
+  sb: ReturnType<typeof createClient>,
+  refs: { captureId: string | null; orderId: string | null },
+): Promise<PayPalTransaction | null> {
+  const select = "id,user_id,workspace_id,paypal_order_id,paypal_capture_id,paypal_payer_id,payment_type,status,metadata";
+
+  if (refs.captureId) {
+    const { data, error } = await sb
+      .from("paypal_transactions")
+      .select(select)
+      .eq("paypal_capture_id", refs.captureId)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return data as PayPalTransaction;
+  }
+
+  if (refs.orderId) {
+    const { data, error } = await sb
+      .from("paypal_transactions")
+      .select(select)
+      .eq("paypal_order_id", refs.orderId)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (data) return data as PayPalTransaction;
+  }
+
+  return null;
+}
+
+async function handlePayPalRefund(
+  sb: ReturnType<typeof createClient>,
+  event: Record<string, unknown>,
+  eventType: string,
+): Promise<void> {
+  const resource = (event.resource as Record<string, unknown> | undefined) ?? {};
+  const refs = resolvePayPalReferences(eventType, resource);
+  const txn = await findPayPalTransaction(sb, refs);
+
+  if (!txn) {
+    // Acknowledge unrelated PayPal events so PayPal does not retry forever.
+    console.warn("[PayPal] Refund/reversal has no local transaction", {
+      event_type: eventType,
+      capture_id: refs.captureId,
+      order_id: refs.orderId,
+    });
+    return;
+  }
+
+  const nextStatus = eventType === "PAYMENT.CAPTURE.REVERSED" ? "reversed" : "refunded";
+  if (txn.status !== "refunded" && txn.status !== "reversed") {
+    if (txn.workspace_id && txn.payment_type !== "donation") {
+      const { error: entitlementError } = await sb.rpc("leah_apply_billing_entitlement_event", {
+        _workspace_id: txn.workspace_id,
+        _provider: "paypal",
+        _provider_event_id: String(event.id),
+        _action: "refund",
+        _valid_until: null,
+        _provider_subscription_ref: txn.paypal_order_id,
+        _provider_customer_ref: txn.paypal_payer_id,
+        _metadata: {
+          event_type: eventType,
+          paypal_order_id: txn.paypal_order_id,
+          paypal_capture_id: txn.paypal_capture_id ?? refs.captureId,
+        },
+      });
+      if (entitlementError) throw entitlementError;
+    }
+
+    const { error: transactionError } = await sb
+      .from("paypal_transactions")
+      .update({
+        status: nextStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", txn.id);
+    if (transactionError) throw transactionError;
+  }
+
+  const captureId = txn.paypal_capture_id ?? refs.captureId;
+  if (captureId) {
+    await sb
+      .from("billing_history")
+      .update({ status: nextStatus, updated_at: new Date().toISOString() })
+      .eq("stripe_invoice_id", `paypal_${captureId}`)
+      .catch(() => {});
+  }
+}
+
+async function handlePayPalFailedPayment(
+  sb: ReturnType<typeof createClient>,
+  event: Record<string, unknown>,
+  eventType: string,
+): Promise<void> {
+  const resource = (event.resource as Record<string, unknown> | undefined) ?? {};
+  const txn = await findPayPalTransaction(sb, resolvePayPalReferences(eventType, resource));
+  if (!txn || ["completed", "refunded", "reversed"].includes(txn.status)) return;
+
+  const { error } = await sb
+    .from("paypal_transactions")
+    .update({
+      status: "failed",
+      updated_at: new Date().toISOString(),
+      metadata: {
+        ...(txn.metadata ?? {}),
+        failure_event_type: eventType,
+        failure_event_id: String(event.id),
+      },
+    })
+    .eq("id", txn.id);
+  if (error) throw error;
+}
+
 /** Fail-closed PayPal signature verification via Verify-Webhook-Signature API */
 async function verifyPayPalWebhookStrict(
   req: Request,
@@ -245,6 +404,12 @@ serve(async (req) => {
           ).catch(() => {}); // non-critical — must not affect webhook response
         }
       }
+    }
+
+    if (REFUND_EVENT_TYPES.has(eventType)) {
+      await handlePayPalRefund(sb, event, eventType);
+    } else if (FAILED_PAYMENT_EVENT_TYPES.has(eventType)) {
+      await handlePayPalFailedPayment(sb, event, eventType);
     }
 
     // Log raw event for audit
