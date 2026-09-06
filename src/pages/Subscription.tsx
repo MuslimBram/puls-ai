@@ -18,6 +18,7 @@ import { useChannels } from "@/hooks/useChannels";
 import { useKeywords } from "@/hooks/useKeywords";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
 import { getPackageVariant } from "@/lib/packagePricing";
+import { formatALL } from "@/lib/currency";
 import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, Clock, ExternalLink, Gift, Loader2, Percent, CreditCard } from "lucide-react";
 import { PaymentProcessorSetup } from "@/components/PaymentProcessorSetup";
@@ -33,7 +34,7 @@ const Subscription = () => {
   const [packageType, setPackageType] = useState<PackageVariant["type"]>("monthly");
 
   const { plan, currentPlanKey, checkLimit } = useFeatureGating();
-  const { subscription, stripeData, refetchStripe, isTrialExpired } = useSubscription();
+  const { subscription, stripeData, refetchStripe, isTrialExpired, privilegedBypass } = useSubscription();
   const { plans, planOrder } = useMonetizationCatalog();
   const { leads } = useLeads();
   const { channels } = useChannels();
@@ -94,27 +95,17 @@ const Subscription = () => {
     const intent = getPlanChangeIntent(currentPlanKey, planKey, planOrder);
     const isCurrentExactSelection = currentPlanKey === planKey && currentPackageType === packageType;
     if (isCurrentExactSelection) return;
-    if (planKey === "enterprise" || (intent === "downgrade" && currentPlanKey !== planKey)) {
+
+    // Enterprise remains a sales/portal flow; every paid tier continues through the
+    // same currency and payment-method chooser instead of silently opening one provider.
+    if (planKey === "enterprise") {
       await openBillingPortal();
       return;
     }
 
-    setPlanLoading(planKey);
-    try {
-      const { data, error } = await supabase.functions.invoke("create-checkout", {
-        body: { planKey, packageType },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.open(data.url, "_blank", "noopener,noreferrer");
-        return;
-      }
-      throw new Error("Checkout URL missing");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to start checkout");
-    } finally {
-      setPlanLoading(null);
-    }
+    navigate(
+      `/complete-payment?plan=${encodeURIComponent(planKey)}&packageType=${encodeURIComponent(packageType)}`,
+    );
   };
 
   return (
@@ -190,13 +181,20 @@ const Subscription = () => {
               <Badge>{plan?.name ?? currentPlanKey}</Badge>
               <Badge variant={statusTone}>{stripeData?.status_label ?? stripeData?.status ?? "none"}</Badge>
               <Badge variant="outline">{getPackageVariant(currentPackageType).label}</Badge>
-              <span className="text-sm text-muted-foreground">${plan?.monthlyPrice ?? 0}/month base</span>
+              {privilegedBypass ? (
+                <Badge variant="secondary">No charge · Admin access</Badge>
+              ) : (
+                <span className="text-sm text-muted-foreground">{formatALL(plan?.monthlyPrice ?? 0)}/month base</span>
+              )}
               {stripeData?.cancel_at_period_end ? <Badge variant="outline">Downgrade scheduled</Badge> : null}
             </div>
 
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
               <p className="mb-3 text-sm font-medium text-foreground">Change commitment term</p>
               <PricingDurationSelector value={packageType} onChange={setPackageType} />
+              <p className="mt-3 text-xs text-muted-foreground">
+                Hapi tjetër: zgjidh paketën; pastaj do të zgjedhësh ALL, EUR ose USD dhe një mënyrë pagese të disponueshme.
+              </p>
             </div>
 
             <div className="grid gap-4 sm:grid-cols-3">
