@@ -60,6 +60,26 @@ describe("P0 client-readiness contracts", () => {
     }
   });
 
+
+  it("keeps the payment chooser connected to configured manual methods", () => {
+    const completePayment = read("src/pages/CompletePayment.tsx");
+    const manualPayment = read("src/components/ManualPaymentFlow.tsx");
+    const currency = read("src/lib/currency.ts");
+
+    expect(completePayment).toContain("<ManualPaymentFlow");
+    expect(completePayment).toContain("Bank Transfer / Payoneer / Courier");
+    expect(manualPayment).toContain("cash_on_delivery_ALL");
+    expect(manualPayment).toContain("No verified manual payment method is configured");
+    expect(currency).toContain("cash_on_delivery_ALL");
+  });
+
+  it("resolves platform admins to the Enterprise capability tier", () => {
+    const source = read("src/hooks/useSubscription.ts");
+    expect(source).toContain("const adminPlanKey: PlanKey");
+    expect(source).toContain("plansByKey.enterprise");
+    expect(source).toContain('"enterprise"');
+  });
+
   it("allows a first customer to save a profile with one channel", () => {
     const source = read("src/pages/BusinessProfile.tsx");
     expect(source).toContain("{socialChannelCount < 1 && (");
