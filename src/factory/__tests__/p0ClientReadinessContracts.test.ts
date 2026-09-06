@@ -39,6 +39,8 @@ describe("P0 client-readiness contracts", () => {
     const paypal = read("supabase/functions/capture-paypal-order/index.ts");
     expect(stripe).toContain('supabase.rpc("leah_apply_billing_entitlement_event"');
     expect(stripe).toContain("providerEventId");
+    expect(stripe).toContain("const lifecycleAction");
+    expect(stripe).toContain("does not change LEAH entitlement");
     expect(stripe).toContain('status: "failed"');
     expect(paypal).toContain('payment_status: "paid"');
     expect(paypal).toContain('supabase.rpc("leah_apply_billing_entitlement_event"');
