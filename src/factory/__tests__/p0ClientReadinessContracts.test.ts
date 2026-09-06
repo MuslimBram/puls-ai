@@ -50,6 +50,7 @@ describe("P0 client-readiness contracts", () => {
     expect(paypalWebhook).toContain('_action: "refund"');
     expect(paypalWebhook).toContain("PAYMENT.CAPTURE.DENIED");
     expect(paypalWebhook).toContain("CHECKOUT.PAYMENT-APPROVAL.REVERSED");
+    expect(paypalWebhook).toContain("CHECKOUT.ORDER.DECLINED");
     expect(paypalWebhook).toContain("CHECKOUT.ORDER.VOIDED");
   });
 
