@@ -23,7 +23,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { AlertTriangle, Clock, ExternalLink, Gift, Loader2, Percent, CreditCard } from "lucide-react";
 import { PaymentProcessorSetup } from "@/components/PaymentProcessorSetup";
 import { toast } from "@/components/ui/sonner";
-import { getPlanChangeIntent } from "@/components/pricing/pricing-utils";
 import type { PackageVariant, PlanKey } from "@/types/monetization";
 
 const Subscription = () => {
@@ -92,7 +91,6 @@ const Subscription = () => {
   };
 
   const handlePlanAction = async (planKey: PlanKey) => {
-    const intent = getPlanChangeIntent(currentPlanKey, planKey, planOrder);
     const isCurrentExactSelection = currentPlanKey === planKey && currentPackageType === packageType;
     if (isCurrentExactSelection) return;
 
