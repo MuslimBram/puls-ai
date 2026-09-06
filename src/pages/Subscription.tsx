@@ -39,6 +39,7 @@ const Subscription = () => {
   const { channels } = useChannels();
   const { keywords } = useKeywords();
   const currentPackageType = ((stripeData?.package_type as PackageVariant["type"] | undefined) ?? "monthly");
+  const hasAdminAccess = privilegedBypass || stripeData?.status_label === "Admin access";
 
   useEffect(() => {
     const checkout = searchParams.get("checkout");
@@ -179,7 +180,7 @@ const Subscription = () => {
               <Badge>{plan?.name ?? currentPlanKey}</Badge>
               <Badge variant={statusTone}>{stripeData?.status_label ?? stripeData?.status ?? "none"}</Badge>
               <Badge variant="outline">{getPackageVariant(currentPackageType).label}</Badge>
-              {privilegedBypass ? (
+              {hasAdminAccess ? (
                 <Badge variant="secondary">No charge · Admin access</Badge>
               ) : (
                 <span className="text-sm text-muted-foreground">{formatALL(plan?.monthlyPrice ?? 0)}/month base</span>
