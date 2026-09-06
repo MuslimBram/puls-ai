@@ -67,6 +67,8 @@ serve(async (req) => {
     { auth: { persistSession: false } }
   );
 
+  let idempotencyKey: string | null = null;
+
   try {
     const body = await req.text();
     let event: Stripe.Event;
@@ -94,7 +96,7 @@ serve(async (req) => {
     console.log(`[STRIPE-WEBHOOK] Event: ${event.type}, ID: ${event.id}`);
 
     // ATOMIC IDEMPOTENCY CLAIM BEFORE ANY SIDE EFFECTS
-    const idempotencyKey = `stripe:event:${event.id}`;
+    idempotencyKey = `stripe:event:${event.id}`;
     const { error: claimErr } = await supabase.from("integration_event_logs").insert({
       adapter_key: "stripe",
       event_type: event.type,
@@ -111,6 +113,7 @@ serve(async (req) => {
           headers: { ...getCors(req), "Content-Type": "application/json" },
         });
       }
+      throw claimErr;
     }
 
     // Load dynamic product mapping
@@ -233,7 +236,7 @@ serve(async (req) => {
       console.log(`[STRIPE-WEBHOOK] Initialized referral discount: ${partner.referral_discount_percent}% for ${durationMonths} months`);
     };
 
-    const handleSubscription = async (subscription: Stripe.Subscription) => {
+    const handleSubscription = async (subscription: Stripe.Subscription, providerEventId?: string) => {
       const customerId = subscription.customer as string;
       const customer = await stripe.customers.retrieve(customerId);
       if ((customer as Record<string, unknown>).deleted) return;
@@ -243,6 +246,20 @@ serve(async (req) => {
 
       const user = await findUserByEmail(email);
       if (!user) return;
+
+      const metadataWorkspaceId = typeof subscription.metadata?.workspace_id === "string"
+        ? subscription.metadata.workspace_id
+        : null;
+      const { data: storedSubscription, error: storedSubscriptionError } = await supabase
+        .from("subscriptions")
+        .select("workspace_id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (storedSubscriptionError) throw storedSubscriptionError;
+      if (metadataWorkspaceId && storedSubscription?.workspace_id && metadataWorkspaceId !== storedSubscription.workspace_id) {
+        throw new Error("Stripe workspace metadata mismatch");
+      }
+      const workspaceId = metadataWorkspaceId ?? storedSubscription?.workspace_id ?? null;
 
       const productId = subscription.items.data[0]?.price?.product as string;
       const metadataPlan = typeof subscription.metadata?.plan_key === "string" ? subscription.metadata.plan_key : null;
@@ -260,6 +277,7 @@ serve(async (req) => {
 
       const updateData: Record<string, unknown> = {
         plan: ["active", "trialing"].includes(status) ? plan : "standard",
+        payment_status: status === "active" ? "paid" : status === "trialing" ? "trial" : status === "past_due" ? "past_due" : "unpaid",
         subscription_status: status,
         stripe_customer_id: customerId,
         stripe_subscription_id: subscription.id,
@@ -290,8 +308,44 @@ serve(async (req) => {
       }
 
       const { error } = await supabase.from("subscriptions").update(updateData).eq("user_id", user.id);
-      if (error) console.error("[STRIPE-WEBHOOK] DB update error:", error);
-      else console.log(`[STRIPE-WEBHOOK] Updated user ${user.id} to plan=${updateData.plan}, status=${status}, term=${commitmentMonths}m`);
+      if (error) throw error;
+
+      if (workspaceId && providerEventId) {
+        const action = ["canceled", "unpaid"].includes(status)
+          ? "cancel"
+          : status === "past_due"
+            ? "grace"
+            : ["active", "trialing"].includes(status)
+              ? "activate"
+              : "suspend";
+        const validUntil = action === "grace"
+          ? String(updateData.grace_period_end)
+          : action === "activate"
+            ? status === "trialing" && subscription.trial_end
+              ? new Date(subscription.trial_end * 1000).toISOString()
+              : packageEndAt
+            : null;
+        const { error: entitlementError } = await supabase.rpc("leah_apply_billing_entitlement_event", {
+          _workspace_id: workspaceId,
+          _provider: "stripe",
+          _provider_event_id: providerEventId,
+          _action: action,
+          _valid_until: validUntil,
+          _provider_subscription_ref: subscription.id,
+          _provider_customer_ref: customerId,
+          _metadata: {
+            event_type: "stripe_subscription",
+            subscription_status: status,
+            plan_key: plan,
+            package_type: packageType,
+          },
+        });
+        if (entitlementError) throw entitlementError;
+      } else {
+        console.warn("[STRIPE-WEBHOOK] Subscription has no workspace binding; LEAH entitlement was not changed");
+      }
+
+      console.log(`[STRIPE-WEBHOOK] Updated user ${user.id} to plan=${updateData.plan}, status=${status}, term=${commitmentMonths}m`);
     };
 
     const createCommission = async (
@@ -392,7 +446,7 @@ serve(async (req) => {
     switch (event.type) {
       case "customer.subscription.created": {
         const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscription(subscription);
+        await handleSubscription(subscription, event.id);
 
         const customerId = subscription.customer as string;
         const customer = await stripe.customers.retrieve(customerId);
@@ -417,7 +471,7 @@ serve(async (req) => {
 
       case "customer.subscription.updated": {
         const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscription(subscription);
+        await handleSubscription(subscription, event.id);
 
         const prevAttrs = (event.data as Record<string, unknown>).previous_attributes as Record<string, unknown> | undefined;
         if (prevAttrs?.items) {
@@ -459,7 +513,7 @@ serve(async (req) => {
 
       case "customer.subscription.deleted": {
         const subscription = event.data.object as Stripe.Subscription;
-        await handleSubscription(subscription);
+        await handleSubscription(subscription, event.id);
 
         const customerId = subscription.customer as string;
         const customer = await stripe.customers.retrieve(customerId);
@@ -498,7 +552,7 @@ serve(async (req) => {
         const subId = invoice.subscription as string;
         if (subId) {
           const subscription = await stripe.subscriptions.retrieve(subId);
-          await handleSubscription(subscription);
+          await handleSubscription(subscription, event.id);
         }
 
         const failCustomerId = invoice.customer as string;
@@ -536,7 +590,7 @@ serve(async (req) => {
         const subId = invoice.subscription as string;
         if (subId) {
           const subscription = await stripe.subscriptions.retrieve(subId);
-          await handleSubscription(subscription);
+          await handleSubscription(subscription, event.id);
 
           const succCustomerId = invoice.customer as string;
           const succCustomer = await stripe.customers.retrieve(succCustomerId);
@@ -689,14 +743,18 @@ serve(async (req) => {
         console.log(`[STRIPE-WEBHOOK] Unhandled event type: ${event.type}`);
     }
 
-    await supabase.from("integration_event_logs").update({ status: "success" }).eq("idempotency_key", idempotencyKey);
+    if (idempotencyKey) await supabase.from("integration_event_logs").update({ status: "success" }).eq("idempotency_key", idempotencyKey);
 
     return new Response(JSON.stringify({ received: true }), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("[STRIPE-WEBHOOK] Error:", error);
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown" }), {
+    const errorMessage = error instanceof Error ? error.message : "Unknown";
+    if (idempotencyKey) {
+      await supabase.from("integration_event_logs").update({ status: "failed" }).eq("idempotency_key", idempotencyKey);
+    }
+    console.error("[STRIPE-WEBHOOK] Error:", errorMessage);
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 400,
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
