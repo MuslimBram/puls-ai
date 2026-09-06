@@ -240,6 +240,7 @@ const Subscription = () => {
               currentPackageType={currentPackageType}
               loading={planLoading === catalogPlan.key}
               onSelect={handlePlanAction}
+              continueToPayment
               packageType={packageType}
               plan={catalogPlan}
               planOrder={planOrder}
