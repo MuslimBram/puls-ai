@@ -59,7 +59,7 @@ serve(async (req) => {
     if (accessError) throw accessError;
     if (!hasAccess) return json(req, { error: "Workspace access denied" }, 403);
 
-    const { data: role, error: roleError } = await admin.rpc("leah_role_for_user", {
+    const { data: resolvedRole, error: roleError } = await admin.rpc("leah_role_for_user", {
       _user_id: user.id,
       _workspace_id: workspaceId,
     });
