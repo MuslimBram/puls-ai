@@ -80,6 +80,7 @@ describe("P0 client-readiness contracts", () => {
     const pricing = read("src/pages/Pricing.tsx");
     const duration = read("src/components/pricing/PricingDurationSelector.tsx");
     const payment = read("src/pages/CompletePayment.tsx");
+    const adminPricing = read("src/components/AdminPricingManager.tsx");
 
     expect(subscription).toContain("No charge · Admin access");
     expect(subscription).toContain("/complete-payment?plan=");
@@ -87,6 +88,8 @@ describe("P0 client-readiness contracts", () => {
     expect(duration).toContain('direction="reverse"');
     expect(payment).toContain('searchParams.get("packageType")');
     expect(payment).toContain('["ALL", "EUR", "USD"]');
+    expect(adminPricing).toContain("Monthly (EUR)");
+    expect(adminPricing).toContain("Monthly (USD)");
   });
 
   it("resolves platform admins to the Enterprise capability tier", () => {
