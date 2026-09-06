@@ -7,7 +7,10 @@ export type ManualPaymentMethod =
   | "bank_transfer_EUR"
   | "bank_transfer_USD"
   | "payoneer_EUR"
-  | "payoneer_USD";
+  | "payoneer_USD"
+  | "cash_on_delivery_ALL"
+  | "cash_on_delivery_EUR"
+  | "cash_on_delivery_USD";
 
 export interface PaymentMethodConfig {
   method_type: ManualPaymentMethod;
@@ -35,12 +38,8 @@ export const useManualPayment = () => {
 
   /** Fetch available payment methods for a given currency */
   const getOptions = async (currency: SupportedCurrency, country?: string) => {
-    const { data, error } = await supabase.functions.invoke("process-manual-payment", {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-      body: undefined,
-    });
-    // Use query params via direct fetch since Supabase SDK doesn't support GET params cleanly
+    // The Edge Function exposes options through query parameters. Use one authenticated
+    // request so an empty/unsupported method cannot trigger a second unscoped call.
     const { data: { session } } = await supabase.auth.getSession();
     const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/process-manual-payment?action=get_options&currency=${currency}${country ? `&country=${country}` : ""}`;
     const res = await fetch(url, {
