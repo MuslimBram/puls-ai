@@ -21,9 +21,24 @@ serve(async (req) => {
     const session = await resolveLeahSession(req, admin);
     const body = await req.json().catch(() => ({})) as Record<string, unknown>;
     rejectWorkspaceInjection(body);
-    const { data: roles, error: rolesError } = await admin.from("user_roles").select("role").eq("user_id", session.userId);
+    const { data: roles, error: rolesError } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.userId);
     if (rolesError) throw rolesError;
-    if (!(roles ?? []).some((row) => row.role === "admin" || row.role === "super_admin")) {
+    const isPlatformAdmin = (roles ?? []).some(
+      (row) => row.role === "admin" || row.role === "super_admin",
+    );
+    const { data: workspaceAdmin, error: workspaceRoleError } = await admin.rpc(
+      "has_workspace_role_for_user",
+      {
+        _user_id: session.userId,
+        _workspace_id: session.workspaceId,
+        _roles: ["owner", "admin"],
+      },
+    );
+    if (workspaceRoleError) throw workspaceRoleError;
+    if (!isPlatformAdmin && !workspaceAdmin) {
       return json(req, { error: "LEAH chat requires an administrator role" }, 403);
     }
     const userText = requiredText(body.user, "user", 12000);
@@ -52,7 +67,11 @@ serve(async (req) => {
     return json(req, { text: result.text.trim(), provider: binding.provider, model: binding.model, provider_request_id: result.providerRequestId, usage: result.usage });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal LEAH chat error";
-    const status = message.includes("session") ? 401 : message.includes("required") || message.includes("server-derived") ? 400 : error instanceof ProviderKnownError ? error.status : error instanceof ProviderUnknownOutcomeError ? 409 : 500;
+    const status = message.includes("session") ? 401 :
+      message.includes("entitlement") ? 403 :
+      message.includes("required") || message.includes("server-derived") ? 400 :
+      error instanceof ProviderKnownError ? error.status :
+      error instanceof ProviderUnknownOutcomeError ? 409 : 500;
     return json(req, { error: status === 500 ? "Internal LEAH chat error" : message }, status);
   }
 });
