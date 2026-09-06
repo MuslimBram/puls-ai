@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign, Landmark, AlertCircle } from "lucide-react";
+import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, Landmark, AlertCircle } from "lucide-react";
 import { useUserWallets } from "@/hooks/useUserWallet";
 import { useCountryCurrency } from "@/hooks/useCountryCurrency";
 import { FeeDisclosure } from "@/components/FeeDisclosure";
