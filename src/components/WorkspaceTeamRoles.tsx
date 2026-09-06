@@ -23,7 +23,8 @@ interface WorkspaceMemberRow {
 export const WorkspaceTeamRoles = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
-  const { isAdmin } = useRolePermissions();
+  const { isAdmin, isSuperAdmin } = useRolePermissions();
+  const canManagePlatformAdmins = isSuperAdmin;
   const queryClient = useQueryClient();
 
   const membersQuery = useQuery({
@@ -64,6 +65,9 @@ export const WorkspaceTeamRoles = () => {
 
   const promote = useMutation({
     mutationFn: async (userId: string) => {
+      if (!canManagePlatformAdmins) {
+        throw new Error("Only the Owner can submit or change platform Admin roles");
+      }
       const { error } = await supabase.rpc("request_admin_role" as any, {
         _target_user_id: userId,
       } as any);
@@ -84,6 +88,9 @@ export const WorkspaceTeamRoles = () => {
 
   const demote = useMutation({
     mutationFn: async (userId: string) => {
+      if (!canManagePlatformAdmins) {
+        throw new Error("Only the Owner can submit or change platform Admin roles");
+      }
       const { error } = await supabase.from("user_roles").delete().eq("user_id", userId).eq("role", "admin");
       if (error) throw error;
     },
@@ -106,7 +113,9 @@ export const WorkspaceTeamRoles = () => {
           Team Roles
         </CardTitle>
         <CardDescription>
-          Platform Admin promotions use the protected approval workflow. Workspace roles remain managed separately.
+          {canManagePlatformAdmins
+            ? "The Owner submits Admin requests; AI review and a different Admin approval are required."
+            : "Read-only view. Only the Owner can submit or change platform Admin roles; Admins approve pending requests in the Admin panel."}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -140,7 +149,9 @@ export const WorkspaceTeamRoles = () => {
                     </div>
                   </div>
                   <div className="shrink-0">
-                    {m.is_platform_admin ? (
+                    {!canManagePlatformAdmins ? (
+                      <Badge variant="outline">Owner only</Badge>
+                    ) : m.is_platform_admin ? (
                       <Button
                         size="sm"
                         variant="outline"
