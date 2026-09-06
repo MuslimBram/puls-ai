@@ -96,6 +96,8 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = true
   [functions.leah-session]
     verify_jwt = true
+  [functions.leah-chat]
+    verify_jwt = false
   [functions.leah-handoff]
     verify_jwt = false
   [functions.leah-api]
