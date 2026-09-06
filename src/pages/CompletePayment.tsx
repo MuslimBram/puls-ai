@@ -14,7 +14,7 @@ import { ManualPaymentFlow } from "@/components/ManualPaymentFlow";
 import { formatCurrency, formatALL, type SupportedCurrency } from "@/lib/currency";
 import { usePricingSettings } from "@/hooks/usePricingSettings";
 import { cn } from "@/lib/utils";
-import type { PlanKey } from "@/types/monetization";
+import { isPlanKey, type PlanKey } from "@/types/monetization";
 
 interface PlanTier {
   key: PlanKey;
@@ -85,19 +85,30 @@ const CompletePayment = () => {
   const metaDuration = user?.user_metadata?.billing_duration;
   const accountType = user?.user_metadata?.account_type;
   const isAmbassador = accountType === "ambassador";
+  const requestedPlan = searchParams.get("plan");
+  const requestedDuration = searchParams.get("packageType") ?? searchParams.get("duration");
+  const initialPlan: PlanKey = requestedPlan && isPlanKey(requestedPlan)
+    ? requestedPlan
+    : (metaPlan && isPlanKey(metaPlan) ? metaPlan : "standard");
+  const initialDuration = requestedDuration && DURATION_OPTIONS.some((option) => option.key === requestedDuration)
+    ? requestedDuration
+    : (isAmbassador ? "trial" : (metaDuration || "monthly"))
 
-  const [selectedPlan, setSelectedPlan] = useState<PlanKey>(
-    metaPlan && ["standard", "professional", "advanced", "enterprise"].includes(metaPlan)
-      ? (metaPlan as PlanKey)
-      : "standard"
-  );
-  const [selectedDuration, setSelectedDuration] = useState<string>(
-    isAmbassador ? "trial" : (metaDuration || "monthly")
-  );
+  const [selectedPlan, setSelectedPlan] = useState<PlanKey>(initialPlan);
+  const [selectedDuration, setSelectedDuration] = useState<string>(initialDuration);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
   const { currency: detectedCurrency, countryCode, isExplicitMatch, setCurrency } = useCountryCurrency();
   const [paymentCurrency, setPaymentCurrency] = useState<SupportedCurrency>("EUR");
   const [loading, setLoading] = useState(false);
+
+  // A plan card sends the selection here so the payment screen opens on the
+  // exact package term the customer chose.
+  useEffect(() => {
+    if (requestedPlan && isPlanKey(requestedPlan)) setSelectedPlan(requestedPlan);
+    if (requestedDuration && DURATION_OPTIONS.some((option) => option.key === requestedDuration)) {
+      setSelectedDuration(requestedDuration);
+    }
+  }, [requestedPlan, requestedDuration]);
 
   // Sync geo-detected currency once loaded (country routing active)
   useEffect(() => {
