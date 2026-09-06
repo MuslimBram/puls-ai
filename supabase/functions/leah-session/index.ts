@@ -64,6 +64,19 @@ serve(async (req) => {
       _workspace_id: workspaceId,
     });
     if (roleError) throw roleError;
+
+    // Platform admin roles are authoritative for the free LEAH entitlement path.
+    // Workspace membership is still required above to keep tenant isolation intact.
+    const { data: globalRoles, error: globalRoleError } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", user.id);
+    if (globalRoleError) throw globalRoleError;
+    const role = (globalRoles ?? []).some((row) => row.role === "super_admin")
+      ? "super_admin"
+      : (globalRoles ?? []).some((row) => row.role === "admin")
+      ? "admin"
+      : resolvedRole;
     if (!role) return json(req, { error: "Workspace access denied" }, 403);
 
     const isAdmin = ADMIN_ROLES.has(role);
