@@ -88,7 +88,7 @@ export const useSubscription = () => {
   const stripeData = stripeQuery.data;
   const fallbackPlanKey = defaultPlanKey;
   // Owner + any admin the Owner appoints have lifetime access — never trial-limited, never billed.
-  const privilegedBypass = isSuperAdmin || isAdmin || hasRole("business_owner") || permissions.bypassSubscription;
+  // Only platform Admin roles bypass billing. Business owners are customer accounts and follow their subscription.\n  const privilegedBypass = isSuperAdmin || isAdmin || permissions.bypassSubscription;
   const selectedPlan = normalizePlanKey(stripeData?.selected_plan ?? stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
 
   if (privilegedBypass) {
