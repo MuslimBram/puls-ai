@@ -259,6 +259,7 @@ const App = () => (
                 <Route path="/complete-payment" element={<ProtectedRoute><Suspense fallback={<LazyFallback />}><CompletePayment /></Suspense></ProtectedRoute>} />
 
                 <Route path="/:locale" element={<PublicLocaleLayout />}>
+                  <Route index element={<Index />} />
                   <Route path="privacy" element={<PrivacyPolicy />} />
                   <Route path="terms" element={<TermsOfService />} />
                   <Route path="security" element={<SecurityOverview />} />
@@ -274,6 +275,12 @@ const App = () => (
                 </Route>
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+                <Route path="/inbox" element={<PermissionPage permission="canRespondInbox"><Inbox /></PermissionPage>} />
+                <Route path="/crm" element={<PermissionPage permission="canViewCRM"><CRM /></PermissionPage>} />
+                <Route path="/campaigns" element={<PermissionPage permission="canManageCampaigns"><Campaigns /></PermissionPage>} />
+                <Route path="/media-studio" element={<PermissionPage permission="canManageCampaigns"><MediaStudio /></PermissionPage>} />
+                <Route path="/automations" element={<PermissionPage permission="canConfigureAutomations"><Automations /></PermissionPage>} />
+                <Route path="/telephony" element={<PermissionPage permission="canConnectChannels"><Telephony /></PermissionPage>} />
                 <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
                 <Route path="/leads" element={<PermissionPage permission="canViewCRM"><Leads /></PermissionPage>} />
                 <Route path="/keywords" element={<PermissionPage permission="canViewAnalytics"><Keywords /></PermissionPage>} />
