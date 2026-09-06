@@ -75,6 +75,20 @@ describe("P0 client-readiness contracts", () => {
     expect(currency).toContain("cash_on_delivery_ALL");
   });
 
+  it("keeps subscription selection truthful and carries the chosen term into payment", () => {
+    const subscription = read("src/pages/Subscription.tsx");
+    const pricing = read("src/pages/Pricing.tsx");
+    const duration = read("src/components/pricing/PricingDurationSelector.tsx");
+    const payment = read("src/pages/CompletePayment.tsx");
+
+    expect(subscription).toContain("No charge · Admin access");
+    expect(subscription).toContain("/complete-payment?plan=");
+    expect(pricing).toContain("/complete-payment?plan=");
+    expect(duration).toContain('direction="reverse"');
+    expect(payment).toContain('searchParams.get("packageType")');
+    expect(payment).toContain('["ALL", "EUR", "USD"]');
+  });
+
   it("resolves platform admins to the Enterprise capability tier", () => {
     const source = read("src/hooks/useSubscription.ts");
     expect(source).toContain("const adminPlanKey: PlanKey");
