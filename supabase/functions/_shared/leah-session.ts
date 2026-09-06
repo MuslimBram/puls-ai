@@ -65,17 +65,30 @@ export async function resolveLeahSession(
   if (accessError) throw accessError;
   if (!hasAccess) throw new Error("LEAH session access revoked");
 
-  const { data: entitlement, error: entitlementError } = await admin
-    .from("leah_workspace_entitlements")
-    .select("status, valid_until")
-    .eq("workspace_id", data.workspace_id)
-    .maybeSingle();
-  if (entitlementError) throw entitlementError;
-  if (!entitlement || !ACTIVE_ENTITLEMENT_STATUSES.has(entitlement.status)) {
-    throw new Error("LEAH entitlement inactive");
-  }
-  if (entitlement.valid_until && Date.parse(entitlement.valid_until) <= Date.now()) {
-    throw new Error("LEAH entitlement expired");
+  // Re-check global platform roles on every request. This bypasses billing
+  // entitlement checks for admins while preserving the workspace-access gate above.
+  const { data: globalRoles, error: globalRoleError } = await admin
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", data.user_id);
+  if (globalRoleError) throw globalRoleError;
+  const isPlatformAdmin = (globalRoles ?? []).some(
+    (row) => row.role === "admin" || row.role === "super_admin",
+  );
+
+  if (!isPlatformAdmin) {
+    const { data: entitlement, error: entitlementError } = await admin
+      .from("leah_workspace_entitlements")
+      .select("status, valid_until")
+      .eq("workspace_id", data.workspace_id)
+      .maybeSingle();
+    if (entitlementError) throw entitlementError;
+    if (!entitlement || !ACTIVE_ENTITLEMENT_STATUSES.has(entitlement.status)) {
+      throw new Error("LEAH entitlement inactive");
+    }
+    if (entitlement.valid_until && Date.parse(entitlement.valid_until) <= Date.now()) {
+      throw new Error("LEAH entitlement expired");
+    }
   }
 
   const { error: touchError } = await admin
