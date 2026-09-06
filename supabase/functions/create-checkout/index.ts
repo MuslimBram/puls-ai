@@ -63,7 +63,19 @@ serve(async (req) => {
     const catalogRows = await loadPricingCatalogRows(supabaseClient);
     const pricingByPlanKey = indexPricingCatalogByPlanKey(catalogRows);
     const resolvedPlanKey = typeof planKey === "string" ? planKey : null;
-    const resolvedPriceId = rawPriceId ?? (resolvedPlanKey ? pricingByPlanKey[resolvedPlanKey]?.stripe_price_id : null);
+    const catalogPriceId = resolvedPlanKey ? pricingByPlanKey[resolvedPlanKey]?.stripe_price_id ?? null : null;
+    if (rawPriceId !== undefined && rawPriceId !== null && rawPriceId !== catalogPriceId) {
+      throw new Error("Checkout price must come from the server pricing catalog");
+    }
+    const resolvedPriceId = catalogPriceId;
+
+    const { data: subscriptionRow, error: subscriptionError } = await supabaseClient
+      .from("subscriptions")
+      .select("workspace_id")
+      .eq("user_id", user.id)
+      .maybeSingle();
+    if (subscriptionError) throw subscriptionError;
+    const workspaceId = typeof subscriptionRow?.workspace_id === "string" ? subscriptionRow.workspace_id : null;
 
     const customers = await stripe.customers.list({ email: user.email, limit: 1 });
     const customerId = customers.data[0]?.id;
@@ -142,6 +154,7 @@ serve(async (req) => {
 
     if (!resolvedPlanKey && !resolvedPriceId) throw new Error("planKey is required");
     if (!resolvedPriceId) throw new Error(`No checkout price configured${resolvedPlanKey ? ` for ${resolvedPlanKey}` : ""}`);
+    if (!workspaceId) throw new Error("A workspace is required before starting plan checkout");
 
     let discountCouponId: string | undefined;
     let referralDiscountPercent = 0;
@@ -213,18 +226,15 @@ serve(async (req) => {
       }
     }
 
-    // Only grant trial to users without an existing Stripe subscription
-    let trialDays: number | undefined = undefined;
+    // Only grant trial to users without an existing Stripe subscription.
+    let trialDays: number | undefined = 7;
     if (customerId) {
       const existingSubs = await stripe.subscriptions.list({ customer: customerId, limit: 5 });
-      const hasHadSub = existingSubs.data.length > 0;
-      if (!hasHadSub) trialDays = 7;
-    } else {
-      trialDays = 7;
+      if (existingSubs.data.length > 0) trialDays = undefined;
     }
 
     const packageEndsAt = new Date();
-    packageEndsAt.setDate(packageEndsAt.getDate() + trialDays);
+    if (trialDays) packageEndsAt.setDate(packageEndsAt.getDate() + trialDays);
     packageEndsAt.setMonth(packageEndsAt.getMonth() + commitmentMonths);
 
     const sessionConfig: Stripe.Checkout.SessionCreateParams = {
@@ -235,6 +245,7 @@ serve(async (req) => {
       allow_promotion_codes: !discountCouponId,
       metadata: {
         user_id: user.id,
+        workspace_id: workspaceId,
         plan_key: resolvedPlanKey ?? "standard",
         package_type: packageType,
         commitment_months: String(commitmentMonths),
@@ -244,6 +255,7 @@ serve(async (req) => {
         cancel_at: Math.floor(packageEndsAt.getTime() / 1000),
         metadata: {
           user_id: user.id,
+          workspace_id: workspaceId,
           plan_key: resolvedPlanKey ?? "standard",
           package_type: packageType,
           commitment_months: String(commitmentMonths),
