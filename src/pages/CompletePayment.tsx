@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign, AlertCircle } from "lucide-react";
+import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, DollarSign, Landmark, AlertCircle } from "lucide-react";
 import { useUserWallets } from "@/hooks/useUserWallet";
 import { useCountryCurrency } from "@/hooks/useCountryCurrency";
 import { FeeDisclosure } from "@/components/FeeDisclosure";
@@ -231,7 +231,8 @@ const CompletePayment = () => {
       }
 
       if (method === "bank_transfer" || method === "payoneer") {
-        // Route to ManualPaymentFlow — handled by the UI component rendered below
+        // ManualPaymentFlow owns the configured bank, Payoneer and courier steps.
+        setLoading(false);
         setSelectedPaymentMethod(method);
         return;
       }
@@ -521,6 +522,34 @@ const CompletePayment = () => {
               Start 7-Day Free Trial
               <ArrowRight className="ml-auto h-4 w-4" />
             </Button>
+          ) : (selectedPaymentMethod === "bank_transfer" || selectedPaymentMethod === "payoneer") ? (
+            <div className="space-y-3">
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full justify-start text-muted-foreground"
+                onClick={() => setSelectedPaymentMethod(null)}
+              >
+                ← Change payment method
+              </Button>
+
+              {totalPrice === null ? (
+                <div className="flex gap-2 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 p-4">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    A price is not configured for {paymentCurrency}; manual payment cannot be started yet.
+                  </p>
+                </div>
+              ) : (
+                <ManualPaymentFlow
+                  planKey={selectedPlan}
+                  planName={currentTier?.name ?? selectedPlan}
+                  packageType={currentDuration?.key ?? "monthly"}
+                  chargedCurrency={paymentCurrency}
+                  chargedAmount={totalPrice}
+                />
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               <p className="text-sm font-medium text-foreground">Choose Payment Method:</p>
@@ -547,22 +576,25 @@ const CompletePayment = () => {
 
               <button
                 type="button"
-                onClick={() => setSelectedPaymentMethod("payoneer")}
+                onClick={() => setSelectedPaymentMethod("bank_transfer")}
                 className={cn(
                   "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
-                  selectedPaymentMethod === "payoneer"
+                  selectedPaymentMethod === "bank_transfer"
                     ? "border-primary bg-primary/5"
                     : "border-border hover:border-primary/50"
                 )}
               >
                 <div className={cn(
                   "flex h-5 w-5 items-center justify-center rounded-full border-2",
-                  selectedPaymentMethod === "payoneer" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                  selectedPaymentMethod === "bank_transfer" ? "border-primary bg-primary" : "border-muted-foreground/40"
                 )}>
-                  {selectedPaymentMethod === "payoneer" && <Check className="h-3 w-3 text-primary-foreground" />}
+                  {selectedPaymentMethod === "bank_transfer" && <Check className="h-3 w-3 text-primary-foreground" />}
                 </div>
-                <DollarSign className="h-5 w-5 text-orange-500" />
-                <span className="text-sm font-medium text-foreground">Payoneer</span>
+                <Landmark className="h-5 w-5 text-slate-600" />
+                <div>
+                  <span className="text-sm font-medium text-foreground">Bank Transfer / Payoneer / Courier</span>
+                  <p className="text-xs text-muted-foreground">Available methods depend on verified admin configuration in ALL, EUR or USD.</p>
+                </div>
               </button>
 
               {hasReferralEarnings && (
@@ -592,7 +624,7 @@ const CompletePayment = () => {
 
               {hasReferralEarnings && !canPayFromWallet && selectedPaymentMethod === "wallet" && (
                 <p className="text-xs text-destructive text-center">
-                  Wallet balance insufficient. Choose PayPal or Payoneer.
+                  Wallet balance insufficient. Choose PayPal or the manual payment option.
                 </p>
               )}
 
@@ -602,12 +634,11 @@ const CompletePayment = () => {
                 disabled={loading || !selectedPaymentMethod || !priceConfigured || paypalBlockedForALL}
               >
                 {selectedPaymentMethod === "paypal" && <Globe className="mr-2 h-5 w-5" />}
-                {selectedPaymentMethod === "payoneer" && <DollarSign className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod === "wallet" && <Wallet className="mr-2 h-5 w-5" />}
                 {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod
                   ? (totalPrice !== null
-                      ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "payoneer" ? "Payoneer" : "Wallet"}`
+                      ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : "Wallet"}`
                       : "Price not configured — select another currency")
                   : "Choose payment method"
                 }
@@ -622,7 +653,6 @@ const CompletePayment = () => {
               )}
             </div>
           )}
-
           <p className="text-xs text-muted-foreground text-center">
             Every plan includes a personal wallet for withdrawals and top-ups.
           </p>
