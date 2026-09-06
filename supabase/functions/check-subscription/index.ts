@@ -168,7 +168,7 @@ serve(async (req) => {
     if (roleError) logStep("Role lookup failed, continuing without bypass", { message: roleError.message });
 
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin") || roles.includes("business_owner");
+    // Platform admin roles may use the operational top-tier view; customer accounts follow billing.\n    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
 
     const catalogRows = await loadPricingCatalogRows(supabaseClient);
     const productMap = indexPricingCatalogByProductId(catalogRows);
