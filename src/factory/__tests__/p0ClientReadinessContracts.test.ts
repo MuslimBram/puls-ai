@@ -68,6 +68,8 @@ describe("P0 client-readiness contracts", () => {
 
     expect(completePayment).toContain("<ManualPaymentFlow");
     expect(completePayment).toContain("Bank Transfer / Payoneer / Courier");
+    expect(completePayment).toContain("Card (Stripe)");
+    expect(completePayment).toContain("Not configured");
     expect(manualPayment).toContain("cash_on_delivery_ALL");
     expect(manualPayment).toContain("No verified manual payment method is configured");
     expect(currency).toContain("cash_on_delivery_ALL");
