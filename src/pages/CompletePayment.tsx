@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/sonner";
-import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, Landmark, AlertCircle } from "lucide-react";
+import { Wallet, Zap, ArrowRight, LogOut, Check, Crown, Globe, Landmark, CreditCard, AlertCircle } from "lucide-react";
 import { useUserWallets } from "@/hooks/useUserWallet";
 import { useCountryCurrency } from "@/hooks/useCountryCurrency";
 import { FeeDisclosure } from "@/components/FeeDisclosure";
@@ -24,6 +24,7 @@ interface PlanTier {
   priceEUR: number | null;    // null = not yet configured → payment blocked
   priceUSD: number | null;    // null = not yet configured → payment blocked
   highlighted?: boolean;
+  stripePriceId: string | null;   // null = card checkout not configured
 }
 
 /** Return the configured payment price for a currency, or null if not set. */
@@ -55,7 +56,7 @@ const DURATION_OPTIONS: DurationOption[] = [
 const getDiscountedPrice = (base: number, discountPercent: number) =>
   Math.round(base * (1 - discountPercent / 100) * 100) / 100;
 
-type PaymentMethod = "paypal" | "payoneer" | "wallet" | "bank_transfer";
+type PaymentMethod = "paypal" | "payoneer" | "wallet" | "bank_transfer" | "stripe";
 
 const CompletePayment = () => {
   const navigate = useNavigate();
@@ -76,6 +77,7 @@ const CompletePayment = () => {
       priceALL: Number((p as any).monthly_price_all ?? p.monthly_price), // always set
       priceEUR: (p as any).monthly_price_eur != null ? Number((p as any).monthly_price_eur) : null,
       priceUSD: (p as any).monthly_price_usd != null ? Number((p as any).monthly_price_usd) : null,
+      stripePriceId: (p as any).stripe_price_id ?? null,
       highlighted: i === 1,
     })), [dbPlans]);
 
@@ -165,6 +167,7 @@ const CompletePayment = () => {
   const walletBalance = wallets?.[0]?.current_balance ?? 0;
   const canPayFromWallet = walletBalance >= discountedPrice && discountedPrice > 0;
   const hasReferralEarnings = walletBalance > 0;
+  const stripeConfigured = Boolean(currentTier?.stripePriceId);
 
   const handleTrialStart = async () => {
     try {
@@ -576,6 +579,36 @@ const CompletePayment = () => {
 
               <button
                 type="button"
+                onClick={() => setSelectedPaymentMethod("stripe")}
+                disabled={!stripeConfigured}
+                className={cn(
+                  "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
+                  selectedPaymentMethod === "stripe"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50",
+                  !stripeConfigured && "cursor-not-allowed opacity-60"
+                )}
+              >
+                <div className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                  selectedPaymentMethod === "stripe" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                )}>
+                  {selectedPaymentMethod === "stripe" && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <CreditCard className="h-5 w-5 text-violet-600" />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">Card (Stripe)</span>
+                  <p className="text-xs text-muted-foreground">
+                    {stripeConfigured ? "Secure card checkout" : "Not configured for this plan yet."}
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {stripeConfigured ? "Available" : "Not configured"}
+                </Badge>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setSelectedPaymentMethod("bank_transfer")}
                 className={cn(
                   "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
@@ -631,14 +664,21 @@ const CompletePayment = () => {
               <Button
                 className="w-full h-14 text-base"
                 onClick={() => selectedPaymentMethod && handlePayment(selectedPaymentMethod)}
-                disabled={loading || !selectedPaymentMethod || !priceConfigured || paypalBlockedForALL}
+                disabled={
+                  loading ||
+                  !selectedPaymentMethod ||
+                  !priceConfigured ||
+                  paypalBlockedForALL ||
+                  (selectedPaymentMethod === "stripe" && !stripeConfigured)
+                }
               >
                 {selectedPaymentMethod === "paypal" && <Globe className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod === "wallet" && <Wallet className="mr-2 h-5 w-5" />}
+                {selectedPaymentMethod === "stripe" && <CreditCard className="mr-2 h-5 w-5" />}
                 {!selectedPaymentMethod && <ArrowRight className="mr-2 h-5 w-5" />}
                 {selectedPaymentMethod
                   ? (totalPrice !== null
-                      ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : "Wallet"}`
+                      ? `Pay ${formatCurrency(totalPrice, paymentCurrency)} with ${selectedPaymentMethod === "paypal" ? "PayPal" : selectedPaymentMethod === "stripe" ? "Card" : "Wallet"}`
                       : "Price not configured — select another currency")
                   : "Choose payment method"
                 }
