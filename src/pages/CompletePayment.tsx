@@ -641,34 +641,37 @@ const CompletePayment = () => {
                 </div>
               </button>
 
-              {hasReferralEarnings && (
-                <button
-                  type="button"
-                  onClick={() => setSelectedPaymentMethod("wallet")}
-                  className={cn(
-                    "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
-                    selectedPaymentMethod === "wallet"
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50",
-                    !canPayFromWallet && "opacity-50"
-                  )}
-                  disabled={!canPayFromWallet}
-                >
-                  <div className={cn(
-                    "flex h-5 w-5 items-center justify-center rounded-full border-2",
-                    selectedPaymentMethod === "wallet" ? "border-primary bg-primary" : "border-muted-foreground/40"
-                  )}>
-                    {selectedPaymentMethod === "wallet" && <Check className="h-3 w-3 text-primary-foreground" />}
-                  </div>
-                  <Wallet className="h-5 w-5 text-emerald-500" />
-                  <span className="text-sm font-medium text-foreground">Wallet</span>
-                  <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance)} ALL</Badge>
-                </button>
-              )}
+              <button
+                type="button"
+                onClick={() => setSelectedPaymentMethod("wallet")}
+                className={cn(
+                  "flex items-center gap-3 w-full rounded-lg border-2 px-4 py-3 transition-all text-left",
+                  selectedPaymentMethod === "wallet"
+                    ? "border-primary bg-primary/5"
+                    : "border-border hover:border-primary/50",
+                  !canPayFromWallet && "opacity-50"
+                )}
+                disabled={!canPayFromWallet}
+              >
+                <div className={cn(
+                  "flex h-5 w-5 items-center justify-center rounded-full border-2",
+                  selectedPaymentMethod === "wallet" ? "border-primary bg-primary" : "border-muted-foreground/40"
+                )}>
+                  {selectedPaymentMethod === "wallet" && <Check className="h-3 w-3 text-primary-foreground" />}
+                </div>
+                <Wallet className="h-5 w-5 text-emerald-500" />
+                <div className="flex-1">
+                  <span className="text-sm font-medium text-foreground">Pulse Wallet / local online</span>
+                  <p className="text-xs text-muted-foreground">
+                    {canPayFromWallet ? "Use your available wallet balance." : "Unavailable until the wallet has enough ALL credit."}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="ml-auto">{formatALL(walletBalance)} ALL</Badge>
+              </button>
 
-              {hasReferralEarnings && !canPayFromWallet && selectedPaymentMethod === "wallet" && (
+              {!canPayFromWallet && selectedPaymentMethod === "wallet" && (
                 <p className="text-xs text-destructive text-center">
-                  Wallet balance insufficient. Choose PayPal or the manual payment option.
+                  Wallet balance insufficient. Choose PayPal, Card, or a configured manual payment method.
                 </p>
               )}
 
@@ -696,12 +699,10 @@ const CompletePayment = () => {
                 <ArrowRight className="ml-auto h-4 w-4" />
               </Button>
 
-              {!hasReferralEarnings && (
-                <p className="text-xs text-muted-foreground text-center">
-                  <Wallet className="inline h-3 w-3 mr-1" />
-                  Wallet payment is available only if you have referral earnings (commissions).
-                </p>
-              )}
+              <p className="text-xs text-muted-foreground text-center">
+                <Wallet className="inline h-3 w-3 mr-1" />
+                Wallet is shown for every customer; it becomes selectable when the balance covers this payment.
+              </p>
             </div>
           )}
           <p className="text-xs text-muted-foreground text-center">
