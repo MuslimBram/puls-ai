@@ -46,7 +46,7 @@ const normalizePlanKey = (value: string | null | undefined, fallback: PlanKey = 
 
 export const useSubscription = () => {
   const { user } = useAuth();
-  const { isAdmin, isSuperAdmin, hasRole, permissions } = useRolePermissions();
+  const { isAdmin, isSuperAdmin, permissions } = useRolePermissions();
   const { plansByKey, planOrder, defaultPlanKey } = useMonetizationCatalog();
 
   const dbQuery = useQuery({
