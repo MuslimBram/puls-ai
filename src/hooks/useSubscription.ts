@@ -92,7 +92,10 @@ export const useSubscription = () => {
   const selectedPlan = normalizePlanKey(stripeData?.selected_plan ?? stripeData?.plan ?? dbQuery.data?.plan ?? fallbackPlanKey, fallbackPlanKey);
 
   if (privilegedBypass) {
-    const adminPlanKey = (planOrder[planOrder.length - 1] as PlanKey | undefined) ?? fallbackPlanKey;
+    // Admins test the complete product for free; Enterprise is the explicit capability tier.
+    const adminPlanKey: PlanKey = plansByKey.enterprise
+      ? "enterprise"
+      : ((planOrder[planOrder.length - 1] as PlanKey | undefined) ?? fallbackPlanKey);
     return {
       subscription: dbQuery.data,
       isLoading: dbQuery.isLoading || stripeQuery.isLoading,
