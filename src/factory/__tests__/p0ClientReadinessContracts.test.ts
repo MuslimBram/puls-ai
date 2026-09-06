@@ -46,6 +46,20 @@ describe("P0 client-readiness contracts", () => {
     expect(paypal).toContain('supabase.rpc("leah_apply_billing_entitlement_event"');
   });
 
+  it("pins PayPal order, capture, and webhook verification to one explicit environment", () => {
+    const helper = read("supabase/functions/_shared/paypal-config.ts");
+    expect(helper).toContain('raw !== "true" && raw !== "false"');
+    expect(helper).toContain("PAYPAL_SANDBOX must be explicitly configured as true or false");
+
+    for (const path of [
+      "supabase/functions/create-paypal-order/index.ts",
+      "supabase/functions/capture-paypal-order/index.ts",
+      "supabase/functions/paypal-webhook/index.ts",
+    ]) {
+      expect(read(path)).toContain("getPayPalSandboxMode()");
+    }
+  });
+
   it("allows a first customer to save a profile with one channel", () => {
     const source = read("src/pages/BusinessProfile.tsx");
     expect(source).toContain("{socialChannelCount < 1 && (");
