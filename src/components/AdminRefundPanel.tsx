@@ -8,6 +8,10 @@ import { CheckCircle, XCircle, Shield, AlertTriangle, Loader2, Eye } from "lucid
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
 import { useState } from "react";
+import { formatCurrency, type SupportedCurrency } from "@/lib/currency";
+
+const normalizeCurrency = (value: unknown): SupportedCurrency =>
+  value === "EUR" || value === "USD" || value === "ALL" ? value : "ALL";
 
 const statusColor: Record<string, string> = {
   requested: "bg-yellow-500/10 text-yellow-700",
@@ -166,7 +170,7 @@ export const AdminRefundPanel = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="text-sm font-medium text-foreground">
-                          ${Number(r.refund_amount).toFixed(2)} refund
+                          {formatCurrency(Number(r.refund_amount), normalizeCurrency(r.refund_currency ?? r.currency))} refund
                         </p>
                         <Badge className={statusColor[r.refund_status] || ""}>{r.refund_status}</Badge>
                       </div>
