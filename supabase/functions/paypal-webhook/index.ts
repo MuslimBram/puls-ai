@@ -15,6 +15,7 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { getPayPalSandboxMode } from "../_shared/paypal-config.ts";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -34,7 +35,7 @@ async function verifyPayPalWebhookStrict(
   const clientId     = Deno.env.get("PAYPAL_CLIENT_ID");
   const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
   const webhookId    = Deno.env.get("PAYPAL_WEBHOOK_ID");
-  const sandbox      = Deno.env.get("PAYPAL_SANDBOX") === "true";
+  const sandbox      = getPayPalSandboxMode();
 
   // 1. Fail-closed: missing configuration
   if (!clientId || !clientSecret || !webhookId) {
