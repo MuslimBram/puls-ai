@@ -31,7 +31,7 @@ describe("P0 client-readiness contracts", () => {
     expect(source).toContain("A workspace is required before starting plan checkout");
     expect(source).toContain("workspace_id: workspaceId");
     expect(source).toContain("if (trialDays) packageEndsAt.setDate");
-    expect(source).not.toContain("packageEndsAt.setDate(packageEndsAt.getDate() + trialDays);");
+    expect(source).not.toMatch(/\\n\\s*packageEndsAt\\.setDate\\(packageEndsAt\\.getDate\\(\\) \\+ trialDays\\);/);
   });
 
   it("connects completed billing to the LEAH lifecycle", () => {
