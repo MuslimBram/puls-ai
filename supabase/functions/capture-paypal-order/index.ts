@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { getPayPalSandboxMode } from "../_shared/paypal-config.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -168,7 +169,7 @@ serve(async (req) => {
     const clientSecret = Deno.env.get("PAYPAL_CLIENT_SECRET");
     if (!clientId || !clientSecret) throw new Error("PayPal credentials not configured");
 
-    const sandbox = Deno.env.get("PAYPAL_SANDBOX") !== "false";
+    const sandbox = getPayPalSandboxMode();
     const { token: ppToken, base } = await getPayPalAccessToken(clientId, clientSecret, sandbox);
 
     const orderCheckRes = await fetch(`${base}/v2/checkout/orders/${encodeURIComponent(orderId)}`, {
