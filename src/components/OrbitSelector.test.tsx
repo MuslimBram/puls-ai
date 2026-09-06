@@ -127,7 +127,7 @@ describe("OrbitSelector", () => {
     fireEvent.keyDown(listbox, { key: "ArrowRight" });
     fireEvent.keyDown(listbox, { key: "Enter" });
 
-    expect(onSelect).toHaveBeenCalledWith("CRM");
+    expect(onSelect).toHaveBeenCalledWith("crm");
   });
 
   it("syncs visual focus when the controlled selected value changes", () => {
