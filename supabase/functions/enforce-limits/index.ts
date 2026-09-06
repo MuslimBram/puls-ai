@@ -70,7 +70,7 @@ serve(async (req) => {
     if (roleError) throw roleError;
 
     const roles = (roleRows || []).map((row: { role: string }) => row.role);
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("business_owner") || roles.includes("admin");
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
 
     if (hasPrivilegedBypass) {
       return new Response(JSON.stringify({ allowed: true, currentPlan: "enterprise", bypassed: true }), {
