@@ -102,40 +102,11 @@ const Pricing = () => {
     }
 
     track("upgrade_click", { plan: planKey, intent, packageType });
-    setLoadingPlan(planKey);
-    try {
-      const plan = plans.find((p) => p.key === planKey);
-      if (!plan) throw new Error("Plan not found");
-
-      const totalPrice = getPackageTotalPrice(plan.monthlyPrice, packageType);
-      const description = `Pulse AI - ${plan.name} (${formatCommitmentLabel(packageType)})`;
-
-      const { data, error } = await supabase.functions.invoke("create-paypal-order", {
-        body: {
-          amount: totalPrice,
-          currency: "EUR",
-          paymentType: "one_time",
-          planKey,
-          description,
-        },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      if (data?.approveUrl) {
-        sessionStorage.setItem("paypal_order_id", data.orderId);
-        sessionStorage.setItem("paypal_payment_type", "one_time");
-        sessionStorage.setItem("paypal_plan_key", planKey);
-        sessionStorage.setItem("paypal_package_type", packageType);
-        window.location.href = data.approveUrl;
-        return;
-      }
-      throw new Error("PayPal checkout URL missing");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to continue to checkout");
-    } finally {
-      setLoadingPlan(null);
-    }
+    // Keep plan selection and payment selection separate: the next screen owns
+    // ALL/EUR/USD and the provider-specific availability checks.
+    navigate(
+      `/complete-payment?plan=${encodeURIComponent(planKey)}&packageType=${encodeURIComponent(packageType)}`,
+    );
   };
 
   const handleDonation = async (donationType: "donation_once" | "donation_monthly") => {
@@ -219,6 +190,9 @@ const Pricing = () => {
                 </div>
 
                 <PricingDurationSelector value={packageType} onChange={setPackageType} />
+                <p className="text-xs text-muted-foreground">
+                  Hapi tjetër: zgjidh paketën; më pas zgjidh ALL, EUR ose USD dhe mënyrën e pagesës.
+                </p>
 
                 <div className="grid gap-3 sm:grid-cols-3">
                   <div className="rounded-2xl border border-border/50 bg-muted/20 p-4">
@@ -248,6 +222,7 @@ const Pricing = () => {
               currentPackageType={currentPackageType}
               loading={loadingPlan === plan.key}
               onSelect={handlePlanAction}
+              continueToPayment
               packageType={packageType}
               plan={plan}
               planOrder={planOrder}
