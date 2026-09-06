@@ -3,7 +3,6 @@ import { useManualPayment } from "@/hooks/useManualPayment";
 import type { ManualPaymentMethod, PaymentMethodConfig } from "@/hooks/useManualPayment";
 import {
   type SupportedCurrency,
-  formatCurrency,
   getPaymentMethodPriority,
 } from "@/lib/currency";
 import { FeeDisclosure } from "@/components/FeeDisclosure";
