@@ -345,10 +345,8 @@ const BusinessProfile = () => {
               </CardContent>
             </Card>
 
-            <Button type="submit" className="w-full" disabled={upsert.isPending || socialChannelCount < 2}>
-              {socialChannelCount < 2
-                ? "Connect at least 2 channels to save"
-                : upsert.isPending ? "Saving..." : profile ? "Update Profile" : "Create Profile"}
+            <Button type="submit" className="w-full" disabled={upsert.isPending}>
+              {upsert.isPending ? "Saving..." : profile ? "Update Profile" : "Create Profile"}
             </Button>
           </form>
         </Form>
