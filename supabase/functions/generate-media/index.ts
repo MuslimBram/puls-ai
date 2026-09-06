@@ -73,7 +73,7 @@ serve(async (req) => {
     if (roleError) throw roleError;
 
     const roles = (roleRows ?? []).map((row) => row.role);
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("business_owner") || roles.includes("admin");
+    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
     const normalizedPlan = hasPrivilegedBypass ? "enterprise" : normalizeSubscriptionPlan(subscription?.plan);
     if (!normalizedPlan) {
       return json(req, { error: "Subscription plan unavailable." }, { status: 409 });
