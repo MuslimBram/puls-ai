@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Bot, X, Send, Loader2, MessageCircle, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ interface ChatMessage {
 }
 
 export const FloatingAIBot = () => {
+  const location = useLocation();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -38,6 +39,10 @@ export const FloatingAIBot = () => {
   const { t } = useTranslation();
   const { localizedPath } = usePublicLocale();
   const isPublicVisitor = !user?.id;
+
+  // LEAH has its own authenticated runtime chat. Do not render the generic
+  // public AI Help widget on /leah or the two chats visually overlap.
+  if (location.pathname === "/leah") return null;
 
   if (!leadRequestIdRef.current) {
     leadRequestIdRef.current =
