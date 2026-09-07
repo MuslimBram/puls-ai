@@ -96,6 +96,22 @@ serve(async (req) => {
       }
     }
 
+    const { data: providerBindings, error: providerBindingsError } = await admin
+      .from("leah_workspace_provider_bindings")
+      .select("provider, model, status, validation_status")
+      .eq("workspace_id", workspaceId)
+      .eq("status", "active")
+      .order("provider");
+    if (providerBindingsError) throw providerBindingsError;
+
+    const providers = (providerBindings ?? [])
+      .filter((binding) => binding.validation_status === "valid")
+      .map((binding) => ({
+        provider: binding.provider,
+        model: binding.model,
+        validation_status: binding.validation_status,
+      }));
+
     const now = new Date().toISOString();
     const limits = {
       concurrency: entitlement?.concurrency_limit ?? null,
@@ -135,6 +151,7 @@ serve(async (req) => {
         role,
         expires_at: ticket.expires_at,
         limits,
+        providers,
       });
     }
 
@@ -170,6 +187,7 @@ serve(async (req) => {
       role,
       expires_at: session.expires_at,
       limits,
+      providers,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
