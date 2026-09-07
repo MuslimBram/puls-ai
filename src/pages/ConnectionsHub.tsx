@@ -153,7 +153,11 @@ const ConnectionsHub = () => {
                 <CardContent>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {CHANNEL_PROVIDERS.map((prov) => {
-                      const isConnected = channels.some((c) => c.channel_type === prov.id);
+                      const isConnected = channels.some(
+                        (c) => c.channel_type === prov.id
+                          && c.is_enabled
+                          && c.connection_status === "connected",
+                      );
                       const Icon = IconMap[prov.id] || Radio;
                       return (
                         <div key={prov.id} className="rounded-lg border border-border p-4 space-y-2">
@@ -176,7 +180,7 @@ const ConnectionsHub = () => {
                             onClick={() => setWizardProvider(prov)}
                           >
                             <Settings2 className="h-3 w-3 mr-1" />
-                            {isConnected ? "Update" : "Connect"}
+                            {isConnected ? "Manage" : "Connect"}
                           </Button>
                         </div>
                       );
