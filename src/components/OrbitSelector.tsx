@@ -77,7 +77,7 @@ export function OrbitSelector<T extends string = string>({
   const focusedItem = items[focusedIndex];
   const radiusX = compact ? 126 : 205;
   const radiusY = compact ? 104 : 142;
-  const optionAngles = [0, -60, -120, -180];
+  const orbitItems = items.filter((_, index) => index !== focusedIndex);
 
   return (
     <div role="listbox" aria-label={ariaLabel}
@@ -97,26 +97,26 @@ export function OrbitSelector<T extends string = string>({
           {centralContent ? centralContent(focusedItem) : <div className="text-primary">{focusedItem?.icon}</div>}
         </div>
 
-        {items.map((item, index) => {
-          const count = Math.max(items.length, 1);
-          const slot = (((index - focusedIndex) * directionSign) % count + count) % count;
-          const angle = optionAngles[slot % optionAngles.length] * Math.PI / 180;
+        {orbitItems.map((item, orbitIndex) => {
+          const originalIndex = items.findIndex((candidate) => candidate.value === item.value);
+          const count = Math.max(orbitItems.length, 1);
+          const progress = count === 1 ? 0.5 : orbitIndex / (count - 1);
+          const angle = (-progress * Math.PI) + (directionSign < 0 ? Math.PI : 0);
           const x = Math.cos(angle) * radiusX;
           const y = Math.sin(angle) * radiusY;
-          const isFocused = index === focusedIndex;
           const isSelected = item.value === selectedValue;
           return (
             <button key={item.value} id={`${idPrefix}-${item.value}`} type="button" role="option"
               aria-selected={isSelected} disabled={item.disabled}
-              onClick={() => { setFocusedIndex(index); pauseFromInteraction(); if (!item.disabled) onSelect(item.value); }}
-              style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(${isFocused ? 1.06 : 0.9})` }}
+              onClick={() => { setFocusedIndex(originalIndex); pauseFromInteraction(); if (!item.disabled) onSelect(item.value); }}
+              style={{ transform: `translate(calc(-50% + ${x}px), calc(-50% + ${y}px)) scale(0.9)` }}
               className={cn(
                 "absolute left-1/2 top-[76%] flex min-w-20 max-w-28 flex-col items-center gap-1 rounded-2xl border bg-background/95 px-3 py-2 text-center shadow-sm transition-[transform,opacity,border-color,box-shadow] duration-700 ease-in-out motion-reduce:transition-none",
-                isFocused ? "z-20 border-primary/70 opacity-100 shadow-md" : "z-10 border-border/70 opacity-75",
+                "z-10 border-border/70 opacity-75",
                 isSelected && "ring-2 ring-primary ring-offset-2 ring-offset-background",
                 item.disabled && "cursor-not-allowed opacity-40",
               )}>
-              <span className={cn("text-muted-foreground", (isFocused || isSelected) && "text-primary")}>{item.icon}</span>
+              <span className={cn("text-muted-foreground", isSelected && "text-primary")}>{item.icon}</span>
               <span className="text-[11px] font-medium leading-tight sm:text-xs">{item.label}</span>
             </button>
           );
