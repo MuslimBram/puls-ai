@@ -49,9 +49,18 @@ serve(async (req) => {
       .select("provider, model, secret_id, status, validation_status")
       .eq("workspace_id", session.workspaceId).eq("status", "active").order("provider");
     if (bindingError) throw bindingError;
-    const binding = (bindings ?? []).find((row) => row.provider === "openai") ?? (bindings ?? [])[0];
-    if (!binding) return json(req, { error: "No active LEAH provider binding" }, 404);
-    if (binding.validation_status !== "valid") return json(req, { error: "LEAH provider is not validated" }, 409);
+    const requestedProvider = typeof body.preferred_provider === "string" ? body.preferred_provider.trim() : "";
+    const validBindings = (bindings ?? []).filter((row) => row.validation_status === "valid");
+    const binding = requestedProvider
+      ? validBindings.find((row) => row.provider === requestedProvider)
+      : validBindings.find((row) => row.provider === "openai") ?? validBindings[0];
+    if (!binding) {
+      return json(req, {
+        error: requestedProvider
+          ? "The requested LEAH provider is not active and validated for this workspace"
+          : "No active validated LEAH provider binding",
+      }, requestedProvider ? 409 : 404);
+    }
     const { data: secret, error: secretError } = await admin.rpc("leah_vault_read_for_runtime", { _workspace_id: session.workspaceId, _user_id: session.userId, _secret_id: binding.secret_id, _execution_id: null });
     if (secretError) throw secretError;
     if (typeof secret !== "string" || !secret) throw new Error("Secret unavailable");
