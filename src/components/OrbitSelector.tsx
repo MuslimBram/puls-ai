@@ -77,12 +77,10 @@ export function OrbitSelector<T extends string = string>({
   const focusedItem = items[focusedIndex];
   const radiusX = compact ? 126 : 205;
   const radiusY = compact ? 104 : 142;
-  const orbitItems = items
-    .map((_, offset) => {
-      const index = (focusedIndex + ((offset + 1) * directionSign) + items.length) % items.length;
-      return items[index];
-    })
-    .filter(Boolean);
+  const orbitItems = Array.from({ length: Math.max(items.length - 1, 0) }, (_, offset) => {
+    const index = (focusedIndex + ((offset + 1) * directionSign) + items.length) % items.length;
+    return { item: items[index], originalIndex: index };
+  });
 
   return (
     <div role="listbox" aria-label={ariaLabel}
@@ -102,8 +100,7 @@ export function OrbitSelector<T extends string = string>({
           {centralContent ? centralContent(focusedItem) : <div className="text-primary">{focusedItem?.icon}</div>}
         </div>
 
-        {orbitItems.map((item, orbitIndex) => {
-          const originalIndex = items.findIndex((candidate) => candidate.value === item.value);
+        {orbitItems.map(({ item, originalIndex }, orbitIndex) => {
           const count = Math.max(orbitItems.length, 1);
           const progress = count === 1 ? 0.5 : orbitIndex / (count - 1);
           // Always place the next option at the right and move it across the
