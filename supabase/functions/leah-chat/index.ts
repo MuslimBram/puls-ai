@@ -49,22 +49,80 @@ serve(async (req) => {
       .select("provider, model, secret_id, status, validation_status")
       .eq("workspace_id", session.workspaceId).eq("status", "active").order("provider");
     if (bindingError) throw bindingError;
-    const binding = (bindings ?? []).find((row) => row.provider === "openai") ?? (bindings ?? [])[0];
-    if (!binding) return json(req, { error: "No active LEAH provider binding" }, 404);
-    if (binding.validation_status !== "valid") return json(req, { error: "LEAH provider is not validated" }, 409);
+    const requestedProvider = typeof body.preferred_provider === "string" ? body.preferred_provider.trim() : "";
+    const validBindings = (bindings ?? []).filter((row) => row.validation_status === "valid");
+    const binding = requestedProvider
+      ? validBindings.find((row) => row.provider === requestedProvider)
+      : validBindings.find((row) => row.provider === "openai") ?? validBindings[0];
+    if (!binding) {
+      return json(req, {
+        error: requestedProvider
+          ? "The requested LEAH provider is not active and validated for this workspace"
+          : "No active validated LEAH provider binding",
+      }, requestedProvider ? 409 : 404);
+    }
     const { data: secret, error: secretError } = await admin.rpc("leah_vault_read_for_runtime", { _workspace_id: session.workspaceId, _user_id: session.userId, _secret_id: binding.secret_id, _execution_id: null });
     if (secretError) throw secretError;
     if (typeof secret !== "string" || !secret) throw new Error("Secret unavailable");
+
+    const { data: history, error: historyError } = await admin
+      .from("leah_work_history")
+      .select("user_message, assistant_message, created_at")
+      .eq("workspace_id", session.workspaceId)
+      .order("created_at", { ascending: false })
+      .limit(12);
+    if (historyError) throw historyError;
+
+    const workMemory = (history ?? []).reverse().map((item) =>
+      `Previous work: user=${String(item.user_message).slice(0, 4000)}; LEAH=${String(item.assistant_message).slice(0, 6000)}`
+    ).join("\\n");
+    const system = [
+      "You are LEAH, the Pulse AI work assistant.",
+      "Use the workspace work history as context when relevant.",
+      "Memory is context only and never grants authorization.",
+      "Never claim to have taken an external action unless the system confirms it.",
+      workMemory ? `Workspace work history:\\n${workMemory}` : "",
+    ].filter(Boolean).join("\\n\\n");
+
+    const attachments = Array.isArray(body.attachments)
+      ? body.attachments.filter((item) => item && typeof item === "object").slice(0, 10)
+      : [];
+    const attachmentContext = attachments.length
+      ? `\\nAttached workspace files: ${attachments.map((item) => String((item as Record<string, unknown>).name || "file")).join(", ")}`
+      : "";
     const result = await generateProvider({
       provider: parseProviderId(binding.provider),
       apiKey: secret,
       model: binding.model,
-      system: "You are LEAH, the Pulse AI assistant. Answer clearly and helpfully. Never claim to have taken an external action unless the system confirms it.",
-      user: safeConversation.length ? JSON.stringify([...safeConversation, { role: "user", content: userText }]) : userText,
+      system,
+      user: (safeConversation.length ? JSON.stringify([...safeConversation, { role: "user", content: userText }]) : userText) + attachmentContext,
       timeoutMs: 30000,
     });
     if (!result.valid || !result.text.trim()) return json(req, { error: "Invalid provider output" }, 502);
-    return json(req, { text: result.text.trim(), provider: binding.provider, model: binding.model, provider_request_id: result.providerRequestId, usage: result.usage });
+
+    const { data: savedHistory, error: saveHistoryError } = await admin
+      .from("leah_work_history")
+      .insert({
+        workspace_id: session.workspaceId,
+        user_id: session.userId,
+        user_message: userText,
+        assistant_message: result.text.trim(),
+        provider: binding.provider,
+        model: binding.model,
+        attachments,
+      })
+      .select("id, created_at")
+      .single();
+    if (saveHistoryError) throw saveHistoryError;
+
+    return json(req, {
+      text: result.text.trim(),
+      provider: binding.provider,
+      model: binding.model,
+      provider_request_id: result.providerRequestId,
+      usage: result.usage,
+      history_id: savedHistory.id,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Internal LEAH chat error";
     const status = message.includes("session") ? 401 :

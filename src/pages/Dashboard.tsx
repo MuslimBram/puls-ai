@@ -9,6 +9,7 @@ import { useInbox } from "@/hooks/useInbox";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useConversionTracking } from "@/hooks/useConversionTracking";
 import { UsageIndicator } from "@/components/UsageIndicator";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import {
   MessageSquare,
   Users,
+  Building2,
   TrendingUp,
   Inbox,
   Target,
@@ -48,6 +50,28 @@ const Dashboard = () => {
   const { messages } = useInbox();
   const { plan, checkLimit, subscription } = useFeatureGating();
   const { track } = useConversionTracking();
+  const { roles, isSuperAdmin } = useRolePermissions();
+  const isPlatformAdmin = roles.includes("admin") || roles.includes("super_admin");
+  const isPlatformOwner = isSuperAdmin;
+  const { data: platformBusinesses = [], isLoading: businessesLoading } = useQuery({
+    queryKey: ["platform-business-directory", roles],
+    enabled: isPlatformAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("platform_business_directory" as any);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; workspace_id: string; business_name: string | null; industry: string | null; created_at: string }>;
+    },
+  });
+
+  const { data: registrations = [], isLoading: registrationsLoading } = useQuery({
+    queryKey: ["platform-registration-directory", roles],
+    enabled: isPlatformOwner,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("platform_registration_directory" as any);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; email: string | null; created_at: string; last_sign_in_at: string | null }>;
+    },
+  });
 
   const { data: knowledgeCount } = useQuery({
     queryKey: ["knowledge-count", profile?.user_id],
@@ -86,6 +110,100 @@ const Dashboard = () => {
   }).length;
   const unreadCount = (messages ?? []).filter((m) => m.is_unread).length;
   const hasTelegram = (channels ?? []).some((c) => c.channel_type === "telegram" && c.is_enabled);
+
+  if (isPlatformAdmin) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Building2 className="h-6 w-6 text-primary" />
+              {isPlatformOwner ? "Platform Businesses" : "Assigned Businesses"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isPlatformOwner
+                ? "Owner view: all registered businesses and Pulse AI registrations."
+                : "Admin view: only businesses explicitly assigned to you. This is not your personal business profile."}
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {businessesLoading ? (
+              <Card><CardContent className="pt-6 text-sm text-muted-foreground">Loading businesses…</CardContent></Card>
+            ) : platformBusinesses.length === 0 ? (
+              <Card className="sm:col-span-2 lg:col-span-3">
+                <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
+                  <Building2 className="h-10 w-10 text-muted-foreground/50" />
+                  <p className="text-sm text-muted-foreground">No business workspaces are available yet.</p>
+                  <Button asChild variant="outline"><Link to="/admin">Open Admin Panel</Link></Button>
+                </CardContent>
+              </Card>
+            ) : (
+              platformBusinesses.map((business: any) => (
+                <Card key={business.id}>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-primary" />
+                      {business.business_name || business.name || "Business workspace"}
+                    </CardTitle>
+                    <CardDescription>{business.industry || "Industry not configured"}</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex items-center justify-between gap-3">
+                    <span className="text-xs text-muted-foreground">Workspace support and monitoring</span>
+                    <Button asChild size="sm">
+                      <Link to={`/admin/businesses/${business.id}/scan-insights`}>Open</Link>
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))
+            )}
+          </div>
+
+          {isPlatformOwner && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Pulse AI registrations</CardTitle>
+                <CardDescription>Owner-only platform registration overview. No business private data is shown here.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {registrationsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading registrations…</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {registrations.slice(0, 12).map((registration) => (
+                      <div key={registration.id} className="rounded-lg border border-border p-3">
+                        <p className="truncate text-sm font-medium text-foreground">{registration.email || "Email unavailable"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Registered {new Date(registration.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                    {registrations.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No registrations found.</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Personal role</CardTitle>
+              <CardDescription>
+                Your platform role is separate from a business profile. You can assist authorized businesses as a worker, influencer, collaborator, or caretaker.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+              <Button asChild variant="outline"><Link to="/managed-businesses">Managed Businesses</Link></Button>
+              <Button asChild variant="outline"><Link to="/admin">Administration</Link></Button>
+              <Button asChild variant="outline"><Link to="/support">Notifications & Support</Link></Button>
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const leadsUsage = checkLimit("leadsPerMonth", subscription?.leads_used ?? (leads ?? []).length);
   const channelsUsage = checkLimit("channels", (channels ?? []).length);

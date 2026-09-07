@@ -115,7 +115,9 @@ const ROLE_PERMISSIONS: Record<AppRole, RolePermissions> = {
     canReviewBusinesses: true,
     canApprovePayouts: true,
     canManageCommissions: true,
-    canViewAllWorkspaces: true,
+    // Platform admins work only inside explicitly assigned workspaces.
+    // The Owner/super_admin retains the global platform view.
+    canViewAllWorkspaces: false,
     canSuspendUsers: true,
     canChangePlans: true,
     bypassSubscription: true,

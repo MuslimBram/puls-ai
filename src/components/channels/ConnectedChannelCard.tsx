@@ -28,6 +28,7 @@ export const ConnectedChannelCard: React.FC<ConnectedChannelCardProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isPro = channel.connection_mode === "professional";
   const capCount = channel.capabilities?.length || 0;
+  const isLive = channel.is_enabled && channel.connection_status === "connected";
 
   return (
     <>
@@ -47,7 +48,13 @@ export const ConnectedChannelCard: React.FC<ConnectedChannelCardProps> = ({
               <AlertTriangle className="h-3 w-3" /> Reconnect Required
             </Badge>
           )}
-          {!channel.reconnect_required && channel.is_enabled && (
+          <Badge
+            variant={isLive ? "default" : channel.connection_status === "error" ? "destructive" : "outline"}
+            className="text-xs"
+          >
+            {isLive ? "Connected" : channel.connection_status === "error" ? "Connection error" : "Not verified"}
+          </Badge>
+          {isLive && !channel.reconnect_required && (
             <Badge variant="outline" className="text-xs gap-1">
               <CheckCircle2 className="h-3 w-3" /> {capCount} features
             </Badge>
