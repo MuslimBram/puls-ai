@@ -175,15 +175,11 @@ export default {
     recommended: "Recommended",
     custom: "Custom",
     comparePlans: "Compare Plans",
-    testimonialsTitle: "Trusted by Growing Businesses",
-    testimonialsDesc: "See what our customers say.",
-    testimonials: [
-      { name: "Sarah K.", role: "Marketing Director", quote: "Pulse AI transformed how we handle inbound leads. Response times dropped by 80%." },
-      { name: "Michael R.", role: "Agency Owner", quote: "The AI assistant feels like a team member. It handles initial conversations perfectly." },
-      { name: "Elena T.", role: "Sales Manager", quote: "We discovered 3x more qualified leads within the first month of using the platform." },
-    ],
-    communityTitle: "Join Our Community of Successful Business Owners",
-    communityDesc: "Thousands of businesses and freelancers growing together.",
+    testimonialsTitle: "Evidence-based product information",
+    testimonialsDesc: "Capabilities and controls shown here reflect the current product configuration.",
+    testimonials: [],
+    communityTitle: "Connected business workflows",
+    communityDesc: "Explore the capabilities and controls available in your workspace.",
     ctaTitle: "Ready to Capture More Leads?",
     ctaDesc: "Join businesses using Pulse AI to discover, qualify, and convert leads with AI.",
     signIn: "Sign In",
@@ -218,7 +214,7 @@ export default {
         },
         howMuch: {
           q: "How much does it cost?",
-          a: "Plans start at 9,900 ALL/month (Start), 19,900 ALL/month (Growth), 39,900 ALL/month (Pro), and 79,900 ALL/month (Enterprise). You get discounts for longer commitments: 5% for 3 months, 10% for 6 months, 15% yearly.",
+          a: "Plans use the canonical catalog: Standard 9,900 ALL/month, Professional 19,900 ALL/month, Advanced 39,900 ALL/month, and Enterprise 79,900 ALL/month. Longer commitments currently provide 5% savings for 3 months, 10% for 6 months, and 15% yearly. Final currency and entitlement details are shown in the product pricing flow.",
         },
         freeTrial: {
           q: "Can I try it for free?",
@@ -234,7 +230,7 @@ export default {
         },
         installMobile: {
           q: "Can I install it on my phone?",
-          a: "Yes! Pulse AI is a PWA (Progressive Web App). You can install it on iOS, Android, desktop, and tablet — just like a native app, directly from your browser.",
+          a: "Yes. Pulse AI is an installable PWA (Progressive Web App) for supported browsers on iOS, Android, desktop, and tablet. It is a web app, not a native Android or iOS application.",
         },
         afterTrial: {
           q: "What happens after the free trial?",
