@@ -20,7 +20,6 @@ const FOOTER_PLATFORM = [
   { labelKey: "nav.platform.marketing", href: "/#capabilities" },
   { labelKey: "nav.platform.automation", href: "/#journey" },
   { labelKey: "nav.platform.analytics", href: "/#analytics" },
-  { labelKey: "nav.platform.developers", href: "/#developers", comingSoon: true },
 ];
 
 const FOOTER_BUSINESS = [
