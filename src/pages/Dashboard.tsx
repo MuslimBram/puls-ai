@@ -10,7 +10,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
-import { useAdminData } from "@/hooks/useAdmin";
 import { useConversionTracking } from "@/hooks/useConversionTracking";
 import { UsageIndicator } from "@/components/UsageIndicator";
 import { OnboardingWizard } from "@/components/OnboardingWizard";
@@ -52,8 +51,16 @@ const Dashboard = () => {
   const { plan, checkLimit, subscription } = useFeatureGating();
   const { track } = useConversionTracking();
   const { roles } = useRolePermissions();
-  const { businesses: platformBusinesses, isLoading: businessesLoading } = useAdminData();
   const isPlatformAdmin = roles.includes("admin") || roles.includes("super_admin");
+  const { data: platformBusinesses = [], isLoading: businessesLoading } = useQuery({
+    queryKey: ["platform-business-directory", roles],
+    enabled: isPlatformAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("platform_business_directory" as any);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; workspace_id: string; business_name: string | null; industry: string | null; created_at: string }>;
+    },
+  });
 
   const { data: knowledgeCount } = useQuery({
     queryKey: ["knowledge-count", profile?.user_id],
