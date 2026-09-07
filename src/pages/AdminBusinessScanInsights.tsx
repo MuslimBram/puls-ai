@@ -17,14 +17,12 @@ const AdminBusinessScanInsights = () => {
     queryKey: ["admin-business-scan-insights", businessId],
     enabled: !!businessId && isAdmin,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("business_profiles")
-        .select("id, business_name, industry, ai_tone, workspace_id, short_description")
-        .eq("id", businessId!)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("platform_business_detail" as any, {
+        _business_id: businessId!,
+      });
 
       if (error) throw error;
-      return data;
+      return Array.isArray(data) ? data[0] ?? null : data;
     },
   });
 
