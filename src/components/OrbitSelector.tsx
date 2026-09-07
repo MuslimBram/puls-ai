@@ -77,7 +77,12 @@ export function OrbitSelector<T extends string = string>({
   const focusedItem = items[focusedIndex];
   const radiusX = compact ? 126 : 205;
   const radiusY = compact ? 104 : 142;
-  const orbitItems = items.filter((_, index) => index !== focusedIndex);
+  const orbitItems = items
+    .map((_, offset) => {
+      const index = (focusedIndex + ((offset + 1) * directionSign) + items.length) % items.length;
+      return items[index];
+    })
+    .filter(Boolean);
 
   return (
     <div role="listbox" aria-label={ariaLabel}
@@ -101,7 +106,9 @@ export function OrbitSelector<T extends string = string>({
           const originalIndex = items.findIndex((candidate) => candidate.value === item.value);
           const count = Math.max(orbitItems.length, 1);
           const progress = count === 1 ? 0.5 : orbitIndex / (count - 1);
-          const angle = (-progress * Math.PI) + (directionSign < 0 ? Math.PI : 0);
+          // Always place the next option at the right and move it across the
+          // upper half-circle. directionSign controls which option enters next.
+          const angle = -progress * Math.PI;
           const x = Math.cos(angle) * radiusX;
           const y = Math.sin(angle) * radiusY;
           const isSelected = item.value === selectedValue;
