@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useState } from "react";
 import { Bot, Loader2, Lock, Paperclip, Send, Sparkles } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -65,7 +65,7 @@ export default function LeahChatRuntime() {
 
   const isAdmin = role === "admin" || role === "owner" || role === "super_admin";
 
-  const uploadAttachments = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadAttachments = async (event: ChangeEvent<HTMLInputElement>) => {
     if (!workspace?.id || !event.target.files?.length) return;
     setError(null);
     try {
