@@ -50,8 +50,9 @@ const Dashboard = () => {
   const { messages } = useInbox();
   const { plan, checkLimit, subscription } = useFeatureGating();
   const { track } = useConversionTracking();
-  const { roles } = useRolePermissions();
+  const { roles, isSuperAdmin } = useRolePermissions();
   const isPlatformAdmin = roles.includes("admin") || roles.includes("super_admin");
+  const isPlatformOwner = isSuperAdmin;
   const { data: platformBusinesses = [], isLoading: businessesLoading } = useQuery({
     queryKey: ["platform-business-directory", roles],
     enabled: isPlatformAdmin,
@@ -59,6 +60,16 @@ const Dashboard = () => {
       const { data, error } = await supabase.rpc("platform_business_directory" as any);
       if (error) throw error;
       return (data ?? []) as Array<{ id: string; workspace_id: string; business_name: string | null; industry: string | null; created_at: string }>;
+    },
+  });
+
+  const { data: registrations = [], isLoading: registrationsLoading } = useQuery({
+    queryKey: ["platform-registration-directory", roles],
+    enabled: isPlatformOwner,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("platform_registration_directory" as any);
+      if (error) throw error;
+      return (data ?? []) as Array<{ id: string; email: string | null; created_at: string; last_sign_in_at: string | null }>;
     },
   });
 
@@ -107,10 +118,12 @@ const Dashboard = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Building2 className="h-6 w-6 text-primary" />
-              Businesses
+              {isPlatformOwner ? "Platform Businesses" : "Assigned Businesses"}
             </h1>
             <p className="text-sm text-muted-foreground">
-              Select a business workspace to review, support, and monitor. This is the platform administration view—not your personal business profile.
+              {isPlatformOwner
+                ? "Owner view: all registered businesses and Pulse AI registrations."
+                : "Admin view: only businesses explicitly assigned to you. This is not your personal business profile."}
             </p>
           </div>
 
@@ -145,6 +158,34 @@ const Dashboard = () => {
               ))
             )}
           </div>
+
+          {isPlatformOwner && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Pulse AI registrations</CardTitle>
+                <CardDescription>Owner-only platform registration overview. No business private data is shown here.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {registrationsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading registrations…</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {registrations.slice(0, 12).map((registration) => (
+                      <div key={registration.id} className="rounded-lg border border-border p-3">
+                        <p className="truncate text-sm font-medium text-foreground">{registration.email || "Email unavailable"}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Registered {new Date(registration.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    ))}
+                    {registrations.length === 0 && (
+                      <p className="text-sm text-muted-foreground">No registrations found.</p>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>
