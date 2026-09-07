@@ -59,6 +59,12 @@ export const PipelineBoard = ({ stages, deals, isLoading, onNewDeal, onSelectDea
     );
   }
 
+  const midpoint = Math.ceil(stages.length / 2);
+  const stageGroups = [
+    { key: "progress", label: "Capture & Qualification", stages: stages.slice(0, midpoint) },
+    { key: "closing", label: "Closing & Outcomes", stages: stages.slice(midpoint) },
+  ];
+
   if (stages.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -79,8 +85,15 @@ export const PipelineBoard = ({ stages, deals, isLoading, onNewDeal, onSelectDea
           <Plus className="h-4 w-4 mr-1" /> New Deal
         </Button>
       </div>
-      <div className="flex gap-3 overflow-x-auto pb-4">
-        {stages.map((stage) => {
+      <div className="space-y-5">
+        {stageGroups.map((group) => (
+          <section key={group.key} aria-label={group.label} className="space-y-2">
+            <div className="flex items-center gap-3">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{group.label}</h4>
+              <div className="h-px flex-1 bg-border" />
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2 snap-x">
+              {group.stages.map((stage) => {
           const stageDeals = deals.filter((d) => d.stage_id === stage.id);
           const stageValue = stageDeals.reduce((s, d) => s + (d.deal_value || 0), 0);
           const isDropTarget = dropTargetStage === stage.id;
@@ -157,7 +170,10 @@ export const PipelineBoard = ({ stages, deals, isLoading, onNewDeal, onSelectDea
               </div>
             </div>
           );
-        })}
+              })}
+            </div>
+          </section>
+        ))}
       </div>
     </>
   );
