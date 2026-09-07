@@ -12,6 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 type Message = { role: "user" | "assistant"; content: string };
 type LeahProvider = { provider: string; model: string | null; validation_status: string };
 type LeahAttachment = { name: string; path: string; size: number };
+type WorkHistoryItem = { id: string; user_message: string; assistant_message: string; created_at: string };
 type Session = { session_token?: string; role?: string; error?: string; providers?: LeahProvider[] };
 
 async function functionError(error: unknown, fallback: string) {
@@ -32,6 +33,7 @@ export default function LeahChatRuntime() {
   const [providers, setProviders] = useState<LeahProvider[]>([]);
   const [selectedProvider, setSelectedProvider] = useState("auto");
   const [attachments, setAttachments] = useState<LeahAttachment[]>([]);
+  const [workHistory, setWorkHistory] = useState<WorkHistoryItem[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -54,6 +56,13 @@ export default function LeahChatRuntime() {
       setSession(data.session_token);
       setRole(data.role ?? null);
       setProviders(data.providers ?? []);
+      const { data: history } = await supabase
+        .from("leah_work_history")
+        .select("id, user_message, assistant_message, created_at")
+        .eq("workspace_id", workspace.id)
+        .order("created_at", { ascending: false })
+        .limit(8);
+      setWorkHistory((history ?? []) as WorkHistoryItem[]);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not open LEAH");
     } finally {
@@ -111,6 +120,15 @@ export default function LeahChatRuntime() {
       if (invokeError) throw new Error(await functionError(invokeError, "LEAH generation failed"));
       if (!data?.text) throw new Error(data?.error || "LEAH returned no result");
       setMessages((current) => [...current, { role: "assistant", content: data.text as string }]);
+      if (workspace?.id) {
+        const { data: history } = await supabase
+          .from("leah_work_history")
+          .select("id, user_message, assistant_message, created_at")
+          .eq("workspace_id", workspace.id)
+          .order("created_at", { ascending: false })
+          .limit(8);
+        setWorkHistory((history ?? []) as WorkHistoryItem[]);
+      }
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "LEAH generation failed");
     } finally {
@@ -162,6 +180,17 @@ export default function LeahChatRuntime() {
               ))}
             </div>
           )}
+        </CardContent>
+      </Card>}
+      {workHistory.length > 0 && <Card>
+        <CardHeader className="py-3"><CardTitle className="text-sm">Historitë e punëve</CardTitle></CardHeader>
+        <CardContent className="space-y-2 pt-0">
+          {workHistory.map((item) => (
+            <div key={item.id} className="rounded-md border p-3">
+              <p className="line-clamp-2 text-xs font-medium text-foreground">{item.user_message}</p>
+              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.assistant_message}</p>
+            </div>
+          ))}
         </CardContent>
       </Card>}
       {error && <Alert variant="destructive"><AlertTitle>LEAH</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
