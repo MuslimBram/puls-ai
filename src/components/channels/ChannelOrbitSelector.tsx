@@ -45,6 +45,7 @@ export function ChannelOrbitSelector({ items, connectedChannels, canAccess, onCh
       }}
       ariaLabel="Communication channel catalog"
       rotationInterval={2500}
+      maxVisibleItems={4}
       centralContent={(focusedItem) => {
         if (!focusedItem) return null;
         const item = byId.get(focusedItem.value);
