@@ -12,6 +12,8 @@ type OrbitSelectorProps<T extends string = string> = {
   centralContent?: (item: OrbitSelectorItem<T> | undefined) => ReactNode; className?: string;
   /** Reverses autoplay, keyboard, swipe, and orbit placement when requested. */
   direction?: "forward" | "reverse";
+  /** Maximum number of visible options, including the focused center option. */
+  maxVisibleItems?: number;
 };
 
 function useMediaQuery(query: string) {
@@ -28,7 +30,7 @@ function useMediaQuery(query: string) {
 
 export function OrbitSelector<T extends string = string>({
   items, selectedValue, onSelect, ariaLabel, rotationInterval = 2500, autoRotate = true,
-  pauseOnInteractionMs = 5000, centralContent, className, direction = "forward",
+  pauseOnInteractionMs = 5000, centralContent, className, direction = "forward", maxVisibleItems = 4,
 }: OrbitSelectorProps<T>) {
   const directionSign = direction === "reverse" ? -1 : 1;
   const initialIndex = Math.max(0, items.findIndex((item) => item.value === selectedValue));
@@ -77,7 +79,8 @@ export function OrbitSelector<T extends string = string>({
   const focusedItem = items[focusedIndex];
   const radiusX = compact ? 126 : 205;
   const radiusY = compact ? 104 : 142;
-  const orbitItems = Array.from({ length: Math.max(items.length - 1, 0) }, (_, offset) => {
+  const visibleCount = Math.min(items.length, Math.max(2, maxVisibleItems));
+  const orbitItems = Array.from({ length: Math.max(visibleCount - 1, 0) }, (_, offset) => {
     const index = (focusedIndex + ((offset + 1) * directionSign) + items.length) % items.length;
     return { item: items[index], originalIndex: index };
   });
