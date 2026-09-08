@@ -159,6 +159,8 @@ function buildKnowledgeChunks(input: {
   ctas: string[];
   suggestedKeywords: string[];
   competitorHints: Array<{ name?: string; url?: string }>;
+  interactionSignals: Array<{ title?: string; description?: string }>;
+  salesSignals: Array<{ title?: string; description?: string }>;
   toneOfVoice: string;
 }) {
   const { business, source } = input;
@@ -394,10 +396,11 @@ serve(async (req) => {
 
     const startTime = Date.now();
 
-    const { data: source } = await sb.from("scan_sources").select("*").eq("id", source_id).single();
+    const { data: source } = await sb.from("scan_sources").select("*").eq("id", source_id).eq("workspace_id", workspace_id).maybeSingle();
     if (!source) throw new Error("Source not found");
 
     const typedSource = source as ScanSourceRecord;
+    if (business_id && typedSource.business_id && business_id !== typedSource.business_id) throw new Error("Source/business mismatch");
     const effectiveBusinessId = business_id || typedSource.business_id;
     if (!effectiveBusinessId) throw new Error("Select a business before scanning this source");
 
@@ -408,7 +411,13 @@ serve(async (req) => {
       .eq("workspace_id", workspace_id)
       .single();
     if (businessError || !business) throw new Error("Business not found for this workspace");
-    if (business.user_id !== userId) throw new Error("Forbidden");
+    const { data: canAccessBusiness, error: accessError } = await sb.rpc("has_workspace_role_for_user", {
+      _user_id: userId,
+      _workspace_id: workspace_id,
+      _roles: ["owner", "admin", "member"],
+    });
+    if (accessError) throw accessError;
+    if (!canAccessBusiness) throw new Error("Forbidden");
 
     const targetUrl = normalizeSourceTarget(typedSource.platform, typedSource.url_or_identifier);
 
@@ -472,6 +481,8 @@ serve(async (req) => {
     let toneOfVoice = "";
     let suggestedKeywords: string[] = [];
     let competitorHints: Array<{ name?: string; url?: string }> = [];
+    let interactionSignals: Array<{ title?: string; description?: string }> = [];
+    let salesSignals: Array<{ title?: string; description?: string }> = [];
     if (markdown.length > 100) {
       try {
         const aiRes = await routerChatCompletion({
@@ -479,7 +490,7 @@ serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `Analyze this ${typedSource.platform} source and normalize it into a business knowledge structure shared with website scans. Extract business summary, products, services, offers, recent post themes, tone, keywords, and competitor hints.`,
+                content: `Analyze this ${typedSource.platform} source and normalize it into a business knowledge structure shared with website scans. Extract business summary, products, services, offers, recent post themes, tone, keywords, competitor hints, FAQ/policy themes, comments/conversation themes, and sales signals.`,
               },
               {
                 role: "user",
@@ -555,8 +566,24 @@ serve(async (req) => {
                           required: ["name"],
                         },
                       },
+                      interaction_signals: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: { title: { type: "string" }, description: { type: "string" } },
+                          required: ["title", "description"],
+                        },
+                      },
+                      sales_signals: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          properties: { title: { type: "string" }, description: { type: "string" } },
+                          required: ["title", "description"],
+                        },
+                      },
                     },
-                    required: ["profile_summary", "business_summary", "tone_of_voice", "suggested_keywords", "products", "services", "recent_posts", "offers", "competitor_hints"],
+                    required: ["profile_summary", "business_summary", "tone_of_voice", "suggested_keywords", "products", "services", "recent_posts", "offers", "competitor_hints", "interaction_signals", "sales_signals"],
                     additionalProperties: false,
                   },
                 },
@@ -579,6 +606,8 @@ serve(async (req) => {
             recentPosts = (parsed.recent_posts || []).slice(0, 8);
             offers = (parsed.offers || []).slice(0, 8);
             competitorHints = (parsed.competitor_hints || []).slice(0, 5);
+            interactionSignals = (parsed.interaction_signals || []).slice(0, 8);
+            salesSignals = (parsed.sales_signals || []).slice(0, 8);
           }
         }
       } catch (aiError) {
@@ -621,6 +650,8 @@ serve(async (req) => {
     services.forEach((service) => addInsight("service", service.title || "Service", service.description || "", {}, 0.8));
     recentPosts.forEach((post) => addInsight("social_post", post.title || "Post", post.description || "", { platform: typedSource.platform }, 0.72));
     offers.forEach((offer) => addInsight("offer", offer.title || "Offer", offer.description || "", { platform: typedSource.platform }, 0.78));
+    interactionSignals.forEach((signal) => addInsight("social_post", signal.title || "Conversation or comment", signal.description || "", { platform: typedSource.platform, signal_type: "interaction" }, 0.7));
+    salesSignals.forEach((signal) => addInsight("opportunity", signal.title || "Sales signal", signal.description || "", { platform: typedSource.platform, signal_type: "sales" }, 0.7));
     if (contacts.length) addInsight("contact", "Contact Methods", `Found ${contacts.length} contact method(s)`, { contacts }, 0.95);
     if (Object.keys(socialLinks).length) addInsight("social", "Social Media Links", `Found profiles on ${Object.keys(socialLinks).join(", ")}`, socialLinks, 0.95);
     if (ctas.length) addInsight("cta", "Call-to-Action Phrases", `Found ${ctas.length} CTA phrase(s)`, { ctas }, 0.85);
@@ -648,6 +679,8 @@ serve(async (req) => {
       ctas,
       suggestedKeywords,
       competitorHints,
+      interactionSignals,
+      salesSignals,
       toneOfVoice,
     });
 
