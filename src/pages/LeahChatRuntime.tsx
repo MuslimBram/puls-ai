@@ -7,6 +7,7 @@ import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 
 type Message = { role: "user" | "assistant"; content: string };
@@ -26,7 +27,8 @@ async function functionError(error: unknown, fallback: string) {
 }
 
 export default function LeahChatRuntime() {
-  const { workspace, loading: workspaceLoading } = useWorkspace();
+  const { workspace, workspaces, loading: workspaceLoading, switchWorkspace } = useWorkspace();
+  const { user, loading: authLoading } = useAuth();
   const [session, setSession] = useState<string | null>(null);
   const [role, setRole] = useState<string | null>(null);
   const [providers, setProviders] = useState<LeahProvider[]>([]);
@@ -45,10 +47,15 @@ export default function LeahChatRuntime() {
   const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
 
   const initialize = useCallback(async () => {
-    if (workspaceLoading) return;
+    if (authLoading || workspaceLoading) return;
+    if (!user) {
+      setInitializing(false);
+      setError("Hyr në Pulse AI për të hapur LEAH.");
+      return;
+    }
     if (!workspace?.id) {
       setInitializing(false);
-      setError("No active workspace is available.");
+      setError(workspaces.length ? "Zgjidh një biznes për të hapur LEAH." : "Nuk ka ende biznes të lidhur me këtë llogari.");
       return;
     }
     try {
@@ -72,7 +79,7 @@ export default function LeahChatRuntime() {
     } finally {
       setInitializing(false);
     }
-  }, [workspace?.id, workspaceLoading]);
+  }, [authLoading, user, workspace?.id, workspaceLoading, workspaces.length]);
 
   useEffect(() => { void initialize(); }, [initialize]);
 
@@ -190,6 +197,15 @@ export default function LeahChatRuntime() {
         </CardContent>
       </Card>}
       {error && <Alert variant="destructive"><AlertTitle>LEAH</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
+      {!initializing && user && !workspace?.id && <Card>
+        <CardHeader><CardTitle>Zgjidh biznesin</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {workspaces.length > 0 ? <select aria-label="Zgjidh biznesin aktiv" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" defaultValue="" onChange={(event) => { if (event.target.value) switchWorkspace(event.target.value); }}>
+            <option value="" disabled>Zgjidh biznesin</option>
+            {workspaces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+          </select> : <Link to="/managed-businesses" className="inline-flex rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">Shto biznes</Link>}
+        </CardContent>
+      </Card>}
       {!initializing && !isAdmin && <Card><CardHeader><CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5" />LEAH është e mbyllur</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Për përdoruesit normalë LEAH do të hapet vetëm me plan aktiv me pagesë. Rregullat dhe çmimi do të vendosen më vonë. Adminët dhe Owner-i kanë akses pa pagesë.</CardContent></Card>}
       {isAdmin && <Card className="flex min-h-[60vh] flex-col"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />LEAH Chat</CardTitle><p className="text-xs text-muted-foreground">Ti shkruan kërkesën. Orchestrator-i i Pulse AI zgjedh provider-in dhe modelin në prapaskenë.</p></CardHeader><CardContent className="flex flex-1 flex-col gap-4 p-4"><div className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-muted/20 p-4">{messages.length === 0 && <div className="flex h-full min-h-40 items-center justify-center text-center text-sm text-muted-foreground">Shkruaj çfarë dëshiron të gjenerojë LEAH.</div>}{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-4 py-3 text-sm ${message.role === "user" ? "bg-primary text-primary-foreground" : "border bg-card"}`}>{message.content}</div></div>)}{loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />LEAH po gjeneron…</div>}</div><form onSubmit={send} className="rounded-xl border bg-card p-2 shadow-sm">
               <div className="relative flex items-center gap-2 border-b px-1 pb-2">
