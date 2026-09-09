@@ -1,5 +1,5 @@
-import { type ChangeEvent, type FormEvent, useCallback, useEffect, useState } from "react";
-import { Bot, Globe2, Link2, Loader2, Lock, Paperclip, Send, Sparkles } from "lucide-react";
+import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { BookOpen, Bot, ChevronDown, FileUp, Globe2, ImagePlus, Link2, LibraryBig, Loader2, Lock, PenLine, Plus, Search, Send, Sparkles, Video } from "lucide-react";
 import { OrbitSelector, type OrbitSelectorItem } from "@/components/OrbitSelector";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -53,6 +53,9 @@ export default function LeahChatRuntime() {
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [controlFocus, setControlFocus] = useState<LeahControl>("provider");
+  const [modelMenuOpen, setModelMenuOpen] = useState(false);
+  const [toolMenuOpen, setToolMenuOpen] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
 
   const initialize = useCallback(async () => {
     if (workspaceLoading) return;
@@ -156,83 +159,42 @@ export default function LeahChatRuntime() {
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight"><Sparkles className="h-6 w-6 text-primary" />LEAH</h1>
         <p className="mt-1 text-sm text-muted-foreground">LEAH orkestrohet nga AI kryesor i Pulse AI për lidhje, skedarë dhe gjenerim të kontrolluar.</p>
       </div>
-      {isAdmin && <Card>
-        <CardContent className="space-y-4 p-4">
-          <div>
-            <p className="text-sm font-medium">Kontrollet e LEAH</p>
-            <p className="text-xs text-muted-foreground">Shfaqen vetëm katër veprime kryesore; detajet hapen vetëm pasi zgjedh një.</p>
-          </div>
-          <OrbitSelector<LeahControl>
-            items={[
-              { value: "provider", label: "AI", icon: <Sparkles className="h-5 w-5" />, description: "Auto ose zgjidh providerin" },
-              { value: "upload", label: "Ngarko", icon: <Paperclip className="h-5 w-5" />, description: "Skedarë për këtë punë" },
-              { value: "plugins", label: "Plugins", icon: <Link2 className="h-5 w-5" />, description: "Lidhje me mjetet e punës" },
-              { value: "scan", label: "Skanim", icon: <Globe2 className="h-5 w-5" />, description: "Website dhe burimet e biznesit" },
-            ] satisfies OrbitSelectorItem<LeahControl>[]}
-            selectedValue={controlFocus}
-            onSelect={setControlFocus}
-            ariaLabel="LEAH work controls"
-            autoRotate={false}
-            maxVisibleItems={4}
-            centralContent={(item) => (
-              <div className="flex flex-col items-center gap-1 text-center">
-                <Sparkles className="h-6 w-6 text-primary" />
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground">LEAH</span>
-                <span className="text-xs font-semibold">{item?.label || "AI"}</span>
-              </div>
-            )}
-          />
-          <div className="rounded-lg border bg-muted/20 p-4">
-            {controlFocus === "provider" && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Auto ose zgjidh AI</p>
-                <select value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-                  <option value="auto">Auto — Pulse AI vendos</option>
-                  {providers.map((provider) => <option key={provider.provider} value={provider.provider}>{provider.provider}{provider.model ? ` · ${provider.model}` : ""}</option>)}
-                </select>
-                <p className="text-xs text-muted-foreground">Vetëm provider-at aktivë dhe të validuar shfaqen.</p>
-              </div>
-            )}
-            {controlFocus === "upload" && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium">Ngarko material për LEAH</p>
-                <label className="flex min-h-10 cursor-pointer items-center gap-2 rounded-md border border-input px-3 py-2 text-sm hover:bg-muted">
-                  <Paperclip className="h-4 w-4" /> Zgjidh PDF, tekst ose imazh
-                  <input type="file" multiple accept=".pdf,.txt,.md,.json,image/png,image/jpeg,image/webp" className="sr-only" onChange={uploadAttachments} />
-                </label>
-                <p className="text-xs text-muted-foreground">Maksimumi 10 MB për skedar, i ruajtur vetëm në workspace.</p>
-              </div>
-            )}
-            {controlFocus === "plugins" && (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium">Plugins dhe lidhje</p>
-                  <p className="text-xs text-muted-foreground">Pulse AI i përdor vetëm pasi lidhja dhe autorizimi i biznesit të jenë konfirmuar.</p>
-                </div>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {LEAH_PLUGIN_OPTIONS.map((plugin) => (
-                    <Link key={plugin.name} to={plugin.href} className="rounded-md border p-3 transition-colors hover:bg-muted">
-                      <p className="text-sm font-medium">{plugin.name}</p>
-                      <p className="text-xs text-muted-foreground">{plugin.detail}</p>
-                    </Link>
-                  ))}
-                </div>
-                <Button asChild variant="outline" size="sm"><Link to="/connections">Hap të gjitha lidhjet</Link></Button>
-              </div>
-            )}
-            {controlFocus === "scan" && (
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm font-medium">Skanimi i biznesit</p>
-                  <p className="text-xs text-muted-foreground">Nxjerr produkte, shërbime, postime, oferta, çmime, kontakte, FAQ, komente dhe sinjale shitjeje nga website-i dhe burimet e lidhura.</p>
-                </div>
-                <Button asChild variant="outline" size="sm"><Link to="/sources?type=website">Hap Business Scanner</Link></Button>
-              </div>
-            )}
-          </div>
-          {attachments.length > 0 && <div className="flex flex-wrap gap-2">{attachments.map((attachment) => <span key={attachment.path} className="rounded-full border px-3 py-1 text-xs text-muted-foreground">{attachment.name}</span>)}</div>}
-        </CardContent>
-      </Card>}
+      {isAdmin && <div className="relative z-20 flex items-center justify-between gap-3">
+        <div className="relative">
+          <button type="button" onClick={() => { setModelMenuOpen((open) => !open); setToolMenuOpen(false); }} className="flex min-w-56 items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2 text-left shadow-sm hover:bg-muted" aria-expanded={modelMenuOpen}>
+            <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /><span><span className="block text-sm font-medium">{selectedProvider === "auto" ? "Auto" : (providers.find((provider) => provider.provider === selectedProvider)?.model || selectedProvider)}</span><span className="block text-[11px] text-muted-foreground">{selectedProvider === "auto" ? "Recommended · Pulse AI chooses" : "Validated workspace model"}</span></span></span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${modelMenuOpen ? "rotate-180" : ""}`} />
+          </button>
+          {modelMenuOpen && <div className="absolute left-0 top-full mt-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl">
+            <div className="flex items-center gap-2 border-b px-3 py-3 text-sm font-semibold"><Sparkles className="h-4 w-4 text-primary" />Select Model</div>
+            <div className="max-h-72 overflow-y-auto p-1">
+              <button type="button" onClick={() => { setSelectedProvider("auto"); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === "auto" ? "bg-primary/10" : ""}`}>
+                <Sparkles className="mt-0.5 h-4 w-4 text-primary" /><span><span className="flex items-center gap-2 text-sm font-medium">Auto <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Recommended</span></span><span className="block text-xs text-muted-foreground">Always selects the best validated model</span></span>
+              </button>
+              {providers.map((provider) => <button key={provider.provider} type="button" onClick={() => { setSelectedProvider(provider.provider); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === provider.provider ? "bg-primary/10" : ""}`}>
+                <Sparkles className="mt-0.5 h-4 w-4 text-orange-400" /><span><span className="block text-sm font-medium">{provider.model || provider.provider}</span><span className="block text-xs text-muted-foreground">{provider.provider} · active and validated</span></span>
+              </button>)}
+              {providers.length === 0 && <Link to="/leah/providers" onClick={() => setModelMenuOpen(false)} className="block rounded-lg px-3 py-3 text-sm text-primary hover:bg-muted">Configure a validated provider first</Link>}
+            </div>
+          </div>}
+        </div>
+        <div className="relative">
+          <button type="button" onClick={() => { setToolMenuOpen((open) => !open); setModelMenuOpen(false); }} className="flex h-11 w-11 items-center justify-center rounded-xl border bg-card shadow-sm hover:bg-muted" aria-label="Open LEAH tools" aria-expanded={toolMenuOpen}><Plus className={`h-5 w-5 transition-transform ${toolMenuOpen ? "rotate-45" : ""}`} /></button>
+          {toolMenuOpen && <div className="absolute right-0 top-full mt-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl">
+            <div className="space-y-1 p-2">
+              <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><FileUp className="h-4 w-4" /><span><span className="block font-medium">Add photos & files</span><span className="block text-xs text-muted-foreground">Upload from computer</span></span><input ref={uploadInputRef} type="file" multiple accept=".pdf,.txt,.md,.json,image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { void uploadAttachments(event); setToolMenuOpen(false); }} /></label>
+              <Link to="/knowledge-base" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><LibraryBig className="h-4 w-4" /><span><span className="block font-medium">Add from library</span><span className="block text-xs text-muted-foreground">Browse workspace knowledge</span></span></Link>
+              <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><ImagePlus className="h-4 w-4" /><span><span className="block font-medium">Create image</span><span className="block text-xs text-muted-foreground">Visualize anything</span></span></Link>
+              <Link to="/sources?type=website" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Search className="h-4 w-4" /><span><span className="block font-medium">Web search</span><span className="block text-xs text-muted-foreground">Find real-time business information</span></span></Link>
+              <Link to="/deep-analytics" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><BookOpen className="h-4 w-4" /><span><span className="block font-medium">Deep research</span><span className="block text-xs text-muted-foreground">Research with Pulse AI</span></span></Link>
+              <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><PenLine className="h-4 w-4" /><span><span className="block font-medium">Sketch</span><span className="block text-xs text-muted-foreground">Draw and attach an image</span></span></Link>
+              <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Video className="h-4 w-4" /><span><span className="block font-medium">HeyGen</span><span className="block text-xs text-muted-foreground">Create AI videos and avatars</span></span></Link>
+              <Link to="/connections" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Sparkles className="h-4 w-4 text-cyan-400" /><span><span className="block font-medium">Canva</span><span className="block text-xs text-muted-foreground">Create, review, edit designs</span></span></Link>
+              <Link to="/connections" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Link2 className="h-4 w-4 text-emerald-400" /><span><span className="block font-medium">Supabase</span><span className="block text-xs text-muted-foreground">Manage and query databases</span></span></Link>
+            </div>
+          </div>}
+        </div>
+      </div>
       {workHistory.length > 0 && <Card>
         <CardHeader className="py-3"><CardTitle className="text-sm">Historitë e punëve</CardTitle></CardHeader>
         <CardContent className="space-y-2 pt-0">
