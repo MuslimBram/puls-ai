@@ -179,7 +179,7 @@ export default function LeahChatRuntime() {
             </div>
           </div>}
         </div>
-      </div>
+      </div>}
       {workHistory.length > 0 && <Card>
         <CardHeader className="py-3"><CardTitle className="text-sm">Historitë e punëve</CardTitle></CardHeader>
         <CardContent className="space-y-2 pt-0">
