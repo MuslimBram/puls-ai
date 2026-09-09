@@ -1,6 +1,5 @@
 import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, Bot, ChevronDown, FileUp, Globe2, ImagePlus, Link2, LibraryBig, Loader2, Lock, PenLine, Plus, Search, Send, Sparkles, Video } from "lucide-react";
-import { OrbitSelector, type OrbitSelectorItem } from "@/components/OrbitSelector";
+import { BookOpen, Bot, ChevronDown, FileUp, ImagePlus, Link2, LibraryBig, Loader2, Lock, PenLine, Plus, Search, Send, Sparkles, Video } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,19 +14,6 @@ type LeahProvider = { provider: string; model: string | null; validation_status:
 type LeahAttachment = { name: string; path: string; size: number };
 type WorkHistoryItem = { id: string; user_message: string; assistant_message: string; created_at: string };
 type Session = { session_token?: string; role?: string; error?: string; providers?: LeahProvider[] };
-type LeahControl = "provider" | "upload" | "plugins" | "scan";
-
-const LEAH_PLUGIN_OPTIONS = [
-  { name: "GitHub", detail: "Kod, issues dhe CI", href: "/connections" },
-  { name: "Supabase", detail: "Database dhe Edge Functions", href: "/connections" },
-  { name: "Vercel", detail: "Deploy dhe hosting", href: "/connections" },
-  { name: "Canva", detail: "Dizajne dhe përmbajtje", href: "/connections" },
-  { name: "Gmail", detail: "Email dhe komunikim", href: "/connections" },
-  { name: "Google Drive / Sheets", detail: "Skedarë dhe të dhëna", href: "/connections" },
-  { name: "Slack / Teams", detail: "Njoftime dhe bashkëpunim", href: "/connections" },
-  { name: "WhatsApp / Telegram", detail: "Biseda dhe Inbox", href: "/connections" },
-] as const;
-
 async function functionError(error: unknown, fallback: string) {
   const response = (error as { context?: Response } | null)?.context;
   if (response?.clone) {
@@ -52,7 +38,6 @@ export default function LeahChatRuntime() {
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [controlFocus, setControlFocus] = useState<LeahControl>("provider");
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
