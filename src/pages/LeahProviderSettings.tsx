@@ -330,7 +330,7 @@ export default function LeahProviderSettings() {
 
             <form className="space-y-4" onSubmit={handleSaveAndTest}>
               <div className="space-y-2">
-                <Label htmlFor="leah-openai-model">Provider model</Label>
+                <Label htmlFor="leah-provider-model">Provider model</Label>
                 <Input
                   id="leah-provider-model"
                   value={model}
@@ -361,7 +361,7 @@ export default function LeahProviderSettings() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Saving rotates the existing workspace credential. The live test makes a
-                  minimal provider request and may incur a small OpenAI charge.
+                  minimal provider request and may incur a small provider charge.
                 </p>
               </div>
 
