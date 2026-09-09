@@ -125,9 +125,8 @@ const Dashboard = () => {
                 ? "Owner view: all registered businesses and Pulse AI registrations."
                 : "Admin view: only businesses explicitly assigned to you. This is not your personal business profile."}
             </p>
+            <Button asChild><Link to="/businesses/new"><Building2 className="mr-2 h-4 w-4" />Shto biznes</Link></Button>
           </div>
-          <Button asChild><Link to="/businesses/new"><Building2 className="mr-2 h-4 w-4" />Shto biznes</Link></Button>
-        </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {businessesLoading ? (
