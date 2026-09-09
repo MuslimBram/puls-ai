@@ -40,7 +40,9 @@ export default function LeahChatRuntime() {
   const [error, setError] = useState<string | null>(null);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
-  const uploadInputRef = useRef<HTMLInputElement>(null);\n  const textareaRef = useRef<HTMLTextAreaElement>(null);\n  const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
 
   const initialize = useCallback(async () => {
     if (workspaceLoading) return;
