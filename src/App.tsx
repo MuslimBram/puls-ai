@@ -45,7 +45,8 @@ const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const AuthCallback = lazy(() => import("./pages/AuthCallback"));
 
 // Lazy loaded pages
-const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));\nconst CreateBusiness = lazy(() => import("./pages/CreateBusiness"));
+const BusinessProfile = lazy(() => import("./pages/BusinessProfile"));
+const CreateBusiness = lazy(() => import("./pages/CreateBusiness"));
 const Leads = lazy(() => import("./pages/Leads"));
 const Keywords = lazy(() => import("./pages/Keywords"));
 const Channels = lazy(() => import("./pages/Channels"));
@@ -281,7 +282,8 @@ const App = () => (
                 <Route path="/media-studio" element={<PermissionPage permission="canManageCampaigns"><MediaStudio /></PermissionPage>} />
                 <Route path="/automations" element={<PermissionPage permission="canConfigureAutomations"><Automations /></PermissionPage>} />
                 <Route path="/telephony" element={<PermissionPage permission="canConnectChannels"><Telephony /></PermissionPage>} />
-                <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />\n                <Route path="/businesses/new" element={<AdminPage><CreateBusiness /></AdminPage>} />
+                <Route path="/business-profile" element={<ProtectedPage><BusinessProfile /></ProtectedPage>} />
+                <Route path="/businesses/new" element={<AdminPage><CreateBusiness /></AdminPage>} />
                 <Route path="/leads" element={<PermissionPage permission="canViewCRM"><Leads /></PermissionPage>} />
                 <Route path="/keywords" element={<PermissionPage permission="canViewAnalytics"><Keywords /></PermissionPage>} />
                 <Route path="/channels" element={<PermissionPage permission="canConnectChannels"><Channels /></PermissionPage>} />
