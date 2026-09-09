@@ -41,11 +41,14 @@ export const WorkspaceProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const load = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("workspaces")
         .select("*")
         .order("created_at", { ascending: true });
 
+      if (error) {
+        console.error("[Workspace] load failed:", error.message);
+      }
       const list = (data ?? []) as Workspace[];
       setWorkspaces(list);
 
