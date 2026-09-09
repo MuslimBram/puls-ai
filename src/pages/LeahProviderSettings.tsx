@@ -40,7 +40,14 @@ type ProviderTestResponse = {
   latency_ms?: number;
 };
 
-const PROVIDER = "openai";
+const PROVIDER_OPTIONS = [
+  { id: "openai", label: "OpenAI", model: "gpt-4o-mini" },
+  { id: "anthropic", label: "Anthropic", model: "claude-3-5-sonnet-latest" },
+  { id: "gemini", label: "Google Gemini", model: "gemini-2.0-flash" },
+  { id: "deepseek", label: "DeepSeek", model: "deepseek-chat" },
+  { id: "kimi", label: "Kimi", model: "moonshot-v1-8k" },
+  { id: "zai", label: "Z.ai", model: "glm-4.5" },
+] as const;
 const DEFAULT_MODEL = "gpt-4o-mini";
 
 async function getFunctionError(error: unknown, fallback: string) {
@@ -94,6 +101,7 @@ function validationBadge(binding: ProviderBinding | null) {
 export default function LeahProviderSettings() {
   const { workspace, loading: workspaceLoading } = useWorkspace();
   const apiKeyRef = useRef<HTMLInputElement>(null);
+  const [providerId, setProviderId] = useState("openai");
   const [model, setModel] = useState(DEFAULT_MODEL);
   const [leahSessionToken, setLeahSessionToken] = useState<string | null>(null);
   const [leahRole, setLeahRole] = useState<string | null>(null);
@@ -105,14 +113,15 @@ export default function LeahProviderSettings() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
 
-  const readProvider = useCallback(async (sessionToken: string) => {
+  const readProvider = useCallback(async (sessionToken: string, requestedProvider = providerId) => {
     const list = await invokeLeahAccount<ProviderListResponse>(sessionToken, {
       action: "provider.list",
     });
-    const openAi = list.providers?.find((item) => item.provider === PROVIDER) ?? null;
-    setBinding(openAi);
-    if (openAi?.model) setModel(openAi.model);
-  }, []);
+    const selected = list.providers?.find((item) => item.provider === requestedProvider) ?? null;
+    setProviderId(requestedProvider);
+    setBinding(selected);
+    if (selected?.model) setModel(selected.model);
+  }, [providerId]);
 
   const initialize = useCallback(async () => {
     if (workspaceLoading) return;
@@ -140,13 +149,13 @@ export default function LeahProviderSettings() {
 
       setLeahSessionToken(data.session_token);
       setLeahRole(data.role ?? null);
-      await readProvider(data.session_token);
+      await readProvider(data.session_token, providerId);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : "Could not load provider settings");
     } finally {
       setLoading(false);
     }
-  }, [readProvider, workspace?.id, workspaceLoading]);
+  }, [providerId, readProvider, workspace?.id, workspaceLoading]);
 
   useEffect(() => {
     void initialize();
@@ -161,7 +170,7 @@ export default function LeahProviderSettings() {
       return;
     }
     if (apiKey.length < 8) {
-      setErrorMessage("Enter the OpenAI API key you copied from the provider dashboard.");
+      setErrorMessage("Enter the provider API key you copied from the provider dashboard.");
       return;
     }
 
@@ -174,7 +183,7 @@ export default function LeahProviderSettings() {
     try {
       await invokeLeahAccount(leahSessionToken, {
         action: "provider.save",
-        provider: PROVIDER,
+        provider: providerId,
         model: model.trim() || DEFAULT_MODEL,
         api_key: apiKey,
       });
@@ -182,11 +191,11 @@ export default function LeahProviderSettings() {
 
       const test = await invokeLeahAccount<ProviderTestResponse>(leahSessionToken, {
         action: "provider.test",
-        provider: PROVIDER,
+        provider: providerId,
       });
       setLastLatencyMs(test.latency_ms ?? null);
       await readProvider(leahSessionToken);
-      setSuccessMessage("OpenAI was saved in Vault and the live connection test passed.");
+      setSuccessMessage("Provider was saved in Vault and the live connection test passed.");
     } catch (error) {
       if (saved) {
         await readProvider(leahSessionToken).catch(() => undefined);
@@ -195,7 +204,7 @@ export default function LeahProviderSettings() {
       setErrorMessage(
         saved
           ? `The key was saved, but the live connection test failed: ${detail}`
-          : `The OpenAI key was not saved: ${detail}`,
+          : `The provider key was not saved: ${detail}`,
       );
     } finally {
       if (apiKeyRef.current) apiKeyRef.current.value = "";
@@ -214,11 +223,11 @@ export default function LeahProviderSettings() {
     try {
       const test = await invokeLeahAccount<ProviderTestResponse>(leahSessionToken, {
         action: "provider.test",
-        provider: PROVIDER,
+        provider: providerId,
       });
       setLastLatencyMs(test.latency_ms ?? null);
       await readProvider(leahSessionToken);
-      setSuccessMessage("The live OpenAI connection test passed.");
+      setSuccessMessage("The live provider connection test passed.");
     } catch (error) {
       await readProvider(leahSessionToken).catch(() => undefined);
       setErrorMessage(
@@ -235,7 +244,7 @@ export default function LeahProviderSettings() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">LEAH provider settings</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure the workspace-owned OpenAI connection for live LEAH inference.
+            Configure workspace-owned AI provider connections for live LEAH inference.
           </p>
         </div>
 
@@ -273,7 +282,7 @@ export default function LeahProviderSettings() {
               <div>
                 <CardTitle className="flex items-center gap-2">
                   <KeyRound className="h-5 w-5" />
-                  OpenAI BYOK
+                  {PROVIDER_OPTIONS.find((item) => item.id === providerId)?.label ?? providerId} BYOK
                 </CardTitle>
                 <CardDescription className="mt-1">
                   Workspace: {workspace?.name ?? "Unavailable"}
@@ -285,6 +294,19 @@ export default function LeahProviderSettings() {
           </CardHeader>
 
           <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="leah-provider">AI provider</Label>
+              <select id="leah-provider" value={providerId} onChange={(event) => {
+                const next = event.target.value;
+                setProviderId(next);
+                setModel(PROVIDER_OPTIONS.find((item) => item.id === next)?.model ?? DEFAULT_MODEL);
+                setSuccessMessage(null);
+                setErrorMessage(null);
+              }} disabled={loading || saving} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                {PROVIDER_OPTIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">Çelësi ruhet në Vault të workspace-it dhe përdoret nga Pulse AI vetëm pasi testi live të jetë valid.</p>
+            </div>
             {binding && (
               <div className="grid gap-3 rounded-lg border bg-muted/30 p-4 text-sm sm:grid-cols-2">
                 <div>
@@ -308,27 +330,27 @@ export default function LeahProviderSettings() {
 
             <form className="space-y-4" onSubmit={handleSaveAndTest}>
               <div className="space-y-2">
-                <Label htmlFor="leah-openai-model">OpenAI model</Label>
+                <Label htmlFor="leah-provider-model">Provider model</Label>
                 <Input
-                  id="leah-openai-model"
+                  id="leah-provider-model"
                   value={model}
                   onChange={(event) => setModel(event.target.value)}
                   autoComplete="off"
                   disabled={loading || saving}
                 />
                 <p className="text-xs text-muted-foreground">
-                  The certified default is {DEFAULT_MODEL}.
+                  The recommended default is {PROVIDER_OPTIONS.find((item) => item.id === providerId)?.model ?? DEFAULT_MODEL}.
                 </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="leah-openai-api-key">
-                  {binding ? "Replacement OpenAI API key" : "OpenAI API key"}
+                  {binding ? "Replacement provider API key" : "provider API key"}
                 </Label>
                 <Input
                   ref={apiKeyRef}
-                  id="leah-openai-api-key"
-                  name="openai-api-key"
+                  id="leah-provider-api-key"
+                  name="provider-api-key"
                   type="password"
                   autoComplete="new-password"
                   minLength={8}
@@ -339,7 +361,7 @@ export default function LeahProviderSettings() {
                 />
                 <p className="text-xs text-muted-foreground">
                   Saving rotates the existing workspace credential. The live test makes a
-                  minimal provider request and may incur a small OpenAI charge.
+                  minimal provider request and may incur a small provider charge.
                 </p>
               </div>
 

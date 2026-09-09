@@ -1,5 +1,5 @@
-import { type ChangeEvent, type FormEvent, useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, Bot, ChevronDown, FileUp, ImagePlus, Link2, LibraryBig, Loader2, Lock, PenLine, Plus, Search, Send, Sparkles, Video } from "lucide-react";
+import { type ChangeEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
+import { BookOpen, Bold, Bot, ChevronDown, FileUp, ImagePlus, Link2, LibraryBig, Loader2, Lock, PenLine, Plus, Search, Send, Smile, Sparkles, Strikethrough, Underline, Video } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ export default function LeahChatRuntime() {
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
   const uploadInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
 
   const initialize = useCallback(async () => {
     if (workspaceLoading) return;
@@ -100,7 +102,32 @@ export default function LeahChatRuntime() {
     }
   };
 
-  const send = async (event: FormEvent) => {
+  const wrapSelection = (prefix: string, suffix: string, fallback: string) => {
+    const element = textareaRef.current;
+    const start = element?.selectionStart ?? input.length;
+    const end = element?.selectionEnd ?? input.length;
+    const selected = input.slice(start, end) || fallback;
+    const next = input.slice(0, start) + prefix + selected + suffix + input.slice(end);
+    setInput(next);
+    requestAnimationFrame(() => {
+      element?.focus();
+      const cursor = start + prefix.length + selected.length + suffix.length;
+      element?.setSelectionRange(cursor, cursor);
+    });
+  };
+
+  const insertEmoji = (emoji: string) => {
+    const element = textareaRef.current;
+    const cursor = element?.selectionStart ?? input.length;
+    setInput(input.slice(0, cursor) + emoji + input.slice(cursor));
+    setEmojiMenuOpen(false);
+    requestAnimationFrame(() => {
+      element?.focus();
+      element?.setSelectionRange(cursor + emoji.length, cursor + emoji.length);
+    });
+  };
+
+  const send = async (event: FormEvent | KeyboardEvent) => {
     event.preventDefault();
     const text = input.trim();
     if (!text || loading || !session || !isAdmin) return;
@@ -138,48 +165,19 @@ export default function LeahChatRuntime() {
     }
   };
 
+  const handleComposerKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.ctrlKey && !event.shiftKey && !event.metaKey) {
+      event.preventDefault();
+      void send(event);
+    }
+  };
+
   return <DashboardLayout>
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight"><Sparkles className="h-6 w-6 text-primary" />LEAH</h1>
         <p className="mt-1 text-sm text-muted-foreground">LEAH orkestrohet nga AI kryesor i Pulse AI për lidhje, skedarë dhe gjenerim të kontrolluar.</p>
       </div>
-      {isAdmin && <div className="relative z-20 flex items-center justify-between gap-3">
-        <div className="relative">
-          <button type="button" onClick={() => { setModelMenuOpen((open) => !open); setToolMenuOpen(false); }} className="flex min-w-56 items-center justify-between gap-3 rounded-xl border bg-card px-3 py-2 text-left shadow-sm hover:bg-muted" aria-expanded={modelMenuOpen}>
-            <span className="flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /><span><span className="block text-sm font-medium">{selectedProvider === "auto" ? "Auto" : (providers.find((provider) => provider.provider === selectedProvider)?.model || selectedProvider)}</span><span className="block text-[11px] text-muted-foreground">{selectedProvider === "auto" ? "Recommended · Pulse AI chooses" : "Validated workspace model"}</span></span></span>
-            <ChevronDown className={`h-4 w-4 transition-transform ${modelMenuOpen ? "rotate-180" : ""}`} />
-          </button>
-          {modelMenuOpen && <div className="absolute left-0 top-full mt-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl">
-            <div className="flex items-center gap-2 border-b px-3 py-3 text-sm font-semibold"><Sparkles className="h-4 w-4 text-primary" />Select Model</div>
-            <div className="max-h-72 overflow-y-auto p-1">
-              <button type="button" onClick={() => { setSelectedProvider("auto"); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === "auto" ? "bg-primary/10" : ""}`}>
-                <Sparkles className="mt-0.5 h-4 w-4 text-primary" /><span><span className="flex items-center gap-2 text-sm font-medium">Auto <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Recommended</span></span><span className="block text-xs text-muted-foreground">Always selects the best validated model</span></span>
-              </button>
-              {providers.map((provider) => <button key={provider.provider} type="button" onClick={() => { setSelectedProvider(provider.provider); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === provider.provider ? "bg-primary/10" : ""}`}>
-                <Sparkles className="mt-0.5 h-4 w-4 text-orange-400" /><span><span className="block text-sm font-medium">{provider.model || provider.provider}</span><span className="block text-xs text-muted-foreground">{provider.provider} · active and validated</span></span>
-              </button>)}
-              {providers.length === 0 && <Link to="/leah/providers" onClick={() => setModelMenuOpen(false)} className="block rounded-lg px-3 py-3 text-sm text-primary hover:bg-muted">Configure a validated provider first</Link>}
-            </div>
-          </div>}
-        </div>
-        <div className="relative">
-          <button type="button" onClick={() => { setToolMenuOpen((open) => !open); setModelMenuOpen(false); }} className="flex h-11 w-11 items-center justify-center rounded-xl border bg-card shadow-sm hover:bg-muted" aria-label="Open LEAH tools" aria-expanded={toolMenuOpen}><Plus className={`h-5 w-5 transition-transform ${toolMenuOpen ? "rotate-45" : ""}`} /></button>
-          {toolMenuOpen && <div className="absolute right-0 top-full mt-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl">
-            <div className="space-y-1 p-2">
-              <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><FileUp className="h-4 w-4" /><span><span className="block font-medium">Add photos & files</span><span className="block text-xs text-muted-foreground">Upload from computer</span></span><input ref={uploadInputRef} type="file" multiple accept=".pdf,.txt,.md,.json,image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { void uploadAttachments(event); setToolMenuOpen(false); }} /></label>
-              <Link to="/knowledge-base" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><LibraryBig className="h-4 w-4" /><span><span className="block font-medium">Add from library</span><span className="block text-xs text-muted-foreground">Browse workspace knowledge</span></span></Link>
-              <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><ImagePlus className="h-4 w-4" /><span><span className="block font-medium">Create image</span><span className="block text-xs text-muted-foreground">Visualize anything</span></span></Link>
-              <Link to="/sources?type=website" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Search className="h-4 w-4" /><span><span className="block font-medium">Web search</span><span className="block text-xs text-muted-foreground">Find real-time business information</span></span></Link>
-              <Link to="/deep-analytics" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><BookOpen className="h-4 w-4" /><span><span className="block font-medium">Deep research</span><span className="block text-xs text-muted-foreground">Research with Pulse AI</span></span></Link>
-              <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><PenLine className="h-4 w-4" /><span><span className="block font-medium">Sketch</span><span className="block text-xs text-muted-foreground">Draw and attach an image</span></span></Link>
-              <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Video className="h-4 w-4" /><span><span className="block font-medium">HeyGen</span><span className="block text-xs text-muted-foreground">Create AI videos and avatars</span></span></Link>
-              <Link to="/connections" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Sparkles className="h-4 w-4 text-cyan-400" /><span><span className="block font-medium">Canva</span><span className="block text-xs text-muted-foreground">Create, review, edit designs</span></span></Link>
-              <Link to="/connections" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Link2 className="h-4 w-4 text-emerald-400" /><span><span className="block font-medium">Supabase</span><span className="block text-xs text-muted-foreground">Manage and query databases</span></span></Link>
-            </div>
-          </div>}
-        </div>
-      </div>}
       {workHistory.length > 0 && <Card>
         <CardHeader className="py-3"><CardTitle className="text-sm">Historitë e punëve</CardTitle></CardHeader>
         <CardContent className="space-y-2 pt-0">
@@ -193,7 +191,50 @@ export default function LeahChatRuntime() {
       </Card>}
       {error && <Alert variant="destructive"><AlertTitle>LEAH</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
       {!initializing && !isAdmin && <Card><CardHeader><CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5" />LEAH është e mbyllur</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Për përdoruesit normalë LEAH do të hapet vetëm me plan aktiv me pagesë. Rregullat dhe çmimi do të vendosen më vonë. Adminët dhe Owner-i kanë akses pa pagesë.</CardContent></Card>}
-      {isAdmin && <Card className="flex min-h-[60vh] flex-col"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />LEAH Chat</CardTitle><p className="text-xs text-muted-foreground">Ti shkruan kërkesën. Orchestrator-i i Pulse AI zgjedh provider-in dhe modelin në prapaskenë.</p></CardHeader><CardContent className="flex flex-1 flex-col gap-4 p-4"><div className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-muted/20 p-4">{messages.length === 0 && <div className="flex h-full min-h-40 items-center justify-center text-center text-sm text-muted-foreground">Shkruaj çfarë dëshiron të gjenerojë LEAH.</div>}{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-4 py-3 text-sm ${message.role === "user" ? "bg-primary text-primary-foreground" : "border bg-card"}`}>{message.content}</div></div>)}{loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />LEAH po gjeneron…</div>}</div><form onSubmit={send} className="flex items-end gap-2"><Textarea value={input} onChange={(event) => setInput(event.target.value)} placeholder="P.sh. Krijo një postim Instagram për një restorant shqiptar…" className="min-h-20 resize-none" disabled={loading || initializing || !session}/><Button type="submit" size="icon" className="h-10 w-10 shrink-0" disabled={loading || initializing || !input.trim() || !session}><Send className="h-4 w-4" /></Button></form></CardContent></Card>}
+      {isAdmin && <Card className="flex min-h-[60vh] flex-col"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />LEAH Chat</CardTitle><p className="text-xs text-muted-foreground">Ti shkruan kërkesën. Orchestrator-i i Pulse AI zgjedh provider-in dhe modelin në prapaskenë.</p></CardHeader><CardContent className="flex flex-1 flex-col gap-4 p-4"><div className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-muted/20 p-4">{messages.length === 0 && <div className="flex h-full min-h-40 items-center justify-center text-center text-sm text-muted-foreground">Shkruaj çfarë dëshiron të gjenerojë LEAH.</div>}{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-4 py-3 text-sm ${message.role === "user" ? "bg-primary text-primary-foreground" : "border bg-card"}`}>{message.content}</div></div>)}{loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />LEAH po gjeneron…</div>}</div><form onSubmit={send} className="rounded-xl border bg-card p-2 shadow-sm">
+              <div className="relative flex items-center gap-2 border-b px-1 pb-2">
+                <button type="button" onClick={() => { setModelMenuOpen((open) => !open); setToolMenuOpen(false); setEmojiMenuOpen(false); }} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-muted" aria-expanded={modelMenuOpen}>
+                  <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="truncate"><span className="block font-medium">{selectedProvider === "auto" ? "Auto" : (providers.find((provider) => provider.provider === selectedProvider)?.model || selectedProvider)}</span><span className="block text-[10px] text-muted-foreground">{selectedProvider === "auto" ? "Recommended · Pulse AI chooses" : "Validated workspace model"}</span></span>
+                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${modelMenuOpen ? "rotate-180" : ""}`} />
+                </button>
+                {modelMenuOpen && <div className="absolute bottom-full left-0 z-30 mb-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl">
+                  <div className="border-b px-3 py-3 text-sm font-semibold">Select Model</div>
+                  <div className="max-h-72 overflow-y-auto p-1">
+                    <button type="button" onClick={() => { setSelectedProvider("auto"); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === "auto" ? "bg-primary/10" : ""}`}><Sparkles className="mt-0.5 h-4 w-4 text-primary" /><span><span className="flex items-center gap-2 text-sm font-medium">Auto <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Recommended</span></span><span className="block text-xs text-muted-foreground">Always selects the best validated model</span></span></button>
+                    {providers.map((provider) => <button key={provider.provider} type="button" onClick={() => { setSelectedProvider(provider.provider); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === provider.provider ? "bg-primary/10" : ""}`}><Sparkles className="mt-0.5 h-4 w-4 text-orange-400" /><span><span className="block text-sm font-medium">{provider.model || provider.provider}</span><span className="block text-xs text-muted-foreground">{provider.provider} · active and validated</span></span></button>)}
+                    {providers.length === 0 && <Link to="/leah/providers" onClick={() => setModelMenuOpen(false)} className="block rounded-lg px-3 py-3 text-sm text-primary hover:bg-muted">Configure a validated provider first</Link>}
+                  </div>
+                </div>}
+                <div className="ml-auto flex items-center gap-1">
+                  <div className="relative">
+                    <button type="button" onClick={() => { setToolMenuOpen((open) => !open); setModelMenuOpen(false); setEmojiMenuOpen(false); }} className={`flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted ${toolMenuOpen ? "bg-muted" : ""}`} aria-label="Add tools" aria-expanded={toolMenuOpen}><Plus className={`h-5 w-5 transition-transform ${toolMenuOpen ? "rotate-45" : ""}`} /></button>
+                    {toolMenuOpen && <div className="absolute bottom-full right-0 z-30 mb-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl"><div className="space-y-1 p-2">
+                      <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><FileUp className="h-4 w-4" /><span><span className="block font-medium">Add photos & files</span><span className="block text-xs text-muted-foreground">Upload from computer</span></span><input ref={uploadInputRef} type="file" multiple accept=".pdf,.txt,.md,.json,image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { void uploadAttachments(event); setToolMenuOpen(false); }} /></label>
+                      <Link to="/knowledge-base" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><LibraryBig className="h-4 w-4" /><span><span className="block font-medium">Add from library</span><span className="block text-xs text-muted-foreground">Browse workspace knowledge</span></span></Link>
+                      <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><ImagePlus className="h-4 w-4" /><span><span className="block font-medium">Create image</span><span className="block text-xs text-muted-foreground">Visualize anything</span></span></Link>
+                      <Link to="/sources?type=website" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Search className="h-4 w-4" /><span><span className="block font-medium">Web search</span><span className="block text-xs text-muted-foreground">Find real-time business information</span></span></Link>
+                      <Link to="/deep-analytics" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><BookOpen className="h-4 w-4" /><span><span className="block font-medium">Deep research</span><span className="block text-xs text-muted-foreground">Research with Pulse AI</span></span></Link>
+                      <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><PenLine className="h-4 w-4" /><span><span className="block font-medium">Sketch</span><span className="block text-xs text-muted-foreground">Draw and attach an image</span></span></Link>
+                      <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Video className="h-4 w-4" /><span><span className="block font-medium">HeyGen</span><span className="block text-xs text-muted-foreground">Create AI videos and avatars</span></span></Link>
+                      <Link to="/connections" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Sparkles className="h-4 w-4 text-cyan-400" /><span><span className="block font-medium">Canva</span><span className="block text-xs text-muted-foreground">Create, review, edit designs</span></span></Link>
+                      <Link to="/connections" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Link2 className="h-4 w-4 text-emerald-400" /><span><span className="block font-medium">Supabase</span><span className="block text-xs text-muted-foreground">Manage and query databases</span></span></Link>
+                    </div></div>}
+                  </div>
+                  <button type="button" onClick={() => setEmojiMenuOpen((open) => !open)} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted" aria-label="Add emoji"><Smile className="h-4 w-4" /></button>
+                  {emojiMenuOpen && <div className="absolute bottom-full right-12 z-30 mb-2 grid w-56 grid-cols-8 gap-1 rounded-xl border bg-card p-2 shadow-2xl">{["😀","😂","😍","🔥","✅","🎉","👍","🙏","💡","🚀","❤️","⭐","📈","💬","🎯","🤝"].map((emoji) => <button key={emoji} type="button" onClick={() => insertEmoji(emoji)} className="rounded p-1.5 text-lg hover:bg-muted">{emoji}</button>)}</div>}
+                </div>
+              </div>
+              <Textarea ref={textareaRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={handleComposerKeyDown} placeholder="Shkruaj kërkesën për LEAH…" className="min-h-20 resize-none border-0 px-2 py-3 shadow-none focus-visible:ring-0" disabled={loading || initializing || !session}/>
+              <div className="flex items-center gap-1 border-t px-1 pt-2">
+                <button type="button" onClick={() => wrapSelection("**", "**", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Bold"><Bold className="h-4 w-4" /></button>
+                <button type="button" onClick={() => wrapSelection("<u>", "</u>", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Underline"><Underline className="h-4 w-4" /></button>
+                <button type="button" onClick={() => wrapSelection("~~", "~~", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Strikethrough"><Strikethrough className="h-4 w-4" /></button>
+                <button type="button" onClick={() => wrapSelection("[", "](https://)", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Insert link"><Link2 className="h-4 w-4" /></button>
+                {attachments.length > 0 && <span className="ml-2 text-xs text-muted-foreground">{attachments.length} skedar{attachments.length === 1 ? "" : "ë"} gati</span>}
+                <Button type="submit" size="icon" className="ml-auto h-10 w-10 shrink-0" disabled={loading || initializing || !input.trim() || !session}><Send className="h-4 w-4" /></Button>
+              </div>
+            </form></CardContent></Card>}
     </div>
   </DashboardLayout>;
 }
