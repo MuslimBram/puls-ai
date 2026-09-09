@@ -1,5 +1,5 @@
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
-import { BookOpen, Bold, Bot, ChevronDown, FileUp, ImagePlus, Link2, LibraryBig, Loader2, Lock, PenLine, Plus, Search, Send, Smile, Sparkles, Strikethrough, Underline, Video } from "lucide-react";
+import { BookOpen, Bold, Bot, ChevronDown, FileUp, FolderOpen, ImagePlus, Link2, LibraryBig, Loader2, Lock, PenLine, Plus, Search, Send, Smile, Sparkles, Strikethrough, Underline, Video } from "lucide-react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,23 @@ type LeahProvider = { provider: string; model: string | null; validation_status:
 type LeahAttachment = { name: string; path: string; size: number };
 type WorkHistoryItem = { id: string; user_message: string; assistant_message: string; created_at: string };
 type Session = { session_token?: string; role?: string; error?: string; providers?: LeahProvider[] };
+
+const EMOJIS = [
+  "😀","😂","😍","😎","🤖","🧠","✨","🔥","🚀","💡","🎯","✅","❌","⚡","🔧","🛠️",
+  "💻","🖥️","📱","🌐","🔗","🔒","🔑","☁️","🗄️","🧩","⚙️","📊","📈","📉","🔍","🧪",
+  "📣","📢","📅","📝","🎨","🎬","📸","🎥","📲","💬","📩","❤️","👍","👎","🤝","🙏",
+  "🛒","💰","🏷️","🎁","⭐","🏆","👥","👤","📍","☎️","✉️","🔔","⏰","📚","🎓","🌟",
+];
+
+const LEAH_TOOLS = [
+  { label: "GitHub", description: "Repos, issues, PRs dhe CI", icon: "◉", href: "/connections?provider=github" },
+  { label: "Google Drive", description: "Dokumente dhe skedarë", icon: "▰", href: "/connections?provider=google_drive" },
+  { label: "Gmail", description: "Email dhe komunikim", icon: "✉", href: "/connections?provider=gmail" },
+  { label: "Slack", description: "Biseda dhe ekip", icon: "#", href: "/connections?provider=slack" },
+  { label: "Canva", description: "Dizajn dhe materiale SMM", icon: "✦", href: "/connections?provider=canva" },
+  { label: "Supabase", description: "Të dhëna dhe backend", icon: "◌", href: "/connections?provider=supabase" },
+];
+
 async function functionError(error: unknown, fallback: string) {
   const response = (error as { context?: Response } | null)?.context;
   if (response?.clone) {
@@ -42,9 +59,11 @@ export default function LeahChatRuntime() {
   const [error, setError] = useState<string | null>(null);
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
-  const uploadInputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [moreToolsOpen, setMoreToolsOpen] = useState(false);
   const [emojiMenuOpen, setEmojiMenuOpen] = useState(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const initialize = useCallback(async () => {
     if (authLoading || workspaceLoading) return;
@@ -55,7 +74,9 @@ export default function LeahChatRuntime() {
     }
     if (!workspace?.id) {
       setInitializing(false);
-      setError(workspaces.length ? "Zgjidh një biznes për të hapur LEAH." : "Nuk ka ende biznes të lidhur me këtë llogari.");
+      setSession(null);
+      setRole(null);
+      setError(null);
       return;
     }
     try {
@@ -79,7 +100,7 @@ export default function LeahChatRuntime() {
     } finally {
       setInitializing(false);
     }
-  }, [authLoading, user, workspace?.id, workspaceLoading, workspaces.length]);
+  }, [authLoading, user, workspace?.id, workspaceLoading]);
 
   useEffect(() => { void initialize(); }, [initialize]);
 
@@ -185,72 +206,67 @@ export default function LeahChatRuntime() {
         <h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight"><Sparkles className="h-6 w-6 text-primary" />LEAH</h1>
         <p className="mt-1 text-sm text-muted-foreground">LEAH orkestrohet nga AI kryesor i Pulse AI për lidhje, skedarë dhe gjenerim të kontrolluar.</p>
       </div>
+
       {workHistory.length > 0 && <Card>
         <CardHeader className="py-3"><CardTitle className="text-sm">Historitë e punëve</CardTitle></CardHeader>
         <CardContent className="space-y-2 pt-0">
-          {workHistory.map((item) => (
-            <div key={item.id} className="rounded-md border p-3">
-              <p className="line-clamp-2 text-xs font-medium text-foreground">{item.user_message}</p>
-              <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.assistant_message}</p>
-            </div>
-          ))}
+          {workHistory.map((item) => <div key={item.id} className="rounded-md border p-3"><p className="line-clamp-2 text-xs font-medium text-foreground">{item.user_message}</p><p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{item.assistant_message}</p></div>)}
         </CardContent>
       </Card>}
+
       {error && <Alert variant="destructive"><AlertTitle>LEAH</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
-      {!initializing && user && !workspace?.id && <Card>
-        <CardHeader><CardTitle>Zgjidh biznesin</CardTitle></CardHeader>
+
+      {!initializing && user && !workspace?.id && <Card className="border-primary/30">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5 text-primary" />Lidh biznesin me LEAH</CardTitle>
+          <p className="text-sm text-muted-foreground">LEAH duhet të ketë një biznes aktiv që të përdorë të dhënat, kanalet dhe njohuritë e atij biznesi.</p>
+        </CardHeader>
         <CardContent className="space-y-3">
-          {workspaces.length > 0 ? <select aria-label="Zgjidh biznesin aktiv" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" defaultValue="" onChange={(event) => { if (event.target.value) switchWorkspace(event.target.value); }}>
-            <option value="" disabled>Zgjidh biznesin</option>
-            {workspaces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select> : <Link to="/managed-businesses" className="inline-flex rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">Shto biznes</Link>}
+          {workspaces.length > 0 ? <>
+            <select aria-label="Zgjidh biznesin aktiv" className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" defaultValue="" onChange={(event) => { if (event.target.value) switchWorkspace(event.target.value); }}>
+              <option value="" disabled>Zgjidh biznesin</option>
+              {workspaces.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground">Pas zgjedhjes, LEAH hapet automatikisht për këtë biznes.</p>
+          </> : <Link to="/managed-businesses" className="inline-flex items-center rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">+ Shto ose lidh biznesin</Link>}
         </CardContent>
       </Card>}
-      {!initializing && !isAdmin && <Card><CardHeader><CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5" />LEAH është e mbyllur</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Për përdoruesit normalë LEAH do të hapet vetëm me plan aktiv me pagesë. Rregullat dhe çmimi do të vendosen më vonë. Adminët dhe Owner-i kanë akses pa pagesë.</CardContent></Card>}
-      {isAdmin && <Card className="flex min-h-[60vh] flex-col"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />LEAH Chat</CardTitle><p className="text-xs text-muted-foreground">Ti shkruan kërkesën. Orchestrator-i i Pulse AI zgjedh provider-in dhe modelin në prapaskenë.</p></CardHeader><CardContent className="flex flex-1 flex-col gap-4 p-4"><div className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-muted/20 p-4">{messages.length === 0 && <div className="flex h-full min-h-40 items-center justify-center text-center text-sm text-muted-foreground">Shkruaj çfarë dëshiron të gjenerojë LEAH.</div>}{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-4 py-3 text-sm ${message.role === "user" ? "bg-primary text-primary-foreground" : "border bg-card"}`}>{message.content}</div></div>)}{loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />LEAH po gjeneron…</div>}</div><form onSubmit={send} className="rounded-xl border bg-card p-2 shadow-sm">
-              <div className="relative flex items-center gap-2 border-b px-1 pb-2">
-                <button type="button" onClick={() => { setModelMenuOpen((open) => !open); setToolMenuOpen(false); setEmojiMenuOpen(false); }} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-muted" aria-expanded={modelMenuOpen}>
-                  <Sparkles className="h-4 w-4 shrink-0 text-primary" />
-                  <span className="truncate"><span className="block font-medium">{selectedProvider === "auto" ? "Auto" : (providers.find((provider) => provider.provider === selectedProvider)?.model || selectedProvider)}</span><span className="block text-[10px] text-muted-foreground">{selectedProvider === "auto" ? "Recommended · Pulse AI chooses" : "Validated workspace model"}</span></span>
-                  <ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${modelMenuOpen ? "rotate-180" : ""}`} />
-                </button>
-                {modelMenuOpen && <div className="absolute bottom-full left-0 z-30 mb-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl">
-                  <div className="border-b px-3 py-3 text-sm font-semibold">Select Model</div>
-                  <div className="max-h-72 overflow-y-auto p-1">
-                    <button type="button" onClick={() => { setSelectedProvider("auto"); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === "auto" ? "bg-primary/10" : ""}`}><Sparkles className="mt-0.5 h-4 w-4 text-primary" /><span><span className="flex items-center gap-2 text-sm font-medium">Auto <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Recommended</span></span><span className="block text-xs text-muted-foreground">Always selects the best validated model</span></span></button>
-                    {providers.map((provider) => <button key={provider.provider} type="button" onClick={() => { setSelectedProvider(provider.provider); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === provider.provider ? "bg-primary/10" : ""}`}><Sparkles className="mt-0.5 h-4 w-4 text-orange-400" /><span><span className="block text-sm font-medium">{provider.model || provider.provider}</span><span className="block text-xs text-muted-foreground">{provider.provider} · active and validated</span></span></button>)}
-                    {providers.length === 0 && <Link to="/leah/providers" onClick={() => setModelMenuOpen(false)} className="block rounded-lg px-3 py-3 text-sm text-primary hover:bg-muted">Configure a validated provider first</Link>}
-                  </div>
-                </div>}
-                <div className="ml-auto flex items-center gap-1">
-                  <div className="relative">
-                    <button type="button" onClick={() => { setToolMenuOpen((open) => !open); setModelMenuOpen(false); setEmojiMenuOpen(false); }} className={`flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted ${toolMenuOpen ? "bg-muted" : ""}`} aria-label="Add tools" aria-expanded={toolMenuOpen}><Plus className={`h-5 w-5 transition-transform ${toolMenuOpen ? "rotate-45" : ""}`} /></button>
-                    {toolMenuOpen && <div className="absolute bottom-full right-0 z-30 mb-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl"><div className="space-y-1 p-2">
-                      <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><FileUp className="h-4 w-4" /><span><span className="block font-medium">Add photos & files</span><span className="block text-xs text-muted-foreground">Upload from computer</span></span><input ref={uploadInputRef} type="file" multiple accept=".pdf,.txt,.md,.json,image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { void uploadAttachments(event); setToolMenuOpen(false); }} /></label>
-                      <Link to="/knowledge-base" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><LibraryBig className="h-4 w-4" /><span><span className="block font-medium">Add from library</span><span className="block text-xs text-muted-foreground">Browse workspace knowledge</span></span></Link>
-                      <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><ImagePlus className="h-4 w-4" /><span><span className="block font-medium">Create image</span><span className="block text-xs text-muted-foreground">Visualize anything</span></span></Link>
-                      <Link to="/sources?type=website" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Search className="h-4 w-4" /><span><span className="block font-medium">Web search</span><span className="block text-xs text-muted-foreground">Find real-time business information</span></span></Link>
-                      <Link to="/deep-analytics" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><BookOpen className="h-4 w-4" /><span><span className="block font-medium">Deep research</span><span className="block text-xs text-muted-foreground">Research with Pulse AI</span></span></Link>
-                      <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><PenLine className="h-4 w-4" /><span><span className="block font-medium">Sketch</span><span className="block text-xs text-muted-foreground">Draw and attach an image</span></span></Link>
-                      <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Video className="h-4 w-4" /><span><span className="block font-medium">HeyGen</span><span className="block text-xs text-muted-foreground">Create AI videos and avatars</span></span></Link>
-                      <Link to="/connections" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Sparkles className="h-4 w-4 text-cyan-400" /><span><span className="block font-medium">Canva</span><span className="block text-xs text-muted-foreground">Create, review, edit designs</span></span></Link>
-                      <Link to="/connections" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Link2 className="h-4 w-4 text-emerald-400" /><span><span className="block font-medium">Supabase</span><span className="block text-xs text-muted-foreground">Manage and query databases</span></span></Link>
-                    </div></div>}
-                  </div>
-                  <button type="button" onClick={() => setEmojiMenuOpen((open) => !open)} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted" aria-label="Add emoji"><Smile className="h-4 w-4" /></button>
-                  {emojiMenuOpen && <div className="absolute bottom-full right-12 z-30 mb-2 grid w-56 grid-cols-8 gap-1 rounded-xl border bg-card p-2 shadow-2xl">{["😀","😂","😍","🔥","✅","🎉","👍","🙏","💡","🚀","❤️","⭐","📈","💬","🎯","🤝"].map((emoji) => <button key={emoji} type="button" onClick={() => insertEmoji(emoji)} className="rounded p-1.5 text-lg hover:bg-muted">{emoji}</button>)}</div>}
-                </div>
+
+      {!initializing && workspace?.id && !isAdmin && <Card><CardHeader><CardTitle className="flex items-center gap-2"><Lock className="h-5 w-5" />LEAH është e mbyllur</CardTitle></CardHeader><CardContent className="text-sm text-muted-foreground">Për përdoruesit normalë LEAH do të hapet vetëm me plan aktiv me pagesë.</CardContent></Card>}
+
+      {isAdmin && <Card className="flex min-h-[60vh] flex-col"><CardHeader className="border-b"><CardTitle className="flex items-center gap-2"><Bot className="h-5 w-5" />LEAH Chat</CardTitle><p className="text-xs text-muted-foreground">Biznesi aktiv: <span className="font-medium text-foreground">{workspace?.name}</span> · Auto zgjedh modelin e vlefshëm.</p></CardHeader><CardContent className="flex flex-1 flex-col gap-4 p-4">
+        <div className="flex-1 space-y-4 overflow-y-auto rounded-lg border bg-muted/20 p-4">{messages.length === 0 && <div className="flex h-full min-h-40 items-center justify-center text-center text-sm text-muted-foreground">Shkruaj çfarë dëshiron të gjenerojë LEAH.</div>}{messages.map((message, index) => <div key={`${message.role}-${index}`} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}><div className={`max-w-[85%] whitespace-pre-wrap rounded-xl px-4 py-3 text-sm ${message.role === "user" ? "bg-primary text-primary-foreground" : "border bg-card"}`}>{message.content}</div></div>)}{loading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />LEAH po gjeneron…</div>}</div>
+        <form onSubmit={send} className="rounded-xl border bg-card p-2 shadow-sm">
+          <div className="relative flex items-center gap-2 border-b px-1 pb-2">
+            <button type="button" onClick={() => { setModelMenuOpen((open) => !open); setToolMenuOpen(false); setEmojiMenuOpen(false); }} className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-muted" aria-expanded={modelMenuOpen}>
+              <Sparkles className="h-4 w-4 shrink-0 text-primary" /><span className="truncate"><span className="block font-medium">{selectedProvider === "auto" ? "Auto" : (providers.find((provider) => provider.provider === selectedProvider)?.model || selectedProvider)}</span><span className="block text-[10px] text-muted-foreground">{selectedProvider === "auto" ? "Recommended · Pulse AI chooses" : "Validated workspace model"}</span></span><ChevronDown className={`h-4 w-4 shrink-0 transition-transform ${modelMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+            {modelMenuOpen && <div className="absolute bottom-full left-0 z-40 mb-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl"><div className="border-b px-3 py-3 text-sm font-semibold">Zgjidh modelin</div><div className="max-h-72 overflow-y-auto p-1"><button type="button" onClick={() => { setSelectedProvider("auto"); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === "auto" ? "bg-primary/10" : ""}`}><Sparkles className="mt-0.5 h-4 w-4 text-primary" /><span><span className="flex items-center gap-2 text-sm font-medium">Auto <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">Rekomanduar</span></span><span className="block text-xs text-muted-foreground">Zgjedh modelin më të mirë të validuar.</span></span></button>{providers.map((provider) => <button key={provider.provider} type="button" onClick={() => { setSelectedProvider(provider.provider); setModelMenuOpen(false); }} className={`flex w-full items-start gap-3 rounded-lg px-3 py-3 text-left hover:bg-muted ${selectedProvider === provider.provider ? "bg-primary/10" : ""}`}><Sparkles className="mt-0.5 h-4 w-4 text-primary" /><span><span className="block text-sm font-medium">{provider.model || provider.provider}</span><span className="block text-xs text-muted-foreground">{provider.provider} · active dhe i validuar</span></span></button>)}{providers.length === 0 && <Link to="/leah/providers" onClick={() => setModelMenuOpen(false)} className="block rounded-lg px-3 py-3 text-sm text-primary hover:bg-muted">Konfiguro një provider të validuar</Link>}</div></div>}
+
+            <div className="ml-auto flex items-center gap-1">
+              <div className="relative">
+                <button type="button" onClick={() => { setToolMenuOpen((open) => !open); setModelMenuOpen(false); setEmojiMenuOpen(false); setMoreToolsOpen(false); }} className={`flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted ${toolMenuOpen ? "bg-muted" : ""}`} aria-label="Hap mjetet" aria-expanded={toolMenuOpen}><Plus className={`h-5 w-5 transition-transform ${toolMenuOpen ? "rotate-45" : ""}`} /></button>
+                {toolMenuOpen && <div className="absolute bottom-full right-0 z-40 mb-2 w-80 overflow-hidden rounded-xl border bg-card shadow-2xl"><div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">Mjetet e LEAH</div><div className="space-y-1 p-2">
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><FileUp className="h-4 w-4" /><span><span className="block font-medium">Ngarko foto & skedarë</span><span className="block text-xs text-muted-foreground">Nga kompjuteri · deri 10 MB/skedar</span></span><input ref={uploadInputRef} type="file" multiple accept=".pdf,.txt,.md,.json,.csv,.doc,.docx,image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => { void uploadAttachments(event); setToolMenuOpen(false); }} /></label>
+                  <label className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><FolderOpen className="h-4 w-4" /><span><span className="block font-medium">Ngarko folder</span><span className="block text-xs text-muted-foreground">Zgjidh një folder dhe skedarët e tij</span></span><input ref={folderInputRef} type="file" multiple className="sr-only" {...({ webkitdirectory: "", directory: "" } as any)} onChange={(event) => { void uploadAttachments(event); setToolMenuOpen(false); }} /></label>
+                  <Link to="/knowledge-base" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><LibraryBig className="h-4 w-4" /><span><span className="block font-medium">Nga Library</span><span className="block text-xs text-muted-foreground">Knowledge e biznesit</span></span></Link>
+                  <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><ImagePlus className="h-4 w-4" /><span><span className="block font-medium">Krijo imazh</span><span className="block text-xs text-muted-foreground">Materiale vizuale për biznesin</span></span></Link>
+                  <Link to="/sources?type=website" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Search className="h-4 w-4" /><span><span className="block font-medium">Web search</span><span className="block text-xs text-muted-foreground">Informacion aktual nga web</span></span></Link>
+                  <Link to="/deep-analytics" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><BookOpen className="h-4 w-4" /><span><span className="block font-medium">Deep research</span><span className="block text-xs text-muted-foreground">Kërkim i thelluar</span></span></Link>
+                  <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><PenLine className="h-4 w-4" /><span><span className="block font-medium">Sketch</span><span className="block text-xs text-muted-foreground">Vizato dhe bashkëngjit</span></span></Link>
+                  <Link to="/media-studio" onClick={() => setToolMenuOpen(false)} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Video className="h-4 w-4" /><span><span className="block font-medium">HeyGen</span><span className="block text-xs text-muted-foreground">Video dhe avatarë AI</span></span></Link>
+                  <button type="button" onClick={() => setMoreToolsOpen((open) => !open)} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-muted"><Link2 className="h-4 w-4" /><span className="flex-1"><span className="block font-medium">Lidhje & Plugins</span><span className="block text-xs text-muted-foreground">GitHub, Drive, Gmail, Slack, Canva...</span></span><ChevronDown className={`h-4 w-4 transition-transform ${moreToolsOpen ? "rotate-180" : ""}`} /></button>
+                  {moreToolsOpen && <div className="space-y-1 border-t pt-1">{LEAH_TOOLS.map((tool) => <Link key={tool.label} to={tool.href} onClick={() => { setToolMenuOpen(false); setMoreToolsOpen(false); }} className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted"><span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary/10 text-xs text-primary">{tool.icon}</span><span><span className="block font-medium">{tool.label}</span><span className="block text-[11px] text-muted-foreground">{tool.description}</span></span></Link>)}</div>}
+                </div></div>}
               </div>
-              <Textarea ref={textareaRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={handleComposerKeyDown} placeholder="Shkruaj kërkesën për LEAH…" className="min-h-20 resize-none border-0 px-2 py-3 shadow-none focus-visible:ring-0" disabled={loading || initializing || !session}/>
-              <div className="flex items-center gap-1 border-t px-1 pt-2">
-                <button type="button" onClick={() => wrapSelection("**", "**", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Bold"><Bold className="h-4 w-4" /></button>
-                <button type="button" onClick={() => wrapSelection("<u>", "</u>", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Underline"><Underline className="h-4 w-4" /></button>
-                <button type="button" onClick={() => wrapSelection("~~", "~~", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Strikethrough"><Strikethrough className="h-4 w-4" /></button>
-                <button type="button" onClick={() => wrapSelection("[", "](https://)", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Insert link"><Link2 className="h-4 w-4" /></button>
-                {attachments.length > 0 && <span className="ml-2 text-xs text-muted-foreground">{attachments.length} skedar{attachments.length === 1 ? "" : "ë"} gati</span>}
-                <Button type="submit" size="icon" className="ml-auto h-10 w-10 shrink-0" disabled={loading || initializing || !input.trim() || !session}><Send className="h-4 w-4" /></Button>
-              </div>
-            </form></CardContent></Card>}
+              <button type="button" onClick={() => { setEmojiMenuOpen((open) => !open); setModelMenuOpen(false); setToolMenuOpen(false); }} className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-muted" aria-label="Shto emoji"><Smile className="h-4 w-4" /></button>
+              {emojiMenuOpen && <div className="absolute bottom-full right-12 z-40 mb-2 grid max-h-72 w-72 grid-cols-8 gap-1 overflow-y-auto rounded-xl border bg-card p-2 shadow-2xl">{EMOJIS.map((emoji) => <button key={emoji} type="button" onClick={() => insertEmoji(emoji)} className="rounded p-1.5 text-lg hover:bg-muted" aria-label={`Emoji ${emoji}`}>{emoji}</button>)}</div>}
+            </div>
+          </div>
+          <Textarea ref={textareaRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={handleComposerKeyDown} placeholder="Shkruaj kërkesën për LEAH…" className="min-h-20 resize-none border-0 px-2 py-3 shadow-none focus-visible:ring-0" disabled={loading || initializing || !session}/>
+          <div className="flex items-center gap-1 border-t px-1 pt-2"><button type="button" onClick={() => wrapSelection("**", "**", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Bold"><Bold className="h-4 w-4" /></button><button type="button" onClick={() => wrapSelection("<u>", "</u>", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Underline"><Underline className="h-4 w-4" /></button><button type="button" onClick={() => wrapSelection("~~", "~~", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Strikethrough"><Strikethrough className="h-4 w-4" /></button><button type="button" onClick={() => wrapSelection("[", "](https://)", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Insert link"><Link2 className="h-4 w-4" /></button>{attachments.length > 0 && <span className="ml-2 text-xs text-muted-foreground">{attachments.length} skedar{attachments.length === 1 ? "" : "ë"} gati</span>}<Button type="submit" size="icon" className="ml-auto h-10 w-10 shrink-0" disabled={loading || initializing || !input.trim() || !session}><Send className="h-4 w-4" /></Button></div>
+        </form>
+      </CardContent></Card>}
     </div>
   </DashboardLayout>;
 }
