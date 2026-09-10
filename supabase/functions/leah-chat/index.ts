@@ -91,16 +91,16 @@ serve(async (req) => {
       ? `\nAttached workspace files: ${attachments.map((item) => String((item as Record<string, unknown>).name || "file")).join(", ")}`
       : "";
 
-    // LEAH must use Pulse AI's canonical multi-provider router. This keeps the
+    // LEAH uses Pulse AI's canonical multi-provider router. This reuses the
     // existing Supabase provider API keys, routing policy, failover and usage
-    // governance as the single runtime path instead of requiring a second BYOK
-    // provider registry just for the chat UI.
+    // governance instead of maintaining a second provider runtime for chat.
     const routerMessages = safeConversation.length
       ? [...safeConversation, { role: "user", content: userText + attachmentContext }]
       : [{ role: "user", content: userText + attachmentContext }];
 
+    // Do not force a task type here. The canonical router classifies the request
+    // and chooses the best currently configured provider/model.
     const result = await callAIRouter(routerMessages, system, {
-      taskType: "balanced",
       workspaceId: session.workspaceId,
       userId: session.userId,
       maxTokens: 1200,
