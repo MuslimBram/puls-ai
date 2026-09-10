@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import PlatformHub from "./PlatformHub";
 import PlatformAi from "./PlatformAi";
 import PlatformInbox from "./PlatformInbox";
@@ -21,7 +22,7 @@ type PlatformSlug =
   | "platform/partners"
   | "platform/lidhjet";
 
-const PAGES: Record<PlatformSlug, React.ComponentType> = {
+const PAGES: Record<PlatformSlug, ComponentType> = {
   platform: PlatformHub,
   "platform/ai": PlatformAi,
   "platform/unified-inbox": PlatformInbox,
