@@ -19,9 +19,9 @@ describe("P0 client-readiness contracts", () => {
     for (const source of sources) {
       expect(source).not.toMatch(/(?:privilegedBypass|hasPrivilegedBypass)\s*=\s*[^;\n]*business_owner/);
     }
-    expect(read("supabase/functions/leah-session/index.ts")).toContain(
-      'const ADMIN_ROLES = new Set(["admin", "super_admin"]);',
-    );
+    const leahSession = read("supabase/functions/leah-session/index.ts");
+    expect(leahSession).toContain('const FREE_LEAH_ROLES = new Set(["owner", "admin", "super_admin"]);');
+    expect(leahSession).toContain("const isFreeLeahRole = FREE_LEAH_ROLES.has(role);");
   });
 
   it("uses server-owned Stripe prices and workspace metadata", () => {
@@ -67,7 +67,6 @@ describe("P0 client-readiness contracts", () => {
       expect(read(path)).toContain("getPayPalSandboxMode()");
     }
   });
-
 
   it("keeps the payment chooser connected to configured manual methods", () => {
     const completePayment = read("src/pages/CompletePayment.tsx");
