@@ -8,7 +8,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const SESSION_TTL_MS = 60 * 60 * 1000;
 const HANDOFF_TTL_MS = 60 * 1000;
 const ACTIVE_ENTITLEMENT_STATUSES = new Set(["trial", "active", "grace"]);
-const ADMIN_ROLES = new Set(["admin", "super_admin"]);
+const FREE_LEAH_ROLES = new Set(["owner", "admin", "super_admin"]);
 
 const admin = createAdminClient();
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
@@ -65,7 +65,7 @@ serve(async (req) => {
     });
     if (roleError) throw roleError;
 
-    // Platform admin roles are authoritative for the free LEAH entitlement path.
+    // Workspace Owner/Admin and platform Super Admin have free LEAH access.
     // Workspace membership is still required above to keep tenant isolation intact.
     const { data: globalRoles, error: globalRoleError } = await admin
       .from("user_roles")
@@ -79,7 +79,7 @@ serve(async (req) => {
       : resolvedRole;
     if (!role) return json(req, { error: "Workspace access denied" }, 403);
 
-    const isAdmin = ADMIN_ROLES.has(role);
+    const isFreeLeahRole = FREE_LEAH_ROLES.has(role);
     const { data: entitlement, error: entitlementError } = await admin
       .from("leah_workspace_entitlements")
       .select("status, valid_until, concurrency_limit, included_monthly_tokens, storage_bytes_limit")
@@ -87,7 +87,7 @@ serve(async (req) => {
       .maybeSingle();
     if (entitlementError) throw entitlementError;
 
-    if (!isAdmin) {
+    if (!isFreeLeahRole) {
       if (!entitlement || !ACTIVE_ENTITLEMENT_STATUSES.has(entitlement.status)) {
         return json(req, { error: "LEAH entitlement is not active" }, 403);
       }
