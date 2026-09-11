@@ -23,8 +23,8 @@ const historical = {
   "20260827191457_least_privilege_admin_workflow_table_grants.sql": h("659fefc5","411473c6","b2e2cdde","8213e225","1dfa9ec7","81bd9625","1fd48272","64226165"),
 } as const;
 
-const normalizeLedgerStatement = (sql: string) => sql.replace(/[\r\n\t ]+$/, "");
-const corrective = readFileSync(correctivePath, "utf8");
+const normalizeLedgerStatement = (sql: string) => sql.replace(/\r\n/g, "\n").replace(/[\r\n\t ]+$/, "");
+const corrective = readFileSync(correctivePath, "utf8").replace(/\r\n/g, "\n");
 
 function policyBlock(sql: string, policyName: string) {
   const escaped = policyName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -8,10 +8,10 @@ const app = read("src/App.tsx");
 const nav = read("src/components/layout/nav-config.ts");
 
 describe("LEAH OpenAI BYOK owner flow", () => {
-  it("is lazy-loaded behind the authenticated protected route", () => {
+  it("is lazy-loaded behind the administrator route", () => {
     expect(app).toContain('lazy(() => import("./pages/LeahProviderSettings"))');
     expect(app).toContain(
-      '<Route path="/leah/providers" element={<ProtectedPage><LeahProviderSettings /></ProtectedPage>} />',
+      '<Route path="/leah/providers" element={<AdminPage><LeahProviderSettings /></AdminPage>} />',
     );
     expect(nav).toContain('{ href: "/leah/providers", label: "LEAH Providers", icon: Key }');
   });

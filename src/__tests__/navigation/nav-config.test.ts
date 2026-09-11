@@ -57,7 +57,7 @@ describe("role-aware navigation", () => {
     const visibleDestinations = groups.flatMap((group) =>
       group.items.filter((item) => !item.searchOnly),
     );
-    expect(visibleDestinations).toHaveLength(23);
+    expect(visibleDestinations).toHaveLength(25);
   });
 
   it("preserves the Helpdesk automation permission gate", () => {

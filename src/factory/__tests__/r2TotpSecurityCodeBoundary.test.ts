@@ -30,7 +30,11 @@ describe("R2 TOTP and security-code storage boundary", () => {
     expect(totpManage).toContain("auth.mfa.unenroll");
     expect(totpManage).not.toContain('from("totp_secrets")');
     expect(totpManage).not.toContain('from("user_security_codes")');
-    expect(useTotp).toContain('functions.invoke("totp-manage"');
+    expect(useTotp).toContain("auth.mfa.enroll");
+    expect(useTotp).toContain("auth.mfa.challenge");
+    expect(useTotp).toContain("auth.mfa.verify");
+    expect(useTotp).toContain("auth.mfa.unenroll");
+    expect(useTotp).not.toContain('functions.invoke("totp-manage"');
     expect(useTotp).not.toContain('from("totp_secrets")');
   });
 

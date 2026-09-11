@@ -22,7 +22,7 @@ function sourceFiles(root: string): string[] {
 // Only scan browser-accessible src/ files; exclude test files and generated types.
 // Edge functions use the service-role admin client and are not broken by this migration.
 const runtimeFiles = sourceFiles(resolve(process.cwd(), "src")).filter(
-  (f) => !f.includes("__tests__") && !f.endsWith("/types.ts"),
+  (f) => !f.includes("__tests__") && !/(^|[\\/])types\.ts$/.test(f),
 );
 const directCallers = runtimeFiles.filter((file) => readFileSync(file, "utf8").includes('custom_channel_adapters'));
 
