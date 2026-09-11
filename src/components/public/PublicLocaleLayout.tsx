@@ -2,7 +2,6 @@ import { useEffect } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import NotFound from "@/pages/NotFound";
-import LocalizedPlatformPage from "@/pages/platform/LocalizedPlatformPage";
 import {
   PUBLIC_LOCALE_STORAGE_KEY,
   getPreferredPublicLocale,
@@ -61,10 +60,6 @@ export default function PublicLocaleLayout() {
   if (!isValidLocale) {
     if (!isLocaleLike) return <NotFound />;
     return <Navigate to={fallbackTarget} replace />;
-  }
-
-  if (strippedPath === "/platform" || strippedPath.startsWith("/platform/")) {
-    return <LocalizedPlatformPage slug={strippedPath.slice(1)} />;
   }
 
   return <Outlet />;

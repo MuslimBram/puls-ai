@@ -28,6 +28,7 @@ const AffiliateTerms = lazy(() => import("./pages/legal/AffiliateTerms"));
 const DPA = lazy(() => import("./pages/legal/DPA"));
 const TermsAndPayments = lazy(() => import("./pages/TermsAndPayments"));
 const WhiteLabel = lazy(() => import("./pages/WhiteLabel"));
+const LeahPublic = lazy(() => import("./pages/LeahPublic"));
 const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
 
@@ -261,6 +262,16 @@ const App = () => (
 
                 <Route path="/:locale" element={<PublicLocaleLayout />}>
                   <Route index element={<Index />} />
+                  <Route path="platform" element={<PlatformHub />} />
+                  <Route path="platform/ai" element={<PlatformAi />} />
+                  <Route path="platform/unified-inbox" element={<PlatformInbox />} />
+                  <Route path="platform/crm" element={<PlatformCrm />} />
+                  <Route path="platform/marketing" element={<PlatformMarketing />} />
+                  <Route path="platform/automation" element={<PlatformAutomation />} />
+                  <Route path="platform/analytics" element={<PlatformAnalytics />} />
+                  <Route path="platform/developers" element={<PlatformDevelopers />} />
+                  <Route path="platform/partners" element={<PlatformPartners />} />
+                  <Route path="platform/lidhjet" element={<PlatformLidhjet />} />
                   <Route path="privacy" element={<PrivacyPolicy />} />
                   <Route path="terms" element={<TermsOfService />} />
                   <Route path="security" element={<SecurityOverview />} />
@@ -270,6 +281,7 @@ const App = () => (
                   <Route path="dpa" element={<DPA />} />
                   <Route path="terms-and-payments" element={<TermsAndPayments />} />
                   <Route path="white-label" element={<WhiteLabel />} />
+                  <Route path="leah" element={<LeahPublic />} />
                   <Route path="about" element={<About />} />
                   <Route path="contact" element={<Contact />} />
                   <Route path="pricing" element={<Pricing />} />

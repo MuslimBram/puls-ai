@@ -515,6 +515,7 @@ export default {
     business: {
       partners: "Partners",
       whiteLabel: "White Label",
+      leah: "LEAH",
     },
     company: {
       about: "About",

@@ -33,6 +33,8 @@ export const platformNavItems: NavItem[] = [
   { labelKey: "nav.platform.marketing",      href: "/platform/marketing" },
   { labelKey: "nav.platform.automation",     href: "/platform/automation" },
   { labelKey: "nav.platform.analytics",      href: "/platform/analytics" },
+  { labelKey: "nav.platform.developers",     href: "/platform/developers", comingSoon: true },
+  { labelKey: "nav.business.partners",       href: "/platform/partners", comingSoon: true },
 ];
 
 /** Standalone top-level nav items */
@@ -45,6 +47,7 @@ export const standaloneNavItems: NavItem[] = [
 /** Business nav items */
 export const businessNavItems: NavItem[] = [
   { labelKey: "nav.business.whiteLabel",  href: "/white-label" },
+  { labelKey: "nav.business.leah", href: "/leah" },
 ];
 
 /** Company nav items */
