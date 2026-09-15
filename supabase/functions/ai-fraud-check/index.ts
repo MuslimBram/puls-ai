@@ -15,6 +15,38 @@ Deno.serve(async (req) => {
     const serviceKey = getServiceKey()!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    // ── FAZA 0 / V9a — AUTHORIZATION ─────────────────────────────────────────
+    // This endpoint runs with the SERVICE ROLE key and writes ai_fraud_score /
+    // ai_fraud_reasons onto payout_requests. Before this change it had NO
+    // authentication of any kind: the only barrier was the gateway's verify_jwt,
+    // and the anon/publishable key shipped in the frontend bundle is a valid
+    // JWT. Any holder of that public key could therefore overwrite the fraud
+    // verdict on ANY payout request in the table.
+    //
+    // Guard model mirrors withdrawal-fraud-check (the best-guarded function on
+    // this surface): the caller must be the OWNER of the payout request's
+    // partner account, or an admin / super_admin. Owner access is required
+    // because useRequestPayout() invokes this immediately after a partner
+    // creates their own payout request — an admin-only guard would break that
+    // legitimate flow.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+    const { data: authData, error: authError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", ""),
+    );
+    const caller = authData?.user;
+    if (authError || !caller) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
+
     const { payout_request_id } = await req.json();
     if (!payout_request_id) throw new Error("payout_request_id required");
 
@@ -32,6 +64,31 @@ Deno.serve(async (req) => {
       .select("*")
       .eq("id", payout.partner_id)
       .single();
+
+    // ── FAZA 0 / V9a — owner-or-admin check ──────────────────────────────────
+    // Resolved here because ownership is only knowable once the payout request
+    // and its partner account have been loaded. Note the ordering consequence,
+    // stated plainly rather than papered over: the "not found" branch above
+    // runs before this check, so an authenticated caller can still distinguish
+    // a non-existent payout id from one they may not touch. payout_request ids
+    // are v4 UUIDs, so this is not a practical enumeration vector, and closing
+    // it would mean withholding "not found" from admins who legitimately need
+    // it. Flagged as accepted residual risk, not as an oversight.
+    const { data: callerRoles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", caller.id)
+      .in("role", ["admin", "super_admin"]);
+    if (rolesError) throw new Error(`role lookup failed: ${rolesError.message}`);
+
+    const isPlatformStaff = (callerRoles ?? []).length > 0;
+    const isPartnerOwner = !!partner?.user_id && partner.user_id === caller.id;
+    if (!isPlatformStaff && !isPartnerOwner) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...getCors(req), "Content-Type": "application/json" },
+      });
+    }
 
     // Fetch wallet
     const { data: wallet } = await supabase
