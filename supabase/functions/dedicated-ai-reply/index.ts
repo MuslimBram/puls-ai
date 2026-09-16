@@ -3,14 +3,12 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { staffRolesOf } from "../_shared/platform-roles.ts";
+import { resolveAiReplyLimit, resolvePlanKey } from "../_shared/plan-limits.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
-
-const PLAN_LIMITS: Record<string, number> = {
-  standard: 20, professional: 100, advanced: 500, enterprise: -1,
-};
 
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30;
@@ -70,37 +68,54 @@ serve(async (req) => {
     const [{ data: sub }, { data: roleRows }] = await Promise.all([
       supabase
         .from("subscriptions")
-        .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status")
+        .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
         .eq("user_id", user_id)
         .maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", user_id),
     ]);
 
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
+    // FAZA 1A: platform staff only. `business_owner` is held by every user.
+    const hasPrivilegedBypass = staffRolesOf(roles).length > 0;
 
-    const planMap: Record<string, string> = { free: "standard", pro: "professional" };
-    const plan = hasPrivilegedBypass ? "enterprise" : (planMap[sub?.plan || "standard"] || sub?.plan || "standard");
-    const limit = hasPrivilegedBypass ? -1 : (PLAN_LIMITS[plan] ?? 20);
+    // FAZA 1A: plan and limit come from pricing_settings, not a local table.
+    const plan = hasPrivilegedBypass ? "enterprise" : resolvePlanKey(sub);
+    const limit = hasPrivilegedBypass ? -1 : await resolveAiReplyLimit(supabase, plan);
 
     const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
     const now = new Date();
     const hoursSinceReset = (now.getTime() - resetAt.getTime()) / (1000 * 60 * 60);
     const currentUsed = hoursSinceReset >= 24 ? 0 : (sub?.ai_replies_today || 0);
 
+    /**
+     * FAZA 1A — why the allowance ran out, not whether it did.
+     *
+     * A cancelled or unpaid subscription is already downgraded to the lowest
+     * plan by `resolvePlanKey`, so `limit` above IS the standard limit and the
+     * generic check below would refuse this caller anyway. This branch changes
+     * only the message: "renew", not "upgrade". It therefore has to run FIRST.
+     *
+     * It used to compare against a hard-coded `PLAN_LIMITS.standard` of 20.
+     * That table went with the rest of the 20/100/500 ladder and this one
+     * reference was left behind — an identifier that no longer existed, which
+     * would have thrown a ReferenceError and answered 500 to exactly the
+     * customers the branch exists to help. Nothing caught it: tsconfig.app.json
+     * covers only ./src, no test imports an entrypoint, and the bundler does
+     * not typecheck. `faza1aEdgeFunctionNames.test.ts` now does.
+     */
+    const subStatus = sub?.subscription_status || "active";
+    if (!hasPrivilegedBypass && ["canceled", "unpaid"].includes(subStatus) && limit !== -1 && currentUsed >= limit) {
+      return new Response(JSON.stringify({
+        error: "Your subscription has expired. Please renew to continue using AI replies.",
+        limit_reached: true,
+      }), { status: 403, headers: { ...getCors(req), "Content-Type": "application/json" } });
+    }
+
     if (limit !== -1 && currentUsed >= limit) {
       return new Response(JSON.stringify({
         error: `Daily AI reply limit reached (${currentUsed}/${limit}). Upgrade your plan for more AI replies.`,
         limit_reached: true,
       }), { status: 429, headers: { ...getCors(req), "Content-Type": "application/json" } });
-    }
-
-    const subStatus = sub?.subscription_status || "active";
-    if (!hasPrivilegedBypass && ["canceled", "unpaid"].includes(subStatus) && currentUsed >= PLAN_LIMITS.standard) {
-      return new Response(JSON.stringify({
-        error: "Your subscription has expired. Please renew to continue using AI replies.",
-        limit_reached: true,
-      }), { status: 403, headers: { ...getCors(req), "Content-Type": "application/json" } });
     }
 
     let businessQuery = supabase

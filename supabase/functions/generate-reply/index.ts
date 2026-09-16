@@ -3,6 +3,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { routerChatCompletion } from "../_shared/router-chat-compat.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { staffRolesOf } from "../_shared/platform-roles.ts";
+import { resolveAiReplyLimit, resolvePlanKey } from "../_shared/plan-limits.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
@@ -61,25 +63,24 @@ serve(async (req) => {
       getServiceKey()!,
     );
 
-    const PLAN_LIMITS: Record<string, number> = {
-      standard: 20, professional: 100, advanced: 500, enterprise: -1,
-    };
-
     const [{ data: sub }, { data: roleRows }] = await Promise.all([
       supabase
         .from("subscriptions")
-        .select("plan, ai_replies_today, ai_replies_reset_at")
+        .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
         .eq("user_id", user_id)
         .maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", user_id),
     ]);
 
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
+    // FAZA 1A: platform staff only. `business_owner` is held by every user.
+    const hasPrivilegedBypass = staffRolesOf(roles).length > 0;
 
-    const planMap: Record<string, string> = { free: "standard", pro: "professional" };
-    const plan = hasPrivilegedBypass ? "enterprise" : (planMap[sub?.plan || "standard"] || sub?.plan || "standard");
-    const limit = hasPrivilegedBypass ? -1 : (PLAN_LIMITS[plan] ?? 20);
+    // FAZA 1A: plan and limit come from pricing_settings. The table that used
+    // to live here said 20/100/500 while the catalogue said 25/75/200, so an
+    // operator changing a limit in the admin panel had no effect on this path.
+    const plan = hasPrivilegedBypass ? "enterprise" : resolvePlanKey(sub);
+    const limit = hasPrivilegedBypass ? -1 : await resolveAiReplyLimit(supabase, plan);
 
     const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
     const now = new Date();
