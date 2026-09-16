@@ -3,48 +3,85 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { loadCallerRoles, staffRolesOf } from "../_shared/platform-roles.ts";
+import { resolveGoverningWorkspace, resolvePlanKey } from "../_shared/plan-limits.ts";
+import { loadQuotaLimits, quotaLimitFor } from "../_shared/quota-limits.ts";
+import { isWorkspaceScopedResource, quotaForResource } from "../_shared/quota-registry.runtime.ts";
+
+/**
+ * enforce-limits
+ *
+ * FAZA 1A changes, on top of deployed v52:
+ *
+ *  1. Roles and plan resolution now come from _shared/. v52 carried its own
+ *     copies; three sibling functions carried different copies and drifted.
+ *
+ *  2. SCOPE (owner decision V-4): `channels` and `team_members` are counted
+ *     PER WORKSPACE, not per user. v52 counted channels with
+ *     `.eq("user_id", user.id)` while the RLS insert policy was
+ *     workspace-scoped — the two layers disagreed about what the limit meant.
+ *     Workspace is the unit of business, so the governing plan is the
+ *     subscription of `workspaces.owner_id`.
+ *
+ *  3. NEW `team_members` branch. v52 loaded `team_members_limit` into its
+ *     limits map and then never used it: there was no branch and no caller, so
+ *     the users limit was decorative.
+ *
+ * Tenant safety: a caller who names a workspace must be a member of it. That is
+ * checked through the existing SECURITY DEFINER helper
+ * `has_workspace_role_for_user`; no new SECURITY DEFINER function is added and
+ * RLS is not bypassed.
+ *
+ *  4. STATUS CODES. A refusal is now HTTP 403, carrying the same JSON body it
+ *     always did: `{ allowed: false, error, currentPlan, limit, current, scope }`.
+ *
+ *     v52 answered every refusal with HTTP 200. A caller that checked only
+ *     `res.ok`, or that read `data` without inspecting `allowed`, therefore read
+ *     "limit reached" as "go ahead" — the function said no and the client heard
+ *     yes. Two of the three call sites did inspect `allowed`; none of them could
+ *     have been relied on to, because nothing in the contract made a refusal
+ *     distinguishable from success at the transport level.
+ *
+ *     403 is the correct code: the request was understood and authenticated, and
+ *     the plan does not permit it. 200 is reserved for `{ allowed: true }`, and
+ *     500 stays for a genuine failure to decide.
+ *
+ *     Every call site now goes through `src/lib/enforceLimits.ts`, which reads
+ *     the body from either status and raises the server's own message.
+ *
+ * FAZA 2 changes, on top of deployed v53:
+ *
+ *  5. LIMITS COME FROM THE REGISTRY. The catalogue read, the resource names
+ *     and the workspace/user scope are derived from
+ *     `_shared/quota-registry.runtime.ts` through `_shared/quota-limits.ts`.
+ *     Nothing in this file names a pricing_settings column any more.
+ *
+ *  6. `leads` is WORKSPACE-SCOPED and counts real rows. v53 compared
+ *     `subscriptions.leads_used`, a counter only email-poll ever incremented
+ *     and nothing ever reset (reset_monthly_usage() is scheduled by no cron
+ *     job). The count now comes from `public.leads_used_this_month(workspace)`
+ *     — the same SQL the Faza 2 trigger on `leads` uses, so this branch and
+ *     the trigger cannot disagree. The branch still has no caller (leads are
+ *     created server-side); the trigger is the gate.
+ *
+ *  7. NEW `automation_rules` branch, counting `automation_workflows` per
+ *     workspace, with a live caller in `src/hooks/useAutomations.ts` and a
+ *     BEFORE INSERT trigger behind it.
+ *
+ *  8. An UNKNOWN resource is refused (400, allowed:false). v53 fell through
+ *     every branch and answered `{ allowed: true }` — a typo in a resource name
+ *     was an approval.
+ */
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-const getEffectivePlan = (plan: string, status: string, gracePeriodEnd: string | null, trialEnd: string | null): string => {
-  const now = new Date();
+const json = (req: Request, body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCors(req), "Content-Type": "application/json" },
+  });
 
-  if (trialEnd && new Date(trialEnd) < now && status === "trialing") return "standard";
-  if (status === "past_due") return gracePeriodEnd && new Date(gracePeriodEnd) > now ? plan : "standard";
-  if (["canceled", "unpaid"].includes(status)) return "standard";
-  return plan;
-};
-
-const loadPlanLimits = async (supabase: any) => {
-  const { data, error } = await supabase
-    .from("pricing_settings")
-    .select("plan_key, channels_limit, keywords_limit, ai_replies_per_day_limit, leads_per_month_limit, team_members_limit")
-    .eq("is_donation", false);
-
-  if (error) throw error;
-
-  const map: Record<string, Record<string, number>> = {};
-  for (const row of data || []) {
-    map[row.plan_key] = {
-      channels: row.channels_limit ?? -1,
-      keywords: row.keywords_limit ?? -1,
-      aiRepliesPerDay: row.ai_replies_per_day_limit ?? -1,
-      leadsPerMonth: row.leads_per_month_limit ?? -1,
-      teamMembers: row.team_members_limit ?? -1,
-    };
-  }
-
-  return Object.keys(map).length > 0
-    ? map
-    : {
-        standard: { channels: 2, keywords: 10, aiRepliesPerDay: 15, leadsPerMonth: 50, teamMembers: 1 },
-        starter: { channels: 5, keywords: 30, aiRepliesPerDay: 50, leadsPerMonth: 200, teamMembers: 3 },
-        professional: { channels: 15, keywords: 150, aiRepliesPerDay: 200, leadsPerMonth: 1000, teamMembers: 10 },
-        advanced: { channels: -1, keywords: -1, aiRepliesPerDay: -1, leadsPerMonth: -1, teamMembers: -1 },
-        enterprise: { channels: -1, keywords: -1, aiRepliesPerDay: -1, leadsPerMonth: -1, teamMembers: -1 },
-      };
-};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
@@ -63,62 +100,110 @@ serve(async (req) => {
     const user = userData.user;
     if (!user) throw new Error("User not authenticated");
 
-    const [{ action, resource }, { data: roleRows, error: roleError }] = await Promise.all([
+    const [body, roles] = await Promise.all([
       req.json(),
-      supabase.from("user_roles").select("role").eq("user_id", user.id),
+      loadCallerRoles(supabase, user.id),
     ]);
-    if (roleError) throw roleError;
+    const { action, resource, workspace_id: requestedWorkspaceId } = body ?? {};
 
-    const roles = (roleRows || []).map((row: { role: string }) => row.role);
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
-
-    if (hasPrivilegedBypass) {
-      return new Response(JSON.stringify({ allowed: true, currentPlan: "enterprise", bypassed: true }), {
-        headers: { ...getCors(req), "Content-Type": "application/json" },
+    const bypassRoles = staffRolesOf(roles);
+    if (bypassRoles.length > 0) {
+      return json(req, {
+        allowed: true,
+        currentPlan: "enterprise",
+        bypassed: true,
+        bypass_roles: bypassRoles,
       });
     }
 
-    const planLimits = await loadPlanLimits(supabase);
+    // Vocabulary is the registry's, not the caller's. A resource the registry
+    // does not enforce has no limit to read, so it cannot be approved either.
+    if (typeof resource !== "string" || !quotaForResource(resource)) {
+      return json(req, { allowed: false, error: `Unknown resource: ${String(resource)}` }, 400);
+    }
+
+    const quotaLimits = await loadQuotaLimits(supabase);
+
+    // Whose subscription governs this check?
+    let governedUserId = user.id;
+    let workspaceId: string | null = null;
+
+    if (isWorkspaceScopedResource(resource)) {
+      const ws = await resolveGoverningWorkspace(supabase, user.id, requestedWorkspaceId);
+      if (!ws) {
+        return json(req, { allowed: false, error: "No accessible workspace for this request." }, 403);
+      }
+      workspaceId = ws.workspaceId;
+      governedUserId = ws.ownerId;
+    }
 
     const { data: sub } = await supabase
       .from("subscriptions")
-      .select("plan, leads_used, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
-      .eq("user_id", user.id)
+      .select("plan, ai_replies_today, ai_replies_reset_at, subscription_status, grace_period_end, trial_end")
+      .eq("user_id", governedUserId)
       .maybeSingle();
 
-    const plan = sub?.plan || "standard";
-    const planMap: Record<string, string> = { free: "standard", pro: "professional" };
-    const normalizedPlan = planMap[plan] || plan;
-    const subStatus = sub?.subscription_status || "active";
-    const effectivePlan = getEffectivePlan(normalizedPlan, subStatus, sub?.grace_period_end, sub?.trial_end);
-    const effectiveLimits = planLimits[effectivePlan] || planLimits.standard;
+    const effectivePlan = resolvePlanKey(sub);
+    const limit = quotaLimitFor(quotaLimits, effectivePlan, resource);
+
+    /** A quota refusal is an error, not a successful "no". See STATUS CODES above. */
+    const refuse = (error: string, limit: number, current: number) =>
+      json(req, { allowed: false, error, currentPlan: effectivePlan, limit, current, scope: workspaceId ? "workspace" : "user" }, 403);
+
+    /** Live row count for a workspace-scoped table. */
+    const countWorkspaceRows = async (table: string): Promise<number> => {
+      const { count, error } = await supabase
+        .from(table)
+        .select("*", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId);
+      if (error) throw new Error(`${table} count failed: ${error.message}`);
+      return count || 0;
+    };
 
     if (resource === "channels") {
-      const { count } = await supabase.from("channels").select("*", { count: "exact", head: true }).eq("user_id", user.id);
-      const limit = effectiveLimits.channels;
-      if (limit !== -1 && (count || 0) >= limit) {
-        return new Response(JSON.stringify({ allowed: false, error: `Channel limit reached (${count}/${limit}). Upgrade to add more channels.`, currentPlan: effectivePlan, limit, current: count }), { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } });
+      const count = await countWorkspaceRows("channels");
+      if (limit !== -1 && count >= limit) {
+        return refuse(`Channel limit reached (${count}/${limit}). Upgrade to add more channels.`, limit, count);
+      }
+    }
+
+    if (resource === "team_members") {
+      const count = await countWorkspaceRows("workspace_members");
+      if (limit !== -1 && count >= limit) {
+        return refuse(`Team member limit reached (${count}/${limit}). Upgrade to add more members.`, limit, count);
+      }
+    }
+
+    if (resource === "automation_rules") {
+      const count = await countWorkspaceRows("automation_workflows");
+      if (limit !== -1 && count >= limit) {
+        return refuse(`Automation rule limit reached (${count}/${limit}). Upgrade to add more automation rules.`, limit, count);
       }
     }
 
     if (resource === "keywords") {
-      const { count } = await supabase.from("keywords").select("*", { count: "exact", head: true }).eq("user_id", user.id);
-      const limit = effectiveLimits.keywords;
+      const { count, error } = await supabase
+        .from("keywords")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id);
+      if (error) throw new Error(`keywords count failed: ${error.message}`);
       if (limit !== -1 && (count || 0) >= limit) {
-        return new Response(JSON.stringify({ allowed: false, error: `Keyword limit reached (${count}/${limit}). Upgrade to add more keywords.`, currentPlan: effectivePlan, limit, current: count }), { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } });
+        return refuse(`Keyword limit reached (${count}/${limit}). Upgrade to add more keywords.`, limit, count || 0);
       }
     }
 
     if (resource === "leads") {
-      const limit = effectiveLimits.leadsPerMonth;
-      const used = sub?.leads_used || 0;
-      if (limit !== -1 && used >= limit) {
-        return new Response(JSON.stringify({ allowed: false, error: `Monthly lead limit reached (${used}/${limit}). Upgrade for more leads.`, currentPlan: effectivePlan, limit, current: used }), { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } });
+      // One implementation of "leads used this month": the SQL function the
+      // trigger on `leads` calls. Not subscriptions.leads_used — see note 6.
+      const { data: used, error } = await supabase.rpc("leads_used_this_month", { _workspace_id: workspaceId });
+      if (error) throw new Error(`leads_used_this_month failed: ${error.message}`);
+      const current = typeof used === "number" ? used : 0;
+      if (limit !== -1 && current >= limit) {
+        return refuse(`Monthly lead limit reached (${current}/${limit}). Upgrade for more leads.`, limit, current);
       }
     }
 
     if (resource === "ai_replies") {
-      const limit = effectiveLimits.aiRepliesPerDay;
       const used = sub?.ai_replies_today || 0;
       const resetAt = sub?.ai_replies_reset_at ? new Date(sub.ai_replies_reset_at) : new Date(0);
       const now = new Date();
@@ -126,25 +211,20 @@ serve(async (req) => {
       const effectiveUsed = hoursSinceReset >= 24 ? 0 : used;
 
       if (limit !== -1 && effectiveUsed >= limit) {
-        return new Response(JSON.stringify({ allowed: false, error: `Daily AI reply limit reached (${effectiveUsed}/${limit}). Upgrade for more AI replies.`, currentPlan: effectivePlan, limit, current: effectiveUsed }), { status: 200, headers: { ...getCors(req), "Content-Type": "application/json" } });
+        return refuse(`Daily AI reply limit reached (${effectiveUsed}/${limit}). Upgrade for more AI replies.`, limit, effectiveUsed);
       }
 
       if (action === "increment") {
-        if (hoursSinceReset >= 24) {
-          await supabase.from("subscriptions").update({ ai_replies_today: 1, ai_replies_reset_at: now.toISOString() }).eq("user_id", user.id);
-        } else {
-          await supabase.from("subscriptions").update({ ai_replies_today: effectiveUsed + 1 }).eq("user_id", user.id);
-        }
+        const patch = hoursSinceReset >= 24
+          ? { ai_replies_today: 1, ai_replies_reset_at: now.toISOString() }
+          : { ai_replies_today: effectiveUsed + 1 };
+        const { error } = await supabase.from("subscriptions").update(patch).eq("user_id", user.id);
+        if (error) throw new Error(`ai reply counter update failed: ${error.message}`);
       }
     }
 
-    return new Response(JSON.stringify({ allowed: true, currentPlan: effectivePlan }), {
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    return json(req, { allowed: true, currentPlan: effectivePlan, scope: workspaceId ? "workspace" : "user" });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }), {
-      status: 500,
-      headers: { ...getCors(req), "Content-Type": "application/json" },
-    });
+    return json(req, { error: error instanceof Error ? error.message : "Unknown error" }, 500);
   }
 });

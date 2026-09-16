@@ -4,6 +4,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { indexPricingCatalogByProductId, loadPricingCatalogRows } from "../_shared/monetization-catalog.ts";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
+import { loadCallerRoles, staffRolesOf } from "../_shared/platform-roles.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
@@ -155,7 +156,20 @@ serve(async (req) => {
 
     const user = userData.user;
 
-    // Platform admins may read the operational top-tier view; customer accounts follow billing.
+    // FAZA 1A — PLATFORM STAFF ONLY.
+    //
+    // This block previously also bypassed for `business_owner`. That role is
+    // granted by bootstrap_user_account_for() to EVERY user on EVERY login
+    // (5 of 5 accounts in production hold it), so the effect was that every
+    // account on the platform read back as a subscribed top-tier customer and
+    // no one ever had a reason to pay.
+    //
+    // The comment that used to sit here justified the bypass by claiming parity
+    // with enforce-limits and generate-media. Both claims were false by
+    // 2026-09-15: enforce-limits v52 had already removed business_owner, and
+    // generate-media v50 has no role bypass at all.
+    //
+    // Roles now come from the single shared source so this cannot drift again.
     const { data: roleRows, error: roleError } = await supabaseClient
       .from("user_roles")
       .select("role")
@@ -163,8 +177,8 @@ serve(async (req) => {
     if (roleError) logStep("Role lookup failed, continuing without bypass", { message: roleError.message });
 
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
-    // Platform admin roles may use the operational top-tier view; customer accounts follow billing.
-    const hasPrivilegedBypass = roles.includes("super_admin") || roles.includes("admin");
+    const staffRoles = staffRolesOf(roles);
+    const hasPrivilegedBypass = staffRoles.length > 0;
 
     const catalogRows = await loadPricingCatalogRows(supabaseClient);
     const productMap = indexPricingCatalogByProductId(catalogRows);
@@ -203,6 +217,8 @@ serve(async (req) => {
         commitment_months: 12,
         referral_discount: null,
         privileged_bypass: true,
+        // Named so an unlimited answer is auditable rather than unexplained.
+        bypass_roles: staffRoles,
       });
     }
 
