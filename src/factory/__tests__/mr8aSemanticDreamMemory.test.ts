@@ -38,7 +38,7 @@ describe("MR8A Semantic / Dream Memory source contract", () => {
     expect(migration).toContain("embedded semantic memory requires a succeeded matching attempt");
     expect(migration).toContain("semantic embedding evidence mismatch");
     expect(migration).toContain("Direct embedded mark disabled by MR8A");
-    expect(migration).toContain("where status = 'embedded'\n  and embedding is null");
+    expect(migration.replace(/\r\n/g, "\n")).toContain("where status = 'embedded'\n  and embedding is null");
   });
 
   it("separates admission from settlement and preserves stale-settlement truth only", () => {

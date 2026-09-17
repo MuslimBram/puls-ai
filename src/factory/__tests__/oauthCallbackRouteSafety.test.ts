@@ -9,8 +9,8 @@ describe("OAuth callback route safety", () => {
     expect(appSource).toContain(
       'const OAuthCallback = lazy(() => import("./pages/OAuthCallback"));',
     );
-    expect(appSource).toMatch(
-      /<Route\s+path="\/oauth\/callback"[\s\S]*?<OAuthCallback\s*\/>/,
+    expect(appSource).toContain(
+      '<Route path="/oauth/callback" element={<Suspense fallback={<LazyFallback />}><OAuthCallback /></Suspense>} />',
     );
   });
 });

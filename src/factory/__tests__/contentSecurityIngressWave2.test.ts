@@ -20,6 +20,7 @@ const emailMigration = readMigrationByName("email_ingress_idempotency.sql");
 const webchatMigration = readMigrationByName("webchat_ingress_idempotency.sql");
 const smsMigration = readMigrationByName("sms_ingress_idempotency.sql");
 const customMigration = readMigrationByName("custom_webhook_ingress_idempotency.sql");
+const firstIndex = (source: string, pattern: RegExp) => source.search(pattern);
 
 describe("P0.6 content-security ingress wave 2", () => {
   it("keeps Email verification and cron runtime on the same public-IP-pinned TLS guard", () => {
@@ -49,12 +50,12 @@ describe("P0.6 content-security ingress wave 2", () => {
   });
 
   it("gates Email before duplicate lookup, keywords, AI, thread and Inbox side effects", () => {
-    const scan = emailPoll.indexOf("const security = await scanInboundContent({");
-    const duplicate = emailPoll.indexOf("const { data: existingMsg");
-    const keywords = emailPoll.indexOf("const { data: keywords");
-    const ai = emailPoll.indexOf("const aiRes = await routerChatCompletion({");
-    const thread = emailPoll.indexOf('from("conversation_threads")');
-    const inbox = emailPoll.indexOf('from("inbox_messages")\n                .insert');
+    const scan = firstIndex(emailPoll, /const security = await scanInboundContent\(\{/);
+    const duplicate = firstIndex(emailPoll, /const \{ data: existingMsg,/);
+    const keywords = firstIndex(emailPoll, /const \{ data: keywords,/);
+    const ai = firstIndex(emailPoll, /const aiRes = await routerChatCompletion\(\{/);
+    const thread = firstIndex(emailPoll, /\.from\("conversation_threads"\)/);
+    const inbox = firstIndex(emailPoll, /\.from\("inbox_messages"\)\s*\.insert\(/);
 
     for (const position of [scan, duplicate, keywords, ai, thread, inbox]) expect(position).toBeGreaterThan(-1);
     expect(scan).toBeLessThan(duplicate);
@@ -76,12 +77,12 @@ describe("P0.6 content-security ingress wave 2", () => {
     expect(webchatValidator).toContain('error: "event_id is required"');
     expect(webchatProxy).toContain("event_id,");
     expect(webchatProxy).not.toContain("crypto.randomUUID()");
-    const auth = webchat.indexOf("requireInternalSecret(req)");
-    const tenant = webchat.indexOf("const workspaceId = channel.workspace_id");
-    const scan = webchat.indexOf("const security = await scanInboundContent({");
-    const duplicate = webchat.indexOf("const { data: existing");
-    const keywords = webchat.indexOf("const { data: keywords");
-    const inbox = webchat.indexOf('.from("inbox_messages")\n      .insert');
+    const auth = firstIndex(webchat, /requireInternalSecret\(req\)/);
+    const tenant = firstIndex(webchat, /const workspaceId = channel\.workspace_id/);
+    const scan = firstIndex(webchat, /const security = await scanInboundContent\(\{/);
+    const duplicate = firstIndex(webchat, /const \{ data: existing,/);
+    const keywords = firstIndex(webchat, /const \{ data: keywords,/);
+    const inbox = firstIndex(webchat, /\.from\("inbox_messages"\)\s*\.insert\(/);
     expect(auth).toBeGreaterThan(-1);
     expect(auth).toBeLessThan(tenant);
     expect(tenant).toBeLessThan(scan);
@@ -101,12 +102,12 @@ describe("P0.6 content-security ingress wave 2", () => {
     expect(customWebhook).toContain("if (bodyEventId !== eventId)");
     expect(customWebhook).not.toContain('req.headers.get("x-webhook-secret")');
 
-    const tenant = customWebhook.indexOf("const workspaceId = String(channel.workspace_id)");
-    const hmac = customWebhook.indexOf("secureEqualHex(expectedSignature, signatureMatch[1].toLowerCase())");
-    const scan = customWebhook.indexOf("const security = await scanInboundContent({");
-    const duplicate = customWebhook.indexOf("const { data: existing");
-    const keywords = customWebhook.indexOf("const { data: keywords");
-    const inbox = customWebhook.indexOf('.from("inbox_messages")\n      .insert');
+    const tenant = firstIndex(customWebhook, /const workspaceId = String\(channel\.workspace_id\)/);
+    const hmac = firstIndex(customWebhook, /secureEqualHex\(expectedSignature,\s*signatureMatch\[1\]!?.toLowerCase\(\)\)/);
+    const scan = firstIndex(customWebhook, /const security = await scanInboundContent\(\{/);
+    const duplicate = firstIndex(customWebhook, /const \{ data: existing,/);
+    const keywords = firstIndex(customWebhook, /const \{ data: keywords,/);
+    const inbox = firstIndex(customWebhook, /\.from\("inbox_messages"\)\s*\.insert\(/);
 
     for (const position of [hmac, tenant, scan, duplicate, keywords, inbox]) expect(position).toBeGreaterThan(-1);
     expect(hmac).toBeLessThan(tenant);
@@ -127,13 +128,13 @@ describe("P0.6 content-security ingress wave 2", () => {
   });
 
   it("gates signed Twilio SMS/MMS before provider claim, thread, keywords and Inbox", () => {
-    const signature = sms.indexOf("verifyTwilioSignature(req, rawBody");
-    const tenant = sms.indexOf("const workspaceId = wsCreds.workspace_id");
-    const scan = sms.indexOf("const security = await scanInboundContent({");
-    const claim = sms.indexOf("const claim = await claimInboundEvent");
-    const thread = sms.indexOf('supabase.rpc("upsert_conversation_thread"');
-    const keywords = sms.indexOf('supabase\n      .from("keywords")');
-    const inbox = sms.indexOf('supabase.from("inbox_messages").insert');
+    const signature = firstIndex(sms, /verifyTwilioSignature\(req,\s*rawBody,/);
+    const tenant = firstIndex(sms, /const workspaceId = wsCreds\.workspace_id/);
+    const scan = firstIndex(sms, /const security = await scanInboundContent\(\{/);
+    const claim = firstIndex(sms, /const claim = await claimInboundEvent/);
+    const thread = firstIndex(sms, /supabase\.rpc\("upsert_conversation_thread"/);
+    const keywords = firstIndex(sms, /\.from\("keywords"\)/);
+    const inbox = firstIndex(sms, /\.from\("inbox_messages"\)\.insert/);
     expect(signature).toBeGreaterThan(-1);
     expect(signature).toBeLessThan(tenant);
     expect(tenant).toBeLessThan(scan);

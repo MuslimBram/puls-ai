@@ -84,6 +84,10 @@ export function OrbitSelector<T extends string = string>({
     const index = (focusedIndex + ((offset + 1) * directionSign) + items.length) % items.length;
     return { item: items[index], originalIndex: index };
   });
+  const visibleIndexes = new Set([focusedIndex, ...orbitItems.map(({ originalIndex }) => originalIndex)]);
+  const hiddenItems = items
+    .map((item, index) => ({ item, index }))
+    .filter(({ index }) => !visibleIndexes.has(index));
 
   return (
     <div role="listbox" aria-label={ariaLabel}
@@ -98,10 +102,26 @@ export function OrbitSelector<T extends string = string>({
             className="text-primary/25" strokeWidth="2" strokeLinecap="round" />
         </svg>
 
-        <div data-testid="orbit-center-symbol"
-          className="absolute left-1/2 top-[76%] z-10 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/95 shadow-lg sm:h-28 sm:w-28">
-          {centralContent ? centralContent(focusedItem) : <div className="text-primary">{focusedItem?.icon}</div>}
-        </div>
+        <button
+          data-testid="orbit-center-symbol"
+          id={focusedItem ? `${idPrefix}-${focusedItem.value}` : undefined}
+          type="button"
+          role="option"
+          aria-label={focusedItem?.label}
+          aria-selected={focusedItem?.value === selectedValue}
+          disabled={!focusedItem || focusedItem.disabled}
+          onClick={() => {
+            pauseFromInteraction();
+            if (focusedItem && !focusedItem.disabled) onSelect(focusedItem.value);
+          }}
+          className={cn(
+            "absolute left-1/2 top-[76%] z-20 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-primary/35 bg-background/95 shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:h-28 sm:w-28",
+            focusedItem?.value === selectedValue && "ring-2 ring-primary ring-offset-2 ring-offset-background",
+            focusedItem?.disabled && "cursor-not-allowed opacity-40",
+          )}
+        >
+          {centralContent ? centralContent(focusedItem) : <span className="text-primary">{focusedItem?.icon}</span>}
+        </button>
 
         {orbitItems.map(({ item, originalIndex }, orbitIndex) => {
           const count = Math.max(orbitItems.length, 1);
@@ -128,6 +148,24 @@ export function OrbitSelector<T extends string = string>({
             </button>
           );
         })}
+
+        {hiddenItems.map(({ item }) => (
+          <button
+            key={`orbit-a11y-${item.value}`}
+            id={`${idPrefix}-${item.value}`}
+            type="button"
+            role="option"
+            aria-selected={item.value === selectedValue}
+            disabled={item.disabled}
+            onClick={() => {
+              pauseFromInteraction();
+              if (!item.disabled) onSelect(item.value);
+            }}
+            className="sr-only"
+          >
+            {item.label}
+          </button>
+        ))}
 
         <button type="button" aria-label="Previous option" onClick={() => moveFocus(-1)}
           className="absolute bottom-3 left-3 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border bg-background/90 shadow-sm hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">

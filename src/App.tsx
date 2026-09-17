@@ -228,6 +228,7 @@ const App = () => (
                 <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/unsubscribe" element={<Suspense fallback={<LazyFallback />}><Unsubscribe /></Suspense>} />
                 <Route path="/auth/callback" element={<Suspense fallback={<LazyFallback />}><AuthCallback /></Suspense>} />
+                <Route path="/oauth/callback" element={<Suspense fallback={<LazyFallback />}><OAuthCallback /></Suspense>} />
                 <Route path="/oauth/consent" element={<Suspense fallback={<LazyFallback />}><OAuthConsent /></Suspense>} />
                 <Route path="/pricing" element={<PublicLocaleRedirect target="/pricing" />} />
                 <Route path="/white-label" element={<PublicLocaleRedirect target="/white-label" />} />
@@ -273,6 +274,16 @@ const App = () => (
                   <Route path="about" element={<About />} />
                   <Route path="contact" element={<Contact />} />
                   <Route path="pricing" element={<Pricing />} />
+                  <Route path="platform" element={<Suspense fallback={<LazyFallback />}><PlatformHub /></Suspense>} />
+                  <Route path="platform/ai" element={<Suspense fallback={<LazyFallback />}><PlatformAi /></Suspense>} />
+                  <Route path="platform/unified-inbox" element={<Suspense fallback={<LazyFallback />}><PlatformInbox /></Suspense>} />
+                  <Route path="platform/crm" element={<Suspense fallback={<LazyFallback />}><PlatformCrm /></Suspense>} />
+                  <Route path="platform/marketing" element={<Suspense fallback={<LazyFallback />}><PlatformMarketing /></Suspense>} />
+                  <Route path="platform/automation" element={<Suspense fallback={<LazyFallback />}><PlatformAutomation /></Suspense>} />
+                  <Route path="platform/analytics" element={<Suspense fallback={<LazyFallback />}><PlatformAnalytics /></Suspense>} />
+                  <Route path="platform/developers" element={<Suspense fallback={<LazyFallback />}><PlatformDevelopers /></Suspense>} />
+                  <Route path="platform/partners" element={<Suspense fallback={<LazyFallback />}><PlatformPartners /></Suspense>} />
+                  <Route path="platform/lidhjet" element={<Suspense fallback={<LazyFallback />}><PlatformLidhjet /></Suspense>} />
                 </Route>
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />

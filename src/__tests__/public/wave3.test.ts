@@ -104,16 +104,14 @@ describe("publicNavConfig Wave 3", () => {
     }
   });
 
-  it("developers nav item is comingSoon", () => {
+  it("does not advertise Developers as a coming-soon public navigation item", () => {
     const dev = platformNavItems.find((i) => i.href === "/platform/developers");
-    expect(dev).toBeDefined();
-    expect(dev?.comingSoon).toBe(true);
+    expect(dev).toBeUndefined();
   });
 
-  it("partners nav item is comingSoon", () => {
+  it("does not advertise Partners as a coming-soon public navigation item", () => {
     const partners = allPublicNavItems.find((i) => i.href === "/platform/partners");
-    expect(partners).toBeDefined();
-    expect(partners?.comingSoon).toBe(true);
+    expect(partners).toBeUndefined();
   });
 
   it("lidhjet nav item points to the active public experience", () => {

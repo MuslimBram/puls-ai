@@ -61,10 +61,9 @@ describe("publicNavConfig", () => {
     expect(platformNavItems.length).toBeGreaterThanOrEqual(6);
   });
 
-  it("keeps developers as a non-live coming soon item", () => {
+  it("does not advertise Developers before it is added to the public navigation", () => {
     const devItem = platformNavItems.find((i) => i.labelKey === "nav.platform.developers");
-    expect(devItem).toBeDefined();
-    expect(devItem?.comingSoon).toBe(true);
+    expect(devItem).toBeUndefined();
   });
 
   it("platform nav items use canonical /platform/* routes (Wave 3)", () => {
@@ -88,11 +87,8 @@ describe("publicNavConfig", () => {
     expect(lidhjetItem?.comingSoon).not.toBe(true);
   });
 
-  it("Partners route is /platform/partners (not /partners)", () => {
-    const partnersItem = allPublicNavItems.find((i) => i.href === "/platform/partners");
-    expect(partnersItem).toBeDefined();
-    const wrongItem = allPublicNavItems.find((i) => i.href === "/partners");
-    expect(wrongItem).toBeUndefined();
+  it("does not expose a non-canonical /partners navigation link", () => {
+    expect(allPublicNavItems.find((i) => i.href === "/partners")).toBeUndefined();
   });
 
   it("does NOT expose admin routes", () => {
