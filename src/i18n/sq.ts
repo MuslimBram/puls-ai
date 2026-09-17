@@ -515,6 +515,7 @@ export default {
     business: {
       partners: "Partnerë",
       whiteLabel: "White Label",
+      leah: "LEAH",
     },
     company: {
       about: "Rreth Nesh",
