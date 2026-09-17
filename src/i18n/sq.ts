@@ -175,15 +175,11 @@ export default {
     recommended: "E rekomanduar",
     custom: "Personalizo",
     comparePlans: "Krahaso Planet",
-    testimonialsTitle: "Besuar nga Biznese në Rritje",
-    testimonialsDesc: "Shikoni çfarë thonë klientët tanë.",
-    testimonials: [
-      { name: "Sarah K.", role: "Drejtore Marketingu", quote: "Pulse AI transformoi mënyrën si i trajtojmë klientët hyrës. Kohët e përgjigjes ranë me 80%." },
-      { name: "Michael R.", role: "Pronar Agjencie", quote: "Asistenti AI duket si një anëtar ekipi. Trajton bisedat fillestare perfektësisht." },
-      { name: "Elena T.", role: "Menaxhere Shitjesh", quote: "Zbuluam 3x më shumë klientë të kualifikuar brenda muajit të parë të përdorimit." },
-    ],
-    communityTitle: "Bashkohuni me Komunitetin e Pronarëve të Suksesshëm",
-    communityDesc: "Mijëra biznese dhe freelancerë rriten së bashku.",
+    testimonialsTitle: "Informacion i bazuar në prova",
+    testimonialsDesc: "Aftësitë dhe kontrollet e paraqitura pasqyrojnë konfigurimin aktual të produktit.",
+    testimonials: [],
+    communityTitle: "Flukse pune të lidhura",
+    communityDesc: "Eksploroni aftësitë dhe kontrollet e disponueshme në hapësirën tuaj.",
     ctaTitle: "Gati për të Kapur Më Shumë Klientë?",
     ctaDesc: "Bashkohuni me bizneset që përdorin Pulse AI për të zbuluar, kualifikuar dhe konvertuar klientë me AI.",
     signIn: "Hyr",
@@ -218,7 +214,7 @@ export default {
         },
         howMuch: {
           q: "Sa kushton?",
-          a: "Planet fillojnë nga 9,900 ALL/muaj (Start), 19,900 ALL/muaj (Growth), 39,900 ALL/muaj (Pro) dhe 79,900 ALL/muaj (Enterprise). Merrni zbritje për angazhime më të gjata: 5% për 3 muaj, 10% për 6 muaj, 15% vjetore.",
+          a: "Planet përdorin katalogun kanonik: Standard 9,900 ALL/muaj, Professional 19,900 ALL/muaj, Advanced 39,900 ALL/muaj dhe Enterprise 79,900 ALL/muaj. Angazhimet më të gjata aktualisht japin 5% zbritje për 3 muaj, 10% për 6 muaj dhe 15% në vit. Monedha dhe të drejtat përfundimtare shfaqen në rrjedhën e çmimeve të produktit.",
         },
         freeTrial: {
           q: "A mund ta provoj falas?",
@@ -234,7 +230,7 @@ export default {
         },
         installMobile: {
           q: "A mund ta instaloj në telefon?",
-          a: "Po! Pulse AI është PWA (Progressive Web App). Mund ta instaloni në iOS, Android, desktop dhe tablet — si një aplikacion, direkt nga shfletuesi.",
+          a: "Po. Pulse AI është një PWA (Progressive Web App) e instalueshme në shfletuesit e mbështetur në iOS, Android, desktop dhe tablet. Është aplikacion web, jo aplikacion native Android ose iOS.",
         },
         afterTrial: {
           q: "Çfarë ndodh pas provës falas?",
