@@ -260,7 +260,7 @@ export function ManualPaymentFlow({
           </div>
         )}
 
-        {!noBankAccount && selectedMethod && (
+        {!noAvailableMethod && selectedMethod && (
           <>
             <Textarea
               placeholder="Optional: your name or business name for the transfer"
