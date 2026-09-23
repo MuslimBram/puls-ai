@@ -16,6 +16,7 @@ type OAuthStateRow = {
   workspace_id: string | null;
   channel_type: string;
   redirect_uri: string;
+  business_id: string | null; // R111-C1: Add business_id
   expires_at: string;
 };
 
@@ -24,6 +25,7 @@ async function upsertSocialChannel(
   input: {
     userId: string;
     workspaceId: string;
+    businessId: string; // R111-C1: Add business_id parameter
     channelType: "facebook" | "instagram";
     channelName: string;
     settings: Record<string, unknown>;
@@ -43,6 +45,7 @@ async function upsertSocialChannel(
   const common = {
     user_id: input.userId,
     workspace_id: input.workspaceId,
+    business_id: input.businessId, // R111-C1: Include business_id (REQUIRED)
     channel_type: input.channelType,
     channel_name: input.channelName,
     connection_mode: "professional",
@@ -91,7 +94,7 @@ serve(async (req: Request) => {
 
     const { data: oauthState, error: stateError } = await sb
       .from("oauth_states")
-      .select("state,user_id,workspace_id,channel_type,redirect_uri,expires_at")
+      .select("state,user_id,workspace_id,channel_type,redirect_uri,business_id,expires_at")
       .eq("state", state)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -105,8 +108,10 @@ serve(async (req: Request) => {
     }
     if (stateRow.redirect_uri !== redirectUri) return json(req, { error: "OAuth redirect URI mismatch" }, 400);
     if (!stateRow.workspace_id) return json(req, { error: "OAuth state is not workspace-scoped; reconnect from Channels" }, 400);
+    if (!stateRow.business_id) return json(req, { error: "OAuth state missing business_id; reconnect from Channels" }, 400); // R111-C1
 
     const workspaceId = stateRow.workspace_id;
+    const businessId = stateRow.business_id; // R111-C1: Retrieve business_id
     const [{ data: member }, { data: owned }] = await Promise.all([
       sb.rpc("is_workspace_member", { _user_id: user.id, _workspace_id: workspaceId }),
       sb.from("workspaces").select("id").eq("id", workspaceId).eq("owner_id", user.id).maybeSingle(),
@@ -167,6 +172,7 @@ serve(async (req: Request) => {
       const channelId = await upsertSocialChannel(sb, {
         userId: user.id,
         workspaceId,
+        businessId, // R111-C1: Pass business_id
         channelType: "facebook",
         channelName: String(page.name || "Facebook"),
         settings: {
@@ -234,6 +240,7 @@ serve(async (req: Request) => {
     const channelId = await upsertSocialChannel(sb, {
       userId: user.id,
       workspaceId,
+      businessId, // R111-C1: Pass business_id
       channelType: "instagram",
       channelName: String(profile.name || profile.username || "Instagram"),
       settings: { instagram_account_id: String(profile.id) },
