@@ -9,6 +9,7 @@ import { useChannelRegistryWithModes, useConnectedChannels, type ChannelRegistry
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
+import { useBusinessProfile } from "@/hooks/useBusinessProfile"; // R111-C1: Authorized businesses
 import { ChannelConnectionModal } from "@/components/channels/ChannelConnectionModal";
 import { ConnectedChannelCard } from "@/components/channels/ConnectedChannelCard";
 import { ChannelCatalogCard } from "@/components/channels/ChannelCatalogCard";
@@ -40,6 +41,7 @@ const Channels = () => {
   const { currentPlanKey } = useFeatureGating();
   const { plansByKey, planOrder } = useMonetizationCatalog();
   const { isSuperAdmin } = useRolePermissions();
+  const { profiles: authorizedBusinesses } = useBusinessProfile(); // R111-C1: Get authorized businesses
 
   const channels = connectedChannels ?? [];
   const registryItems = registry ?? [];
@@ -166,25 +168,31 @@ const Channels = () => {
                   </TabsList>
                   {Object.entries(categories).map(([cat, items]) => (
                     <TabsContent key={cat} value={cat}>
-                      <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                        {items.map((item) => {
-                          const existing = channels.find((c) => c.channel_type === item.id);
-                          const hasAccess = canAccessChannel(item.min_plan);
-                          const minPlanName = plansByKey[item.min_plan as PlanKey]?.name || item.min_plan;
+                      {/* R111-C1: Carousel - exactly 4 cards visible, horizontal scroll for rest */}
+                      <div className="relative">
+                        <div className="overflow-x-auto overflow-y-hidden scrollbar-hide">
+                          <div className="flex gap-4 pb-2" style={{ width: `${(items.length * 280) + (items.length - 1) * 16}px` }}>
+                            {items.map((item) => {
+                              const existing = channels.find((c) => c.channel_type === item.id);
+                              const hasAccess = canAccessChannel(item.min_plan);
+                              const minPlanName = plansByKey[item.min_plan as PlanKey]?.name || item.min_plan;
 
-                          return (
-                            <ChannelCatalogCard
-                              key={item.id}
-                              item={item}
-                              existing={existing}
-                              hasAccess={hasAccess}
-                              minPlanName={minPlanName}
-                              onConnect={() => setConnectModal({ channel: item })}
-                              onManage={() => setConnectModal({ channel: item, existingId: existing?.id, existingMode: existing?.connection_mode })}
-                              onUpgrade={() => window.location.href = '/pricing'}
-                            />
-                          );
-                        })}
+                              return (
+                                <div key={item.id} className="flex-shrink-0" style={{ width: '264px' }}>
+                                  <ChannelCatalogCard
+                                    item={item}
+                                    existing={existing}
+                                    hasAccess={hasAccess}
+                                    minPlanName={minPlanName}
+                                    onConnect={() => setConnectModal({ channel: item })}
+                                    onManage={() => setConnectModal({ channel: item, existingId: existing?.id, existingMode: existing?.connection_mode })}
+                                    onUpgrade={() => window.location.href = '/pricing'}
+                                  />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                     </TabsContent>
                   ))}
@@ -205,6 +213,7 @@ const Channels = () => {
         channel={connectModal.channel}
         existingChannelId={connectModal.existingId}
         existingMode={connectModal.existingMode}
+        authorizedBusinesses={authorizedBusinesses} // R111-C1: Pass authorized businesses
       />
     </DashboardLayout>
   );

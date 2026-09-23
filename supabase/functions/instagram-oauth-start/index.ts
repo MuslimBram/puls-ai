@@ -31,9 +31,11 @@ serve(async (req) => {
     const channelType = String(body.channel_type ?? "instagram").toLowerCase();
     const redirectUri = String(body.redirect_uri ?? "").trim();
     const workspaceId = String(body.workspace_id ?? "").trim();
+    const businessId = String(body.business_id ?? "").trim(); // R111-C1: Accept business_id
 
     if (!redirectUri) return json(req, { error: "redirect_uri is required" }, 400);
     if (!workspaceId) return json(req, { error: "workspace_id is required" }, 400);
+    if (!businessId) return json(req, { error: "business_id is required" }, 400); // R111-C1: Validate
     if (!['instagram', 'facebook'].includes(channelType)) {
       return json(req, { error: "Unsupported OAuth channel" }, 400);
     }
@@ -51,6 +53,7 @@ serve(async (req) => {
       workspace_id: workspaceId,
       channel_type: channelType,
       redirect_uri: redirectUri,
+      business_id: businessId, // R111-C1: Store business_id
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     });
     if (stateError) throw stateError;

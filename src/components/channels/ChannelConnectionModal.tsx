@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Check, X, Briefcase, User, Wifi, ArrowRight, ArrowUp, Shield, Zap, LogIn, ExternalLink,
 } from "lucide-react";
 import {
@@ -18,6 +21,7 @@ import {
 } from "@/hooks/useChannelCapabilities";
 import { useChannels } from "@/hooks/useChannels";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
+import type { BusinessProfileRecord } from "@/hooks/useBusinessProfile"; // R111-C1: Business type
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +33,7 @@ interface ChannelConnectionModalProps {
   existingChannelId?: string;
   existingMode?: ConnectionMode;
   onConnected?: () => void;
+  authorizedBusinesses?: BusinessProfileRecord[]; // R111-C1: Authorized businesses
 }
 
 const CAPABILITY_LABELS: Record<ChannelCapability, { label: string; description: string }> = {
@@ -49,10 +54,11 @@ const ALL_CAPABILITIES: ChannelCapability[] = [
 ];
 
 export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
-  open, onOpenChange, channel, existingChannelId, existingMode, onConnected,
+  open, onOpenChange, channel, existingChannelId, existingMode, onConnected, authorizedBusinesses,
 }) => {
   const isUpgrade = !!existingChannelId;
-  const [step, setStep] = useState<"mode" | "credentials" | "limited_form" | "done">("mode");
+  const [step, setStep] = useState<"business" | "mode" | "credentials" | "limited_form" | "done">("business"); // R111-C1: Add business step
+  const [selectedBusinessId, setSelectedBusinessId] = useState<string | null>(null); // R111-C1: Business selection
   const [selectedMode, setSelectedMode] = useState<ConnectionMode>("professional");
   const [credentials, setCredentials] = useState<Record<string, string>>({});
   // Limited mode fields
@@ -67,7 +73,20 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
 
   useEffect(() => {
     if (open) {
-      setStep(isUpgrade ? "credentials" : "mode");
+      // R111-C1: Determine initial business selection
+      if (authorizedBusinesses && authorizedBusinesses.length === 1) {
+        // Single business: auto-select
+        setSelectedBusinessId(authorizedBusinesses[0].id);
+        setStep(isUpgrade ? "credentials" : "mode");
+      } else if (authorizedBusinesses && authorizedBusinesses.length > 1) {
+        // Multiple businesses: require selection
+        setSelectedBusinessId(null);
+        setStep("business");
+      } else {
+        // No businesses available
+        setSelectedBusinessId(null);
+        setStep("business");
+      }
       setSelectedMode(isUpgrade ? "professional" : "professional");
       setCredentials({});
       setAccountName("");
@@ -75,7 +94,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
       setLoginEmail("");
       setNotes("");
     }
-  }, [open, isUpgrade]);
+  }, [open, isUpgrade, authorizedBusinesses]);
 
   if (!channel) return null;
 
@@ -86,6 +105,19 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
+      // R111-C1 FIX: Defensive business_id resolution
+      // NEVER send null business_id for NEW channels
+      let effectiveBusinessId = selectedBusinessId;
+      if (!effectiveBusinessId && authorizedBusinesses && authorizedBusinesses.length === 1) {
+        // Single-business workspace: use the sole business if state hasn't settled
+        effectiveBusinessId = authorizedBusinesses[0].id;
+      }
+      if (!effectiveBusinessId) {
+        toast.error("Business context missing. Please refresh and try again.");
+        setIsConnecting(false);
+        return;
+      }
+
       const capabilities = getCapabilitiesForMode(channel, selectedMode);
       const accountType = selectedMode === "professional" ? "business" : "personal";
 
@@ -100,6 +132,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
             workspace_id: workspace.id,
             bot_token: botToken,
             channel_name: channel.name,
+            business_id: effectiveBusinessId, // R111-C1 FIX: Use effective business_id
           },
         });
         if (error || !data?.ok) {
@@ -132,6 +165,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
           account_type: accountType,
           capabilities,
           provider_metadata: providerMetadata,
+          business_id: effectiveBusinessId, // R111-C1 FIX: Use effective business_id
         });
       } else {
         await addChannel.mutateAsync({
@@ -142,6 +176,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
           capabilities,
           provider_metadata: providerMetadata,
           settings: selectedMode === "professional" ? credentials : {},
+          business_id: effectiveBusinessId, // R111-C1 FIX: Use effective business_id (NEVER null)
         });
       }
       setStep("done");
@@ -169,11 +204,22 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
     setIsConnecting(true);
     try {
       const redirectUri = `${window.location.origin}/oauth/callback`;
+      // Derive effective business_id for OAuth (same logic as handleConnect)
+      let oauthBusinessId = selectedBusinessId;
+      if (!oauthBusinessId && authorizedBusinesses && authorizedBusinesses.length === 1) {
+        oauthBusinessId = authorizedBusinesses[0].id;
+      }
+      if (!oauthBusinessId) {
+        toast.error("Business context missing. Please refresh and try again.");
+        setIsConnecting(false);
+        return;
+      }
       const { data, error } = await supabase.functions.invoke("instagram-oauth-start", {
         body: {
           channel_type: channel.id,
           redirect_uri: redirectUri,
           workspace_id: workspace.id,
+          business_id: oauthBusinessId, // R111-C1 FIX: Use effective business_id
         },
       });
       if (error || data?.error) throw new Error(data?.error || error?.message || "Failed to start OAuth");
@@ -182,6 +228,19 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
       toast.error(err instanceof Error ? err.message : "OAuth failed");
       setIsConnecting(false);
     }
+  };
+
+  const handleContinueFromBusiness = () => {
+    // R111-C1: Validate business selection
+    if (authorizedBusinesses && authorizedBusinesses.length > 1 && !selectedBusinessId) {
+      toast.error("Please select a business for this channel");
+      return;
+    }
+    if (!authorizedBusinesses || authorizedBusinesses.length === 0) {
+      toast.error("Please create a business profile first");
+      return;
+    }
+    setStep(isUpgrade ? "credentials" : "mode");
   };
 
   const handleContinue = () => {
@@ -206,6 +265,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
             {isUpgrade ? `Upgrade ${channel.name}` : `Connect ${channel.name}`}
           </DialogTitle>
           <DialogDescription>
+            {step === "business" && "Select a business for this channel."}
             {step === "mode" && "Choose how you want to connect this channel."}
             {step === "credentials" && "Enter your API credentials for full integration."}
             {step === "limited_form" && "Enter your account details for notification-based connection."}
@@ -213,7 +273,70 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
           </DialogDescription>
         </DialogHeader>
 
-        {/* Step 1: Mode Selection */}
+        {/* Step 1: Business Selection (R111-C1) */}
+        {step === "business" && (
+          <div className="space-y-6 pt-2">
+            <div className="rounded-lg border p-4 bg-muted/30">
+              <span className="font-semibold text-sm">Select Business</span>
+              <p className="text-sm text-muted-foreground mt-2">
+                This channel will be bound to the selected business. Each business receives personalized AI responses with its own knowledge and configuration.
+              </p>
+            </div>
+
+            {!authorizedBusinesses || authorizedBusinesses.length === 0 ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 text-center">
+                <p className="text-sm text-muted-foreground">
+                  No business profiles found. Please create a business profile first.
+                </p>
+              </div>
+            ) : authorizedBusinesses.length === 1 ? (
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <p className="text-sm font-medium">
+                  <strong>Business:</strong> {authorizedBusinesses[0].business_name}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  This channel will be connected to this business.
+                </p>
+              </div>
+            ) : (
+              <>
+                <Select value={selectedBusinessId || ""} onValueChange={setSelectedBusinessId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a business..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {authorizedBusinesses.map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.business_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedBusinessId && (
+                  <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                    Selected: <strong>{authorizedBusinesses.find(b => b.id === selectedBusinessId)?.business_name}</strong>
+                  </div>
+                )}
+              </>
+            )}
+
+            <Button
+              onClick={handleContinueFromBusiness}
+              className="w-full"
+              disabled={
+                isConnecting
+                || (authorizedBusinesses && authorizedBusinesses.length > 1 && !selectedBusinessId)
+                || !authorizedBusinesses
+                || authorizedBusinesses.length === 0
+              }
+            >
+              {authorizedBusinesses && authorizedBusinesses.length === 1 ? "Continue" : "Continue with Selected Business"}
+              <ArrowRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        )}
+
+        {/* Step 2: Mode Selection */}
         {step === "mode" && (
           <div className="space-y-6 pt-2">
             {hasBothModes ? (
@@ -328,7 +451,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
           </div>
         )}
 
-        {/* Step 2a: Professional — API Credentials */}
+        {/* Step 3: Professional — API Credentials */}
         {step === "credentials" && (
           <div className="space-y-4 pt-2">
             <div className="rounded-lg border p-3 bg-primary/5 flex items-center gap-2">
@@ -360,6 +483,9 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
               </a>
             )}
 
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm mb-3">
+              <strong>Business:</strong> {authorizedBusinesses?.find(b => b.id === selectedBusinessId)?.business_name || "(auto-selected)"}
+            </div>
             <div className="flex gap-3">
               {!isUpgrade && (
                 <Button variant="outline" onClick={() => setStep("mode")} className="flex-1">Back</Button>
@@ -380,7 +506,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
           </div>
         )}
 
-        {/* Step 2b: Limited — Account Info Form */}
+        {/* Step 4: Limited — Account Info Form */}
         {step === "limited_form" && (
           <div className="space-y-4 pt-2">
             <div className="rounded-lg border p-3 bg-muted/30 flex items-center gap-2">
@@ -452,7 +578,7 @@ export const ChannelConnectionModal: React.FC<ChannelConnectionModalProps> = ({
           </div>
         )}
 
-        {/* Step 3: Done */}
+        {/* Step 5: Done */}
         {step === "done" && (
           <div className="text-center py-6 space-y-4">
             <div className="mx-auto w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">

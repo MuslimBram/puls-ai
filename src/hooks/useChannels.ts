@@ -13,6 +13,7 @@ export interface ChannelData {
   capabilities?: ChannelCapability[];
   provider_metadata?: Record<string, unknown>;
   settings?: Record<string, unknown>;
+  business_id?: string; // R111-C1: Explicit business binding
 }
 
 export interface ChannelSaveResult {
@@ -95,6 +96,7 @@ export const useChannels = () => {
           capabilities: channel.capabilities || [],
           provider_metadata: channel.provider_metadata || {},
           settings: channel.settings || {},
+          business_id: channel.business_id || null, // R111-C1: Explicit business binding
         },
       });
       if (error) throw new Error(error.message || "Failed to save channel securely");
@@ -125,6 +127,7 @@ export const useChannels = () => {
           ...(updates.account_type && { account_type: updates.account_type }),
           ...(updates.capabilities && { capabilities: updates.capabilities as any }),
           ...(updates.provider_metadata && { provider_metadata: updates.provider_metadata as any }),
+          ...(updates.business_id && { business_id: updates.business_id }), // R111-C1: Allow business update
         })
         .eq("id", id)
         .eq("workspace_id", workspace!.id);
