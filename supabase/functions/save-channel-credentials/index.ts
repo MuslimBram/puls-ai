@@ -3,6 +3,7 @@
  *
  * Canonical server-side writer for channel credentials.
  * Secrets are encrypted before storage and are never returned to the client.
+ * R111-C1: Explicit business binding validation and storage
  */
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
@@ -138,6 +139,35 @@ async function verifyTwilioCredentials(
   }
 }
 
+/** R111-C1: Validate business_id belongs to workspace and exists */
+async function validateBusinessBinding(
+  sb: ReturnType<typeof createClient>,
+  businessId: string | null,
+  workspaceId: string,
+  isNewChannel: boolean,
+): Promise<{ valid: boolean; error?: string }> {
+  // For new channels, business_id must be provided and valid
+  if (isNewChannel && !businessId) {
+    return { valid: false, error: "business_id required for new channel binding" };
+  }
+
+  // If businessId provided, validate it exists and belongs to workspace
+  if (businessId) {
+    const { data: business, error: businessError } = await sb
+      .from("business_profiles")
+      .select("id, workspace_id")
+      .eq("id", businessId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+
+    if (businessError || !business) {
+      return { valid: false, error: "business_id does not exist or belongs to a different workspace" };
+    }
+  }
+
+  return { valid: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
   if (req.method !== "POST") return json(req, { error: "POST required" }, 405);
@@ -184,12 +214,21 @@ Deno.serve(async (req) => {
 
       const { data: existing, error: existingError } = await sb
         .from("channels")
-        .select("id,settings,credentials_encrypted")
+        .select("id,settings,credentials_encrypted,business_id")
         .eq("workspace_id", workspaceId)
         .eq("channel_type", channelType)
         .limit(1)
         .maybeSingle();
       if (existingError) throw existingError;
+
+      const isNewChannel = !existing?.id;
+
+      // ── R111-C1: BUSINESS BINDING VALIDATION ──────────────────────────────
+      const businessId = body.business_id ? String(body.business_id).trim() : null;
+      const businessValidation = await validateBusinessBinding(sb, businessId, workspaceId, isNewChannel);
+      if (!businessValidation.valid) {
+        return json(req, { error: businessValidation.error }, 400);
+      }
 
       // Opportunistically clean legacy rows whenever a channel is re-saved:
       // sensitive top-level keys formerly stored in settings are moved into the
@@ -212,6 +251,7 @@ Deno.serve(async (req) => {
         channel_name: channelName,
         channel_type: channelType,
         workspace_id: workspaceId,
+        business_id: businessId, // R111-C1: Explicit business binding
         is_enabled: true,
         connection_status: "connected",
         last_error: null,
@@ -300,12 +340,22 @@ Deno.serve(async (req) => {
         .limit(1)
         .maybeSingle();
 
+      const isNewChannel = !existing?.id;
+
+      // ── R111-C1: BUSINESS BINDING VALIDATION FOR TWILIO ──────────────────
+      const businessId = body.business_id ? String(body.business_id).trim() : null;
+      const businessValidation = await validateBusinessBinding(sb, businessId, workspaceId, isNewChannel);
+      if (!businessValidation.valid) {
+        return json(req, { error: businessValidation.error }, 400);
+      }
+
       let channelId: string;
       if (existing?.id) {
         const { data: updated, error } = await sb.from("channels")
           .update({
             is_enabled: true,
             connection_status: "connected",
+            business_id: businessId, // R111-C1: Update business binding
             settings,
             credentials_encrypted: encryptedCredentials,
             updated_at: new Date().toISOString(),
@@ -321,6 +371,7 @@ Deno.serve(async (req) => {
           .insert({
             user_id: user.id,
             workspace_id: workspaceId,
+            business_id: businessId, // R111-C1: Explicit business binding
             channel_type: channelType,
             channel_name: provider === "twilio" ? "Twilio" : provider,
             is_enabled: true,
