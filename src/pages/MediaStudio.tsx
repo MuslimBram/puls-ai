@@ -290,11 +290,17 @@ const MediaStudio = () => {
                 {!canGenerate ? (
                   <div className="flex items-center gap-2 text-sm text-destructive">
                     <AlertTriangle className="h-4 w-4" />
-                    Daily {mediaType} credit limit reached. Increase limits from donation plans or admin policy.
+                    {!usage.mediaGenerationEnabled
+                      ? "Media generation is not included in your current plan."
+                      : mediaType === "video" && usage.isVideoDurationLimitReached
+                        ? "Daily video duration limit reached."
+                        : mediaType === "video" && usage.isVideoLimitReached
+                          ? "Daily video credit limit reached."
+                          : "Daily image credit limit reached."}
                   </div>
                 ) : null}
 
-                <Button onClick={handleGenerate} disabled={!prompt.trim() || createMedia.isPending}>
+                <Button onClick={handleGenerate} disabled={!prompt.trim() || !canGenerate || createMedia.isPending}>
                   {createMedia.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                   {createMedia.isPending ? "Submitting..." : mediaType === "image" ? `Queue ${variations > 1 ? `${variations} image jobs` : "image job"}` : "Queue video job"}
                 </Button>
