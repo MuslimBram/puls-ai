@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { normalizeMediaDailyUsage, resolveCatalogMediaPolicy } from "@/lib/mediaPolicy";
 import { useToast } from "@/hooks/use-toast";
 
@@ -32,6 +33,7 @@ export interface MediaUsageStatus {
   isVideoDurationLimitReached: boolean;
   canGenerateImages: boolean;
   canGenerateVideos: boolean;
+  mediaGenerationEnabled: boolean;
   isLoading: boolean;
 }
 
@@ -69,10 +71,12 @@ export const useActiveBusinessProfile = () => {
 export const useMediaUsage = (): MediaUsageStatus => {
   const { user } = useAuth();
   const { currentPlanKey } = useFeatureGating();
+  const { permissions } = useRolePermissions();
   const { plansByKey, defaultPlanKey, isLoading: catalogLoading } = useMonetizationCatalog();
 
   const activePlan = plansByKey[currentPlanKey] ?? plansByKey[defaultPlanKey] ?? null;
   const mediaPolicy = useMemo(() => resolveCatalogMediaPolicy(activePlan), [activePlan]);
+  const isMediaOperator = permissions.bypassFeatureGating || permissions.bypassUsageLimits;
 
   const query = useQuery({
     queryKey: ["media-usage", user?.id, mediaPolicy?.planKey],
@@ -114,9 +118,10 @@ export const useMediaUsage = (): MediaUsageStatus => {
         isImageLimitReached: imagesLimit !== -1 && normalizedDaily.image_count >= imagesLimit,
         isVideoLimitReached: videosLimit !== -1 && normalizedDaily.video_count >= videosLimit,
         isVideoDurationLimitReached: videoSecondsLimit !== -1 && videoSecondsUsedToday >= videoSecondsLimit,
-        canGenerateImages: mediaPolicy.allow_image_generation && (imagesLimit === -1 || normalizedDaily.image_count < imagesLimit),
+        mediaGenerationEnabled: isMediaOperator || mediaPolicy.allow_image_generation,
+        canGenerateImages: (isMediaOperator || mediaPolicy.allow_image_generation) && (imagesLimit === -1 || normalizedDaily.image_count < imagesLimit),
         canGenerateVideos:
-          mediaPolicy.allow_video_generation &&
+          (isMediaOperator || mediaPolicy.allow_video_generation) &&
           (videosLimit === -1 || normalizedDaily.video_count < videosLimit) &&
           (videoSecondsLimit === -1 || videoSecondsUsedToday < videoSecondsLimit),
       };
@@ -152,8 +157,9 @@ export const useMediaUsage = (): MediaUsageStatus => {
     isImageLimitReached: imagesLimit === 0,
     isVideoLimitReached: videosLimit === 0,
     isVideoDurationLimitReached: videoSecondsLimit === 0,
-    canGenerateImages: Boolean(mediaPolicy?.allow_image_generation) && imagesLimit !== 0,
-    canGenerateVideos: Boolean(mediaPolicy?.allow_video_generation) && videosLimit !== 0 && videoSecondsLimit !== 0,
+    mediaGenerationEnabled: isMediaOperator || Boolean(mediaPolicy?.allow_image_generation),
+    canGenerateImages: (isMediaOperator || Boolean(mediaPolicy?.allow_image_generation)) && imagesLimit !== 0,
+    canGenerateVideos: (isMediaOperator || Boolean(mediaPolicy?.allow_video_generation)) && videosLimit !== 0 && videoSecondsLimit !== 0,
     isLoading: query.isLoading || catalogLoading,
   };
 };
