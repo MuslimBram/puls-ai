@@ -170,6 +170,12 @@ const Channels = () => {
                 <CardDescription>
                   Choose a channel and connection mode. Professional mode enables full automation; Limited mode uses notification-based manual posting.
                 </CardDescription>
+                <div className="mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  <span className="font-medium text-foreground">Channel quota:</span>{" "}
+                  {channelLimit.limit === -1
+                    ? `${channelLimit.current} channels · Unlimited`
+                    : `${channelLimit.current} / ${channelLimit.limit} channels used`}
+                </div>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue={Object.keys(categories)[0] || "messaging"}>
