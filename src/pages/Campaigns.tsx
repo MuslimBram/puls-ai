@@ -18,7 +18,8 @@ import {
 import { CampaignCard } from "@/components/campaigns/CampaignCard";
 import { CreateCampaignDialog } from "@/components/campaigns/CreateCampaignDialog";
 import { CampaignDetailDialog } from "@/components/campaigns/CampaignDetailDialog";
-import { Megaphone, Plus, Loader2 } from "lucide-react";
+import { Megaphone, Plus, Loader2, Shield } from "lucide-react";
+import { useWorkspaceMembership } from "@/hooks/useWorkspaceMembership";
 
 const Campaigns = () => {
   const { data: campaigns, isLoading } = useCampaigns();
@@ -26,6 +27,7 @@ const Campaigns = () => {
   const generateMutation = useGenerateCampaignStrategy();
   const deleteMutation = useDeleteCampaign();
   const launchMutation = useLaunchCampaignBroadcast();
+  const { canWrite: workspaceCanWrite } = useWorkspaceMembership();
 
   const [showCreate, setShowCreate] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
@@ -65,6 +67,14 @@ const Campaigns = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {!workspaceCanWrite && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="flex items-center gap-3 py-4">
+              <Shield className="h-5 w-5 text-primary" />
+              <p className="text-sm text-foreground">Read-only workspace view. Campaign creation and changes require workspace membership.</p>
+            </CardContent>
+          </Card>
+        )}
         <Tabs defaultValue={initialTab} className="space-y-4">
           <div className="flex items-center justify-between">
             <TabsList>
@@ -72,17 +82,18 @@ const Campaigns = () => {
               <TabsTrigger value="calendar">Content Calendar</TabsTrigger>
             </TabsList>
             {initialTab === "campaigns" && (
-              <Button onClick={() => setShowCreate(true)}>
+              {workspaceCanWrite && <Button onClick={() => setShowCreate(true)}>
                 <Plus className="mr-2 h-4 w-4" /> New Campaign
-              </Button>
+              </Button>}
             )}
           </div>
 
           <TabsContent value="campaigns" className="space-y-4">
             <AutoCampaignBuilder
               isBuilding={createMutation.isPending || generateMutation.isPending}
+              canBuild={workspaceCanWrite}
               onBuild={handleAutoBuild}
-              onOpenManual={() => setShowCreate(true)}
+              onOpenManual={() => workspaceCanWrite && setShowCreate(true)}
             />
 
             {generateMutation.isPending && (
@@ -107,9 +118,9 @@ const Campaigns = () => {
                   <Megaphone className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
                   <p className="text-lg font-medium text-foreground mb-2">No campaigns yet</p>
                   <p className="text-sm text-muted-foreground mb-4">Create your first AI-powered marketing campaign</p>
-                  <Button onClick={() => setShowCreate(true)}>
+                  {workspaceCanWrite && <Button onClick={() => setShowCreate(true)}>
                     <Plus className="mr-2 h-4 w-4" /> Create Campaign
-                  </Button>
+                  </Button>}
                 </CardContent>
               </Card>
             ) : (
