@@ -38,7 +38,7 @@ const Channels = () => {
   const { toggleChannel, deleteChannel } = useChannels();
   const { data: connectedChannels, isLoading } = useConnectedChannels();
   const { data: registry } = useChannelRegistryWithModes();
-  const { currentPlanKey } = useFeatureGating();
+  const { effectivePlanKey } = useFeatureGating();
   const { plansByKey, planOrder } = useMonetizationCatalog();
   const { isSuperAdmin } = useRolePermissions();
   const { profiles: authorizedBusinesses } = useBusinessProfile(); // R111-C1: Get authorized businesses
@@ -48,9 +48,10 @@ const Channels = () => {
 
   const canAccessChannel = (minPlan: string) => {
     if (isSuperAdmin) return true;
-    const currentIdx = planOrder.indexOf(currentPlanKey);
+    const currentIdx = planOrder.indexOf(effectivePlanKey as PlanKey);
     const requiredIdx = planOrder.indexOf(minPlan as PlanKey);
-    return requiredIdx === -1 || (currentIdx !== -1 && currentIdx >= requiredIdx);
+    if (currentIdx === -1 || requiredIdx === -1) return false;
+    return currentIdx >= requiredIdx;
   };
 
   const getRegistryItem = (channelType: string) => registryItems.find((r) => r.id === channelType);
