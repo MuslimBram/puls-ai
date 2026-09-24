@@ -62,7 +62,7 @@ export const ConnectedChannelCard: React.FC<ConnectedChannelCardProps> = ({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {channel.reconnect_required && (
+          {!readOnly && channel.reconnect_required && (
             <Button variant="outline" size="sm" className="text-xs" onClick={() => onReconnect(channel)}>
               <RefreshCw className="h-3 w-3 mr-1" /> Reconnect
             </Button>
