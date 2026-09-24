@@ -94,9 +94,9 @@ export const useMediaUsage = (): MediaUsageStatus => {
       if (error) throw error;
 
       const normalizedDaily = normalizeMediaDailyUsage(data, mediaPolicy);
-      const imagesLimit = normalizedDaily.image_limit;
-      const videosLimit = normalizedDaily.video_limit;
-      const videoSecondsLimit = normalizedDaily.video_seconds_limit;
+      const imagesLimit = isMediaOperator ? -1 : normalizedDaily.image_limit;
+      const videosLimit = isMediaOperator ? -1 : normalizedDaily.video_limit;
+      const videoSecondsLimit = isMediaOperator ? -1 : normalizedDaily.video_seconds_limit;
       const videoSecondsUsedToday = normalizedDaily.video_seconds_used;
       const imagesRemaining = imagesLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, imagesLimit - normalizedDaily.image_count);
       const videosRemaining = videosLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videosLimit - normalizedDaily.video_count);
@@ -111,7 +111,7 @@ export const useMediaUsage = (): MediaUsageStatus => {
         videoSecondsUsedToday,
         videoSecondsLimit,
         videoSecondsRemaining,
-        videoMaxSeconds: mediaPolicy.max_video_seconds,
+        videoMaxSeconds: isMediaOperator ? -1 : mediaPolicy.max_video_seconds,
         imagesRemaining,
         videosRemaining,
         resetsAt: normalizedDaily.window_ends_at,
@@ -137,9 +137,9 @@ export const useMediaUsage = (): MediaUsageStatus => {
     };
   }
 
-  const imagesLimit = mediaPolicy?.daily_image_limit ?? 0;
-  const videosLimit = mediaPolicy?.daily_video_limit ?? 0;
-  const videoSecondsLimit = mediaPolicy?.daily_video_seconds_limit ?? 0;
+  const imagesLimit = isMediaOperator ? -1 : (mediaPolicy?.daily_image_limit ?? 0);
+  const videosLimit = isMediaOperator ? -1 : (mediaPolicy?.daily_video_limit ?? 0);
+  const videoSecondsLimit = isMediaOperator ? -1 : (mediaPolicy?.daily_video_seconds_limit ?? 0);
 
   return {
     planKey: mediaPolicy?.planKey ?? currentPlanKey,
@@ -150,7 +150,7 @@ export const useMediaUsage = (): MediaUsageStatus => {
     videoSecondsUsedToday: 0,
     videoSecondsLimit,
     videoSecondsRemaining: videoSecondsLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videoSecondsLimit),
-    videoMaxSeconds: mediaPolicy?.max_video_seconds ?? 0,
+    videoMaxSeconds: isMediaOperator ? -1 : (mediaPolicy?.max_video_seconds ?? 0),
     imagesRemaining: imagesLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, imagesLimit),
     videosRemaining: videosLimit === -1 ? Number.POSITIVE_INFINITY : Math.max(0, videosLimit),
     resetsAt: null,
