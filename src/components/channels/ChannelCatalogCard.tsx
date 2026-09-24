@@ -17,6 +17,7 @@ interface ChannelCatalogCardProps {
   item: ChannelRegistryWithModes & { account_type_label?: string };
   existing?: ConnectedChannel;
   hasAccess: boolean;
+  canCreate: boolean;
   minPlanName: string;
   onConnect: () => void;
   onManage: () => void;
@@ -24,7 +25,7 @@ interface ChannelCatalogCardProps {
 }
 
 export const ChannelCatalogCard: React.FC<ChannelCatalogCardProps> = ({
-  item, existing, hasAccess, minPlanName, onConnect, onManage, onUpgrade,
+  item, existing, hasAccess, canCreate, minPlanName, onConnect, onManage, onUpgrade,
 }) => {
   const Icon = CHANNEL_ICONS[item.id] || Radio;
   const accountLabel = (item as any).account_type_label || "Profile";
@@ -37,7 +38,7 @@ export const ChannelCatalogCard: React.FC<ChannelCatalogCardProps> = ({
       onClick={() => {
         if (!hasAccess) onUpgrade();
         else if (existing) onManage();
-        else onConnect();
+        else if (canCreate) onConnect();
       }}
       role="button"
       tabIndex={0}
@@ -68,11 +69,23 @@ export const ChannelCatalogCard: React.FC<ChannelCatalogCardProps> = ({
       {/* Account type label */}
       <span className="text-xs text-muted-foreground mt-0.5">{accountLabel}</span>
 
+      {/* Limit reached badge */}
+      {hasAccess && !existing && !canCreate && (
+        <Badge variant="outline" className="absolute left-2 top-2 text-[10px] gap-1 border-destructive/30 text-destructive px-1.5 py-0.5">
+          <Lock className="h-3 w-3" /> Limit reached
+        </Badge>
+      )}
+
       {/* Action area */}
       <div className="mt-3 w-full">
-        {hasAccess && !existing && (
+        {hasAccess && !existing && canCreate && (
           <Button size="sm" variant="outline" className="text-xs w-full" onClick={(e) => { e.stopPropagation(); onConnect(); }}>
             <Plus className="h-3 w-3 mr-1" /> Connect
+          </Button>
+        )}
+        {hasAccess && !existing && !canCreate && (
+          <Button size="sm" variant="outline" className="text-xs w-full" onClick={(e) => { e.stopPropagation(); onUpgrade(); }}>
+            <Lock className="h-3 w-3 mr-1" /> Upgrade to add
           </Button>
         )}
         {hasAccess && existing && (
