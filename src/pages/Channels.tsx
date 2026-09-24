@@ -38,13 +38,15 @@ const Channels = () => {
   const { toggleChannel, deleteChannel } = useChannels();
   const { data: connectedChannels, isLoading } = useConnectedChannels();
   const { data: registry } = useChannelRegistryWithModes();
-  const { effectivePlanKey } = useFeatureGating();
+  const { effectivePlanKey, checkLimit } = useFeatureGating();
   const { plansByKey, planOrder } = useMonetizationCatalog();
   const { isSuperAdmin } = useRolePermissions();
   const { profiles: authorizedBusinesses } = useBusinessProfile(); // R111-C1: Get authorized businesses
 
   const channels = connectedChannels ?? [];
   const registryItems = registry ?? [];
+  const channelLimit = checkLimit("channels", channels.length);
+  const channelLimitReached = channelLimit.limit !== -1 && channelLimit.current >= channelLimit.limit;
 
   const canAccessChannel = (minPlan: string) => {
     if (isSuperAdmin) return true;
@@ -185,6 +187,7 @@ const Channels = () => {
                                     existing={existing}
                                     hasAccess={hasAccess}
                                     minPlanName={minPlanName}
+                                    canCreate={!channelLimitReached}
                                     onConnect={() => setConnectModal({ channel: item })}
                                     onManage={() => setConnectModal({ channel: item, existingId: existing?.id, existingMode: existing?.connection_mode })}
                                     onUpgrade={() => window.location.href = '/pricing'}
