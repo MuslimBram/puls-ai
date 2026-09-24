@@ -81,10 +81,10 @@ const Campaigns = () => {
               <TabsTrigger value="campaigns">Campaigns</TabsTrigger>
               <TabsTrigger value="calendar">Content Calendar</TabsTrigger>
             </TabsList>
-            {initialTab === "campaigns" && (
-              {workspaceCanWrite && <Button onClick={() => setShowCreate(true)}>
+            {initialTab === "campaigns" && workspaceCanWrite && (
+              <Button onClick={() => setShowCreate(true)}>
                 <Plus className="mr-2 h-4 w-4" /> New Campaign
-              </Button>}
+              </Button>
             )}
           </div>
 
