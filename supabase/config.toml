@@ -1,6 +1,8 @@
 project_id = "wlvlgghqwwhhqaqqopml"
 
 [functions]
+  [functions.visitor-locale]
+    verify_jwt = false
   [functions.job-worker]
     verify_jwt = false
   [functions.job-worker-core]
