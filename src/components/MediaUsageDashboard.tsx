@@ -29,6 +29,7 @@ export const MediaUsageDashboard = ({ onUpgrade }: MediaUsageDashboardProps) => 
   const videoPercent = usage.videosLimit === -1 ? 0 : Math.min(100, Math.round((usage.videosUsedToday / Math.max(usage.videosLimit, 1)) * 100));
   const videoDurationPercent = usage.videoSecondsLimit === -1 ? 0 : Math.min(100, Math.round((usage.videoSecondsUsedToday / Math.max(usage.videoSecondsLimit, 1)) * 100));
   const resetLabel = usage.resetsAt ? formatDistanceToNowStrict(new Date(usage.resetsAt), { addSuffix: true }) : "in 24 hours";
+  const mediaUnavailable = !usage.mediaGenerationEnabled;
 
   return (
     <div className="space-y-4">
@@ -75,7 +76,7 @@ export const MediaUsageDashboard = ({ onUpgrade }: MediaUsageDashboardProps) => 
             <div className="space-y-3">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {usage.videosUsedToday} used · {usage.videosRemaining === Number.POSITIVE_INFINITY ? "Unlimited" : `${usage.videosRemaining} left`}
+                  {mediaUnavailable ? "Not included in current plan" : `${usage.videosUsedToday} used · ${usage.videosRemaining === Number.POSITIVE_INFINITY ? "Unlimited" : `${usage.videosRemaining} left`}`}
                 </span>
                 <Badge variant="outline" className="text-xs">
                   max {usage.videoMaxSeconds === -1 ? "Unlimited" : formatDurationSeconds(usage.videoMaxSeconds)} / clip
@@ -89,15 +90,15 @@ export const MediaUsageDashboard = ({ onUpgrade }: MediaUsageDashboardProps) => 
                 <span className="text-muted-foreground">Total video time today</span>
                 <span className="font-medium text-foreground">
                   {formatDurationSeconds(usage.videoSecondsUsedToday)}
-                  {usage.videoSecondsLimit === -1 ? " / Unlimited" : ` / ${formatDurationSeconds(usage.videoSecondsLimit)}`}
+                  {mediaUnavailable ? "" : usage.videoSecondsLimit === -1 ? " / Unlimited" : ` / ${formatDurationSeconds(usage.videoSecondsLimit)}`}
                 </span>
               </div>
               <Progress value={videoDurationPercent} className="h-2" />
             </div>
 
-            {(usage.isVideoLimitReached || usage.isVideoDurationLimitReached) && onUpgrade ? (
+            {(!usage.mediaGenerationEnabled || usage.isVideoLimitReached || usage.isVideoDurationLimitReached) && onUpgrade ? (
               <Button size="sm" variant="outline" onClick={onUpgrade} className="w-full">
-                <Zap className="mr-1 h-3 w-3" /> Increase daily video limits
+                <Zap className="mr-1 h-3 w-3" /> {mediaUnavailable ? "Upgrade to unlock media generation" : "Increase daily video limits"}
               </Button>
             ) : null}
           </CardContent>
