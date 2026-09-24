@@ -7,6 +7,13 @@ UPDATE public.channel_registry
 SET min_plan = 'professional'
 WHERE min_plan = 'growth';
 
+-- Canonical customer channel quotas requested for the commercial plans:
+-- Standard = 2, Professional = 4, Advanced = 8, Enterprise = unlimited.
+UPDATE public.pricing_settings SET channels_limit = 2 WHERE plan_key = 'standard';
+UPDATE public.pricing_settings SET channels_limit = 4 WHERE plan_key = 'professional';
+UPDATE public.pricing_settings SET channels_limit = 8 WHERE plan_key = 'advanced';
+UPDATE public.pricing_settings SET channels_limit = -1 WHERE plan_key = 'enterprise';
+
 -- Website Chat is a billable/customer capability and must be visible in the
 -- same catalog used by the channel entitlements. Add/reconcile it safely.
 INSERT INTO public.channel_registry (
