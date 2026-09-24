@@ -9,6 +9,8 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { encryptForStorage } from "../_shared/token-utils.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { loadCallerRoles, staffRolesOf } from "../_shared/platform-roles.ts";
+import { resolveGoverningWorkspace, resolvePlanKey } from "../_shared/plan-limits.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const json = (req: Request, body: unknown, status = 200) =>
@@ -140,6 +142,55 @@ async function verifyTwilioCredentials(
 }
 
 /** R111-C1: Validate business_id belongs to workspace and exists */
+async function validateChannelEntitlement(
+  sb: ReturnType<typeof createClient>,
+  userId: string,
+  workspaceId: string,
+  channelType: string,
+): Promise<{ valid: boolean; error?: string }> {
+  const roles = await loadCallerRoles(sb, userId);
+  if (staffRolesOf(roles).length > 0) return { valid: true };
+
+  const { data: registry, error: registryError } = await sb
+    .from("channel_registry")
+    .select("id, is_available, integration_status, min_plan")
+    .eq("id", channelType)
+    .maybeSingle();
+
+  if (registryError) return { valid: false, error: "Unable to validate channel entitlement" };
+  if (!registry) return { valid: false, error: "Channel is not registered and cannot be connected" };
+  if (registry.is_available !== true || registry.integration_status === "coming_soon") {
+    return { valid: false, error: "This channel is not currently available" };
+  }
+
+  const governing = await resolveGoverningWorkspace(sb, userId, workspaceId);
+  if (!governing) return { valid: false, error: "Forbidden: not a workspace member" };
+
+  const { data: subscription, error: subscriptionError } = await sb
+    .from("subscriptions")
+    .select("plan, subscription_status, grace_period_end, trial_end")
+    .eq("user_id", governing.ownerId)
+    .maybeSingle();
+  if (subscriptionError) return { valid: false, error: "Unable to validate subscription" };
+
+  const currentPlan = resolvePlanKey(subscription);
+  const { data: plans, error: plansError } = await sb
+    .from("pricing_settings")
+    .select("plan_key, sort_order, is_donation")
+    .eq("is_donation", false)
+    .order("sort_order", { ascending: true });
+  if (plansError) return { valid: false, error: "Unable to validate plan catalogue" };
+
+  const current = plans?.find((plan) => plan.plan_key === currentPlan);
+  const required = plans?.find((plan) => plan.plan_key === registry.min_plan);
+  if (!current || !required) return { valid: false, error: "Channel entitlement configuration is invalid" };
+  if (Number(current.sort_order ?? -1) < Number(required.sort_order ?? -1)) {
+    return { valid: false, error: "Channel " + channelType + " requires the " + registry.min_plan + " plan or higher" };
+  }
+
+  return { valid: true };
+}
+
 async function validateBusinessBinding(
   sb: ReturnType<typeof createClient>,
   businessId: string | null,
@@ -207,6 +258,8 @@ Deno.serve(async (req) => {
 
       const channelType = String(body.channel_type ?? "").trim();
       const channelName = String(body.channel_name ?? channelType).trim();
+      const entitlement = await validateChannelEntitlement(sb, user.id, workspaceId, channelType);
+      if (!entitlement.valid) return json(req, { error: entitlement.error }, 403);
       if (!channelType) return json(req, { error: "channel_type required" }, 400);
       if (!channelName) return json(req, { error: "channel_name required" }, 400);
 
