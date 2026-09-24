@@ -43,7 +43,7 @@ const ConnectionsHub = () => {
   const { registry } = useChannelRegistry();
   const { integrations } = useExternalIntegrations();
   const { permissions, isAdmin, isSuperAdmin } = useRolePermissions();
-  const { effectivePlanKey, planOrder } = useFeatureGating();
+  const { effectivePlanKey, planOrder, checkLimit } = useFeatureGating();
   const [wizardProvider, setWizardProvider] = useState<ProviderDef | null>(null);
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
 
@@ -75,6 +75,8 @@ const ConnectionsHub = () => {
 
   // A channel is active only when it is both enabled and actually connected.
   const connectedCount = channels.filter((c) => c.is_enabled && c.connection_status === "connected").length;
+  const channelLimit = checkLimit("channels", channels.length);
+  const channelLimitReached = channelLimit.limit !== -1 && channelLimit.current >= channelLimit.limit;
   const errorCount = channels.filter((c) => c.connection_status === "error").length;
   const integrationCount = integrations.filter((i) => i.is_enabled).length;
 
@@ -168,6 +170,7 @@ const ConnectionsHub = () => {
                     {CHANNEL_PROVIDERS.map((prov) => {
                       const registryItem = registry.find((r) => r.id === prov.id || (prov.id === "webchat" && r.id === "website_chat"));
                       const planAllowed = canAccessPlan(registryItem?.min_plan);
+                      const canCreateChannel = planAllowed && !channelLimitReached;
                       const isConnected = channels.some(
                         (c) => c.channel_type === prov.id
                           && c.is_enabled
@@ -192,14 +195,14 @@ const ConnectionsHub = () => {
                             size="sm"
                             variant={isConnected ? "ghost" : "outline"}
                             className="text-xs w-full"
-                            disabled={!isConnected && !planAllowed}
+                            disabled={!isConnected && !canCreateChannel}
                             onClick={() => {
-                              if (!isConnected && !planAllowed) return;
+                              if (!isConnected && !canCreateChannel) return;
                               setWizardProvider(prov);
                             }}
                           >
                             <Settings2 className="h-3 w-3 mr-1" />
-                            {isConnected ? "Manage" : planAllowed ? "Connect" : registryItem?.min_plan ? `Requires ${registryItem.min_plan}` : "Unavailable"}
+                            {isConnected ? "Manage" : !planAllowed ? (registryItem?.min_plan ? `Requires ${registryItem.min_plan}` : "Unavailable") : channelLimitReached ? "Limit reached" : "Connect"}
                           </Button>
                         </div>
                       );
