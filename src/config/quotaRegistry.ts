@@ -55,7 +55,7 @@ export const CANONICAL_QUOTAS: readonly CanonicalQuota[] = [
     resource: "channels",
     enforcedBy: ["enforce-limits resource=channels (deployed v53, HTTP 403 on refusal)", "trigger trg_channels_enforce_workspace_limit (Faza 1A, applied as 20260915182213)"],
     enforcementShipsInThisBranch: true,
-    catalogueValues: "3 / 10 / 25 / unlimited",
+    catalogueValues: "2 / 4 / 8 / unlimited",
     usageSource:
       "counted live from the channels table, scoped to the workspace",
     evidence:
