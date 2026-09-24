@@ -73,7 +73,8 @@ const ConnectionsHub = () => {
     voip: Phone,
   };
 
-  const connectedCount = channels.filter((c) => c.is_enabled).length;
+  // A channel is active only when it is both enabled and actually connected.
+  const connectedCount = channels.filter((c) => c.is_enabled && c.connection_status === "connected").length;
   const errorCount = channels.filter((c) => c.connection_status === "error").length;
   const integrationCount = integrations.filter((i) => i.is_enabled).length;
 
