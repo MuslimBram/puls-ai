@@ -160,17 +160,23 @@ const Register = () => {
             ...(source ? { signup_source: source } : {}),
             ...(fraudData?.risk_score !== undefined ? { ai_risk_score: fraudData.risk_score } : {}),
           },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
       if (error) {
         toast.error(error.message);
       } else {
+        // Email/password registration must finish email verification before the
+        // account enters the app. The verified session is then routed through
+        // /auth/callback, where mandatory Google Authenticator enrollment happens.
         localStorage.setItem("pending_security_code", securityCode);
+        localStorage.setItem("registration_mfa_required", "1");
         localStorage.setItem("registration_source", source || "");
         toast.success("Check your email to confirm your account");
-        navigate("/login");
+        // The Supabase confirmation link will land in AuthCallback and enforce
+        // Google Authenticator before allowing dashboard access.
+        return;
       }
     } catch {
       toast.error("Registration failed. Try again.");
