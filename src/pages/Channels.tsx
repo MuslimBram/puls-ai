@@ -101,7 +101,10 @@ const Channels = () => {
                   Explore Communication Channels
                 </CardTitle>
                 <CardDescription>
-
+                  {workspaceCanWrite
+                    ? "Browse the channel registry. Moving focus never creates a connection; choose a channel to open its existing connection flow."
+                    : "Read-only workspace view. Connect, modify, or disconnect actions require workspace membership."}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <ChannelOrbitSelector
