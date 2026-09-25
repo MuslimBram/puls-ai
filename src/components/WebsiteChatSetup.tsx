@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,9 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { useChannels, ChannelData } from "@/hooks/useChannels";
 import { toast } from "@/components/ui/sonner";
 import { Globe, CheckCircle2, Copy, Loader2, AlertCircle, MessageCircle } from "lucide-react";
+import { useBusinessProfile } from "@/hooks/useBusinessProfile";
+import { useFeatureGating } from "@/hooks/useFeatureGating";
+import { useChannelRegistry } from "@/hooks/useChannelRegistry";
+import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const WebsiteChatSetup = () => {
   const { channels, addChannel } = useChannels();
+  const { profiles } = useBusinessProfile();
+  const { effectivePlanKey, planOrder } = useFeatureGating();
+  const { registry } = useChannelRegistry();
+  const { isAdmin, isSuperAdmin } = useRolePermissions();
+  const [selectedBusinessId, setSelectedBusinessId] = useState("");
   const chatChannels = channels.filter((c) => c.channel_type === "website_chat");
   const webchatProxyUrl = (import.meta.env.VITE_WEBCHAT_PROXY_URL as string | undefined)
     || `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webchat-proxy`;
@@ -25,6 +35,15 @@ export const WebsiteChatSetup = () => {
 
   const webchatUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/webchat-ingest`;
   const activeChannelId = chatChannels[0]?.id;
+  const websiteRegistry = registry.find((item) => item.id === "website_chat");
+  const currentPlanIdx = planOrder.indexOf(effectivePlanKey as any);
+  const requiredPlanIdx = planOrder.indexOf((websiteRegistry?.min_plan || "standard") as any);
+  const isInternalOperator = isAdmin || isSuperAdmin;
+  const canConnectWebsiteChat = isInternalOperator || (currentPlanIdx >= 0 && requiredPlanIdx >= 0 && currentPlanIdx >= requiredPlanIdx);
+
+  useEffect(() => {
+    if (profiles.length === 1) setSelectedBusinessId(profiles[0].id);
+  }, [profiles]);
 
   const embedSnippet = `<!-- Pulse AI Chat Widget -->
 <script>
@@ -76,10 +95,24 @@ export const WebsiteChatSetup = () => {
   };
 
   const handleConnect = () => {
+    if (!canConnectWebsiteChat) {
+      toast.error(`Website Chat requires the ${websiteRegistry?.min_plan || "standard"} plan or higher.`);
+      return;
+    }
+    const businessId = selectedBusinessId.trim();
+    if (!businessId) {
+      toast.error("Select a business before connecting Website Chat.");
+      return;
+    }
+    if (profiles.length > 1 && !profiles.some((profile) => profile.id === businessId)) {
+      toast.error("Selected business is not authorized.");
+      return;
+    }
     const name = config.channelName.trim() || "Website Chat";
     const channelData: ChannelData = {
       channel_type: "website_chat",
       channel_name: name,
+      business_id: businessId,
       settings: {
         widget_color: config.widgetColor,
         welcome_message: config.welcomeMessage,
@@ -134,7 +167,20 @@ export const WebsiteChatSetup = () => {
         )}
 
         <div className="space-y-3 rounded-lg border border-border p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Business</Label>
+            {profiles.length === 1 ? (
+              <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">{profiles[0].business_name}</div>
+            ) : profiles.length > 1 ? (
+              <Select value={selectedBusinessId} onValueChange={setSelectedBusinessId}>
+                <SelectTrigger><SelectValue placeholder="Choose a business..." /></SelectTrigger>
+                <SelectContent>{profiles.map((profile) => <SelectItem key={profile.id} value={profile.id}>{profile.business_name}</SelectItem>)}</SelectContent>
+              </Select>
+            ) : (
+              <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">Create a business before connecting Website Chat.</div>
+            )}
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2>
             <div className="space-y-1.5">
               <Label>Channel Name</Label>
               <Input placeholder="Website Chat" value={config.channelName} onChange={(e) => setConfig((c) => ({ ...c, channelName: e.target.value }))} />
@@ -179,7 +225,7 @@ export const WebsiteChatSetup = () => {
               {testSending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <MessageCircle className="h-4 w-4 mr-1" />}
               Send Test Message
             </Button>
-            <Button onClick={handleConnect} disabled={addChannel.isPending}>
+            <Button onClick={handleConnect} disabled={addChannel.isPending || !canConnectWebsiteChat || !selectedBusinessId}>
               {addChannel.isPending ? "Connecting..." : "Connect Chat"}
             </Button>
           </div>

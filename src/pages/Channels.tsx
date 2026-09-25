@@ -9,6 +9,7 @@ import { useChannelRegistryWithModes, useConnectedChannels, type ChannelRegistry
 import { useFeatureGating } from "@/hooks/useFeatureGating";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
 import { useMonetizationCatalog } from "@/hooks/useMonetizationCatalog";
+import { useWorkspaceMembership } from "@/hooks/useWorkspaceMembership";
 import { useBusinessProfile } from "@/hooks/useBusinessProfile"; // R111-C1: Authorized businesses
 import { ChannelConnectionModal } from "@/components/channels/ChannelConnectionModal";
 import { ConnectedChannelCard } from "@/components/channels/ConnectedChannelCard";
@@ -17,7 +18,7 @@ import { ChannelOrbitSelector } from "@/components/channels/ChannelOrbitSelector
 import { ValidateWhatsAppButton } from "@/components/channels/ValidateWhatsAppButton";
 import type { PlanKey } from "@/types/monetization";
 import {
-  Globe, Mail, MessageSquare, Plug, Radio, Webhook,
+  Globe, Mail, MessageSquare, Plug, Radio, Webhook, Shield,
   type LucideIcon,
 } from "lucide-react";
 
@@ -38,19 +39,24 @@ const Channels = () => {
   const { toggleChannel, deleteChannel } = useChannels();
   const { data: connectedChannels, isLoading } = useConnectedChannels();
   const { data: registry } = useChannelRegistryWithModes();
-  const { currentPlanKey } = useFeatureGating();
+  const { effectivePlanKey, checkLimit } = useFeatureGating();
   const { plansByKey, planOrder } = useMonetizationCatalog();
   const { isSuperAdmin } = useRolePermissions();
   const { profiles: authorizedBusinesses } = useBusinessProfile(); // R111-C1: Get authorized businesses
+  const { canWrite: workspaceCanWrite } = useWorkspaceMembership();
 
   const channels = connectedChannels ?? [];
   const registryItems = registry ?? [];
+  const channelLimit = checkLimit("channels", channels.length);
+  const channelLimitReached = channelLimit.limit !== -1 && channelLimit.current >= channelLimit.limit;
 
   const canAccessChannel = (minPlan: string) => {
+    if (!workspaceCanWrite) return false;
     if (isSuperAdmin) return true;
-    const currentIdx = planOrder.indexOf(currentPlanKey);
+    const currentIdx = planOrder.indexOf(effectivePlanKey as PlanKey);
     const requiredIdx = planOrder.indexOf(minPlan as PlanKey);
-    return requiredIdx === -1 || (currentIdx !== -1 && currentIdx >= requiredIdx);
+    if (currentIdx === -1 || requiredIdx === -1) return false;
+    return currentIdx >= requiredIdx;
   };
 
   const getRegistryItem = (channelType: string) => registryItems.find((r) => r.id === channelType);
@@ -79,6 +85,15 @@ const Channels = () => {
 
         <TabsContent value="channels">
           <div className="space-y-4">
+            {!workspaceCanWrite && (
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="flex items-center gap-3 py-4">
+                  <Shield className="h-5 w-5 text-primary" />
+                  <p className="text-sm text-foreground">This workspace is read-only for your current account. Connect and channel changes require workspace membership.</p>
+                </CardContent>
+              </Card>
+            )}
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
@@ -86,7 +101,9 @@ const Channels = () => {
                   Explore Communication Channels
                 </CardTitle>
                 <CardDescription>
-                  Browse the channel registry. Moving focus never creates a connection; choose a channel to open its existing connection flow.
+                  {workspaceCanWrite
+                    ? "Browse the channel registry. Moving focus never creates a connection; choose a channel to open its existing connection flow."
+                    : "Read-only workspace view. Connect, modify, or disconnect actions require workspace membership."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -94,11 +111,14 @@ const Channels = () => {
                   items={registryItems}
                   connectedChannels={channels}
                   canAccess={canAccessChannel}
-                  onChoose={(item, existing) => setConnectModal({
-                    channel: item,
-                    existingId: existing?.id,
-                    existingMode: existing?.connection_mode,
-                  })}
+                  onChoose={(item, existing) => {
+                    if (!workspaceCanWrite) return;
+                    setConnectModal({
+                      channel: item,
+                      existingId: existing?.id,
+                      existingMode: existing?.connection_mode,
+                    });
+                  }}
                 />
               </CardContent>
             </Card>
@@ -132,10 +152,11 @@ const Channels = () => {
                         key={ch.id}
                         channel={ch}
                         registry={getRegistryItem(ch.channel_type)}
-                        onToggle={(id, enabled) => toggleChannel.mutate({ id, is_enabled: enabled })}
-                        onDelete={(id) => deleteChannel.mutate(id)}
+                        onToggle={(id, enabled) => { if (workspaceCanWrite) toggleChannel.mutate({ id, is_enabled: enabled }); }}
+                        onDelete={(id) => { if (workspaceCanWrite) deleteChannel.mutate(id); }}
                         onUpgrade={handleUpgrade}
                         onReconnect={handleUpgrade}
+                        readOnly={!workspaceCanWrite}
                       />
                     ))}
                   </div>
@@ -143,7 +164,7 @@ const Channels = () => {
               </CardContent>
             </Card>
 
-            <Card>
+            {workspaceCanWrite && <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Plug className="h-5 w-5 text-primary" />
@@ -152,6 +173,12 @@ const Channels = () => {
                 <CardDescription>
                   Choose a channel and connection mode. Professional mode enables full automation; Limited mode uses notification-based manual posting.
                 </CardDescription>
+                <div className="mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+                  <span className="font-medium text-foreground">Channel quota:</span>{" "}
+                  {channelLimit.limit === -1
+                    ? `${channelLimit.current} channels · Unlimited`
+                    : `${channelLimit.current} / ${channelLimit.limit} channels used`}
+                </div>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue={Object.keys(categories)[0] || "messaging"}>
@@ -184,6 +211,7 @@ const Channels = () => {
                                     existing={existing}
                                     hasAccess={hasAccess}
                                     minPlanName={minPlanName}
+                                    canCreate={!channelLimitReached}
                                     onConnect={() => setConnectModal({ channel: item })}
                                     onManage={() => setConnectModal({ channel: item, existingId: existing?.id, existingMode: existing?.connection_mode })}
                                     onUpgrade={() => window.location.href = '/pricing'}
@@ -198,7 +226,7 @@ const Channels = () => {
                   ))}
                 </Tabs>
               </CardContent>
-            </Card>
+            </Card>}
           </div>
         </TabsContent>
 

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { useToast } from "@/hooks/use-toast";
+import { useWorkspaceMembership } from "@/hooks/useWorkspaceMembership";
 
 export interface Campaign {
   id: string;
@@ -86,9 +87,13 @@ export const useCreateCampaign = () => {
   const { user } = useAuth();
   const { workspace } = useWorkspace();
   const { toast } = useToast();
+  const { canWrite } = useWorkspaceMembership();
 
   return useMutation({
     mutationFn: async (data: Partial<Campaign>) => {
+      if (!canWrite || !workspace?.id) {
+        throw new Error("Workspace membership is required to create campaigns.");
+      }
       const { data: result, error } = await supabase
         .from("campaigns")
         .insert({

@@ -8,6 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useChannels } from "@/hooks/useChannels";
 import { useChannelRegistry } from "@/hooks/useChannelRegistry";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
+import { useFeatureGating } from "@/hooks/useFeatureGating";
+import type { PlanKey } from "@/types/monetization";
+import { useWorkspaceMembership } from "@/hooks/useWorkspaceMembership";
 import { useExternalIntegrations } from "@/hooks/useExternalIntegrations";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChannelConnectionWizard, CHANNEL_PROVIDERS } from "@/components/ChannelConnectionWizard";
@@ -41,14 +44,25 @@ const ConnectionsHub = () => {
   const { registry } = useChannelRegistry();
   const { integrations } = useExternalIntegrations();
   const { permissions, isAdmin, isSuperAdmin } = useRolePermissions();
+  const { effectivePlanKey, planOrder, checkLimit } = useFeatureGating();
+  const { canWrite: workspaceCanWrite } = useWorkspaceMembership();
   const [wizardProvider, setWizardProvider] = useState<ProviderDef | null>(null);
   const [setupChannel, setSetupChannel] = useState<ChannelRegistryItem | null>(null);
 
   const isAdminOnly = (isAdmin || isSuperAdmin) && !permissions.canConnectChannels;
   const canOAuth = permissions.canConnectOAuth;
   const canApiToken = permissions.canConnectApiToken;
-  const canConnect = permissions.canConnectChannels || canOAuth || canApiToken;
-  const canDisconnect = permissions.canDisconnectOAuth || canApiToken;
+  const canConnect = workspaceCanWrite && (permissions.canConnectChannels || canOAuth || canApiToken);
+  const canDisconnect = workspaceCanWrite && (permissions.canDisconnectOAuth || canApiToken);
+  const isInternalOperator = isAdmin || isSuperAdmin;
+  const canAccessPlan = (minPlan: string | undefined) => {
+    if (isInternalOperator && workspaceCanWrite) return true;
+    if (!minPlan) return false;
+    const currentIdx = planOrder.indexOf(effectivePlanKey as PlanKey);
+    const requiredIdx = planOrder.indexOf(minPlan as PlanKey);
+    if (currentIdx < 0 || requiredIdx < 0) return false;
+    return currentIdx >= requiredIdx;
+  };
 
   const IconMap: Record<string, any> = {
     whatsapp: Phone,
@@ -61,13 +75,24 @@ const ConnectionsHub = () => {
     voip: Phone,
   };
 
-  const connectedCount = channels.filter((c) => c.is_enabled).length;
+  // A channel is active only when it is both enabled and actually connected.
+  const connectedCount = channels.filter((c) => c.is_enabled && c.connection_status === "connected").length;
+  const channelLimit = checkLimit("channels", channels.length);
+  const channelLimitReached = channelLimit.limit !== -1 && channelLimit.current >= channelLimit.limit;
   const errorCount = channels.filter((c) => c.connection_status === "error").length;
   const integrationCount = integrations.filter((i) => i.is_enabled).length;
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
+        {!workspaceCanWrite && (
+          <Card className="border-primary/20 bg-primary/5">
+            <CardContent className="flex items-center gap-3 p-4">
+              <Shield className="h-5 w-5 text-primary" />
+              <p className="text-sm text-foreground">Read-only workspace view. Workspace membership is required for connecting or modifying integrations.</p>
+            </CardContent>
+          </Card>
+        )}
         {/* Header Stats */}
         <div className="grid gap-4 sm:grid-cols-4">
           <Card>
@@ -153,6 +178,9 @@ const ConnectionsHub = () => {
                 <CardContent>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {CHANNEL_PROVIDERS.map((prov) => {
+                      const registryItem = registry.find((r) => r.id === prov.id || (prov.id === "webchat" && r.id === "website_chat"));
+                      const planAllowed = canAccessPlan(registryItem?.min_plan);
+                      const canCreateChannel = planAllowed && !channelLimitReached;
                       const isConnected = channels.some(
                         (c) => c.channel_type === prov.id
                           && c.is_enabled
@@ -177,10 +205,14 @@ const ConnectionsHub = () => {
                             size="sm"
                             variant={isConnected ? "ghost" : "outline"}
                             className="text-xs w-full"
-                            onClick={() => setWizardProvider(prov)}
+                            disabled={!isConnected && !canCreateChannel}
+                            onClick={() => {
+                              if (!isConnected && !canCreateChannel) return;
+                              setWizardProvider(prov);
+                            }}
                           >
                             <Settings2 className="h-3 w-3 mr-1" />
-                            {isConnected ? "Manage" : "Connect"}
+                            {isConnected ? "Manage" : !planAllowed ? (registryItem?.min_plan ? `Requires ${registryItem.min_plan}` : "Unavailable") : channelLimitReached ? "Limit reached" : "Connect"}
                           </Button>
                         </div>
                       );

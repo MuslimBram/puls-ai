@@ -21,11 +21,12 @@ export interface AutoCampaignBlueprint {
 
 interface AutoCampaignBuilderProps {
   isBuilding: boolean;
+  canBuild?: boolean;
   onBuild: (blueprint: AutoCampaignBlueprint) => void | Promise<void>;
   onOpenManual: () => void;
 }
 
-export const AutoCampaignBuilder = ({ isBuilding, onBuild, onOpenManual }: AutoCampaignBuilderProps) => {
+export const AutoCampaignBuilder = ({ isBuilding, canBuild = true, onBuild, onOpenManual }: AutoCampaignBuilderProps) => {
   const { profile } = useBusinessProfile();
   const metrics = useDeepAnalytics("30d");
 
@@ -98,7 +99,7 @@ export const AutoCampaignBuilder = ({ isBuilding, onBuild, onOpenManual }: AutoC
               Pick a ready-made growth blueprint and generate the campaign strategy automatically in one step.
             </CardDescription>
           </div>
-          <Button variant="outline" size="sm" onClick={onOpenManual}>
+          <Button variant="outline" size="sm" onClick={onOpenManual} disabled={!canBuild}>
             Manual Builder
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>
@@ -160,7 +161,7 @@ export const AutoCampaignBuilder = ({ isBuilding, onBuild, onOpenManual }: AutoC
                 </div>
               </div>
 
-              <Button className="w-full" onClick={() => onBuild(blueprint)} disabled={isBuilding}>
+              <Button className="w-full" onClick={() => onBuild(blueprint)} disabled={isBuilding || !canBuild}>
                 <Sparkles className="h-4 w-4" />
                 {isBuilding ? "Building..." : "Build Campaign"}
               </Button>

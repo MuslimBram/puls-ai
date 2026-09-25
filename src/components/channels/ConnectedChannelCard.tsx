@@ -20,10 +20,11 @@ interface ConnectedChannelCardProps {
   onUpgrade: (channel: ConnectedChannel) => void;
   onReconnect: (channel: ConnectedChannel) => void;
   onEdit?: (channel: ConnectedChannel) => void;
+  readOnly?: boolean;
 }
 
 export const ConnectedChannelCard: React.FC<ConnectedChannelCardProps> = ({
-  channel, registry, onToggle, onDelete, onUpgrade, onReconnect, onEdit,
+  channel, registry, onToggle, onDelete, onUpgrade, onReconnect, onEdit, readOnly = false,
 }) => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const isPro = channel.connection_mode === "professional";
@@ -43,7 +44,7 @@ export const ConnectedChannelCard: React.FC<ConnectedChannelCardProps> = ({
             {isPro ? <Briefcase className="h-3 w-3" /> : <User className="h-3 w-3" />}
             {isPro ? "Professional" : "Limited"}
           </Badge>
-          {channel.reconnect_required && (
+          {!readOnly && channel.reconnect_required && (
             <Badge variant="destructive" className="text-xs gap-1">
               <AlertTriangle className="h-3 w-3" /> Reconnect Required
             </Badge>
@@ -61,32 +62,36 @@ export const ConnectedChannelCard: React.FC<ConnectedChannelCardProps> = ({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {channel.reconnect_required && (
+          {!readOnly && channel.reconnect_required && (
             <Button variant="outline" size="sm" className="text-xs" onClick={() => onReconnect(channel)}>
               <RefreshCw className="h-3 w-3 mr-1" /> Reconnect
             </Button>
           )}
-          {canUpgrade(channel, registry) && (
+          {!readOnly && canUpgrade(channel, registry) && (
             <Button variant="outline" size="sm" className="text-xs" onClick={() => onUpgrade(channel)}>
               <ArrowUp className="h-3 w-3 mr-1" /> Upgrade
             </Button>
           )}
-          {onEdit && (
+          {!readOnly && onEdit && (
             <Button variant="ghost" size="sm" className="text-xs" onClick={() => onEdit(channel)}>
               <Pencil className="h-3 w-3 mr-1" /> Edit
             </Button>
           )}
-          <Switch
-            checked={channel.is_enabled}
-            onCheckedChange={(checked) => onToggle(channel.id, checked)}
-          />
-          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setShowDeleteConfirm(true)}>
-            <Trash2 className="h-4 w-4" />
-          </Button>
+          {!readOnly && (
+            <>
+              <Switch
+                checked={channel.is_enabled}
+                onCheckedChange={(checked) => onToggle(channel.id, checked)}
+              />
+              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setShowDeleteConfirm(true)}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
-      <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+      {!readOnly && <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Disconnect Channel</AlertDialogTitle>
@@ -105,7 +110,7 @@ export const ConnectedChannelCard: React.FC<ConnectedChannelCardProps> = ({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-      </AlertDialog>
+      </AlertDialog>}
     </>
   );
 };

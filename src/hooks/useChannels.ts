@@ -5,6 +5,22 @@ import { useWorkspace } from "@/contexts/WorkspaceContext";
 import { toast } from "@/components/ui/sonner";
 import type { ChannelCapability, ConnectionMode, AccountType } from "@/hooks/useChannelCapabilities";
 
+async function extractFunctionError(error: unknown, fallback: string): Promise<string> {
+  const context = (error as { context?: unknown } | null)?.context;
+  if (context instanceof Response) {
+    try {
+      const body = await context.clone().json() as { error?: string; message?: string; detail?: string };
+      return body.error || body.message || body.detail || fallback;
+    } catch {
+      try {
+        const text = await context.clone().text();
+        if (text.trim()) return text.trim();
+      } catch { /* fall through */ }
+    }
+  }
+  return error instanceof Error && error.message ? error.message : fallback;
+}
+
 export interface ChannelData {
   channel_type: string;
   channel_name: string;
@@ -76,7 +92,7 @@ export const useChannels = () => {
         const { data: limitCheck, error: limitError } = await supabase.functions.invoke("enforce-limits", {
           body: { action: "add", resource: "channels" },
         });
-        if (limitError) throw new Error(limitError.message || "Failed to check limits");
+        if (limitError) throw new Error(await extractFunctionError(limitError, "Failed to check channel limit"));
         if (limitCheck && !limitCheck.allowed) {
           throw new Error(limitCheck.error || "Channel limit reached. Please upgrade your plan.");
         }
@@ -99,7 +115,7 @@ export const useChannels = () => {
           business_id: channel.business_id || null, // R111-C1: Explicit business binding
         },
       });
-      if (error) throw new Error(error.message || "Failed to save channel securely");
+      if (error) throw new Error(await extractFunctionError(error, "Failed to save channel securely"));
       if (!data?.ok || !data?.channel_id) throw new Error(data?.error || "Failed to save channel securely");
 
       return {
