@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAuditLog } from "@/hooks/useAuditLog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,32 +62,11 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
     assign_to_user: "__self__",
   });
 
-  const [channels, setChannels] = useState<ChannelEntry[]>([
-    { type: "instagram", identifier: "" },
-    { type: "linkedin", identifier: "" },
-  ]);
 
-  const addChannel = () => {
-    const usedTypes = channels.map((c) => c.type);
-    const nextType = channelTypes.find((ct) => !usedTypes.includes(ct.value))?.value || "website";
-    setChannels((prev) => [...prev, { type: nextType, identifier: "" }]);
-  };
-
-  const removeChannel = (index: number) => {
-    if (channels.length <= 2) return; // min 2
-    setChannels((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const updateChannel = (index: number, field: keyof ChannelEntry, value: string) => {
-    setChannels((prev) => prev.map((c, i) => (i === index ? { ...c, [field]: value } : c)));
-  };
-
-  const validChannels = channels.filter((c) => c.identifier.trim());
 
   const createBusiness = useMutation({
     mutationFn: async () => {
       if (!form.business_name.trim()) throw new Error("Business name is required");
-      if (validChannels.length < 2) throw new Error("At least 2 channels must be filled in");
 
       const targetUserId = form.assign_to_user === "__self__" ? user!.id : form.assign_to_user;
 
@@ -117,38 +97,26 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
 
       if (error) throw error;
 
-      // Insert channels into channel_registry
-      const channelInserts = validChannels.map((ch) => ({
-        workspace_id: workspace.id,
-        channel_type: ch.type,
-        channel_identifier: ch.identifier.trim(),
-        is_active: true,
-        user_id: targetUserId,
-      }));
-
-      const { error: chError } = await (supabase.from("channel_registry") as any).insert(channelInserts);
-      if (chError) console.error("Channel insert error:", chError);
-
+      // Channels are NOT created here. Each real connection must go through
+      // the canonical channel flow so business_id, package quota, credential
+      // encryption, and connection validation are enforced consistently.
       return data.id;
     },
     onSuccess: async (businessId) => {
       await log("admin_create_business", "business", businessId, {
         business_name: form.business_name,
         assigned_to: form.assign_to_user === "__self__" ? user!.id : form.assign_to_user,
-        channels_count: validChannels.length,
+        channels_count: 0,
       });
       queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
-      toast.success("Business created successfully with " + validChannels.length + " channels");
+      toast.success("Business created successfully. Connect channels from the secure Channels flow.");
       setOpen(false);
       setForm({
         business_name: "", short_description: "", industry: "",
         target_audience: "", main_services: "", ai_tone: "professional",
         language: "sq", assign_to_user: "__self__",
       });
-      setChannels([
-        { type: "instagram", identifier: "" },
-        { type: "linkedin", identifier: "" },
-      ]);
+
     },
     onError: (e) => toast.error(e.message),
   });
@@ -210,50 +178,8 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
                 </div>
               </div>
 
-              {/* Channels section - minimum 2 required */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="flex items-center gap-1.5">
-                    <Link2 className="h-3.5 w-3.5" />
-                    Channels (min. 2) *
-                  </Label>
-                  <Button type="button" variant="ghost" size="sm" onClick={addChannel}>
-                    <Plus className="h-3 w-3 mr-1" /> Add
-                  </Button>
-                </div>
-
-                {validChannels.length < 2 && (
-                  <div className="flex items-center gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                    <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                    Fill in at least 2 channels (e.g. Instagram & LinkedIn, Website, etc.)
-                  </div>
-                )}
-
-                {channels.map((ch, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Select value={ch.type} onValueChange={(v) => updateChannel(idx, "type", v)}>
-                      <SelectTrigger className="w-[130px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {channelTypes.map((ct) => (
-                          <SelectItem key={ct.value} value={ct.value}>{ct.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      value={ch.identifier}
-                      onChange={(e) => updateChannel(idx, "identifier", e.target.value)}
-                      placeholder={ch.type === "website" ? "https://..." : "@username or URL"}
-                      className="flex-1"
-                    />
-                    {channels.length > 2 && (
-                      <Button type="button" variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => removeChannel(idx)}>
-                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
-                      </Button>
-                    )}
-                  </div>
-                ))}
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground">
+                <strong className="text-foreground">Channels are connected separately.</strong> After the business is created, use the secure Channels flow to connect each channel. The customer package determines the allowed channel count: 2 / 4 / 8 / unlimited.
               </div>
 
               <div>
@@ -273,7 +199,7 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
               <Button
                 className="w-full"
                 onClick={() => createBusiness.mutate()}
-                disabled={createBusiness.isPending || !form.business_name.trim() || validChannels.length < 2}
+                disabled={createBusiness.isPending || !form.business_name.trim()}
               >
                 {createBusiness.isPending ? "Creating..." : "Create Business"}
               </Button>
@@ -299,6 +225,9 @@ export const AdminCreateBusiness = ({ profiles, businesses }: AdminCreateBusines
                 </div>
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-xs">{b.ai_tone}</Badge>
+                  <Button asChild size="sm" variant="outline">
+                    <Link to={`/admin/businesses/${b.id}/scan-insights`}>Open Business</Link>
+                  </Button>
                   <Users className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
               </div>
