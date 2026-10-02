@@ -237,3 +237,27 @@ The PC-server migration is not considered complete until:
 - Supabase Self-hosted OAuth: https://supabase.com/docs/guides/self-hosting/self-hosted-oauth
 - Cloudflare Tunnel: https://developers.cloudflare.com/tunnel/
 - Cloudflare Tunnel as Windows service: https://developers.cloudflare.com/tunnel/features/locally-managed-tunnels/as-a-service/windows/
+
+## Windows one-click bootstrap
+
+The repository now includes a Windows launcher so the user does not need to type PowerShell/Docker commands.
+
+From the repo:
+- Double-click `infra/self-hosted/START-PULSE-AI-SERVER.bat`
+- The launcher runs `bootstrap-windows.ps1`
+- It checks Docker/Git/npm, obtains the official Supabase self-hosted Docker distribution pinned to the current documented stable release, generates secrets with the official Supabase scripts, configures local-only URLs, copies the real Pulse AI Edge Function tree into `volumes/functions`, starts the complete stack, applies the repository migrations using the official Supabase CLI, and restarts the Functions service.
+- No secret is written to Git.
+- The old managed Supabase project and Vercel Production are not targeted.
+- The bootstrap stores its transcript outside the repo in `pulse-local`.
+
+Then double-click:
+- `infra/self-hosted/CERTIFY-PULSE-AI-SERVER.bat`
+
+The certification launcher writes:
+- `C:\Users\<user>\pulse-local\r114-local-certification.txt`
+
+It checks container health, Studio, Auth, REST, Storage, Realtime service health, a real Pulse AI function (`visitor-locale`), migration history, critical-table RLS/policy baseline, anonymous tenant-data disclosure, and a Vite build against the local Supabase URL/key.
+
+The browser-authenticated runtime check is deliberately reported as INCOMPLETE rather than invented. A human must open the local Pulse AI UI and complete one authenticated browser session before R114 can be called fully certified.
+
+The first local run is intentionally HTTP-only on localhost. Public HTTPS, `api.pulse-bos.com`, Cloudflare Tunnel, OAuth production callback configuration, and the Vercel backend switch remain later release steps.
