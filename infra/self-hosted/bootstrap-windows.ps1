@@ -7,16 +7,14 @@ param()
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
+$RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\")).Path
 $ParentRoot = Split-Path $RepoRoot -Parent
 $SupabaseRef = "self-hosted/v0.8.2"
 $LocalRoot = Join-Path $ParentRoot "pulse-local"
 $UpstreamRoot = Join-Path $LocalRoot "upstream"
 $StackRoot = Join-Path $LocalRoot "supabase"
-$ReportPath = Join-Path $LocalRoot "r114-bootstrap.log"
 
 New-Item -ItemType Directory -Force -Path $LocalRoot | Out-Null
-Start-Transcript -Path $ReportPath -Append | Out-Null
 
 function Step([string]$Message) {
   Write-Host ""
@@ -54,7 +52,7 @@ try {
   Require-Command "docker" "Start Docker Desktop and keep Docker running."
   Require-Command "npm" "Node.js/npm is required for the Supabase CLI migration step."
 
-  $dockerInfo = & docker info 2>&1
+  & docker info *> $null
   if ($LASTEXITCODE -ne 0) {
     Fail "Docker Engine is not reachable. Start Docker Desktop and wait until it reports Running."
   }
@@ -89,6 +87,10 @@ try {
         $StackRoot = Join-Path $LocalRoot "supabase-$suffix"
         Write-Host "Existing stack uses a different release. Creating a new isolated stack at $StackRoot."
       }
+    } else {
+      $suffix = Get-Date -Format "yyyyMMdd-HHmmss"
+      $StackRoot = Join-Path $LocalRoot "supabase-$suffix"
+      Write-Host "Existing stack has no release marker. Creating a new isolated stack at $StackRoot."
     }
   }
 
@@ -192,7 +194,7 @@ try {
   Push-Location $StackRoot
   try {
     & $BashExe -lc "sh run.sh start"
-    if ($LASTEXITCODE -ne 0) { Fail "Supabase run.sh start failed. Check $ReportPath and Docker logs." }
+    if ($LASTEXITCODE -ne 0) { Fail "Supabase run.sh start failed. Check Docker Desktop logs and re-run CERTIFY-PULSE-AI-SERVER.bat." }
   } finally {
     Pop-Location
   }
@@ -251,7 +253,4 @@ catch {
   Write-Host ""
   Write-Host "R114 bootstrap FAILED: $($_.Exception.Message)" -ForegroundColor Red
   exit 1
-}
-finally {
-  try { Stop-Transcript | Out-Null } catch {}
 }
