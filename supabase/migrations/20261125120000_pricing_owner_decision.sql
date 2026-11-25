@@ -23,11 +23,11 @@ update public.pricing_settings set
   annual_price_eur = 4352.73, annual_price_usd = 4788.00
 where plan_key = 'advanced';
 
--- 2) White Label: investim një herë + mirëmbajtje mujore (në Lek) + kapaciteti i klientëve.
+-- 2) White Label: licencë një herë (ose 6 këste) + mirëmbajtje 20% e licencës në vit (në Lek) + kapaciteti i klientëve.
 alter table public.white_label_packages
   add column if not exists one_time_price_all numeric(14,2),
   add column if not exists monthly_maintenance_all numeric(14,2);
 
-update public.white_label_packages set name = 'White Label – Limited',           one_time_price_all = 1000000,  monthly_maintenance_all = 50000,  included_clients = 50,  updated_at = now() where package_key = 'launch';
-update public.white_label_packages set name = 'White Label – Unlimited',         one_time_price_all = 5000000,  monthly_maintenance_all = 100000, included_clients = 300, updated_at = now() where package_key = 'growth';
-update public.white_label_packages set name = 'White Label – Premium Unlimited', one_time_price_all = 10000000, monthly_maintenance_all = 200000, included_clients = -1,  updated_at = now() where package_key = 'agency';
+update public.white_label_packages set name = 'White Label – Limited 50',        one_time_price_all = 1000000,  monthly_maintenance_all = 16666.67,  included_clients = 50,  updated_at = now() where package_key = 'launch';
+update public.white_label_packages set name = 'White Label – Unlimited 300',     one_time_price_all = 5000000,  monthly_maintenance_all = 83333.33, included_clients = 300, updated_at = now() where package_key = 'growth';
+update public.white_label_packages set name = 'White Label – Premium Unlimited', one_time_price_all = 10000000, monthly_maintenance_all = 166666.67, included_clients = -1,  updated_at = now() where package_key = 'agency';

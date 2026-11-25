@@ -34,36 +34,40 @@ interface WhiteLabelPackage {
 }
 
 // White Label – investim një herë (vendim i pronarit, 2026-11-25), çmimet bazë në Lek.
+// Mirëmbajtja: 20% e licencës në vit; licenca mund të paguhet edhe në 6 këste të barabarta.
+const MAINTENANCE_RATE = 0.2;
+const INSTALMENTS = 6;
+
 type Tier = {
   key: string; oneTimeAll: number | null; maintenanceAll: number | null; clients: number | null; highlighted?: boolean;
   name: { sq: string; en: string }; desc: { sq: string; en: string }; features: { sq: string[]; en: string[] };
 };
 const WL_TIERS: Tier[] = [
   {
-    key: "launch", oneTimeAll: 1000000, maintenanceAll: 50000, clients: 50,
-    name: { sq: "White Label – Limited", en: "White Label – Limited" },
+    key: "launch", oneTimeAll: 1000000, maintenanceAll: 1000000 * MAINTENANCE_RATE / 12, clients: 50,
+    name: { sq: "White Label – Limited 50", en: "White Label – Limited 50" },
     desc: { sq: "Për menaxherë rrjetesh sociale dhe agjenci të vogla që nisin me markën e tyre.", en: "For social media managers and small agencies starting under their own brand." },
     features: {
-      sq: ["Logoja, ngjyrat dhe emri juaj", "Deri në 50 klientë (biznese)", "Inbox, CRM, AI dhe automatizime për çdo klient", "Hostimi, databaza dhe përditësimet në mirëmbajtje", "Mbështetje me email dhe chat"],
-      en: ["Your logo, colours and brand name", "Up to 50 clients (businesses)", "Inbox, CRM, AI and automations for every client", "Hosting, database and updates in maintenance", "Email and chat support"],
+      sq: ["Logoja, ngjyrat dhe emri juaj", "Deri në 50 klientë (biznese)", "Inbox, CRM, AI dhe automatizime për çdo klient", "Mirëmbajtja: 20% e licencës në vit (hostimi, databaza, AI, përditësimet)", "Mbështetje me email dhe chat"],
+      en: ["Your logo, colours and brand name", "Up to 50 clients (businesses)", "Inbox, CRM, AI and automations for every client", "Maintenance: 20% of the licence per year (hosting, database, AI, updates)", "Email and chat support"],
     },
   },
   {
-    key: "growth", oneTimeAll: 5000000, maintenanceAll: 100000, clients: 300, highlighted: true,
-    name: { sq: "White Label – Unlimited", en: "White Label – Unlimited" },
+    key: "growth", oneTimeAll: 5000000, maintenanceAll: 5000000 * MAINTENANCE_RATE / 12, clients: 300, highlighted: true,
+    name: { sq: "White Label – Unlimited 300", en: "White Label – Unlimited 300" },
     desc: { sq: "Për agjenci me shumë klientë që duan domenin dhe markën e tyre të plotë.", en: "For agencies with many clients that want their own domain and full brand." },
     features: {
-      sq: ["Gjithçka te Limited", "Deri në 300 klientë (biznese)", "Domeni juaj dhe email-et me markën tuaj", "Trajnim për ekipin dhe ndihmë në nisje", "Mbështetje me përparësi (24 orë)"],
-      en: ["Everything in Limited", "Up to 300 clients (businesses)", "Your own domain and branded emails", "Team training and onboarding help", "Priority support (24h)"],
+      sq: ["Gjithçka te Limited 50", "Deri në 300 klientë (biznese)", "Domeni juaj dhe email-et me markën tuaj", "Trajnim për ekipin dhe ndihmë në nisje", "Mbështetje me përparësi (24 orë)"],
+      en: ["Everything in Limited 50", "Up to 300 clients (businesses)", "Your own domain and branded emails", "Team training and onboarding help", "Priority support (24h)"],
     },
   },
   {
-    key: "agency", oneTimeAll: 10000000, maintenanceAll: 200000, clients: null,
+    key: "agency", oneTimeAll: 10000000, maintenanceAll: 10000000 * MAINTENANCE_RATE / 12, clients: null,
     name: { sq: "White Label – Premium Unlimited", en: "White Label – Premium Unlimited" },
     desc: { sq: "Për agjenci të mëdha dhe rrjete që duan klientë pa kufi.", en: "For large agencies and networks that want unlimited clients." },
     features: {
-      sq: ["Gjithçka te Unlimited", "Klientë (biznese) pa kufi", "Menaxher i dedikuar llogarie", "Integrime të posaçme dhe API", "Rishikim strategjik çdo 3 muaj"],
-      en: ["Everything in Unlimited", "Unlimited clients (businesses)", "Dedicated account manager", "Custom integrations and API access", "Quarterly strategy review"],
+      sq: ["Gjithçka te Unlimited 300", "Klientë (biznese) pa kufi", "Menaxher i dedikuar llogarie", "Integrime të posaçme dhe API", "Rishikim strategjik çdo 3 muaj"],
+      en: ["Everything in Unlimited 300", "Unlimited clients (businesses)", "Dedicated account manager", "Custom integrations and API access", "Quarterly strategy review"],
     },
   },
   {
@@ -93,8 +97,8 @@ const WhiteLabel = () => {
   const { fromBase, currency } = useDisplayCurrency();
   const lang = isSq ? "sq" : "en";
   const L = isSq
-    ? { packages: "Paketat White Label", once: "investim një herë", maint: "Mirëmbajtja", perMonth: "në muaj", mostChosen: "Më e zgjedhura", clients: (n: number) => `Kapacitet: ${n} klientë (biznese)`, unlimited: "Kapacitet: klientë pa kufi", quote: "Kërkoni ofertë", choose: "Zgjidh", selected: "E zgjedhur", compare: "Krahasimi me tregun", provider: "Ofruesi", oneTimeCol: "Një herë", monthly: "Në muaj", notes: "Shënime", ours: "Investim një herë + mirëmbajtje mujore; marka, domeni dhe klientët janë tuajat", note: "Mirëmbajtja mujore mbulon hostimin, databazën, AI-në, përditësimet dhe mbështetjen. Çmimet nuk përfshijnë TVSH-në kur aplikohet. Çmimet e konkurrentëve janë publike, në USD, nëntor 2026.", fx: "Çmimet në Euro/Dollar janë orientuese sipas kursit 1 € = 88 Lek, 1 $ = 80 Lek; fatura del në Lek.", loading: "Duke ngarkuar paketat…" }
-    : { packages: "White Label packages", once: "one-time investment", maint: "Maintenance", perMonth: "per month", mostChosen: "Most chosen", clients: (n: number) => `Capacity: ${n} clients (businesses)`, unlimited: "Capacity: unlimited clients", quote: "Request a quote", choose: "Choose", selected: "Selected", compare: "How we compare", provider: "Provider", oneTimeCol: "One-time", monthly: "Monthly", notes: "Notes", ours: "One-time investment + monthly maintenance; the brand, domain and clients are yours", note: "Monthly maintenance covers hosting, database, AI, updates and support. Prices exclude VAT where applicable. Competitor prices are public list prices in USD, November 2026.", fx: "Euro/Dollar prices are indicative at 1 € = 88 ALL, 1 $ = 80 ALL; invoices are issued in ALL.", loading: "Loading packages…" };
+    ? { packages: "Paketat White Label", once: "investim një herë", maint: "Mirëmbajtja (20% në vit)", perMonth: "në muaj", perYear: "në vit", instal: (n: number, v: string) => `ose ${n} këste × ${v}`, smm: "Menaxher i rrjeteve sociale ose freelancer? Regjistrohuni si White Label, Biznes, Frilancer ose Ambasador – zgjidhni llojin në regjistrim.", smmCta: "Regjistrohu", mostChosen: "Më e zgjedhura", clients: (n: number) => `Kapacitet: ${n} klientë (biznese)`, unlimited: "Kapacitet: klientë pa kufi", quote: "Kërkoni ofertë", choose: "Zgjidh", selected: "E zgjedhur", compare: "Krahasimi me tregun", provider: "Ofruesi", oneTimeCol: "Një herë", monthly: "Në muaj", notes: "Shënime", ours: "Licencë një herë (ose 6 këste) + mirëmbajtje 20% në vit; marka, domeni dhe klientët janë tuajat", note: "Mirëmbajtja (20% e licencës në vit) mbulon hostimin, databazën, AI-në, përditësimet dhe mbështetjen. Licenca mund të paguhet përnjëherë ose në 6 këste mujore. Çmimet nuk përfshijnë TVSH-në kur aplikohet. Çmimet e konkurrentëve janë publike, në USD, nëntor 2026.", fx: "Çmimet në Euro/Dollar janë orientuese sipas kursit 1 € = 88 Lek, 1 $ = 80 Lek; fatura del në Lek.", loading: "Duke ngarkuar paketat…" }
+    : { packages: "White Label packages", once: "one-time investment", maint: "Maintenance (20% per year)", perMonth: "per month", perYear: "per year", instal: (n: number, v: string) => `or ${n} instalments × ${v}`, smm: "Social media manager or freelancer? Register as White Label, Business, Freelancer or Ambassador – pick the type when you sign up.", smmCta: "Register", mostChosen: "Most chosen", clients: (n: number) => `Capacity: ${n} clients (businesses)`, unlimited: "Capacity: unlimited clients", quote: "Request a quote", choose: "Choose", selected: "Selected", compare: "How we compare", provider: "Provider", oneTimeCol: "One-time", monthly: "Monthly", notes: "Notes", ours: "One-time licence (or 6 instalments) + 20% yearly maintenance; the brand, domain and clients are yours", note: "Maintenance (20% of the licence per year) covers hosting, database, AI, updates and support. The licence can be paid at once or in 6 monthly instalments. Prices exclude VAT where applicable. Competitor prices are public list prices in USD, November 2026.", fx: "Euro/Dollar prices are indicative at 1 € = 88 ALL, 1 $ = 80 ALL; invoices are issued in ALL.", loading: "Loading packages…" };
   const { user } = useAuth();
   const { localizedPath } = usePublicLocale();
   const [selected, setSelected] = useState<string | null>(null);
@@ -216,8 +220,10 @@ const WhiteLabel = () => {
                         <>
                           <p className="text-3xl font-semibold text-foreground">{fromBase(tier.oneTimeAll, "ALL")}</p>
                           <p className="text-xs text-muted-foreground">{L.once}</p>
+                          <p className="text-xs text-muted-foreground">{L.instal(INSTALMENTS, fromBase(Math.round(tier.oneTimeAll / INSTALMENTS), "ALL"))}</p>
                           <p className="mt-2 text-sm text-muted-foreground">
-                            {L.maint}: <span className="font-medium text-foreground">{fromBase(tier.maintenanceAll, "ALL")}</span> {L.perMonth}
+                            {L.maint}: <span className="font-medium text-foreground">{fromBase(Math.round(tier.oneTimeAll * MAINTENANCE_RATE), "ALL")}</span> {L.perYear}
+                            {" "}(≈ {fromBase(Math.round(tier.maintenanceAll ?? 0), "ALL").replace("≈ ", "")} {L.perMonth})
                           </p>
                           <p className="text-sm text-muted-foreground">{tier.clients ? L.clients(tier.clients) : L.unlimited}</p>
                         </>
@@ -248,6 +254,10 @@ const WhiteLabel = () => {
             })}
           </div>
         )}
+        <div className="mt-5 flex flex-col items-start gap-3 rounded-xl border border-border bg-muted/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-foreground">{L.smm}</p>
+          <Button asChild variant="outline" size="sm"><Link to="/register">{L.smmCta}</Link></Button>
+        </div>
         <p className="mt-4 text-xs text-muted-foreground">
           {L.note}{currency !== "ALL" ? " " + L.fx : ""}
         </p>
@@ -277,7 +287,7 @@ const WhiteLabel = () => {
               <tr className="border-t border-border bg-primary/5">
                 <td className="px-4 py-3 font-semibold text-foreground">Pulse AI White-Label</td>
                 <td className="px-4 py-3 text-foreground">{fromBase(1000000, "ALL")} – {fromBase(10000000, "ALL")}</td>
-                <td className="px-4 py-3 text-foreground">{fromBase(50000, "ALL")} – {fromBase(200000, "ALL")}</td>
+                <td className="px-4 py-3 text-foreground">{fromBase(Math.round(1000000 * MAINTENANCE_RATE / 12), "ALL")} – {fromBase(Math.round(10000000 * MAINTENANCE_RATE / 12), "ALL")}</td>
                 <td className="px-4 py-3 text-foreground">{L.ours}</td>
               </tr>
             </tbody>
