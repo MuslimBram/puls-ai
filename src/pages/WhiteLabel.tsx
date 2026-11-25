@@ -33,34 +33,68 @@ interface WhiteLabelPackage {
   sort_order: number;
 }
 
-// Çmimet e pronarit në Euro (2026-11-25): tarifa mujore për databazën & AI-në + licenca vjetore.
-// Përdoren kur databaza ende nuk i ka kolonat monthly_price_eur / annual_licence_eur.
-const OWNER_EUR: Record<string, { monthly: number; annual: number }> = {
-  launch: { monthly: 60, annual: 1700 },
-  growth: { monthly: 100, annual: 2800 },
-  agency: { monthly: 180, annual: 4500 },
+// White Label – investim një herë (vendim i pronarit, 2026-11-25), çmimet bazë në Lek.
+type Tier = {
+  key: string; oneTimeAll: number | null; maintenanceAll: number | null; clients: number | null; highlighted?: boolean;
+  name: { sq: string; en: string }; desc: { sq: string; en: string }; features: { sq: string[]; en: string[] };
 };
+const WL_TIERS: Tier[] = [
+  {
+    key: "launch", oneTimeAll: 1000000, maintenanceAll: 50000, clients: 50,
+    name: { sq: "White Label – Limited", en: "White Label – Limited" },
+    desc: { sq: "Për menaxherë rrjetesh sociale dhe agjenci të vogla që nisin me markën e tyre.", en: "For social media managers and small agencies starting under their own brand." },
+    features: {
+      sq: ["Logoja, ngjyrat dhe emri juaj", "Deri në 50 klientë (biznese)", "Inbox, CRM, AI dhe automatizime për çdo klient", "Hostimi, databaza dhe përditësimet në mirëmbajtje", "Mbështetje me email dhe chat"],
+      en: ["Your logo, colours and brand name", "Up to 50 clients (businesses)", "Inbox, CRM, AI and automations for every client", "Hosting, database and updates in maintenance", "Email and chat support"],
+    },
+  },
+  {
+    key: "growth", oneTimeAll: 5000000, maintenanceAll: 100000, clients: 300, highlighted: true,
+    name: { sq: "White Label – Unlimited", en: "White Label – Unlimited" },
+    desc: { sq: "Për agjenci me shumë klientë që duan domenin dhe markën e tyre të plotë.", en: "For agencies with many clients that want their own domain and full brand." },
+    features: {
+      sq: ["Gjithçka te Limited", "Deri në 300 klientë (biznese)", "Domeni juaj dhe email-et me markën tuaj", "Trajnim për ekipin dhe ndihmë në nisje", "Mbështetje me përparësi (24 orë)"],
+      en: ["Everything in Limited", "Up to 300 clients (businesses)", "Your own domain and branded emails", "Team training and onboarding help", "Priority support (24h)"],
+    },
+  },
+  {
+    key: "agency", oneTimeAll: 10000000, maintenanceAll: 200000, clients: null,
+    name: { sq: "White Label – Premium Unlimited", en: "White Label – Premium Unlimited" },
+    desc: { sq: "Për agjenci të mëdha dhe rrjete që duan klientë pa kufi.", en: "For large agencies and networks that want unlimited clients." },
+    features: {
+      sq: ["Gjithçka te Unlimited", "Klientë (biznese) pa kufi", "Menaxher i dedikuar llogarie", "Integrime të posaçme dhe API", "Rishikim strategjik çdo 3 muaj"],
+      en: ["Everything in Unlimited", "Unlimited clients (businesses)", "Dedicated account manager", "Custom integrations and API access", "Quarterly strategy review"],
+    },
+  },
+  {
+    key: "source_code", oneTimeAll: null, maintenanceAll: null, clients: null,
+    name: { sq: "Kodi i plotë – pa logo", en: "Full source code – unbranded" },
+    desc: { sq: "Merrni të gjithë kodin e Pulse AI pa logo, për ta drejtuar në serverat tuaj.", en: "Get the complete Pulse AI code without logo, to run on your own servers." },
+    features: {
+      sq: ["I gjithë kodi i aplikacionit dhe i funksioneve", "Pa logo dhe pa emrin Pulse AI", "Instalim në serverat tuaj", "Kontratë licence (pa rishitje të kodit)", "Mirëmbajtje sipas marrëveshjes"],
+      en: ["All application and function code", "No logo and no Pulse AI name", "Installation on your own servers", "Licence contract (no resale of the code)", "Maintenance by agreement"],
+    },
+  },
+];
 
-// Çmime publike të tregut (USD, nëntor 2026) – për krahasim.
+// Çmime publike të tregut (USD, nëntor 2026) – mjete white-label për menaxherë rrjetesh sociale dhe agjenci.
 const COMPETITORS = [
-  { name: "GoHighLevel (Unlimited / SaaS Pro)", monthly: [297, 497], yearly: null, note: { en: "Unlimited sub-accounts; WhatsApp and AI usage billed extra", sq: "Nën-llogari pa kufi; WhatsApp dhe AI paguhen veç" } },
-  { name: "Vendasta", monthly: [499], prefix: "from", yearly: null, note: { en: "White-label from the $499 minimum, 1-year contract", sq: "White-label nga minimumi $499, kontratë 1-vjeçare" } },
-  { name: "DM Champ (Agency)", monthly: [297, 497], yearly: null, note: { en: "10 clients ($27 each extra) or unlimited", sq: "10 klientë ($27 secili shtesë) ose pa kufi" } },
-  { name: "Convocore", monthly: [199, 349], yearly: null, note: { en: "20 clients or unlimited, + 0.5% on payments", sq: "20 klientë ose pa kufi, + 0.5% e pagesave" } },
-  { name: "Stammer.ai", monthly: [99], prefix: "from", yearly: null, note: { en: "AI chat/voice agents only, $10 per extra agent", sq: "Vetëm agjentë AI chat/zë, $10 për agjent shtesë" } },
+  { name: "SocialPilot (Ultimate)", monthly: [200], note: { en: "White label for ~10 clients, social media only", sq: "White label për ~10 klientë, vetëm rrjete sociale" } },
+  { name: "Cloud Campaign (Team / Agency)", monthly: [199, 299], note: { en: "Branded reports; custom domain on Agency", sq: "Raporte me markën; domen vetjak te Agency" } },
+  { name: "Vista Social (Scale)", monthly: [379, 449], note: { en: "About 70 social profiles", sq: "Rreth 70 profile sociale" } },
+  { name: "Sendible (Advanced / Enterprise)", monthly: [299, 750], note: { en: "White label only on the top plans", sq: "White label vetëm te planet e larta" } },
+  { name: "GoHighLevel (Unlimited / SaaS Pro)", monthly: [297, 497], note: { en: "CRM + funnels; WhatsApp and AI usage extra", sq: "CRM + funnel; WhatsApp dhe AI paguhen veç" } },
+  { name: "WhatsCRM Hub (source code)", oneTime: [799, 1599], note: { en: "One-time source licence of a small WhatsApp CRM", sq: "Licencë kodi një herë për një CRM të vogël WhatsApp" } },
 ];
 
 const WhiteLabel = () => {
   const { t, i18n } = useTranslation();
   const isSq = i18n.language?.startsWith("sq");
   const { fromBase, currency } = useDisplayCurrency();
-  const eur = (pkg: WhiteLabelPackage) => ({
-    monthly: pkg.monthly_price_eur ?? OWNER_EUR[pkg.package_key]?.monthly ?? 0,
-    annual: pkg.annual_licence_eur ?? OWNER_EUR[pkg.package_key]?.annual ?? 0,
-  });
+  const lang = isSq ? "sq" : "en";
   const L = isSq
-    ? { packages: "Paketat", perMonth: "në muaj · databaza & AI", setup: "Licenca vjetore", once: "në vit", mostChosen: "Më e zgjedhura", orShare: (n: number) => `Ose ${n}% e të ardhurave në vend të licencës fikse`, unlimited: "Hapësira klientësh pa kufi", clients: (n: number) => `${n} hapësira klientësh`, compare: "Krahasimi", provider: "Ofruesi", setupCol: "Licenca / vit", monthly: "Në muaj", notes: "Shënime", from: "nga", ours: "Databaza, AI-ja, hostimi, mbështetja dhe përditësimet të përfshira", note: "Tarifa mujore mbulon databazën dhe AI-në; licenca vjetore mbulon markën tuaj, mbështetjen dhe përditësimet. Çmimet nuk përfshijnë TVSH-në kur aplikohet. Çmimet e konkurrentëve janë publike, në USD, nëntor 2026.", fx: "Çmimet në monedhë tjetër nga Euro janë orientuese (≈), sipas kursit; fatura del në Euro." }
-    : { packages: "Packages", perMonth: "per month · database & AI", setup: "Annual licence", once: "per year", mostChosen: "Most chosen", orShare: (n: number) => `Or ${n}% revenue share instead of the fixed licence`, unlimited: "Unlimited client workspaces", clients: (n: number) => `${n} client workspaces`, compare: "How we compare", provider: "Provider", setupCol: "Licence / year", monthly: "Monthly", notes: "Notes", from: "from", ours: "Database, AI, hosting, support and updates included", note: "The monthly fee covers the database and AI; the annual licence covers your brand, support and updates. Prices exclude VAT where applicable. Competitor prices are public list prices in USD, November 2026.", fx: "Prices in currencies other than Euro are indicative (≈) at the current rate; invoices are issued in EUR." };
+    ? { packages: "Paketat White Label", once: "investim një herë", maint: "Mirëmbajtja", perMonth: "në muaj", mostChosen: "Më e zgjedhura", clients: (n: number) => `Kapacitet: ${n} klientë (biznese)`, unlimited: "Kapacitet: klientë pa kufi", quote: "Kërkoni ofertë", choose: "Zgjidh", selected: "E zgjedhur", compare: "Krahasimi me tregun", provider: "Ofruesi", oneTimeCol: "Një herë", monthly: "Në muaj", notes: "Shënime", ours: "Investim një herë + mirëmbajtje mujore; marka, domeni dhe klientët janë tuajat", note: "Mirëmbajtja mujore mbulon hostimin, databazën, AI-në, përditësimet dhe mbështetjen. Çmimet nuk përfshijnë TVSH-në kur aplikohet. Çmimet e konkurrentëve janë publike, në USD, nëntor 2026.", fx: "Çmimet në Euro/Dollar janë orientuese sipas kursit 1 € = 88 Lek, 1 $ = 80 Lek; fatura del në Lek.", loading: "Duke ngarkuar paketat…" }
+    : { packages: "White Label packages", once: "one-time investment", maint: "Maintenance", perMonth: "per month", mostChosen: "Most chosen", clients: (n: number) => `Capacity: ${n} clients (businesses)`, unlimited: "Capacity: unlimited clients", quote: "Request a quote", choose: "Choose", selected: "Selected", compare: "How we compare", provider: "Provider", oneTimeCol: "One-time", monthly: "Monthly", notes: "Notes", ours: "One-time investment + monthly maintenance; the brand, domain and clients are yours", note: "Monthly maintenance covers hosting, database, AI, updates and support. Prices exclude VAT where applicable. Competitor prices are public list prices in USD, November 2026.", fx: "Euro/Dollar prices are indicative at 1 € = 88 ALL, 1 $ = 80 ALL; invoices are issued in ALL.", loading: "Loading packages…" };
   const { user } = useAuth();
   const { localizedPath } = usePublicLocale();
   const [selected, setSelected] = useState<string | null>(null);
@@ -88,9 +122,9 @@ const WhiteLabel = () => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const activePackage = useMemo(
-    () => packages.find((p) => p.package_key === selected) ?? packages.find((p) => p.highlighted) ?? packages[0],
-    [packages, selected],
+  const activeTier = useMemo(
+    () => WL_TIERS.find((p) => p.key === selected) ?? WL_TIERS.find((p) => p.highlighted) ?? WL_TIERS[0],
+    [selected],
   );
 
   const apply = useMutation({
@@ -103,7 +137,7 @@ const WhiteLabel = () => {
         phone: form.phone || null,
         brand_name: form.brand_name,
         desired_domain: form.desired_domain || null,
-        package_key: activePackage?.package_key ?? null,
+        package_key: activeTier?.key ?? null,
         expected_clients: form.expected_clients ? Number(form.expected_clients) : null,
         message: form.message || null,
       } as never);
@@ -160,43 +194,39 @@ const WhiteLabel = () => {
       <section className="mx-auto max-w-6xl px-4 pb-14">
         <h2 className="mb-6 text-2xl font-semibold text-foreground">{L.packages}</h2>
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Loading packages…</p>
+          <p className="text-sm text-muted-foreground">{L.loading}</p>
         ) : (
-          <div className="grid gap-5 md:grid-cols-3">
-            {packages.map((pkg) => {
-              const isActive = activePackage?.package_key === pkg.package_key;
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+            {WL_TIERS.map((tier) => {
+              const isActive = activeTier?.key === tier.key;
               return (
-                <Card
-                  key={pkg.id}
-                  className={cn("relative flex flex-col", isActive && "border-primary shadow-md")}
-                >
-                  {pkg.highlighted && (
+                <Card key={tier.key} className={cn("relative flex flex-col", isActive && "border-primary shadow-md")}>
+                  {tier.highlighted && (
                     <Badge className="absolute -top-2 right-4 flex items-center gap-1">
                       <Crown className="h-3 w-3" /> {L.mostChosen}
                     </Badge>
                   )}
                   <CardHeader>
-                    <CardTitle>{pkg.name}</CardTitle>
-                    <CardDescription>{pkg.description}</CardDescription>
+                    <CardTitle>{tier.name[lang]}</CardTitle>
+                    <CardDescription>{tier.desc[lang]}</CardDescription>
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col gap-4">
                     <div>
-                      <p className="text-3xl font-semibold text-foreground">{fromBase(eur(pkg).monthly, "EUR")}</p>
-                      <p className="text-xs text-muted-foreground">{L.perMonth}</p>
-                      <p className="mt-2 text-sm text-muted-foreground">
-                        {L.setup}: <span className="font-medium text-foreground">{fromBase(eur(pkg).annual, "EUR")}</span> {L.once}
-                      </p>
-                      {pkg.revenue_share_percent > 0 && (
-                        <p className="text-sm text-muted-foreground">
-                          {L.orShare(pkg.revenue_share_percent)}
-                        </p>
+                      {tier.oneTimeAll ? (
+                        <>
+                          <p className="text-3xl font-semibold text-foreground">{fromBase(tier.oneTimeAll, "ALL")}</p>
+                          <p className="text-xs text-muted-foreground">{L.once}</p>
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            {L.maint}: <span className="font-medium text-foreground">{fromBase(tier.maintenanceAll, "ALL")}</span> {L.perMonth}
+                          </p>
+                          <p className="text-sm text-muted-foreground">{tier.clients ? L.clients(tier.clients) : L.unlimited}</p>
+                        </>
+                      ) : (
+                        <p className="text-2xl font-semibold text-foreground">{L.quote}</p>
                       )}
-                      <p className="text-sm text-muted-foreground">
-                        {pkg.included_clients === -1 ? L.unlimited : L.clients(pkg.included_clients)}
-                      </p>
                     </div>
                     <ul className="space-y-1.5 text-sm">
-                      {(pkg.features || []).map((f) => (
+                      {tier.features[lang].map((f) => (
                         <li key={f} className="flex gap-2 text-muted-foreground">
                           <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" /> {f}
                         </li>
@@ -206,11 +236,11 @@ const WhiteLabel = () => {
                       className="mt-auto w-full"
                       variant={isActive ? "default" : "outline"}
                       onClick={() => {
-                        setSelected(pkg.package_key);
+                        setSelected(tier.key);
                         document.getElementById("apply")?.scrollIntoView({ behavior: "smooth" });
                       }}
                     >
-                      {isActive ? "Selected" : "Choose"} {pkg.name}
+                      {tier.oneTimeAll ? `${isActive ? L.selected : L.choose}: ${tier.name[lang].replace("White Label – ", "")}` : L.quote}
                     </Button>
                   </CardContent>
                 </Card>
@@ -219,8 +249,7 @@ const WhiteLabel = () => {
           </div>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          {L.note}{currency !== "EUR" ? " " + L.fx : ""}
-          Prices exclude VAT where applicable.
+          {L.note}{currency !== "ALL" ? " " + L.fx : ""}
         </p>
       </section>
 
@@ -231,7 +260,7 @@ const WhiteLabel = () => {
             <thead className="bg-muted/40 text-left">
               <tr>
                 <th className="px-4 py-3 font-medium">{L.provider}</th>
-                <th className="px-4 py-3 font-medium">{L.setupCol}</th>
+                <th className="px-4 py-3 font-medium">{L.oneTimeCol}</th>
                 <th className="px-4 py-3 font-medium">{L.monthly}</th>
                 <th className="px-4 py-3 font-medium">{L.notes}</th>
               </tr>
@@ -240,15 +269,15 @@ const WhiteLabel = () => {
               {COMPETITORS.map((c) => (
                 <tr key={c.name} className="border-t border-border">
                   <td className="px-4 py-3 text-muted-foreground">{c.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.yearly ? fromBase(c.yearly, "USD") : "—"}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{"prefix" in c && c.prefix === "from" ? L.from + " " : ""}{c.monthly.map((v) => fromBase(v, "USD")).join(" – ")}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{"oneTime" in c && c.oneTime ? c.oneTime.map((v) => fromBase(v, "USD")).join(" – ") : "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{"monthly" in c && c.monthly ? c.monthly.map((v) => fromBase(v, "USD")).join(" – ") : "—"}</td>
                   <td className="px-4 py-3 text-muted-foreground">{isSq ? c.note.sq : c.note.en}</td>
                 </tr>
               ))}
               <tr className="border-t border-border bg-primary/5">
                 <td className="px-4 py-3 font-semibold text-foreground">Pulse AI White-Label</td>
-                <td className="px-4 py-3 text-foreground">{fromBase(1700, "EUR")} – {fromBase(4500, "EUR")}</td>
-                <td className="px-4 py-3 text-foreground">{fromBase(60, "EUR")} – {fromBase(180, "EUR")}</td>
+                <td className="px-4 py-3 text-foreground">{fromBase(1000000, "ALL")} – {fromBase(10000000, "ALL")}</td>
+                <td className="px-4 py-3 text-foreground">{fromBase(50000, "ALL")} – {fromBase(200000, "ALL")}</td>
                 <td className="px-4 py-3 text-foreground">{L.ours}</td>
               </tr>
             </tbody>
@@ -261,7 +290,7 @@ const WhiteLabel = () => {
           <CardHeader>
             <CardTitle>Apply for White-Label</CardTitle>
             <CardDescription>
-              {activePackage ? `Selected package: ${activePackage.name}.` : "Choose a package above, then apply."} Our
+              {activeTier ? (isSq ? `Paketa e zgjedhur: ${activeTier.name.sq}.` : `Selected package: ${activeTier.name.en}.`) : (isSq ? "Zgjidh një paketë më sipër." : "Choose a package above, then apply.")} Our
               team reviews every application before activation.
             </CardDescription>
           </CardHeader>

@@ -186,7 +186,7 @@ const Pricing = () => {
               <CardContent className="space-y-5 p-6">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-foreground">Commitment term</p>
-                  <p className="text-xs text-muted-foreground">Longer terms unlock 5%, 10%, and 15% savings while keeping the same plan entitlements.</p>
+                  <p className="text-xs text-muted-foreground">Longer terms unlock 5%, 10%, and 20% savings while keeping the same plan entitlements.</p>
                 </div>
 
                 <PricingDurationSelector value={packageType} onChange={setPackageType} />

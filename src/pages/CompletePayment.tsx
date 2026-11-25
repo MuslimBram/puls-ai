@@ -50,7 +50,7 @@ const DURATION_OPTIONS: DurationOption[] = [
   { key: "monthly", label: "Monthly", months: 1, discountPercent: 0 },
   { key: "3-month", label: "3 Months", months: 3, discountPercent: 5 },
   { key: "6-month", label: "6 Months", months: 6, discountPercent: 10 },
-  { key: "yearly", label: "Yearly", months: 12, discountPercent: 15 },
+  { key: "yearly", label: "Yearly", months: 12, discountPercent: 20 },
 ];
 
 const getDiscountedPrice = (base: number, discountPercent: number) =>

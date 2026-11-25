@@ -460,8 +460,8 @@ export default {
     sixMonthDesc: "Save 10%",
     sixMonthPrice: "8,910 ALL/mo",
     yearly: "Yearly",
-    yearlyDesc: "Save 15%",
-    yearlyPrice: "8,415 ALL/mo",
+    yearlyDesc: "Save 20%",
+    yearlyPrice: "7,920 ALL/mo",
   },
 
   // Navigation

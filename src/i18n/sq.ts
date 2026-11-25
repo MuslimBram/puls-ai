@@ -460,8 +460,8 @@ export default {
     sixMonthDesc: "Kurseni 10%",
     sixMonthPrice: "8,910 ALL/muaj",
     yearly: "Vjetore",
-    yearlyDesc: "Kurseni 15%",
-    yearlyPrice: "8,415 ALL/muaj",
+    yearlyDesc: "Kurseni 20%",
+    yearlyPrice: "7,920 ALL/muaj",
   },
 
   // Navigation
