@@ -960,7 +960,7 @@ export default {
       sharedYouDo:           "Përdorni fjalëkalime të forta unike, aktivizoni autentifikimin me dy faktorë, rishikoni kush ka qasje në hapësinën tuaj dhe revokon integrimet që nuk i përdorni më.",
       sharedDisclaimer:      "Kjo faqe përshkruan kontrollet që janë aktive sot. Nuk është certifikim dhe nuk pretendon siguri absolute; asnjë platformë online nuk mund ta ofrojë këtë.",
       reportTitle:           "Raportimi i një dobësie",
-      reportBody:            "Dërgoni email në info@mso.re me subjektin \"Siguria\" dhe përfshini hapat e riprodhimit. Njohim raportet brenda dy ditëve pune dhe do t'ju mbajmë të informuar deri sa çështja të zgjidhet.",
+      reportBody:            "Dërgoni email në muslim.brami@gmail.com me subjektin \"Siguria\" dhe përfshini hapat e riprodhimit. Njohim raportet brenda dy ditëve pune dhe do t'ju mbajmë të informuar deri sa çështja të zgjidhet.",
     },
   },
 

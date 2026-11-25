@@ -157,8 +157,8 @@ export function LegalLayout({
             </p>
             <div className="flex flex-wrap gap-3">
               <Button asChild size="sm" className="gap-2">
-                <a href="mailto:info@mso.re">
-                  <Mail className="h-4 w-4" /> info@mso.re
+                <a href="mailto:muslim.brami@gmail.com">
+                  <Mail className="h-4 w-4" /> muslim.brami@gmail.com
                 </a>
               </Button>
               <Button asChild size="sm" variant="outline" className="gap-2">
@@ -227,8 +227,8 @@ export function LegalFooter() {
 
         <p>
           Pulse AI · {configuredPublicHost} ·{" "}
-          <a href="mailto:info@mso.re" className="hover:text-foreground underline">
-            info@mso.re
+          <a href="mailto:muslim.brami@gmail.com" className="hover:text-foreground underline">
+            muslim.brami@gmail.com
           </a>
         </p>
       </div>

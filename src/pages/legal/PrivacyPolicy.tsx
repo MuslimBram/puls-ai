@@ -62,7 +62,7 @@ export default function PrivacyPolicy() {
         <p>{isSq
           ? "Pulse AI është një sistem operativ biznesi që kombinon CRM, inbox shumëkanalësh, automatizim marketingu dhe asistentë AI. Për të dhënat personale që bizneset ngarkojnë në platformë, Pulse AI vepron si përpunues i të dhënave dhe biznesi vepron si kontrollues. Për të dhënat e llogarisë dhe faturimit të klientëve tanë, Pulse AI është kontrolluesi."
           : "Pulse AI is a business operating system that combines CRM, omnichannel inbox, marketing automation and AI assistants. For personal data that businesses upload into the platform, Pulse AI acts as a data processor and the business acts as the data controller. For account and billing data of our own customers, Pulse AI is the controller."}</p>
-        <p>{isSq ? "Kontakti për çështje privatësie: info@mso.re" : "Contact for privacy matters: info@mso.re"}</p>
+        <p>{isSq ? "Kontakti për çështje privatësie: muslim.brami@gmail.com" : "Contact for privacy matters: muslim.brami@gmail.com"}</p>
       </Section>
 
       <Section id="data-we-collect" title={sections[1].title}>
@@ -124,8 +124,8 @@ export default function PrivacyPolicy() {
 
       <Section id="rights" title={sections[5].title}>
         <p>{isSq
-          ? "Nëse ndodheni në Zonën Ekonomike Evropiane, keni të drejtat më poshtë. Për të ushtruar cilëndo prej tyre, dërgoni email në info@mso.re nga adresa e lidhur me llogarinë tuaj."
-          : "If you are in the European Economic Area, you have the rights below. To exercise any of them, email info@mso.re from the address linked to your account."}</p>
+          ? "Nëse ndodheni në Zonën Ekonomike Evropiane, keni të drejtat më poshtë. Për të ushtruar cilëndo prej tyre, dërgoni email në muslim.brami@gmail.com nga adresa e lidhur me llogarinë tuaj."
+          : "If you are in the European Economic Area, you have the rights below. To exercise any of them, email muslim.brami@gmail.com from the address linked to your account."}</p>
         <Accordion type="single" collapsible className="w-full">
           {rights.map(([title, body]) => (
             <AccordionItem key={title} value={title}>
@@ -141,8 +141,8 @@ export default function PrivacyPolicy() {
 
       <Section id="contact" title={sections[6].title}>
         <p>{isSq
-          ? "Për pyetje rreth kësaj politike ose për një kërkesë që lidhet me të dhënat tuaja: info@mso.re. Përgjigjemi brenda 30 ditëve dhe më shpejt kur e kërkon ligji."
-          : "Questions about this policy, or a request relating to your data: info@mso.re. We reply within 30 days, and sooner where the law requires it."}</p>
+          ? "Për pyetje rreth kësaj politike ose për një kërkesë që lidhet me të dhënat tuaja: muslim.brami@gmail.com. Përgjigjemi brenda 30 ditëve dhe më shpejt kur e kërkon ligji."
+          : "Questions about this policy, or a request relating to your data: muslim.brami@gmail.com. We reply within 30 days, and sooner where the law requires it."}</p>
       </Section>
     </LegalLayout>
   );

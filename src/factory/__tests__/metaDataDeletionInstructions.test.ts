@@ -8,7 +8,7 @@ describe("Meta data deletion instructions", () => {
     expect(page).toContain("Pulse AI — User Data Deletion");
     expect(page).toContain("Apps and websites");
     expect(page).toContain("Meta Data Deletion Request");
-    expect(page).toContain("info@mso.re");
+    expect(page).toContain("muslim.brami@gmail.com");
   });
 
   it("links to the canonical bilingual privacy policy", () => {

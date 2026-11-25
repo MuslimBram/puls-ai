@@ -295,6 +295,15 @@ const App = () => (
                 <Route path="/session-security" element={<ProtectedPage><SessionSecurity /></ProtectedPage>} />
                 <Route path="/leah" element={<ProtectedPage><LeahChatRuntime /></ProtectedPage>} />
                 <Route path="/leah/providers" element={<AdminPage><LeahProviderSettings /></AdminPage>} />
+                {/* Rikthyer: këto rrugë u hoqën gabimisht më 2026-09-05 (commit 9cea05b5) – faqet dhe menuja ekzistonin */}
+                <Route path="/competitor-intelligence" element={<PermissionPage permission="canViewAnalytics"><CompetitorIntelligence /></PermissionPage>} />
+                <Route path="/seo-audit" element={<PermissionPage permission="canViewAnalytics"><SEOAudit /></PermissionPage>} />
+                <Route path="/knowledge-base" element={<PermissionPage permission="canViewAnalytics"><KnowledgeBase /></PermissionPage>} />
+                <Route path="/ai-marketplace" element={<PermissionPage permission="canConfigureAutomations"><AIMarketplace /></PermissionPage>} />
+                <Route path="/ai-training" element={<PermissionPage permission="canConfigureAutomations"><AITrainingCenter /></PermissionPage>} />
+                <Route path="/integration-wizard" element={<PermissionPage permission="canConnectChannels"><IntegrationWizard /></PermissionPage>} />
+                <Route path="/broadcast" element={<PermissionPage permission="canManageCampaigns"><BroadcastMessaging /></PermissionPage>} />
+                <Route path="/helpdesk" element={<PermissionPage permission="canRespondInbox"><Helpdesk /></PermissionPage>} />
                 <Route path="/branding" element={<PermissionPage permission="canAccessBilling"><Branding /></PermissionPage>} />
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
                 <Route path="/admin/lidhjet" element={<AdminPage><LidhjetAdminModeration /></AdminPage>} />

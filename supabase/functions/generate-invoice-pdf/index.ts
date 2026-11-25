@@ -76,7 +76,7 @@ function buildInvoiceHTML(inv: Record<string, unknown>): string {
       <div class="party-label">Faturuesi</div>
       <div class="party-name">Pulse AI</div>
       <div class="party-detail">Business Operating System AI</div>
-      <div class="party-detail">info@mso.re</div>
+      <div class="party-detail">muslim.brami@gmail.com</div>
     </div>
     <div>
       <div class="party-label">Faturuari</div>

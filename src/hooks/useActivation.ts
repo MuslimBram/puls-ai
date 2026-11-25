@@ -17,7 +17,7 @@ export interface ActivationStep {
 }
 
 const STEP_DEFS: Omit<ActivationStep, "completed">[] = [
-  { key: "verify_email",     label: "Verify your email",          description: "Confirm your email to secure your account.",                href: "/profile",          cta: "Verify",       estMinutes: 1 },
+  { key: "verify_email",     label: "Verify your email",          description: "Confirm your email to secure your account.",                href: "/session-security", cta: "Verify",       estMinutes: 1 },
   { key: "business_profile", label: "Complete business profile",  description: "So the AI knows your business, services and audience.",     href: "/business-profile", cta: "Set up",       estMinutes: 2 },
   { key: "keywords",         label: "Add monitoring keywords",    description: "Capture leads from conversations across channels.",         href: "/keywords",         cta: "Add",          estMinutes: 1 },
   { key: "channel",          label: "Connect a channel",          description: "WhatsApp, Telegram, Email, or Website Chat.",               href: "/connections",      cta: "Connect",      estMinutes: 2 },

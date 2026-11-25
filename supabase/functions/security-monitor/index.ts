@@ -142,7 +142,7 @@ async function notifyAdmins(
 ): Promise<void> {
   // Email te adminët
   const RESEND = Deno.env.get("RESEND_API_KEY");
-  const ownerEmails = ["muslim.brami@gmail.com", "info@mso.re"];
+  const ownerEmails = ["muslim.brami@gmail.com"];
 
   if (RESEND && incident.severity === "critical" || incident.severity === "high") {
     await fetch("https://api.resend.com/emails", {
