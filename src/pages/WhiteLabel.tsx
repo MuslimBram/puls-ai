@@ -300,8 +300,7 @@ const WhiteLabel = () => {
           <CardHeader>
             <CardTitle>{isSq ? "Apliko për White Label" : "Apply for White Label"}</CardTitle>
             <CardDescription>
-              {activeTier ? (isSq ? `Paketa e zgjedhur: ${activeTier.name.sq}.` : `Selected package: ${activeTier.name.en}.`) : (isSq ? "Zgjidh një paketë më sipër." : "Choose a package above, then apply.")}{" "}
-              {isSq ? "Ekipi ynë shqyrton çdo aplikim para aktivizimit." : "Our team reviews every application before activation."}
+              {activeTier ? (isSq ? `Paketa e zgjedhur: ${activeTier.name.sq}.` : `Selected package: ${activeTier.name.en}.`) : (isSq ? "Zgjidh një paketë më sipër." : "Choose a package above, then apply.")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
