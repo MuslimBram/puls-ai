@@ -61,6 +61,8 @@ export interface Plan {
   description: string;
   monthlyPrice: number;
   annualPrice: number;
+  /** Çmimi mujor i saktë sipas monedhës (nga pricing_settings), për shfaqje. */
+  monthlyPriceByCurrency?: { ALL?: number | null; EUR?: number | null; USD?: number | null };
   limits: PlanLimits;
   features: PlanFeatures;
   cta: string;

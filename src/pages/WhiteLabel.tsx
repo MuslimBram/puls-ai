@@ -13,7 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "@/components/ui/sonner";
 import { Check, Crown, Palette, Globe, LifeBuoy, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { formatALL } from "@/lib/currency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import { Seo } from "@/components/Seo";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
 
@@ -31,15 +31,21 @@ interface WhiteLabelPackage {
   sort_order: number;
 }
 
+// Çmimet e konkurrentëve në Lek (orientuese); shfaqen në monedhën që zgjedh vizitori.
 const COMPETITORS = [
-  { name: "GoHighLevel", setup: "0 ALL", monthly: "~49,700 ALL", note: "Flat, everything included" },
-  { name: "DashClicks", setup: "0 ALL", monthly: "from 9,700 ALL", note: "Add-ons billed separately" },
-  { name: "SuiteDash", setup: "0 ALL", monthly: "1,400–6,900 ALL", note: "Wholesale, limited scope" },
-  { name: "Salesforge", setup: "0 ALL", monthly: "0 ALL", note: "80/20 revenue split instead" },
+  { name: "GoHighLevel", setup: 0, monthly: [49700], prefix: "~", note: { en: "Flat, everything included", sq: "Çmim i njëjtë, gjithçka e përfshirë" } },
+  { name: "DashClicks", setup: 0, monthly: [9700], prefix: "from", note: { en: "Add-ons billed separately", sq: "Shtesat paguhen veç" } },
+  { name: "SuiteDash", setup: 0, monthly: [1400, 6900], prefix: "", note: { en: "Wholesale, limited scope", sq: "Shitje me shumicë, mundësi të kufizuara" } },
+  { name: "Salesforge", setup: 0, monthly: [0], prefix: "", note: { en: "80/20 revenue split instead", sq: "Ndarje e të ardhurave 80/20" } },
 ];
 
 const WhiteLabel = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isSq = i18n.language?.startsWith("sq");
+  const { fromALL: formatALL, isIndicative } = useDisplayCurrency();
+  const L = isSq
+    ? { packages: "Paketat", perMonth: "licencë në muaj", setup: "Tarifa e nisjes", once: "një herë", mostChosen: "Më e zgjedhura", orShare: (n: number) => `Ose ${n}% e të ardhurave në vend të licencës fikse`, unlimited: "Hapësira klientësh pa kufi", clients: (n: number) => `${n} hapësira klientësh`, compare: "Krahasimi", provider: "Ofruesi", setupCol: "Nisja", monthly: "Në muaj", notes: "Shënime", from: "nga", ours: "Mbështetja, hostimi dhe përditësimet të përfshira", note: "Mbështetja dhe mirëmbajtja përfshihen në licencën mujore – nuk ka faturë të veçantë mirëmbajtjeje. Çmimet nuk përfshijnë TVSH-në kur aplikohet.", fx: "Çmimet në EUR/USD janë orientuese, sipas kursit; fatura del në Lek." }
+    : { packages: "Packages", perMonth: "per month licence", setup: "Setup fee", once: "one time", mostChosen: "Most chosen", orShare: (n: number) => `Or ${n}% revenue share instead of the fixed licence`, unlimited: "Unlimited client workspaces", clients: (n: number) => `${n} client workspaces`, compare: "How we compare", provider: "Provider", setupCol: "Setup", monthly: "Monthly", notes: "Notes", from: "from", ours: "Support, hosting and updates included", note: "Support and maintenance are included in the monthly licence — there is no separate maintenance invoice. Prices exclude VAT where applicable.", fx: "EUR/USD prices are indicative at the current rate; invoices are issued in ALL." };
   const { user } = useAuth();
   const { localizedPath } = usePublicLocale();
   const [selected, setSelected] = useState<string | null>(null);
@@ -137,7 +143,7 @@ const WhiteLabel = () => {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-14">
-        <h2 className="mb-6 text-2xl font-semibold text-foreground">Packages</h2>
+        <h2 className="mb-6 text-2xl font-semibold text-foreground">{L.packages}</h2>
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading packages…</p>
         ) : (
@@ -151,7 +157,7 @@ const WhiteLabel = () => {
                 >
                   {pkg.highlighted && (
                     <Badge className="absolute -top-2 right-4 flex items-center gap-1">
-                      <Crown className="h-3 w-3" /> Most chosen
+                      <Crown className="h-3 w-3" /> {L.mostChosen}
                     </Badge>
                   )}
                   <CardHeader>
@@ -161,17 +167,17 @@ const WhiteLabel = () => {
                   <CardContent className="flex flex-1 flex-col gap-4">
                     <div>
                       <p className="text-3xl font-semibold text-foreground">{formatALL(pkg.monthly_licence)}</p>
-                      <p className="text-xs text-muted-foreground">per month licence</p>
+                      <p className="text-xs text-muted-foreground">{L.perMonth}</p>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        Setup fee: <span className="font-medium text-foreground">{formatALL(pkg.setup_fee)}</span> (one time)
+                        {L.setup}: <span className="font-medium text-foreground">{formatALL(pkg.setup_fee)}</span> ({L.once})
                       </p>
                       {pkg.revenue_share_percent > 0 && (
                         <p className="text-sm text-muted-foreground">
-                          Or {pkg.revenue_share_percent}% revenue share instead of the fixed licence
+                          {L.orShare(pkg.revenue_share_percent)}
                         </p>
                       )}
                       <p className="text-sm text-muted-foreground">
-                        {pkg.included_clients === -1 ? "Unlimited client workspaces" : `${pkg.included_clients} client workspaces`}
+                        {pkg.included_clients === -1 ? L.unlimited : L.clients(pkg.included_clients)}
                       </p>
                     </div>
                     <ul className="space-y-1.5 text-sm">
@@ -198,37 +204,37 @@ const WhiteLabel = () => {
           </div>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          Support and maintenance are included in the monthly licence — there is no separate maintenance invoice.
+          {L.note}{isIndicative ? " " + L.fx : ""}
           Prices exclude VAT where applicable.
         </p>
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-14">
-        <h2 className="mb-4 text-2xl font-semibold text-foreground">How we compare</h2>
+        <h2 className="mb-4 text-2xl font-semibold text-foreground">{L.compare}</h2>
         <div className="overflow-x-auto rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left">
               <tr>
-                <th className="px-4 py-3 font-medium">Provider</th>
-                <th className="px-4 py-3 font-medium">Setup</th>
-                <th className="px-4 py-3 font-medium">Monthly</th>
-                <th className="px-4 py-3 font-medium">Notes</th>
+                <th className="px-4 py-3 font-medium">{L.provider}</th>
+                <th className="px-4 py-3 font-medium">{L.setupCol}</th>
+                <th className="px-4 py-3 font-medium">{L.monthly}</th>
+                <th className="px-4 py-3 font-medium">{L.notes}</th>
               </tr>
             </thead>
             <tbody>
               {COMPETITORS.map((c) => (
                 <tr key={c.name} className="border-t border-border">
                   <td className="px-4 py-3 text-muted-foreground">{c.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.setup}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.monthly}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.note}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{formatALL(c.setup)}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{c.prefix === "from" ? L.from + " " : c.prefix}{c.monthly.map((v) => formatALL(v)).join(" – ")}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{isSq ? c.note.sq : c.note.en}</td>
                 </tr>
               ))}
               <tr className="border-t border-border bg-primary/5">
                 <td className="px-4 py-3 font-semibold text-foreground">Pulse AI White-Label</td>
-                <td className="px-4 py-3 text-foreground">150,000–400,000 ALL</td>
-                <td className="px-4 py-3 text-foreground">45,000–160,000 ALL</td>
-                <td className="px-4 py-3 text-foreground">Support, hosting and updates included</td>
+                <td className="px-4 py-3 text-foreground">{formatALL(150000)} – {formatALL(400000)}</td>
+                <td className="px-4 py-3 text-foreground">{formatALL(45000)} – {formatALL(160000)}</td>
+                <td className="px-4 py-3 text-foreground">{L.ours}</td>
               </tr>
             </tbody>
           </table>

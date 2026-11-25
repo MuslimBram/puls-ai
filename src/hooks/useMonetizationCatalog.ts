@@ -99,6 +99,11 @@ export const useMonetizationCatalog = () => {
           name: row.plan_label || row.plan_name || row.plan_key,
           description: row.plan_description || "",
           monthlyPrice: row.monthly_price,
+          monthlyPriceByCurrency: {
+            ALL: (row as { monthly_price_all?: number | null }).monthly_price_all ?? row.monthly_price,
+            EUR: (row as { monthly_price_eur?: number | null }).monthly_price_eur ?? null,
+            USD: (row as { monthly_price_usd?: number | null }).monthly_price_usd ?? null,
+          },
           annualPrice: row.annual_price,
           cta: row.cta_label || (row.stripe_price_id ? "Choose plan" : "Contact sales"),
           highlighted: row.highlight_plan,

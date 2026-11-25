@@ -273,6 +273,16 @@ const App = () => (
                   <Route path="about" element={<About />} />
                   <Route path="contact" element={<Contact />} />
                   <Route path="pricing" element={<Pricing />} />
+                  <Route path="platform" element={<Suspense fallback={<LazyFallback />}><PlatformHub /></Suspense>} />
+                  <Route path="platform/ai" element={<Suspense fallback={<LazyFallback />}><PlatformAi /></Suspense>} />
+                  <Route path="platform/unified-inbox" element={<Suspense fallback={<LazyFallback />}><PlatformInbox /></Suspense>} />
+                  <Route path="platform/crm" element={<Suspense fallback={<LazyFallback />}><PlatformCrm /></Suspense>} />
+                  <Route path="platform/marketing" element={<Suspense fallback={<LazyFallback />}><PlatformMarketing /></Suspense>} />
+                  <Route path="platform/automation" element={<Suspense fallback={<LazyFallback />}><PlatformAutomation /></Suspense>} />
+                  <Route path="platform/analytics" element={<Suspense fallback={<LazyFallback />}><PlatformAnalytics /></Suspense>} />
+                  <Route path="platform/developers" element={<Suspense fallback={<LazyFallback />}><PlatformDevelopers /></Suspense>} />
+                  <Route path="platform/partners" element={<Suspense fallback={<LazyFallback />}><PlatformPartners /></Suspense>} />
+                  <Route path="platform/lidhjet" element={<Suspense fallback={<LazyFallback />}><PlatformLidhjet /></Suspense>} />
                 </Route>
 
                 <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
@@ -304,6 +314,8 @@ const App = () => (
                 <Route path="/integration-wizard" element={<PermissionPage permission="canConnectChannels"><IntegrationWizard /></PermissionPage>} />
                 <Route path="/broadcast" element={<PermissionPage permission="canManageCampaigns"><BroadcastMessaging /></PermissionPage>} />
                 <Route path="/helpdesk" element={<PermissionPage permission="canRespondInbox"><Helpdesk /></PermissionPage>} />
+                <Route path="/ai-setup" element={<PermissionPage permission="canConfigureAutomations"><AISetupAssistant /></PermissionPage>} />
+                <Route path="/oauth/callback" element={<Suspense fallback={<LazyFallback />}><OAuthCallback /></Suspense>} />
                 <Route path="/branding" element={<PermissionPage permission="canAccessBilling"><Branding /></PermissionPage>} />
                 <Route path="/admin" element={<AdminPage><Admin /></AdminPage>} />
                 <Route path="/admin/lidhjet" element={<AdminPage><LidhjetAdminModeration /></AdminPage>} />
