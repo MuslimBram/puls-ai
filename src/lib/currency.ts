@@ -60,8 +60,9 @@ export const formatALLNumber = (value: number | null | undefined, decimals = 0):
  */
 export const STATIC_FX_PREVIEW: Record<SupportedCurrency, number> = {
   EUR: 1.0,
-  USD: 1.08,   // 1 EUR ≈ 1.08 USD  (informational only)
-  ALL: 103.5,  // 1 EUR ≈ 103.5 ALL (informational only)
+  // Kursi zyrtar i Bankës së Shqipërisë: 1 EUR = 89.65 ALL, 1 USD = 82.06 ALL (vetëm për shfaqje)
+  USD: 1.0925, // 1 EUR ≈ 89.65 / 82.06 USD (informational only)
+  ALL: 89.65,  // 1 EUR ≈ 89.65 ALL (informational only)
 };
 
 /**
