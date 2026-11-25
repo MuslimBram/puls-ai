@@ -80,7 +80,7 @@ export function RateSellerModal({ open, onOpenChange, targetUserId, onSuccess }:
             <Label className="text-sm">Rating Score</Label>
             <div className="flex items-center justify-center gap-2 pt-1">
               {[1, 2, 3, 4, 5].map((star) => (
-                <button
+                <button aria-label="Favorite"
                   key={star}
                   type="button"
                   onClick={() => setScore(star)}

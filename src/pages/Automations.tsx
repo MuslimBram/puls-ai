@@ -1,4 +1,6 @@
-import { useTr } from "@/lib/uiSq";
+import { useTr, trNow } from "@/lib/uiSq";
+// Rezervë në nivel skedari për komponentët ndihmës pa hook.
+const tr = trNow;
 import { useState } from "react";
 import { ChatbotFlowBuilder } from "@/components/ChatbotFlowBuilder";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -66,19 +68,19 @@ const Automations = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{tr(tr("Automations"))}</h1>
-            <p className="text-sm text-muted-foreground">{tr(tr("Event-driven workflows to automate your business processes"))}</p>
+            <h1 className="text-2xl font-bold text-foreground">{tr("Automations")}</h1>
+            <p className="text-sm text-muted-foreground">{tr("Event-driven workflows to automate your business processes")}</p>
           </div>
           <Button onClick={() => setShowCreate(true)} data-tour="auto-create">
-            <Plus className="mr-2 h-4 w-4" /> {tr(tr("New Workflow"))}
+            <Plus className="mr-2 h-4 w-4" /> {tr("New Workflow")}
           </Button>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} defaultValue="workflows">
           <TabsList data-tour="auto-tabs">
-            <TabsTrigger value="workflows">{tr(tr("My Workflows"))}</TabsTrigger>
-            <TabsTrigger value="chatbots">{tr(tr("Chatbot Flows"))}</TabsTrigger>
-            <TabsTrigger value="templates">{tr(tr("Templates Library"))}</TabsTrigger>
+            <TabsTrigger value="workflows">{tr("My Workflows")}</TabsTrigger>
+            <TabsTrigger value="chatbots">{tr("Chatbot Flows")}</TabsTrigger>
+            <TabsTrigger value="templates">{tr("Templates Library")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="chatbots" className="mt-4">
@@ -105,7 +107,7 @@ const Automations = () => {
               </div>
               <div>
                 <p className="text-xl font-bold text-foreground">{workflows.length}</p>
-                <p className="text-xs text-muted-foreground">{tr(tr("Total Workflows"))}</p>
+                <p className="text-xs text-muted-foreground">{tr("Total Workflows")}</p>
               </div>
             </CardContent>
           </Card>
@@ -127,7 +129,7 @@ const Automations = () => {
               </div>
               <div>
                 <p className="text-xl font-bold text-foreground">{totalExecutions}</p>
-                <p className="text-xs text-muted-foreground">{tr(tr("Total Executions"))}</p>
+                <p className="text-xs text-muted-foreground">{tr("Total Executions")}</p>
               </div>
             </CardContent>
           </Card>
@@ -142,12 +144,12 @@ const Automations = () => {
           <Card>
             <CardContent className="py-16 text-center">
               <Workflow className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-lg font-medium text-foreground mb-2">{tr(tr("No workflows yet"))}</p>
+              <p className="text-lg font-medium text-foreground mb-2">{tr("No workflows yet")}</p>
               <p className="text-sm text-muted-foreground mb-4">
-                {tr(tr("Create automation workflows to handle leads, messages, and pipeline changes automatically"))}
+                {tr("Create automation workflows to handle leads, messages, and pipeline changes automatically")}
               </p>
               <Button onClick={() => setShowCreate(true)}>
-                <Plus className="mr-2 h-4 w-4" /> {tr(tr("Create Workflow"))}
+                <Plus className="mr-2 h-4 w-4" /> {tr("Create Workflow")}
               </Button>
             </CardContent>
           </Card>
@@ -191,17 +193,17 @@ const Automations = () => {
                         variant="ghost"
                         onClick={() => runWorkflowNow.mutate(workflow)}
                         disabled={runWorkflowNow.isPending}
-                        title={tr(tr("Run now"))}
+                        title={tr("Run now")}
                       >
                         <Play className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setViewingLogs(workflow)}>
+                      <Button aria-label="Show" size="sm" variant="ghost" onClick={() => setViewingLogs(workflow)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingWorkflow(workflow)}>
+                      <Button aria-label="Settings" size="sm" variant="ghost" onClick={() => setEditingWorkflow(workflow)}>
                         <Settings className="h-4 w-4" />
                       </Button>
-                      <Button
+                      <Button aria-label="Delete"
                         size="sm"
                         variant="ghost"
                         className="text-destructive"
@@ -291,12 +293,12 @@ const WorkflowEditor = ({
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>{tr(tr("Workflow Name"))}</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr(tr("Auto-assign new leads"))} />
+            <Label>{tr("Workflow Name")}</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Auto-assign new leads")} />
           </div>
           <div>
             <Label>{tr("Description")}</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr(tr("When a new lead comes in..."))} rows={2} />
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder={tr("When a new lead comes in...")} rows={2} />
           </div>
 
           {/* Trigger */}
@@ -315,9 +317,9 @@ const WorkflowEditor = ({
           {/* Actions */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label>{tr(tr("Actions"))}</Label>
+              <Label>{tr("Actions")}</Label>
               <Button size="sm" variant="outline" onClick={addAction}>
-                <Plus className="h-3 w-3 mr-1" /> {tr(tr("Add Action"))}
+                <Plus className="h-3 w-3 mr-1" /> {tr("Add Action")}
               </Button>
             </div>
             <div className="space-y-2">
@@ -343,13 +345,13 @@ const WorkflowEditor = ({
                     placeholder={tr("Delay")}
                   />
                   <span className="text-xs text-muted-foreground">min</span>
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeAction(idx)}>
+                  <Button aria-label="Delete" size="sm" variant="ghost" className="text-destructive" onClick={() => removeAction(idx)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
               ))}
               {actions.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-3">{tr(tr("Add at least one action"))}</p>
+                <p className="text-sm text-muted-foreground text-center py-3">{tr("Add at least one action")}</p>
               )}
             </div>
           </div>
@@ -383,7 +385,7 @@ const WorkflowLogs = ({ workflow, onClose }: { workflow: AutomationWorkflow; onC
         {isLoading ? (
           <Loader2 className="h-5 w-5 animate-spin mx-auto my-8" />
         ) : !logs?.length ? (
-          <p className="text-sm text-muted-foreground text-center py-8">{tr(tr("No executions yet"))}</p>
+          <p className="text-sm text-muted-foreground text-center py-8">{tr("No executions yet")}</p>
         ) : (
           <div className="space-y-2">
             {logs.map((log) => (

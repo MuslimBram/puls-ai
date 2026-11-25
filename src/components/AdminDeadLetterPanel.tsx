@@ -143,7 +143,7 @@ export const AdminDeadLetterPanel = () => {
                   <div className="flex items-center gap-1">
                     {item.status !== "resolved" && (
                       <>
-                        <Button
+                        <Button aria-label="Reset"
                           size="sm"
                           variant="ghost"
                           className="h-7 px-2"
@@ -152,7 +152,7 @@ export const AdminDeadLetterPanel = () => {
                         >
                           <RotateCcw className="h-3 w-3" />
                         </Button>
-                        <Button
+                        <Button aria-label="Delete"
                           size="sm"
                           variant="ghost"
                           className="h-7 px-2 text-muted-foreground"

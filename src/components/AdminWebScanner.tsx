@@ -210,10 +210,10 @@ export const AdminWebScanner = () => {
                     </div>
                   </div>
                   <div className="flex items-center gap-1 ml-2">
-                    <Button size="sm" variant="ghost" onClick={() => setViewingScan(scan)}>
+                    <Button aria-label="Show" size="sm" variant="ghost" onClick={() => setViewingScan(scan)}>
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button
+                    <Button aria-label="Delete"
                       size="sm"
                       variant="ghost"
                       className="text-destructive"

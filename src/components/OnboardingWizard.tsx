@@ -29,7 +29,7 @@ export const OnboardingWizard = () => {
             <Badge variant="secondary" className="text-xs">
               {completionScore}% complete
             </Badge>
-            <Button
+            <Button aria-label="Close"
               variant="ghost"
               size="icon"
               className="h-6 w-6 text-muted-foreground hover:text-foreground"

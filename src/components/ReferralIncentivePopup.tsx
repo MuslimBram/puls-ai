@@ -48,7 +48,7 @@ export const ReferralIncentivePopup = () => {
         {/* Decorative top bar */}
         <div className="h-1 bg-gradient-to-r from-primary via-primary/60 to-primary/20" />
 
-        <button
+        <button aria-label="Close"
           onClick={handleDismiss}
           className="absolute top-3 right-3 p-1 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >

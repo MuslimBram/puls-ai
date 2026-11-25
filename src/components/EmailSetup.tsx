@@ -199,7 +199,7 @@ export const EmailSetup = () => {
               <p className="text-xs text-muted-foreground mb-2">Forward emails to this endpoint using your email provider's webhook or forwarding rules.</p>
               <div className="flex items-center gap-2">
                 <code className="text-xs text-muted-foreground break-all flex-1">{webhookUrl}</code>
-                <Button size="sm" variant="ghost" onClick={copyUrl}><Copy className="h-3 w-3" /></Button>
+                <Button aria-label="Copy" size="sm" variant="ghost" onClick={copyUrl}><Copy className="h-3 w-3" /></Button>
               </div>
             </div>
           )}

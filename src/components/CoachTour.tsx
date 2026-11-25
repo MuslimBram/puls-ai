@@ -79,7 +79,7 @@ export const CoachTour = ({ tourId, steps, enabled = true }: Props) => {
             <div className="font-semibold text-sm">{step.title}</div>
             <p className="text-sm text-muted-foreground mt-1">{step.body}</p>
           </div>
-          <button onClick={finish} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
+          <button aria-label="Close" onClick={finish} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
         </div>
         <div className="flex items-center justify-between mt-3">
           <div className="text-xs text-muted-foreground">{idx + 1} / {steps.length}</div>

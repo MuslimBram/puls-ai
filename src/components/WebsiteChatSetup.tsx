@@ -180,7 +180,7 @@ export const WebsiteChatSetup = () => {
               <div className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">Create a business before connecting Website Chat.</div>
             )}
           </div>
-          <div className="grid gap-3 sm:grid-cols-2>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Channel Name</Label>
               <Input placeholder="Website Chat" value={config.channelName} onChange={(e) => setConfig((c) => ({ ...c, channelName: e.target.value }))} />

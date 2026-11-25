@@ -60,8 +60,8 @@ const CRM = () => {
           <TabsList data-tour="crm-tabs">
             <TabsTrigger value="pipeline">{tr("Pipeline")}</TabsTrigger>
             <TabsTrigger value="tasks">{tr("Tasks")}</TabsTrigger>
-            <TabsTrigger value="analytics">{tr(tr("Analytics"))}</TabsTrigger>
-            <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />{tr(tr("Contacts"))}</TabsTrigger>
+            <TabsTrigger value="analytics">{tr("Analytics")}</TabsTrigger>
+            <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />{tr("Contacts")}</TabsTrigger>
             <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" />{tr("Calls")}</TabsTrigger>
           </TabsList>
 

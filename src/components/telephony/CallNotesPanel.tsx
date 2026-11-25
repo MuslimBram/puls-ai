@@ -50,7 +50,7 @@ export const CallNotesPanel = ({ callRecordId }: CallNotesPanelProps) => {
             {tags.map((t) => (
               <Badge key={t.id} variant="secondary" className="text-xs gap-1">
                 {t.tag}
-                <button onClick={() => removeTag.mutate(t.id)} className="hover:text-destructive">
+                <button aria-label="Close" onClick={() => removeTag.mutate(t.id)} className="hover:text-destructive">
                   <X className="h-2.5 w-2.5" />
                 </button>
               </Badge>
@@ -104,7 +104,7 @@ export const CallNotesPanel = ({ callRecordId }: CallNotesPanelProps) => {
               <div key={note.id} className="rounded-md border border-border p-2 text-xs">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-foreground whitespace-pre-wrap flex-1">{note.note_text}</p>
-                  <button onClick={() => deleteNote.mutate(note.id)} className="text-muted-foreground hover:text-destructive shrink-0">
+                  <button aria-label="Delete" onClick={() => deleteNote.mutate(note.id)} className="text-muted-foreground hover:text-destructive shrink-0">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </div>

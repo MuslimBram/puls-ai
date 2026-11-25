@@ -48,10 +48,10 @@ const Subscription = () => {
     if (!checkout) return;
 
     if (checkout === "success") {
-      toast.success(tr(tr("Subscription activated successfully.")));
+      toast.success(tr("Subscription activated successfully."));
       refetchStripe();
     } else if (checkout === "canceled") {
-      toast.info(tr(tr("Checkout was canceled. No changes applied.")));
+      toast.info(tr("Checkout was canceled. No changes applied."));
     }
 
     const params = new URLSearchParams(searchParams);
@@ -77,7 +77,7 @@ const Subscription = () => {
       const { data, error } = await supabase.functions.invoke("customer-portal");
       if (error) throw error;
       if (data?.error === "no_customer") {
-        toast.info(tr(tr("No active subscription found. Please subscribe to a plan first.")));
+        toast.info(tr("No active subscription found. Please subscribe to a plan first."));
         navigate("/pricing");
         return;
       }
@@ -85,7 +85,7 @@ const Subscription = () => {
         window.open(data.url, "_blank", "noopener,noreferrer");
         return;
       }
-      throw new Error(tr(tr("Billing portal unavailable")));
+      throw new Error(tr("Billing portal unavailable"));
     } catch (error: any) {
       toast.error(error.message || tr("Failed to open billing portal"));
     } finally {
@@ -117,12 +117,12 @@ const Subscription = () => {
             <CardContent className="flex items-start gap-3 pt-6">
               <Clock className="mt-0.5 h-5 w-5 text-primary" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{tr(tr("Trial active"))}</p>
+                <p className="text-sm font-medium text-foreground">{tr("Trial active")}</p>
                 <p className="text-xs text-muted-foreground">
                   Ends {format(new Date(stripeData.trial_end), "MMM d, yyyy")} ({formatDistanceToNowStrict(new Date(stripeData.trial_end), { addSuffix: true })}).
                 </p>
               </div>
-              <Button size="sm" variant="outline" onClick={openBillingPortal} disabled={portalLoading}>{tr(tr("Manage trial"))}</Button>
+              <Button size="sm" variant="outline" onClick={openBillingPortal} disabled={portalLoading}>{tr("Manage trial")}</Button>
             </CardContent>
           </Card>
         ) : null}
@@ -132,10 +132,10 @@ const Subscription = () => {
             <CardContent className="flex items-start gap-3 pt-6">
               <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{tr(tr("Trial expired"))}</p>
-                <p className="text-xs text-muted-foreground">{tr(tr("Your selected plan is on hold until checkout is completed again."))}</p>
+                <p className="text-sm font-medium text-foreground">{tr("Trial expired")}</p>
+                <p className="text-xs text-muted-foreground">{tr("Your selected plan is on hold until checkout is completed again.")}</p>
               </div>
-              <Button size="sm" variant="destructive" onClick={() => navigate("/pricing")}>{tr(tr("Resume plan"))}</Button>
+              <Button size="sm" variant="destructive" onClick={() => navigate("/pricing")}>{tr("Resume plan")}</Button>
             </CardContent>
           </Card>
         ) : null}
@@ -145,10 +145,10 @@ const Subscription = () => {
             <CardContent className="flex items-start gap-3 pt-6">
               <AlertTriangle className="mt-0.5 h-5 w-5 text-destructive" />
               <div className="flex-1">
-                <p className="text-sm font-medium text-foreground">{tr(tr("Payment issue detected"))}</p>
-                <p className="text-xs text-muted-foreground">{tr(tr("Update your billing details to avoid automatic downgrade after the grace period."))}</p>
+                <p className="text-sm font-medium text-foreground">{tr("Payment issue detected")}</p>
+                <p className="text-xs text-muted-foreground">{tr("Update your billing details to avoid automatic downgrade after the grace period.")}</p>
               </div>
-              <Button size="sm" variant="destructive" onClick={openBillingPortal} disabled={portalLoading}>{tr(tr("Fix billing"))}</Button>
+              <Button size="sm" variant="destructive" onClick={openBillingPortal} disabled={portalLoading}>{tr("Fix billing")}</Button>
             </CardContent>
           </Card>
         ) : null}
@@ -159,7 +159,7 @@ const Subscription = () => {
               <Gift className="mt-0.5 h-5 w-5 text-primary" />
               <div className="flex-1">
                 <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  {tr(tr("Referral discount active"))}
+                  {tr("Referral discount active")}
                   <Badge variant="secondary"><Percent className="mr-1 h-3 w-3" />{stripeData.referral_discount.percent}% off</Badge>
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -174,8 +174,8 @@ const Subscription = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-xl">{tr(tr("Current subscription"))}</CardTitle>
-            <CardDescription>{tr(tr("Plan sync, trial window, package term, and billing state all read from the live monetization catalog."))}</CardDescription>
+            <CardTitle className="text-xl">{tr("Current subscription")}</CardTitle>
+            <CardDescription>{tr("Plan sync, trial window, package term, and billing state all read from the live monetization catalog.")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
@@ -183,15 +183,15 @@ const Subscription = () => {
               <Badge variant={statusTone}>{stripeData?.status_label ?? stripeData?.status ?? "none"}</Badge>
               <Badge variant="outline">{getPackageVariant(currentPackageType).label}</Badge>
               {hasAdminAccess ? (
-                <Badge variant="secondary">{tr(tr("No charge · Admin access"))}</Badge>
+                <Badge variant="secondary">{tr("No charge · Admin access")}</Badge>
               ) : (
                 <span className="text-sm text-muted-foreground">{formatALL(plan?.monthlyPrice ?? 0)}/month base</span>
               )}
-              {stripeData?.cancel_at_period_end ? <Badge variant="outline">{tr(tr("Downgrade scheduled"))}</Badge> : null}
+              {stripeData?.cancel_at_period_end ? <Badge variant="outline">{tr("Downgrade scheduled")}</Badge> : null}
             </div>
 
             <div className="rounded-2xl border border-border/60 bg-muted/20 p-4">
-              <p className="mb-3 text-sm font-medium text-foreground">{tr(tr("Change commitment term"))}</p>
+              <p className="mb-3 text-sm font-medium text-foreground">{tr("Change commitment term")}</p>
               <PricingDurationSelector value={packageType} onChange={setPackageType} />
               <p className="mt-3 text-xs text-muted-foreground">
                 Hapi tjetër: zgjidh paketën; pastaj do të zgjedhësh ALL, EUR ose USD dhe një mënyrë pagese të disponueshme.
@@ -206,7 +206,7 @@ const Subscription = () => {
 
             <div className="grid gap-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <p className="text-muted-foreground">{tr(tr("Plan expires"))}</p>
+                <p className="text-muted-foreground">{tr("Plan expires")}</p>
                 <p className="font-medium text-foreground">{stripeData?.package_end_at ? format(new Date(stripeData.package_end_at), "MMM d, yyyy") : "—"}</p>
               </div>
               <div>
@@ -224,7 +224,7 @@ const Subscription = () => {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" onClick={() => navigate("/pricing")}>{tr(tr("Compare all plans"))}</Button>
+              <Button variant="outline" onClick={() => navigate("/pricing")}>{tr("Compare all plans")}</Button>
               <Button variant="outline" onClick={openBillingPortal} disabled={portalLoading}>
                 {portalLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}Manage billing
               </Button>
@@ -251,10 +251,10 @@ const Subscription = () => {
 
         <Tabs defaultValue="billing">
           <TabsList>
-            <TabsTrigger value="billing">{tr(tr("Billing history"))}</TabsTrigger>
-            <TabsTrigger value="usage">{tr(tr("Usage details"))}</TabsTrigger>
+            <TabsTrigger value="billing">{tr("Billing history")}</TabsTrigger>
+            <TabsTrigger value="usage">{tr("Usage details")}</TabsTrigger>
             <TabsTrigger value="payment-accounts">
-              <CreditCard className="mr-1 h-3.5 w-3.5" /> {tr(tr("Payment Accounts"))}
+              <CreditCard className="mr-1 h-3.5 w-3.5" /> {tr("Payment Accounts")}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="billing">
@@ -263,7 +263,7 @@ const Subscription = () => {
           <TabsContent value="usage">
             <Card>
               <CardHeader>
-                <CardTitle>{tr(tr("Usage snapshot"))}</CardTitle>
+                <CardTitle>{tr("Usage snapshot")}</CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 sm:grid-cols-3">

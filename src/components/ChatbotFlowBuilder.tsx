@@ -150,7 +150,7 @@ export const ChatbotFlowBuilder = () => {
                   <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSessionsFlowId(flow.id)}>
                     <BarChart3 className="h-3 w-3 mr-1" /> Sessions
                   </Button>
-                  <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => deleteFlow.mutate(flow.id)}>
+                  <Button aria-label="Delete" size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => deleteFlow.mutate(flow.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -322,13 +322,13 @@ const FlowEditorDialog = ({
                             className="text-sm"
                           />
                           <div className="flex gap-0.5 shrink-0">
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveQuestion(idx, -1)} disabled={idx === 0}>
+                            <Button aria-label="Move down" size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveQuestion(idx, -1)} disabled={idx === 0}>
                               <ArrowDown className="h-3 w-3 rotate-180" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveQuestion(idx, 1)} disabled={idx === questions.length - 1}>
+                            <Button aria-label="Move down" size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => moveQuestion(idx, 1)} disabled={idx === questions.length - 1}>
                               <ArrowDown className="h-3 w-3" />
                             </Button>
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => removeQuestion(idx)}>
+                            <Button aria-label="Delete" size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => removeQuestion(idx)}>
                               <Trash2 className="h-3 w-3" />
                             </Button>
                           </div>

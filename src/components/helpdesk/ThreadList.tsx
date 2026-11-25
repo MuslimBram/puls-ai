@@ -74,10 +74,10 @@ export const ThreadList = ({ threads, total, isLoading, page, totalPages, onSele
             <div className="flex items-center justify-between pt-2">
               <span className="text-xs text-muted-foreground">Page {page + 1} of {totalPages}</span>
               <div className="flex gap-1">
-                <Button variant="outline" size="sm" onClick={onPrevPage} disabled={page === 0}>
+                <Button aria-label="Previous" variant="outline" size="sm" onClick={onPrevPage} disabled={page === 0}>
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
-                <Button variant="outline" size="sm" onClick={onNextPage} disabled={page + 1 >= totalPages}>
+                <Button aria-label="Next" variant="outline" size="sm" onClick={onNextPage} disabled={page + 1 >= totalPages}>
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>

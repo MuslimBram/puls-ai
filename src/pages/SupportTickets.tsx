@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ const statusColor = (s: string) => ({
 }[s] ?? "default") as any;
 
 export default function SupportTickets() {
+  const tr = useTr();
   const { data: tickets = [], isLoading } = useMyTickets();
   const submit = useSubmitTicket();
   const reply = useReplyTicket();
@@ -45,48 +47,48 @@ export default function SupportTickets() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><LifeBuoy className="h-6 w-6" /> Support Tickets</h1>
-            <p className="text-muted-foreground">Get help from the support team.</p>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><LifeBuoy className="h-6 w-6" /> {tr("Support Tickets")}</h1>
+            <p className="text-muted-foreground">{tr("Get help from the support team.")}</p>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> New Ticket</Button>
+              <Button><Plus className="mr-2 h-4 w-4" /> {tr("New Ticket")}</Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>Create Support Ticket</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{tr("Create Support Ticket")}</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <div>
-                  <Label>Subject</Label>
+                  <Label>{tr("Subject")}</Label>
                   <Input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label>Category</Label>
+                    <Label>{tr("Category")}</Label>
                     <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="general">General</SelectItem>
-                        <SelectItem value="billing">Billing</SelectItem>
-                        <SelectItem value="technical">Technical</SelectItem>
-                        <SelectItem value="bug">Bug Report</SelectItem>
+                        <SelectItem value="general">{tr("General")}</SelectItem>
+                        <SelectItem value="billing">{tr("Billing")}</SelectItem>
+                        <SelectItem value="technical">{tr("Technical")}</SelectItem>
+                        <SelectItem value="bug">{tr("Bug Report")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
-                    <Label>Priority</Label>
+                    <Label>{tr("Priority")}</Label>
                     <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="normal">Normal</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
+                        <SelectItem value="normal">{tr("Normal")}</SelectItem>
+                        <SelectItem value="high">{tr("High")}</SelectItem>
+                        <SelectItem value="urgent">{tr("Urgent")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
                 <div>
-                  <Label>Description</Label>
+                  <Label>{tr("Description")}</Label>
                   <Textarea rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
                 </div>
                 <Button onClick={handleSubmit} disabled={submit.isPending} className="w-full">
@@ -99,11 +101,11 @@ export default function SupportTickets() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           <Card className="lg:col-span-1">
-            <CardHeader><CardTitle>My Tickets</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{tr("My Tickets")}</CardTitle></CardHeader>
             <CardContent className="space-y-2">
               {isLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
               {!isLoading && tickets.length === 0 && (
-                <p className="text-sm text-muted-foreground">No tickets yet.</p>
+                <p className="text-sm text-muted-foreground">{tr("No tickets yet.")}</p>
               )}
               {tickets.map((t) => (
                 <button
@@ -124,9 +126,9 @@ export default function SupportTickets() {
           </Card>
 
           <Card className="lg:col-span-2">
-            <CardHeader><CardTitle>{selected ? "Conversation" : "Select a ticket"}</CardTitle></CardHeader>
+            <CardHeader><CardTitle>{selected ? "Conversation" : tr("Select a ticket")}</CardTitle></CardHeader>
             <CardContent>
-              {!selected && <p className="text-sm text-muted-foreground">Choose a ticket from the left to view messages.</p>}
+              {!selected && <p className="text-sm text-muted-foreground">{tr("Choose a ticket from the left to view messages.")}</p>}
               {selected && (
                 <div className="space-y-3">
                   <div className="space-y-2 max-h-[400px] overflow-y-auto">
@@ -144,7 +146,7 @@ export default function SupportTickets() {
                   </div>
                   <div className="flex gap-2">
                     <Textarea rows={2} value={replyBody} onChange={(e) => setReplyBody(e.target.value)} placeholder="Reply..." />
-                    <Button onClick={handleReply} disabled={!replyBody.trim() || reply.isPending}>
+                    <Button aria-label={tr("Send")} onClick={handleReply} disabled={!replyBody.trim() || reply.isPending}>
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>

@@ -279,7 +279,7 @@ const ReplyWorkspace = () => {
                     </div>
                     <div className="flex gap-1">
                       <Button size="sm" variant="outline" onClick={() => applyTemplate(tpl.content)}>Use</Button>
-                      <Button size="icon" variant="ghost" className="text-destructive" onClick={() => deleteTemplate.mutate(tpl.id)}>
+                      <Button aria-label="Delete" size="icon" variant="ghost" className="text-destructive" onClick={() => deleteTemplate.mutate(tpl.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -314,7 +314,7 @@ const ReplyWorkspace = () => {
                     <Button size="sm" variant="outline" onClick={() => setPreferred.mutate(d.id)}>
                       <Star className="h-3 w-3 mr-1" /> Prefer
                     </Button>
-                    <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteDraft.mutate(d.id)}>
+                    <Button aria-label="Delete" size="sm" variant="ghost" className="text-destructive" onClick={() => deleteDraft.mutate(d.id)}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>

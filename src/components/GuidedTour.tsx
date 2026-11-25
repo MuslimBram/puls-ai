@@ -84,7 +84,7 @@ export const GuidedTour = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
               <StepIcon className="h-6 w-6" />
             </div>
-            <Button variant="ghost" size="icon" onClick={dismiss} className="h-8 w-8">
+            <Button aria-label="Close" variant="ghost" size="icon" onClick={dismiss} className="h-8 w-8">
               <X className="h-4 w-4" />
             </Button>
           </div>

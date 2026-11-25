@@ -417,7 +417,7 @@ const Admin = () => {
                               <SelectItem value="enterprise">Enterprise</SelectItem>
                             </SelectContent>
                           </Select>
-                          <Button
+                          <Button aria-label="Reset"
                             variant="outline"
                             size="sm"
                             onClick={() => resetUsage.mutate(s.user_id)}

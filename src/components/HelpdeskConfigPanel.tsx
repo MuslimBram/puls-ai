@@ -192,7 +192,7 @@ const EscalationConfigSection = ({ workspaceId }: { workspaceId: string | null }
                 <Badge className="text-[10px] bg-primary/10 text-primary">{rule.action_type}</Badge>
               </div>
             </div>
-            <Button
+            <Button aria-label="Delete"
               size="icon"
               variant="ghost"
               className="h-7 w-7 text-destructive"

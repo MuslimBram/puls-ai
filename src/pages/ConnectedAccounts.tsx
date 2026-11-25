@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { lazy, Suspense, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -11,6 +12,7 @@ import { ConnectChannelModal } from "@/components/accounts/ConnectChannelModal";
 const ExternalIntegrationsContent = lazy(() => import("@/pages/ExternalIntegrations"));
 
 const ConnectedAccounts = () => {
+  const tr = useTr();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") || "accounts";
   const [connectOpen, setConnectOpen] = useState(false);
@@ -19,8 +21,8 @@ const ConnectedAccounts = () => {
     <DashboardLayout>
       <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="accounts">Connected Accounts</TabsTrigger>
-          <TabsTrigger value="integrations">External Integrations</TabsTrigger>
+          <TabsTrigger value="accounts">{tr("Connected Accounts")}</TabsTrigger>
+          <TabsTrigger value="integrations">{tr("External Integrations")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="accounts">

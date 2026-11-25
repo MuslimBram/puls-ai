@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState } from "react";
 import { FeatureOSWidget } from "@/components/FeatureOSWidget";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -38,6 +39,7 @@ const parseDevice = (ua: string | null) => {
 };
 
 const SessionSecurity = () => {
+  const tr = useTr();
   const { user } = useAuth();
   const { data: sessions, isLoading } = useUserSessions();
   const revokeMutation = useRevokeSession();
@@ -61,12 +63,12 @@ const SessionSecurity = () => {
 
         <Tabs defaultValue="2fa" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="2fa">Two-Factor Auth</TabsTrigger>
+            <TabsTrigger value="2fa">{tr("Two-Factor Auth")}</TabsTrigger>
             <TabsTrigger value="sessions">Sessions ({sessions?.length || 0})</TabsTrigger>
             <TabsTrigger value="audit">
-              <ScrollText className="h-3.5 w-3.5 mr-1" /> Audit Log
+              <ScrollText className="h-3.5 w-3.5 mr-1" /> {tr("Audit Log")}
             </TabsTrigger>
-            <TabsTrigger value="security">Settings</TabsTrigger>
+            <TabsTrigger value="security">{tr("Settings")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="2fa" className="space-y-4">
@@ -74,10 +76,10 @@ const SessionSecurity = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <KeyRound className="h-5 w-5 text-primary" />
-                  Two-Factor Authentication (TOTP)
+                  {tr("Two-Factor Authentication (TOTP)")}
                 </CardTitle>
                 <CardDescription>
-                  Secure your account with a time-based one-time password from an authenticator app like Google Authenticator or Authy.
+                  {tr("Secure your account with a time-based one-time password from an authenticator app like Google Authenticator or Authy.")}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -96,15 +98,15 @@ const SessionSecurity = () => {
                           {totp.status.enrolledAt && ` Enabled ${format(new Date(totp.status.enrolledAt), "MMM d, yyyy")}`}
                         </p>
                       </div>
-                      <Badge className="ml-auto bg-primary/10 text-primary">Active</Badge>
+                      <Badge className="ml-auto bg-primary/10 text-primary">{tr("Active")}</Badge>
                     </div>
 
                     <div className="rounded-lg border border-border p-4">
                       <p className="text-sm font-medium text-foreground mb-2">Disable 2FA</p>
-                      <p className="text-xs text-muted-foreground mb-3">Enter your current authenticator code to disable 2FA.</p>
+                      <p className="text-xs text-muted-foreground mb-3">{tr("Enter your current authenticator code to disable 2FA.")}</p>
                       <div className="flex gap-2">
                         <Input
-                          placeholder="Enter 6-digit code"
+                          placeholder={tr("Enter 6-digit code")}
                           value={disableCode}
                           onChange={(e) => setDisableCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                           maxLength={6}
@@ -126,7 +128,7 @@ const SessionSecurity = () => {
                   <div className="space-y-4">
                     <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 text-center">
                       <QrCode className="h-6 w-6 text-primary mx-auto mb-2" />
-                      <p className="text-sm font-medium text-foreground mb-2">Scan this QR code</p>
+                      <p className="text-sm font-medium text-foreground mb-2">{tr("Scan this QR code")}</p>
                       <div className="mx-auto w-fit rounded-lg bg-background p-3 border border-border">
                         <img
                           src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(totp.enrollData.otpauthUrl)}`}
@@ -134,21 +136,21 @@ const SessionSecurity = () => {
                           className="h-48 w-48"
                         />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-3">Or manually enter this secret key:</p>
+                      <p className="text-xs text-muted-foreground mt-3">{tr("Or manually enter this secret key:")}</p>
                       <div className="flex items-center justify-center gap-2 mt-1">
                         <code className="rounded bg-muted px-2 py-1 text-xs font-mono tracking-wider text-foreground">
                           {totp.enrollData.secret}
                         </code>
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={copySecret}>
+                        <Button aria-label={tr("Confirm")} size="icon" variant="ghost" className="h-6 w-6" onClick={copySecret}>
                           {secretCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                         </Button>
                       </div>
                     </div>
 
                     <div className="rounded-lg border border-border p-4">
-                      <p className="text-sm font-medium text-foreground mb-2">Verify setup</p>
+                      <p className="text-sm font-medium text-foreground mb-2">{tr("Verify setup")}</p>
                       <p className="text-xs text-muted-foreground mb-3">
-                        Enter the 6-digit code from your authenticator app to complete setup.
+                        {tr("Enter the 6-digit code from your authenticator app to complete setup.")}
                       </p>
                       <div className="flex gap-2">
                         <Input
@@ -175,10 +177,10 @@ const SessionSecurity = () => {
                       <div>
                         <p className="text-sm font-medium text-foreground">2FA is not enabled</p>
                         <p className="text-xs text-muted-foreground">
-                          Add an extra layer of security to your account with a TOTP authenticator app.
+                          {tr("Add an extra layer of security to your account with a TOTP authenticator app.")}
                         </p>
                       </div>
-                      <Badge variant="secondary" className="ml-auto">Disabled</Badge>
+                      <Badge variant="secondary" className="ml-auto">{tr("Disabled")}</Badge>
                     </div>
                     <Button onClick={() => totp.enroll.mutate()} disabled={totp.enroll.isPending}>
                       {totp.enroll.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <KeyRound className="h-4 w-4 mr-1" />}
@@ -196,7 +198,7 @@ const SessionSecurity = () => {
             {isLoading ? (
               <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : !sessions?.length ? (
-              <Card><CardContent className="py-12 text-center text-muted-foreground">No active sessions found.</CardContent></Card>
+              <Card><CardContent className="py-12 text-center text-muted-foreground">{tr("No active sessions found.")}</CardContent></Card>
             ) : (
               sessions.map((session) => {
                 const device = parseDevice(session.user_agent);
@@ -223,7 +225,7 @@ const SessionSecurity = () => {
                         <Badge variant="outline" className="text-xs">
                           {session.is_active ? "Active" : "Expired"}
                         </Badge>
-                        <Button
+                        <Button aria-label={tr("Sign out")}
                           size="sm" variant="ghost" className="text-destructive"
                           onClick={() => revokeMutation.mutate(session.id)}
                           disabled={revokeMutation.isPending}
@@ -249,54 +251,54 @@ const SessionSecurity = () => {
             />
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Session Settings</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">{tr("Session Settings")}</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
-                    <p className="text-sm font-medium">Inactivity Timeout</p>
-                    <p className="text-xs text-muted-foreground">Auto logout after 30 minutes of inactivity</p>
+                    <p className="text-sm font-medium">{tr("Inactivity Timeout")}</p>
+                    <p className="text-xs text-muted-foreground">{tr("Auto logout after 30 minutes of inactivity")}</p>
                   </div>
                   <Badge>30 min</Badge>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
-                    <p className="text-sm font-medium">Session Expiry</p>
-                    <p className="text-xs text-muted-foreground">Sessions expire after 24 hours</p>
+                    <p className="text-sm font-medium">{tr("Session Expiry")}</p>
+                    <p className="text-xs text-muted-foreground">{tr("Sessions expire after 24 hours")}</p>
                   </div>
                   <Badge>24 hours</Badge>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
-                    <p className="text-sm font-medium">Step-up Authentication</p>
-                    <p className="text-xs text-muted-foreground">Required for billing changes, channel connections, and team management</p>
+                    <p className="text-sm font-medium">{tr("Step-up Authentication")}</p>
+                    <p className="text-xs text-muted-foreground">{tr("Required for billing changes, channel connections, and team management")}</p>
                   </div>
-                  <Badge variant="secondary">Enabled</Badge>
+                  <Badge variant="secondary">{tr("Enabled")}</Badge>
                 </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader><CardTitle className="text-base">Account Security</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="text-base">{tr("Account Security")}</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
-                    <p className="text-sm font-medium">Email</p>
+                    <p className="text-sm font-medium">{tr("Email")}</p>
                     <p className="text-xs text-muted-foreground">{user?.email}</p>
                   </div>
-                  <Badge variant="outline">Verified</Badge>
+                  <Badge variant="outline">{tr("Verified")}</Badge>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
-                    <p className="text-sm font-medium">Password</p>
-                    <p className="text-xs text-muted-foreground">Last changed: Unknown</p>
+                    <p className="text-sm font-medium">{tr("Password")}</p>
+                    <p className="text-xs text-muted-foreground">{tr("Last changed: Unknown")}</p>
                   </div>
-                  <Button size="sm" variant="outline">Change</Button>
+                  <Button size="sm" variant="outline">{tr("Change")}</Button>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border border-border p-3">
                   <div>
-                    <p className="text-sm font-medium">Two-Factor Authentication</p>
+                    <p className="text-sm font-medium">{tr("Two-Factor Authentication")}</p>
                     <p className="text-xs text-muted-foreground">
-                      {totp.status?.verified ? "TOTP authenticator is active" : "Not enabled"}
+                      {totp.status?.verified ? "TOTP authenticator is active" : tr("Not enabled")}
                     </p>
                   </div>
                   <Badge variant={totp.status?.verified ? "default" : "secondary"}>

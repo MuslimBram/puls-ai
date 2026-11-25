@@ -339,7 +339,7 @@ export const FloatingAIBot = () => {
               >
                 {t("common.cancel")}
               </Button>
-              <Button
+              <Button aria-label="Loading"
                 size="sm"
                 className="flex-1"
                 onClick={handleLeadSubmit}

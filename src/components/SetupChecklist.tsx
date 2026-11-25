@@ -50,7 +50,7 @@ export const SetupChecklist = (props: ChecklistProps) => {
     return (
       <Card className="border-primary/30 bg-gradient-to-r from-primary/5 to-accent/5">
         <CardContent className="py-6 text-center relative">
-          <Button
+          <Button aria-label="Close"
             size="sm" variant="ghost"
             className="absolute top-2 right-2 h-7 w-7 p-0 text-muted-foreground"
             onClick={() => { localStorage.setItem(DISMISS_KEY, "true"); setDismissed(true); }}
@@ -98,7 +98,7 @@ export const SetupChecklist = (props: ChecklistProps) => {
           </CardTitle>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="text-xs">{completed}/{total}</Badge>
-            <Button
+            <Button aria-label="Close"
               size="sm" variant="ghost" className="h-7 w-7 p-0"
               onClick={() => { localStorage.setItem(DISMISS_KEY, "true"); setDismissed(true); }}
             >

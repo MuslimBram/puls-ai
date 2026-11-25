@@ -66,9 +66,9 @@ export const CompetitorList = ({
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="ghost" onClick={() => onView(comp)}><Eye className="h-4 w-4" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => onScan(comp.id)} disabled={isScanPending}><RefreshCw className="h-4 w-4" /></Button>
-                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => onDelete(comp.id)}><Trash2 className="h-4 w-4" /></Button>
+                  <Button aria-label="Show" size="sm" variant="ghost" onClick={() => onView(comp)}><Eye className="h-4 w-4" /></Button>
+                  <Button aria-label="Refresh" size="sm" variant="ghost" onClick={() => onScan(comp.id)} disabled={isScanPending}><RefreshCw className="h-4 w-4" /></Button>
+                  <Button aria-label="Delete" size="sm" variant="ghost" className="text-destructive" onClick={() => onDelete(comp.id)}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
             </CardHeader>

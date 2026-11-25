@@ -269,7 +269,7 @@ export function CreatePostModal({ open, onOpenChange, onSuccess }: CreatePostMod
                   <div key={i} className="flex items-center gap-1.5 bg-muted px-2 py-1 rounded text-xs">
                     <Paperclip className="h-3 w-3 text-muted-foreground" />
                     <span className="truncate max-w-[120px]">{file.name}</span>
-                    <button type="button" onClick={() => removeFile(i)} className="text-muted-foreground hover:text-foreground">
+                    <button aria-label="Close" type="button" onClick={() => removeFile(i)} className="text-muted-foreground hover:text-foreground">
                       <X className="h-3 w-3" />
                     </button>
                   </div>

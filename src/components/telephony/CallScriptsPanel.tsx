@@ -123,14 +123,14 @@ export const CallScriptsPanel = () => {
                     <Badge variant={script.is_active ? "default" : "outline"} className="text-[10px]">
                       {script.is_active ? "Active" : "Draft"}
                     </Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {
+                    <Button aria-label="Play" variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => {
                       e.stopPropagation();
                       setActiveScript(script);
                       trackUsage.mutate(script.id);
                     }}>
                       <Play className="h-3 w-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); deleteScript.mutate(script.id); }}>
+                    <Button aria-label="Delete" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); deleteScript.mutate(script.id); }}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>
@@ -165,7 +165,7 @@ export const CallScriptsPanel = () => {
                     placeholder={`Enter ${step.type} text...`}
                     className="text-xs min-h-[40px] flex-1"
                   />
-                  <Button variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => removeStep(step.id)}>
+                  <Button aria-label="Delete" variant="ghost" size="icon" className="h-5 w-5 shrink-0" onClick={() => removeStep(step.id)}>
                     <Trash2 className="h-3 w-3 text-muted-foreground" />
                   </Button>
                 </div>

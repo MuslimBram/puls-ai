@@ -83,7 +83,7 @@ export const ConnectedChannelCard: React.FC<ConnectedChannelCardProps> = ({
                 checked={channel.is_enabled}
                 onCheckedChange={(checked) => onToggle(channel.id, checked)}
               />
-              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setShowDeleteConfirm(true)}>
+              <Button aria-label="Delete" variant="ghost" size="icon" className="text-destructive" onClick={() => setShowDeleteConfirm(true)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </>

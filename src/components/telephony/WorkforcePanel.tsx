@@ -153,7 +153,7 @@ const ShiftRow = ({ shift, onUpdate, onDelete }: {
         <SelectItem value="absent" className="text-xs">Absent</SelectItem>
       </SelectContent>
     </Select>
-    <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive shrink-0" onClick={() => onDelete(shift.id)}>
+    <Button aria-label="Delete" variant="ghost" size="icon" className="h-6 w-6 text-destructive shrink-0" onClick={() => onDelete(shift.id)}>
       <Trash2 className="h-3 w-3" />
     </Button>
   </div>

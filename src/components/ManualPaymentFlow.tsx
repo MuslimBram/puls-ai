@@ -166,7 +166,7 @@ export function ManualPaymentFlow({
               <span className="font-mono text-xl font-bold tracking-wider text-primary">
                 {paymentResult.reference_id}
               </span>
-              <Button variant="outline" size="sm" onClick={copyRef}>
+              <Button aria-label="Copy" variant="outline" size="sm" onClick={copyRef}>
                 {copied ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>

@@ -58,7 +58,7 @@ const AutonomousOps = () => {
                     {task.description && <p className="text-xs text-muted-foreground mt-1">{task.description}</p>}
                   </div>
                   <div className="flex gap-2 ml-4">
-                    <Button size="sm" variant="outline" onClick={() => respondTask.mutate({ taskId: task.id, action: "dismiss" })}><XCircle className="h-4 w-4" /></Button>
+                    <Button aria-label="Close" size="sm" variant="outline" onClick={() => respondTask.mutate({ taskId: task.id, action: "dismiss" })}><XCircle className="h-4 w-4" /></Button>
                     <Button size="sm" onClick={() => respondTask.mutate({ taskId: task.id, action: "accept" })}><CheckCircle2 className="h-4 w-4" /></Button>
                   </div>
                 </CardContent>

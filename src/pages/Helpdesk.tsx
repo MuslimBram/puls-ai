@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -15,6 +16,7 @@ import { ThreadDetailDialog } from "@/components/helpdesk/ThreadDetailDialog";
 import { CreateThreadDialog } from "@/components/helpdesk/CreateThreadDialog";
 
 const Helpdesk = () => {
+  const tr = useTr();
   const [filters, setFilters] = useState<HelpdeskFilters>({});
   const [selectedThread, setSelectedThread] = useState<ConversationThread | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -32,7 +34,7 @@ const Helpdesk = () => {
     <DashboardLayout>
       <Tabs defaultValue="conversations" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="conversations">Conversations</TabsTrigger>
+          <TabsTrigger value="conversations">{tr("Conversations")}</TabsTrigger>
           <TabsTrigger value="settings">⚙ Settings</TabsTrigger>
         </TabsList>
 

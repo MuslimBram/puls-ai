@@ -315,7 +315,7 @@ export const AdminCustomChannelPanel = () => {
           <Input placeholder="Provider field" value={pair.key} onChange={e => { const n = [...pairs]; n[i].key = e.target.value; setPairs(n); }} className="flex-1" />
           <span className="text-muted-foreground">→</span>
           <Input placeholder="Pulse field" value={pair.value} onChange={e => { const n = [...pairs]; n[i].value = e.target.value; setPairs(n); }} className="flex-1" />
-          <Button variant="ghost" size="icon" onClick={() => setPairs(pairs.filter((_, j) => j !== i))}><Trash2 className="h-3 w-3" /></Button>
+          <Button aria-label="Delete" variant="ghost" size="icon" onClick={() => setPairs(pairs.filter((_, j) => j !== i))}><Trash2 className="h-3 w-3" /></Button>
         </div>
       ))}
       <Button variant="outline" size="sm" onClick={() => setPairs([...pairs, { key: "", value: "" }])}><Plus className="h-3 w-3 mr-1" /> Add Field</Button>
@@ -450,7 +450,7 @@ export const AdminCustomChannelPanel = () => {
                       <CheckCircle2 className="h-3 w-3 mr-1" />
                       {testingConnection === a.id ? "Testing..." : "Test Connection"}
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: a.id, name: a.adapter_name })}>
+                    <Button aria-label="Delete" variant="ghost" size="icon" onClick={() => setDeleteTarget({ id: a.id, name: a.adapter_name })}>
                       <Trash2 className="h-4 w-4 text-destructive" />
                     </Button>
                   </div>
@@ -461,7 +461,7 @@ export const AdminCustomChannelPanel = () => {
                 {/* Webhook URL */}
                 <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
                   <code className="text-xs flex-1 truncate">{WEBHOOK_BASE}?adapter={a.adapter_key}</code>
-                  <Button variant="ghost" size="icon" onClick={() => copyWebhookUrl(a.adapter_key)}><Copy className="h-3 w-3" /></Button>
+                  <Button aria-label="Copy" variant="ghost" size="icon" onClick={() => copyWebhookUrl(a.adapter_key)}><Copy className="h-3 w-3" /></Button>
                 </div>
 
                 {a.provider_api_url && (
@@ -474,7 +474,7 @@ export const AdminCustomChannelPanel = () => {
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>Auth: {a.auth_type}</span>
                   {a.auth_type !== "none" && (
-                    <Button variant="ghost" size="sm" className="h-5 px-1" onClick={() => setShowSecrets(s => ({ ...s, [a.id]: !s[a.id] }))}>
+                    <Button aria-label="Show or hide" variant="ghost" size="sm" className="h-5 px-1" onClick={() => setShowSecrets(s => ({ ...s, [a.id]: !s[a.id] }))}>
                       {showSecrets[a.id] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                     </Button>
                   )}

@@ -27,7 +27,7 @@ const Leads = () => {
 
   const copyReply = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success(tr(tr("Reply copied to clipboard")));
+    toast.success(tr("Reply copied to clipboard"));
   };
 
   const intentColor = (score: number) => {
@@ -62,7 +62,7 @@ const Leads = () => {
             >
               <SelectTrigger className="w-40"><SelectValue placeholder={tr("Keyword")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{tr(tr("All keywords"))}</SelectItem>
+                <SelectItem value="all">{tr("All keywords")}</SelectItem>
                 {keywords.map((k) => (
                   <SelectItem key={k.id} value={k.keyword}>{k.keyword}</SelectItem>
                 ))}
@@ -74,7 +74,7 @@ const Leads = () => {
             >
               <SelectTrigger className="w-36"><SelectValue placeholder={tr("Status")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{tr(tr("All statuses"))}</SelectItem>
+                <SelectItem value="all">{tr("All statuses")}</SelectItem>
                 <SelectItem value="new">New</SelectItem>
                 <SelectItem value="contacted">{tr("Contacted")}</SelectItem>
                 <SelectItem value="qualified">{tr("Qualified")}</SelectItem>
@@ -86,7 +86,7 @@ const Leads = () => {
             <Select value={filters.intentType ?? "all"} onValueChange={(v) => handleFilterChange((f) => ({ ...f, intentType: v === "all" ? undefined : v }))}>
               <SelectTrigger className="w-36"><SelectValue placeholder={tr("Intent")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">{tr(tr("All intents"))}</SelectItem>
+                <SelectItem value="all">{tr("All intents")}</SelectItem>
                 {INTENT_TYPE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -114,7 +114,7 @@ const Leads = () => {
               </div>
             ) : leads.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                {tr(tr("No leads found. Add keywords and connect a Telegram channel to discover leads."))}
+                {tr("No leads found. Add keywords and connect a Telegram channel to discover leads.")}
               </p>
             ) : (
               <div className="space-y-3">
@@ -151,8 +151,8 @@ const Leads = () => {
                       </div>
                     </div>
                     <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => setSelectedLead(lead)}><Eye className="h-4 w-4" /></Button>
-                      <Button variant="ghost" size="icon" onClick={() => navigate(`/reply-workspace?leadId=${lead.id}`)}><MessageSquare className="h-4 w-4" /></Button>
+                      <Button aria-label="Show" variant="ghost" size="icon" onClick={() => setSelectedLead(lead)}><Eye className="h-4 w-4" /></Button>
+                      <Button aria-label="Message" variant="ghost" size="icon" onClick={() => navigate(`/reply-workspace?leadId=${lead.id}`)}><MessageSquare className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 ))}
@@ -161,8 +161,8 @@ const Leads = () => {
                   <div className="flex items-center justify-between pt-2">
                     <span className="text-xs text-muted-foreground">Page {page + 1} of {totalPages}</span>
                     <div className="flex gap-1">
-                      <Button variant="outline" size="sm" onClick={prevPage} disabled={page === 0}><ChevronLeft className="h-4 w-4" /></Button>
-                      <Button variant="outline" size="sm" onClick={nextPage} disabled={page + 1 >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
+                      <Button aria-label="Previous" variant="outline" size="sm" onClick={prevPage} disabled={page === 0}><ChevronLeft className="h-4 w-4" /></Button>
+                      <Button aria-label="Next" variant="outline" size="sm" onClick={nextPage} disabled={page + 1 >= totalPages}><ChevronRight className="h-4 w-4" /></Button>
                     </div>
                   </div>
                 )}
@@ -173,7 +173,7 @@ const Leads = () => {
 
         <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>{tr(tr("Lead Details"))}</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{tr("Lead Details")}</DialogTitle></DialogHeader>
             {selectedLead && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
@@ -204,7 +204,7 @@ const Leads = () => {
                 )}
                 {selectedLead.score_factors && typeof selectedLead.score_factors === "object" && Object.keys(selectedLead.score_factors).length > 0 && (
                   <div>
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">{tr(tr("AI Score Breakdown"))}</p>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">{tr("AI Score Breakdown")}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(selectedLead.score_factors as Record<string, number>).map(([key, value]) => (
                         <div key={key} className="flex items-center justify-between rounded-md bg-muted px-2 py-1.5">
@@ -217,10 +217,10 @@ const Leads = () => {
                 )}
                 {selectedLead.suggested_reply && (
                   <div>
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">{tr(tr("Suggested Reply"))}</p>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">{tr("Suggested Reply")}</p>
                     <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                       <p className="mb-2 text-sm text-foreground">{selectedLead.suggested_reply}</p>
-                      <Button size="sm" variant="outline" onClick={() => copyReply(selectedLead.suggested_reply!)}><Copy className="mr-1 h-3 w-3" /> {tr(tr("Copy Reply"))}</Button>
+                      <Button size="sm" variant="outline" onClick={() => copyReply(selectedLead.suggested_reply!)}><Copy className="mr-1 h-3 w-3" /> {tr("Copy Reply")}</Button>
                     </div>
                   </div>
                 )}

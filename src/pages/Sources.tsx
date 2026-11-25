@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useMemo, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
@@ -66,6 +67,7 @@ const TYPE_PLATFORMS: Record<string, string[]> = {
 };
 
 export default function Sources() {
+  const tr = useTr();
   const { sources, isLoading, addSource, updateSource, deleteSource, triggerScan } = useScanSources();
   const { isAdmin, isBusinessOwner, isLoading: rolesLoading } = useRolePermissions();
   const [searchParams] = useSearchParams();
@@ -152,12 +154,12 @@ export default function Sources() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              {typeFilter ? TYPE_LABEL[typeFilter] || "Business Scanner" : "Source Management"}
+              {typeFilter ? TYPE_LABEL[typeFilter] || "Business Scanner" : tr("Source Management")}
             </h1>
             <p className="text-sm text-muted-foreground">
               {typeFilter
                 ? `Showing scan sources filtered to ${typeFilter}`
-                : "Manage scan sources across platforms"}
+                : tr("Manage scan sources across platforms")}
             </p>
           </div>
           <Button
@@ -167,14 +169,14 @@ export default function Sources() {
               setShowAdd(true);
             }}
           >
-            <Plus className="mr-2 h-4 w-4" /> Add Source
+            <Plus className="mr-2 h-4 w-4" /> {tr("Add Source")}
           </Button>
         </div>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Globe className="h-5 w-5" /> Active Sources
+              <Globe className="h-5 w-5" /> {tr("Active Sources")}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -185,20 +187,20 @@ export default function Sources() {
             ) : visibleSources.length === 0 ? (
               <p className="py-8 text-center text-muted-foreground">
                 {typeFilter
-                  ? `No ${typeFilter} sources yet. Click "Add Source" to add one.`
-                  : 'No sources added yet. Click "Add Source" to get started.'}
+                  ? `No ${typeFilter} sources yet. Click tr("Add Source") to add one.`
+                  : 'No sources added yet. Click tr("Add Source") to get started.'}
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Platform</TableHead>
+                    <TableHead>{tr("Platform")}</TableHead>
                     <TableHead>URL / Identifier</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last Scan</TableHead>
-                    <TableHead>Active</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead>{tr("Type")}</TableHead>
+                    <TableHead>{tr("Status")}</TableHead>
+                    <TableHead>{tr("Last Scan")}</TableHead>
+                    <TableHead>{tr("Active")}</TableHead>
+                    <TableHead className="text-right">{tr("Actions")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -228,28 +230,28 @@ export default function Sources() {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
+                            <Button aria-label={tr("More options")} variant="ghost" size="icon">
                               <MoreHorizontal className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => setViewSourceId(s.id)}>
-                              <Eye className="mr-2 h-4 w-4" /> View Insights
+                              <Eye className="mr-2 h-4 w-4" /> {tr("View Insights")}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => openEdit(s)}>
-                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                              <Pencil className="mr-2 h-4 w-4" /> {tr("Edit")}
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => triggerScan.mutate(s.id)}
                               disabled={s.scan_status === "scanning" || triggerScan.isPending}
                             >
-                              <Play className="mr-2 h-4 w-4" /> Scan Now
+                              <Play className="mr-2 h-4 w-4" /> {tr("Scan Now")}
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => updateSource.mutate({ id: s.id, is_active: !s.is_active } as any)}>
                               <Pause className="mr-2 h-4 w-4" /> {s.is_active ? "Deactivate" : "Activate"}
                             </DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive" onClick={() => deleteSource.mutate(s.id)}>
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
+                              <Trash2 className="mr-2 h-4 w-4" /> {tr("Delete")}
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -295,12 +297,12 @@ export default function Sources() {
         >
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editId ? "Edit Source" : "Add New Source"}</DialogTitle>
-              <DialogDescription>Configure a source for scanning across platforms.</DialogDescription>
+              <DialogTitle>{editId ? "Edit Source" : tr("Add New Source")}</DialogTitle>
+              <DialogDescription>{tr("Configure a source for scanning across platforms.")}</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Platform</Label>
+                <Label>{tr("Platform")}</Label>
                 <Select value={form.platform} onValueChange={(v) => setForm((f) => ({ ...f, platform: v }))}>
                   <SelectTrigger>
                     <SelectValue />
@@ -316,7 +318,7 @@ export default function Sources() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Source Type</Label>
+                <Label>{tr("Source Type")}</Label>
                 <Select value={form.source_type} onValueChange={(v) => setForm((f) => ({ ...f, source_type: v }))}>
                   <SelectTrigger>
                     <SelectValue />
@@ -331,7 +333,7 @@ export default function Sources() {
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>URL or Identifier</Label>
+                <Label>{tr("URL or Identifier")}</Label>
                 <Input
                   placeholder={form.platform === "web" ? "https://example.com" : "@channel_name or https://..."}
                   value={form.url_or_identifier}
@@ -342,7 +344,7 @@ export default function Sources() {
                 />
                 {error && <p className="text-sm text-destructive">{error}</p>}
                 <p className="text-xs text-muted-foreground">
-                  {form.platform === "web" ? "Enter a full URL" : "Enter a URL, @username, or group/channel identifier"}
+                  {form.platform === "web" ? "Enter a full URL" : tr("Enter a URL, @username, or group/channel identifier")}
                 </p>
               </div>
               <div className="space-y-2">
@@ -363,11 +365,11 @@ export default function Sources() {
                   setEditId(null);
                 }}
               >
-                Cancel
+                {tr("Cancel")}
               </Button>
               <Button onClick={handleSubmit} disabled={addSource.isPending || updateSource.isPending}>
                 {(addSource.isPending || updateSource.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {editId ? "Update" : "Add Source"}
+                {editId ? "Update" : tr("Add Source")}
               </Button>
             </DialogFooter>
           </DialogContent>

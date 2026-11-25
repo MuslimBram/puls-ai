@@ -50,7 +50,7 @@ export default function Unsubscribe() {
           {state === "valid" && (
             <>
               <p className="text-sm">Are you sure you want to unsubscribe from these emails?</p>
-              <Button onClick={confirm} disabled={submitting} variant="destructive" className="w-full">
+              <Button aria-label="Loading" onClick={confirm} disabled={submitting} variant="destructive" className="w-full">
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm unsubscribe"}
               </Button>
             </>

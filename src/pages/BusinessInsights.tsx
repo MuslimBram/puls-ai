@@ -243,11 +243,11 @@ const BusinessInsights = () => {
                       </div>
                       <div className="flex gap-1">
                         {!n.is_read && (
-                          <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => markRead.mutate(n.id)}>
+                          <Button aria-label="Confirm" size="icon" variant="ghost" className="h-6 w-6" onClick={() => markRead.mutate(n.id)}>
                             <Check className="h-3 w-3" />
                           </Button>
                         )}
-                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => dismiss.mutate(n.id)}>
+                        <Button aria-label="Close" size="icon" variant="ghost" className="h-6 w-6" onClick={() => dismiss.mutate(n.id)}>
                           <X className="h-3 w-3" />
                         </Button>
                       </div>

@@ -1,3 +1,6 @@
+import { useTr, trNow } from "@/lib/uiSq";
+// Rezervë në nivel skedari për komponentët ndihmës pa hook.
+const tr = trNow;
 import { useState, useRef } from "react";
 import { FAQManager } from "@/components/FAQManager";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -51,6 +54,7 @@ const STATUS_STYLES: Record<string, { icon: React.ElementType; className: string
 };
 
 const KnowledgeBase = () => {
+  const tr = useTr();
   const [websiteUrl, setWebsiteUrl] = useState("");
   const [crawlDepth, setCrawlDepth] = useState(5);
   const [searchQuery, setSearchQuery] = useState("");
@@ -105,9 +109,9 @@ const KnowledgeBase = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Knowledge Base</h1>
+            <h1 className="text-2xl font-bold text-foreground">{tr("Knowledge Base")}</h1>
             <p className="text-sm text-muted-foreground">
-              Build your AI knowledge base from websites, documents, and social content
+              {tr("Build your AI knowledge base from websites, documents, and social content")}
             </p>
           </div>
         </div>
@@ -119,7 +123,7 @@ const KnowledgeBase = () => {
               <Database className="h-8 w-8 text-primary" />
               <div>
                 <p className="text-2xl font-bold text-foreground">{sources?.length || 0}</p>
-                <p className="text-xs text-muted-foreground">Total Sources</p>
+                <p className="text-xs text-muted-foreground">{tr("Total Sources")}</p>
               </div>
             </CardContent>
           </Card>
@@ -128,7 +132,7 @@ const KnowledgeBase = () => {
               <BookOpen className="h-8 w-8 text-primary" />
               <div>
                 <p className="text-2xl font-bold text-foreground">{totalChunks}</p>
-                <p className="text-xs text-muted-foreground">Knowledge Chunks</p>
+                <p className="text-xs text-muted-foreground">{tr("Knowledge Chunks")}</p>
               </div>
             </CardContent>
           </Card>
@@ -137,7 +141,7 @@ const KnowledgeBase = () => {
               <CheckCircle className="h-8 w-8 text-green-600" />
               <div>
                 <p className="text-2xl font-bold text-foreground">{activeSources}</p>
-                <p className="text-xs text-muted-foreground">Active Sources</p>
+                <p className="text-xs text-muted-foreground">{tr("Active Sources")}</p>
               </div>
             </CardContent>
           </Card>
@@ -145,11 +149,11 @@ const KnowledgeBase = () => {
 
         <Tabs defaultValue="sources" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="sources">Sources</TabsTrigger>
+            <TabsTrigger value="sources">{tr("Sources")}</TabsTrigger>
             <TabsTrigger value="faqs">FAQ Training</TabsTrigger>
-            <TabsTrigger value="add">Add Source</TabsTrigger>
-            <TabsTrigger value="search">Search</TabsTrigger>
-            <TabsTrigger value="topics">Topics</TabsTrigger>
+            <TabsTrigger value="add">{tr("Add Source")}</TabsTrigger>
+            <TabsTrigger value="search">{tr("Search")}</TabsTrigger>
+            <TabsTrigger value="topics">{tr("Topics")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="faqs" className="space-y-4">
@@ -165,7 +169,7 @@ const KnowledgeBase = () => {
             ) : !sources?.length ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No knowledge sources yet. Add a website or upload a document to get started.
+                  {tr("No knowledge sources yet. Add a website or upload a document to get started.")}
                 </CardContent>
               </Card>
             ) : (
@@ -212,7 +216,7 @@ const KnowledgeBase = () => {
                               onCheckedChange={(checked) => toggleSource.mutate({ id: source.id, is_enabled: checked })}
                             />
                             {source.source_type === "website" && (
-                              <Button
+                              <Button aria-label={tr("Refresh")}
                                 size="sm"
                                 variant="ghost"
                                 onClick={() => handleRescan(source)}
@@ -221,14 +225,14 @@ const KnowledgeBase = () => {
                                 <RefreshCw className="h-3 w-3" />
                               </Button>
                             )}
-                            <Button
+                            <Button aria-label={tr("Move up")}
                               size="sm"
                               variant="ghost"
                               onClick={() => setExpandedSource(isExpanded ? null : source.id)}
                             >
                               {isExpanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                             </Button>
-                            <Button
+                            <Button aria-label={tr("Delete")}
                               size="sm"
                               variant="ghost"
                               className="text-destructive"
@@ -267,7 +271,7 @@ const KnowledgeBase = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <Globe className="h-4 w-4" /> Crawl Website
+                    <Globe className="h-4 w-4" /> {tr("Crawl Website")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -277,7 +281,7 @@ const KnowledgeBase = () => {
                     onChange={(e) => setWebsiteUrl(e.target.value)}
                   />
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Crawl depth:</span>
+                    <span className="text-sm text-muted-foreground">{tr("Crawl depth:")}</span>
                     <Select value={String(crawlDepth)} onValueChange={(v) => setCrawlDepth(Number(v))}>
                       <SelectTrigger className="w-20">
                         <SelectValue />
@@ -304,7 +308,7 @@ const KnowledgeBase = () => {
                     Crawl & Index
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Crawls multiple pages and extracts structured knowledge chunks with AI-detected topics.
+                    {tr("Crawls multiple pages and extracts structured knowledge chunks with AI-detected topics.")}
                   </p>
                 </CardContent>
               </Card>
@@ -313,7 +317,7 @@ const KnowledgeBase = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <Upload className="h-4 w-4" /> Upload Document
+                    <Upload className="h-4 w-4" /> {tr("Upload Document")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -329,13 +333,13 @@ const KnowledgeBase = () => {
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Upload className="h-8 w-8 text-muted-foreground mb-2" />
-                    <p className="text-sm font-medium text-foreground">Click to upload</p>
+                    <p className="text-sm font-medium text-foreground">{tr("Click to upload")}</p>
                     <p className="text-xs text-muted-foreground mt-1">TXT, MD, CSV, JSON (max 20MB)</p>
                   </div>
                   {uploadDocument.isPending && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      Processing document...
+                      {tr("Processing document...")}
                     </div>
                   )}
                 </CardContent>
@@ -349,7 +353,7 @@ const KnowledgeBase = () => {
               <CardContent className="py-4 space-y-4">
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Search your knowledge base..."
+                    placeholder={tr("Search your knowledge base...")}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSearch()}
@@ -390,7 +394,7 @@ const KnowledgeBase = () => {
                 )}
 
                 {searchResults.length === 0 && searchKnowledge.isSuccess && (
-                  <p className="text-center text-sm text-muted-foreground py-8">No results found.</p>
+                  <p className="text-center text-sm text-muted-foreground py-8">{tr("No results found.")}</p>
                 )}
               </CardContent>
             </Card>
@@ -401,7 +405,7 @@ const KnowledgeBase = () => {
             {allTopics.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center text-muted-foreground">
-                  No topics detected yet. Add sources to build your topic index.
+                  {tr("No topics detected yet. Add sources to build your topic index.")}
                 </CardContent>
               </Card>
             ) : (
@@ -447,7 +451,7 @@ const ExpandedChunks = ({ sourceId }: { sourceId: string }) => {
   }
 
   if (!chunks?.length) {
-    return <p className="text-xs text-muted-foreground py-2">No chunks indexed yet.</p>;
+    return <p className="text-xs text-muted-foreground py-2">{tr("No chunks indexed yet.")}</p>;
   }
 
   return (

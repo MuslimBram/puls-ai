@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { keywordFieldGuides, getFieldGuide } from "@/config/fieldGuides";
 import { FieldLabelWithGuide } from "@/components/FieldGuide";
 
 const Keywords = () => {
+  const tr = useTr();
   const [newKeyword, setNewKeyword] = useState("");
   const { keywords, isLoading, addKeyword, toggleKeyword, deleteKeyword } = useKeywords();
 
@@ -26,14 +28,14 @@ const Keywords = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Key className="h-5 w-5 text-primary" />
-              Keywords
+              {tr("Keywords")}
             </CardTitle>
-            <CardDescription>Define keywords to monitor in Telegram groups for lead discovery.</CardDescription>
+            <CardDescription>{tr("Define keywords to monitor in Telegram groups for lead discovery.")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex gap-2 mb-4">
               <div className="flex-1">
-                <FieldLabelWithGuide label="Add Keyword" guide={getFieldGuide(keywordFieldGuides, "keyword")!} />
+                <FieldLabelWithGuide label={tr("Add Keyword")} guide={getFieldGuide(keywordFieldGuides, "keyword")!} />
                 <Input
                   className="mt-1.5"
                   placeholder="e.g. looking for web developer"
@@ -53,7 +55,7 @@ const Keywords = () => {
               </div>
             ) : keywords.length === 0 ? (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                No keywords yet. Add keywords to start discovering leads.
+                {tr("No keywords yet. Add keywords to start discovering leads.")}
               </p>
             ) : (
               <div className="space-y-2">
@@ -65,7 +67,7 @@ const Keywords = () => {
                         checked={k.is_active}
                         onCheckedChange={(checked) => toggleKeyword.mutate({ id: k.id, is_active: checked })}
                       />
-                      <Button
+                      <Button aria-label={tr("Delete")}
                         variant="ghost"
                         size="icon"
                         className="text-destructive"

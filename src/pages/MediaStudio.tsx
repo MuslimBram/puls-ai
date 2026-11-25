@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { format, formatDistanceToNowStrict } from "date-fns";
@@ -63,6 +64,7 @@ const STYLE_PRESETS = [
 const VIDEO_DURATION_OPTIONS = [5, 10, 15, 30, 60];
 
 const MediaStudio = () => {
+  const tr = useTr();
   const [searchParams] = useSearchParams();
   const initialTab = searchParams.get("tab") || "generate";
   const initialType = (searchParams.get("type") as "image" | "video" | null) || "image";
@@ -95,7 +97,7 @@ const MediaStudio = () => {
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      toast.error("Please enter a prompt");
+      toast.error(tr("Please enter a prompt"));
       return;
     }
 
@@ -145,8 +147,8 @@ const MediaStudio = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">AI Media Studio</h1>
-            <p className="text-sm text-muted-foreground">Queue image and video generation jobs with validation, provider abstraction, live status, and persistent daily usage history.</p>
+            <h1 className="text-2xl font-bold text-foreground">{tr("AI Media Studio")}</h1>
+            <p className="text-sm text-muted-foreground">{tr("Queue image and video generation jobs with validation, provider abstraction, live status, and persistent daily usage history.")}</p>
           </div>
         </div>
 
@@ -160,7 +162,7 @@ const MediaStudio = () => {
                 <p className="text-2xl font-semibold text-foreground">
                   {usage.imagesRemaining === Number.POSITIVE_INFINITY ? "∞" : usage.imagesRemaining}
                 </p>
-                <p className="text-xs text-muted-foreground">Image credits left today</p>
+                <p className="text-xs text-muted-foreground">{tr("Image credits left today")}</p>
               </div>
             </CardContent>
           </Card>
@@ -171,7 +173,7 @@ const MediaStudio = () => {
                 <p className="text-2xl font-semibold text-foreground">
                   {usage.videosRemaining === Number.POSITIVE_INFINITY ? "∞" : usage.videosRemaining}
                 </p>
-                <p className="text-xs text-muted-foreground">Video credits left today</p>
+                <p className="text-xs text-muted-foreground">{tr("Video credits left today")}</p>
               </div>
             </CardContent>
           </Card>
@@ -182,7 +184,7 @@ const MediaStudio = () => {
                 <p className="text-sm font-semibold text-foreground">
                   {usage.resetsAt ? formatDistanceToNowStrict(new Date(usage.resetsAt), { addSuffix: true }) : "Within 24h"}
                 </p>
-                <p className="text-xs text-muted-foreground">Quota reset window</p>
+                <p className="text-xs text-muted-foreground">{tr("Quota reset window")}</p>
               </div>
             </CardContent>
           </Card>
@@ -191,32 +193,32 @@ const MediaStudio = () => {
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList>
             <TabsTrigger value="generate">
-              <Sparkles className="mr-1 h-3 w-3" /> Generate
+              <Sparkles className="mr-1 h-3 w-3" /> {tr("Generate")}
             </TabsTrigger>
             <TabsTrigger value="templates">
-              <LayoutTemplate className="mr-1 h-3 w-3" /> Templates
+              <LayoutTemplate className="mr-1 h-3 w-3" /> {tr("Templates")}
             </TabsTrigger>
             <TabsTrigger value="gallery">
               <Image className="mr-1 h-3 w-3" /> Gallery ({generations?.length || 0})
             </TabsTrigger>
             <TabsTrigger value="addons">
-              <Zap className="mr-1 h-3 w-3" /> Buy Credits
+              <Zap className="mr-1 h-3 w-3" /> {tr("Buy Credits")}
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="generate">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Create new media job</CardTitle>
-                <CardDescription>Each request is validated, quota-checked, inserted into the job queue, processed by the provider runtime, and completed or refunded on failure.</CardDescription>
+                <CardTitle className="text-base">{tr("Create new media job")}</CardTitle>
+                <CardDescription>{tr("Each request is validated, quota-checked, inserted into the job queue, processed by the provider runtime, and completed or refunded on failure.")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex gap-3">
                   <Button variant={mediaType === "image" ? "default" : "outline"} size="sm" onClick={() => setMediaType("image")}>
-                    <Image className="mr-1 h-4 w-4" /> Image
+                    <Image className="mr-1 h-4 w-4" /> {tr("Image")}
                   </Button>
                   <Button variant={mediaType === "video" ? "default" : "outline"} size="sm" onClick={() => setMediaType("video")}>
-                    <Video className="mr-1 h-4 w-4" /> Video
+                    <Video className="mr-1 h-4 w-4" /> {tr("Video")}
                   </Button>
                 </div>
 
@@ -230,7 +232,7 @@ const MediaStudio = () => {
                 <div className="flex flex-wrap gap-3">
                   <div className="min-w-[180px] flex-1">
                     <label className="mb-1 block text-xs font-medium text-muted-foreground">
-                      <Palette className="mr-1 inline h-3 w-3" /> Style preset
+                      <Palette className="mr-1 inline h-3 w-3" /> {tr("Style preset")}
                     </label>
                     <Select value={style} onValueChange={setStyle}>
                       <SelectTrigger className="h-9">
@@ -246,7 +248,7 @@ const MediaStudio = () => {
 
                   {mediaType === "image" ? (
                     <div className="w-32">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Variations</label>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">{tr("Variations")}</label>
                       <Select value={String(variations)} onValueChange={(value) => setVariations(Number(value))}>
                         <SelectTrigger className="h-9">
                           <SelectValue />
@@ -261,7 +263,7 @@ const MediaStudio = () => {
                     </div>
                   ) : (
                     <div className="w-40">
-                      <label className="mb-1 block text-xs font-medium text-muted-foreground">Video duration</label>
+                      <label className="mb-1 block text-xs font-medium text-muted-foreground">{tr("Video duration")}</label>
                       <Select value={String(videoDuration)} onValueChange={(value) => setVideoDuration(Number(value))}>
                         <SelectTrigger className="h-9">
                           <SelectValue />
@@ -296,13 +298,13 @@ const MediaStudio = () => {
                         ? "Daily video duration limit reached."
                         : mediaType === "video" && usage.isVideoLimitReached
                           ? "Daily video credit limit reached."
-                          : "Daily image credit limit reached."}
+                          : tr("Daily image credit limit reached.")}
                   </div>
                 ) : null}
 
                 <Button onClick={handleGenerate} disabled={!prompt.trim() || !canGenerate || createMedia.isPending}>
                   {createMedia.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
-                  {createMedia.isPending ? "Submitting..." : mediaType === "image" ? `Queue ${variations > 1 ? `${variations} image jobs` : "image job"}` : "Queue video job"}
+                  {createMedia.isPending ? "Submitting..." : mediaType === "image" ? `Queue ${variations > 1 ? `${variations} image jobs` : "image job"}` : tr("Queue video job")}
                 </Button>
               </CardContent>
             </Card>
@@ -311,8 +313,8 @@ const MediaStudio = () => {
           <TabsContent value="templates">
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Prompt templates</CardTitle>
-                <CardDescription>Pre-built prompts for image and video workflows.</CardDescription>
+                <CardTitle className="text-base">{tr("Prompt templates")}</CardTitle>
+                <CardDescription>{tr("Pre-built prompts for image and video workflows.")}</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -346,12 +348,12 @@ const MediaStudio = () => {
               <CardHeader>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <CardTitle className="text-base">Generated media</CardTitle>
-                    <CardDescription>Live queue states: queued, generating, completed, failed.</CardDescription>
+                    <CardTitle className="text-base">{tr("Generated media")}</CardTitle>
+                    <CardDescription>{tr("Live queue states: queued, generating, completed, failed.")}</CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
                     <Search className="h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="Search prompts..." value={gallerySearch} onChange={(event) => setGallerySearch(event.target.value)} className="h-8 w-52 text-xs" />
+                    <Input placeholder={tr("Search prompts...")} value={gallerySearch} onChange={(event) => setGallerySearch(event.target.value)} className="h-8 w-52 text-xs" />
                   </div>
                 </div>
               </CardHeader>
@@ -362,7 +364,7 @@ const MediaStudio = () => {
                   </div>
                 ) : !filteredGenerations.length ? (
                   <p className="py-12 text-center text-sm text-muted-foreground">
-                    {gallerySearch ? "No matching media found" : "No generations yet. Queue your first job above."}
+                    {gallerySearch ? "No matching media found" : tr("No generations yet. Queue your first job above.")}
                   </p>
                 ) : (
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -381,7 +383,7 @@ const MediaStudio = () => {
                               </div>
                             ) : (
                               <div className="group relative aspect-square bg-muted">
-                                <img src={generation.result_url} alt={generation.prompt || "Generated media"} className="h-full w-full object-cover" loading="lazy" />
+                                <img src={generation.result_url} alt={generation.prompt || tr("Generated media")} className="h-full w-full object-cover" loading="lazy" />
                                 {isVideo ? (
                                   <div className="absolute inset-0 flex items-center justify-center bg-background/20">
                                     <PlayCircle className="h-10 w-10 text-foreground" />
@@ -390,12 +392,12 @@ const MediaStudio = () => {
                                 <div className="absolute inset-0 flex items-center justify-center gap-2 bg-background/60 opacity-0 transition-opacity group-hover:opacity-100">
                                   <a href={generation.result_url} target="_blank" rel="noopener noreferrer">
                                     <Button size="sm" variant="secondary">
-                                      <ExternalLink className="mr-1 h-3 w-3" /> Open
+                                      <ExternalLink className="mr-1 h-3 w-3" /> {tr("Open")}
                                     </Button>
                                   </a>
                                   <a href={generation.result_url} download>
                                     <Button size="sm" variant="secondary">
-                                      <Download className="mr-1 h-3 w-3" /> Save
+                                      <Download className="mr-1 h-3 w-3" /> {tr("Save")}
                                     </Button>
                                   </a>
                                 </div>
@@ -436,7 +438,7 @@ const MediaStudio = () => {
                               </p>
                             ) : null}
                             <Button size="sm" variant="ghost" className="h-7 w-full text-xs" onClick={() => setPrompt(generation.prompt || "")}>
-                              <Copy className="mr-1 h-3 w-3" /> Reuse prompt
+                              <Copy className="mr-1 h-3 w-3" /> {tr("Reuse prompt")}
                             </Button>
                           </CardContent>
                         </Card>

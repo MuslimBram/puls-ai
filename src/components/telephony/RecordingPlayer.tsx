@@ -77,7 +77,7 @@ export const RecordingPlayer = ({ callRecordId, activeCallId, showControls = tru
         ) : (
           recordings.map((rec) => (
             <div key={rec.id} className="flex items-center gap-2 rounded-md border border-border p-2">
-              <Button
+              <Button aria-label="Play or pause"
                 variant="ghost"
                 size="icon"
                 className="h-7 w-7 shrink-0"
@@ -117,7 +117,7 @@ export const RecordingPlayer = ({ callRecordId, activeCallId, showControls = tru
                 )}
                 {rec.storage_url && (
                   <a href={rec.storage_url} download className="inline-flex">
-                    <Button variant="ghost" size="icon" className="h-6 w-6">
+                    <Button aria-label="Download" variant="ghost" size="icon" className="h-6 w-6">
                       <Download className="h-3 w-3" />
                     </Button>
                   </a>

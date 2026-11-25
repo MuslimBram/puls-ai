@@ -133,7 +133,7 @@ export const SoftphoneWidget = () => {
               <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => answerCall.mutate(call.id)}>
                 <Phone className="h-3 w-3 mr-1" /> Answer
               </Button>
-              <Button size="sm" variant="destructive" className="h-7 text-xs" onClick={() => endCall.mutate(call.id)}>
+              <Button aria-label="Close" size="sm" variant="destructive" className="h-7 text-xs" onClick={() => endCall.mutate(call.id)}>
                 <X className="h-3 w-3" />
               </Button>
             </div>
@@ -158,7 +158,7 @@ export const SoftphoneWidget = () => {
             <div className="flex items-center justify-center gap-2">
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
+                  <Button aria-label="Start or stop recording"
                     variant={isMuted ? "destructive" : "outline"}
                     size="icon"
                     className="h-9 w-9 rounded-full"
@@ -172,7 +172,7 @@ export const SoftphoneWidget = () => {
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
+                  <Button aria-label="Play or pause"
                     variant={myCall.status === "on_hold" ? "secondary" : "outline"}
                     size="icon"
                     className="h-9 w-9 rounded-full"
@@ -200,7 +200,7 @@ export const SoftphoneWidget = () => {
 
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button
+                  <Button aria-label="End call"
                     variant="destructive"
                     size="icon"
                     className="h-9 w-9 rounded-full"
@@ -257,7 +257,7 @@ export const SoftphoneWidget = () => {
                 <Phone className="h-3 w-3 mr-1" /> Call
               </Button>
               {dialNumber && (
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDialNumber("")}>
+                <Button aria-label="Close" variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDialNumber("")}>
                   <X className="h-3 w-3" />
                 </Button>
               )}

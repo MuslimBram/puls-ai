@@ -202,7 +202,7 @@ export const ComplianceDashboard = () => {
                         <TableCell className="text-xs text-muted-foreground">{s.reason || "—"}</TableCell>
                         <TableCell className="text-xs">{format(new Date(s.suppressed_at), "PP")}</TableCell>
                         <TableCell>
-                          <Button size="sm" variant="ghost" className="text-destructive h-7"
+                          <Button aria-label="Delete" size="sm" variant="ghost" className="text-destructive h-7"
                             onClick={() => removeSuppression.mutate(s.id)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>

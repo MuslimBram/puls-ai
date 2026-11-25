@@ -161,11 +161,11 @@ const BusinessProfile = () => {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
                 <Handshake className="h-7 w-7 text-muted-foreground" />
               </div>
-              <h2 className="text-center text-xl font-bold text-foreground">{tr(tr("Referrals Only"))}</h2>
+              <h2 className="text-center text-xl font-bold text-foreground">{tr("Referrals Only")}</h2>
               <p className="max-w-sm text-center text-sm text-muted-foreground">
-                {tr(tr("Your account is Ambassador type — you earn commission from business referrals. Business profile is not available for this account type."))}
+                {tr("Your account is Ambassador type — you earn commission from business referrals. Business profile is not available for this account type.")}
               </p>
-              <Button variant="outline" onClick={() => window.location.href = "/dashboard"} className="mt-2">{tr(tr("Back to Dashboard"))}</Button>
+              <Button variant="outline" onClick={() => window.location.href = "/dashboard"} className="mt-2">{tr("Back to Dashboard")}</Button>
             </CardContent>
           </Card>
         </div>
@@ -182,12 +182,12 @@ const BusinessProfile = () => {
               <div className="flex h-14 w-14 items-center justify-center rounded-full bg-destructive/10">
                 <Lock className="h-7 w-7 text-destructive" />
               </div>
-              <h2 className="text-center text-xl font-bold text-foreground">{tr(tr("Business Profile Locked"))}</h2>
+              <h2 className="text-center text-xl font-bold text-foreground">{tr("Business Profile Locked")}</h2>
               <p className="max-w-sm text-center text-sm text-muted-foreground">
-                {tr(tr("To complete the business profile, you need to purchase one of the plans (Start, Growth, PRO, or Enterprise) with your applicable discount."))}
-                <br /><br />{tr(tr("Each business you register requires its own plan."))}
+                {tr("To complete the business profile, you need to purchase one of the plans (Start, Growth, PRO, or Enterprise) with your applicable discount.")}
+                <br /><br />{tr("Each business you register requires its own plan.")}
               </p>
-              <Button onClick={() => window.location.href = "/complete-payment"} className="mt-2">{tr(tr("Buy Plan"))}</Button>
+              <Button onClick={() => window.location.href = "/complete-payment"} className="mt-2">{tr("Buy Plan")}</Button>
             </CardContent>
           </Card>
         </div>
@@ -203,8 +203,8 @@ const BusinessProfile = () => {
             <Building2 className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-foreground">{tr(tr("Business Profile"))}</h1>
-            <p className="text-sm text-muted-foreground">{tr(tr("Configure your business details so AI can suggest posts, competitors and audience"))}</p>
+            <h1 className="text-2xl font-bold text-foreground">{tr("Business Profile")}</h1>
+            <p className="text-sm text-muted-foreground">{tr("Configure your business details so AI can suggest posts, competitors and audience")}</p>
           </div>
         </div>
 
@@ -213,13 +213,13 @@ const BusinessProfile = () => {
             <CardContent className="flex items-start gap-3 py-4">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" />
               <div>
-                <p className="text-sm font-medium text-foreground">{tr(tr("Connect one channel to enable automated features"))}</p>
+                <p className="text-sm font-medium text-foreground">{tr("Connect one channel to enable automated features")}</p>
                 <p className="mt-1 text-xs text-muted-foreground">
                   Connect at least one channel to enable automated inbox, AI replies and channel-specific suggestions.
                   You currently have {socialChannelCount} channel{socialChannelCount !== 1 ? "s" : ""}.
                 </p>
                 <Button variant="outline" size="sm" className="mt-2" onClick={() => window.location.href = "/channels"}>
-                  <Link2 className="mr-1 h-3 w-3" /> {tr(tr("Connect Channels"))}
+                  <Link2 className="mr-1 h-3 w-3" /> {tr("Connect Channels")}
                 </Button>
               </div>
             </CardContent>
@@ -253,14 +253,14 @@ const BusinessProfile = () => {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">{tr(tr("Basic Information"))}</CardTitle>
-                <CardDescription>{tr(tr("Tell us about your business — more details mean better AI suggestions"))}</CardDescription>
+                <CardTitle className="text-lg">{tr("Basic Information")}</CardTitle>
+                <CardDescription>{tr("Tell us about your business — more details mean better AI suggestions")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <FormField control={form.control} name="business_name" render={({ field }) => (
                   <FormItem>
                     <FieldLabelWithGuide label={tr("Business Name *")} guide={getFieldGuide(businessProfileFieldGuides, "business_name")!} />
-                    <FormControl><Input placeholder={tr(tr("Your company name"))} {...field} /></FormControl>
+                    <FormControl><Input placeholder={tr("Your company name")} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -272,7 +272,7 @@ const BusinessProfile = () => {
                       onAiSuggest={() => aiSuggest("short_description", `Write a 1-2 sentence business description for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return only the description.`, (v) => form.setValue("short_description", v))}
                       isAiLoading={aiField === "short_description"}
                     />
-                    <FormControl><Textarea placeholder={tr(tr("Brief description of your business"))} rows={2} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder={tr("Brief description of your business")} rows={2} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -311,7 +311,7 @@ const BusinessProfile = () => {
                       onAiSuggest={() => aiSuggest("main_services", `List 3-5 main services for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return a comma-separated list.`, (v) => form.setValue("main_services", v))}
                       isAiLoading={aiField === "main_services"}
                     />
-                    <FormControl><Textarea placeholder={tr(tr("List your main services"))} rows={3} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder={tr("List your main services")} rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -323,7 +323,7 @@ const BusinessProfile = () => {
                       onAiSuggest={() => aiSuggest("mission_values", `Write a short mission statement for a ${form.getValues("industry") || "general"} company named "${form.getValues("business_name")}". Return 1-2 sentences.`, (v) => form.setValue("mission_values", v))}
                       isAiLoading={aiField === "mission_values"}
                     />
-                    <FormControl><Textarea placeholder={tr(tr("Your company's mission and core values"))} rows={3} {...field} /></FormControl>
+                    <FormControl><Textarea placeholder={tr("Your company's mission and core values")} rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -333,7 +333,7 @@ const BusinessProfile = () => {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">AI Configuration</CardTitle>
-                <CardDescription>{tr(tr("How should AI communicate on your behalf?"))}</CardDescription>
+                <CardDescription>{tr("How should AI communicate on your behalf?")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <BusinessProfileAiOrbitSelectors

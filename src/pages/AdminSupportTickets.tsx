@@ -132,7 +132,7 @@ export default function AdminSupportTickets() {
                   </div>
                   <div className="flex gap-2">
                     <Textarea rows={3} value={replyBody} onChange={(e) => setReplyBody(e.target.value)} placeholder="Reply..." />
-                    <Button onClick={handleReply} disabled={!replyBody.trim() || reply.isPending}>
+                    <Button aria-label="Send" onClick={handleReply} disabled={!replyBody.trim() || reply.isPending}>
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>

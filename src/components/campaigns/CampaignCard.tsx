@@ -34,9 +34,9 @@ export const CampaignCard = ({ campaign, onView, onDelete, onRegenerate, onLaunc
         </div>
       </div>
       <div className="flex gap-1 shrink-0">
-        <Button size="sm" variant="ghost" onClick={onView}><Eye className="h-4 w-4" /></Button>
+        <Button aria-label="Show" size="sm" variant="ghost" onClick={onView}><Eye className="h-4 w-4" /></Button>
         {campaign.status === "draft" && (
-          <Button size="sm" variant="ghost" onClick={onRegenerate} disabled={isRegenerating}>
+          <Button aria-label="Generate with AI" size="sm" variant="ghost" onClick={onRegenerate} disabled={isRegenerating}>
             <Sparkles className="h-4 w-4" />
           </Button>
         )}
@@ -45,7 +45,7 @@ export const CampaignCard = ({ campaign, onView, onDelete, onRegenerate, onLaunc
             <Send className="h-4 w-4 mr-1" /> Launch
           </Button>
         )}
-        <Button size="sm" variant="ghost" className="text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
+        <Button aria-label="Delete" size="sm" variant="ghost" className="text-destructive" onClick={onDelete}><Trash2 className="h-4 w-4" /></Button>
       </div>
     </CardContent>
   </Card>

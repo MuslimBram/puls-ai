@@ -279,7 +279,7 @@ export const AdminCommissionManager = () => {
                       <Button size="sm" variant="default" onClick={() => approveCommission.mutate(c.id)}>
                         <CheckCircle className="h-3 w-3 mr-1" /> Approve
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => cancelCommission.mutate(c.id)}>
+                      <Button aria-label="Close" size="sm" variant="outline" onClick={() => cancelCommission.mutate(c.id)}>
                         <XCircle className="h-3 w-3" />
                       </Button>
                     </div>

@@ -95,7 +95,7 @@ export const PricingComparison = ({ comparisonSections, currentPlanKey, planOrde
                               {row.featureTooltip ? (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button type="button" className="text-muted-foreground transition-colors hover:text-foreground">
+                                    <button aria-label="Help" type="button" className="text-muted-foreground transition-colors hover:text-foreground">
                                       <HelpCircle className="h-4 w-4" />
                                     </button>
                                   </TooltipTrigger>

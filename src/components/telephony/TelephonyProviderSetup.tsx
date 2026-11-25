@@ -269,7 +269,7 @@ export const TelephonyProviderSetup = () => {
                     onChange={(e) => setCreds((p) => ({ ...p, [field.key]: e.target.value }))}
                   />
                   {field.type === "password" && (
-                    <button
+                    <button aria-label="Show or hide"
                       type="button"
                       className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                       onClick={() => setShowPassword((p) => ({ ...p, [field.key]: !p[field.key] }))}
@@ -297,7 +297,7 @@ export const TelephonyProviderSetup = () => {
               </p>
               <div className="flex items-center gap-2 rounded-md bg-background border border-border p-2">
                 <code className="text-xs text-muted-foreground break-all flex-1">{webhookUrl}</code>
-                <Button size="sm" variant="ghost" onClick={copyWebhook}><Copy className="h-3.5 w-3.5" /></Button>
+                <Button aria-label="Copy" size="sm" variant="ghost" onClick={copyWebhook}><Copy className="h-3.5 w-3.5" /></Button>
               </div>
             </div>
             <div className="rounded-lg bg-muted/50 border border-border p-3 space-y-1">

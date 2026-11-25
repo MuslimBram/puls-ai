@@ -33,7 +33,7 @@ export const ActivationChecklist = () => {
             <p className="text-xs text-muted-foreground">Your workspace is set up. Time to scale — explore Analytics and Automations.</p>
           </div>
           <Link to="/analytics"><Button size="sm" variant="outline">View analytics</Button></Link>
-          <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => dismiss.mutate()}>
+          <Button aria-label="Close" size="icon" variant="ghost" className="h-7 w-7" onClick={() => dismiss.mutate()}>
             <X className="h-3.5 w-3.5" />
           </Button>
         </CardContent>

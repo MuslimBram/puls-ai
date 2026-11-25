@@ -111,7 +111,7 @@ export const ContactHubContent = () => {
                           <Badge key={t.id} variant="secondary" className="text-xs gap-1">
                             <Tag className="h-2.5 w-2.5" />
                             {t.tag_value}
-                            <button onClick={(e) => { e.stopPropagation(); removeTag.mutate(t.id); }}>
+                            <button aria-label="Close" onClick={(e) => { e.stopPropagation(); removeTag.mutate(t.id); }}>
                               <X className="h-2.5 w-2.5" />
                             </button>
                           </Badge>

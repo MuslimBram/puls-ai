@@ -1,3 +1,6 @@
+import { useTr, trNow } from "@/lib/uiSq";
+// Rezervë në nivel skedari për komponentët ndihmës pa hook.
+const tr = trNow;
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -56,6 +59,7 @@ const CHANNEL_OPTIONS = [
 ];
 
 const BroadcastMessaging = () => {
+  const tr = useTr();
   const { broadcasts, isLoading, createBroadcast, updateBroadcast, deleteBroadcast } = useBroadcasts();
   const { segments } = useContactSegments();
   const [showCreate, setShowCreate] = useState(false);
@@ -66,17 +70,17 @@ const BroadcastMessaging = () => {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Broadcast Messaging</h1>
-            <p className="text-sm text-muted-foreground">Send campaigns to contact segments across channels</p>
+            <h1 className="text-2xl font-bold text-foreground">{tr("Broadcast Messaging")}</h1>
+            <p className="text-sm text-muted-foreground">{tr("Send campaigns to contact segments across channels")}</p>
           </div>
           <Button onClick={() => setShowCreate(true)}>
-            <Plus className="mr-2 h-4 w-4" /> New Broadcast
+            <Plus className="mr-2 h-4 w-4" /> {tr("New Broadcast")}
           </Button>
         </div>
 
         <Tabs defaultValue="broadcasts">
           <TabsList>
-            <TabsTrigger value="broadcasts">Broadcasts</TabsTrigger>
+            <TabsTrigger value="broadcasts">{tr("Broadcasts")}</TabsTrigger>
             <TabsTrigger value="compliance">Compliance & Reputation</TabsTrigger>
           </TabsList>
 
@@ -87,11 +91,11 @@ const BroadcastMessaging = () => {
           <TabsContent value="broadcasts">
         <div className="flex items-center justify-between hidden">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Broadcast Messaging</h1>
-            <p className="text-sm text-muted-foreground">Send campaigns to contact segments across channels</p>
+            <h1 className="text-2xl font-bold text-foreground">{tr("Broadcast Messaging")}</h1>
+            <p className="text-sm text-muted-foreground">{tr("Send campaigns to contact segments across channels")}</p>
           </div>
           <Button onClick={() => setShowCreate(true)}>
-            <Plus className="mr-2 h-4 w-4" /> New Broadcast
+            <Plus className="mr-2 h-4 w-4" /> {tr("New Broadcast")}
           </Button>
         </div>
 
@@ -104,7 +108,7 @@ const BroadcastMessaging = () => {
               </div>
               <div>
                 <p className="text-xl font-bold text-foreground">{broadcasts.length}</p>
-                <p className="text-xs text-muted-foreground">Total Broadcasts</p>
+                <p className="text-xs text-muted-foreground">{tr("Total Broadcasts")}</p>
               </div>
             </CardContent>
           </Card>
@@ -117,7 +121,7 @@ const BroadcastMessaging = () => {
                 <p className="text-xl font-bold text-foreground">
                   {broadcasts.reduce((sum, b) => sum + (b.sent_count || 0), 0)}
                 </p>
-                <p className="text-xs text-muted-foreground">Total Sent</p>
+                <p className="text-xs text-muted-foreground">{tr("Total Sent")}</p>
               </div>
             </CardContent>
           </Card>
@@ -128,7 +132,7 @@ const BroadcastMessaging = () => {
               </div>
               <div>
                 <p className="text-xl font-bold text-foreground">{segments.length}</p>
-                <p className="text-xs text-muted-foreground">Segments</p>
+                <p className="text-xs text-muted-foreground">{tr("Segments")}</p>
               </div>
             </CardContent>
           </Card>
@@ -141,7 +145,7 @@ const BroadcastMessaging = () => {
                 <p className="text-xl font-bold text-foreground">
                   {broadcasts.filter((b) => b.status === "scheduled").length}
                 </p>
-                <p className="text-xs text-muted-foreground">Scheduled</p>
+                <p className="text-xs text-muted-foreground">{tr("Scheduled")}</p>
               </div>
             </CardContent>
           </Card>
@@ -156,10 +160,10 @@ const BroadcastMessaging = () => {
           <Card>
             <CardContent className="py-16 text-center">
               <Send className="mx-auto h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-lg font-medium text-foreground mb-2">No broadcasts yet</p>
-              <p className="text-sm text-muted-foreground mb-4">Send your first campaign message to a contact segment</p>
+              <p className="text-lg font-medium text-foreground mb-2">{tr("No broadcasts yet")}</p>
+              <p className="text-sm text-muted-foreground mb-4">{tr("Send your first campaign message to a contact segment")}</p>
               <Button onClick={() => setShowCreate(true)}>
-                <Plus className="mr-2 h-4 w-4" /> Create Broadcast
+                <Plus className="mr-2 h-4 w-4" /> {tr("Create Broadcast")}
               </Button>
             </CardContent>
           </Card>
@@ -196,10 +200,10 @@ const BroadcastMessaging = () => {
                       )}
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <Button size="sm" variant="ghost" onClick={() => setViewingBroadcast(broadcast)}>
+                      <Button aria-label={tr("Show")} size="sm" variant="ghost" onClick={() => setViewingBroadcast(broadcast)}>
                         <Eye className="h-4 w-4" />
                       </Button>
-                      <Button
+                      <Button aria-label={tr("Delete")}
                         size="sm"
                         variant="ghost"
                         className="text-destructive"
@@ -265,15 +269,15 @@ const CreateBroadcastDialog = ({
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>Create Broadcast</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{tr("Create Broadcast")}</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div>
-            <Label>Broadcast Name</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Spring Sale Announcement" />
+            <Label>{tr("Broadcast Name")}</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("Spring Sale Announcement")} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Channel</Label>
+              <Label>{tr("Channel")}</Label>
               <Select value={channelType} onValueChange={setChannelType}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -284,11 +288,11 @@ const CreateBroadcastDialog = ({
               </Select>
             </div>
             <div>
-              <Label>Segment</Label>
+              <Label>{tr("Segment")}</Label>
               <Select value={segmentId} onValueChange={setSegmentId}>
-                <SelectTrigger><SelectValue placeholder="Select segment" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tr("Select segment")} /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Contacts</SelectItem>
+                  <SelectItem value="all">{tr("All Contacts")}</SelectItem>
                   {segments.map((s) => (
                     <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
                   ))}
@@ -298,19 +302,19 @@ const CreateBroadcastDialog = ({
           </div>
           {channelType === "email" && (
             <div>
-              <Label>Subject Line</Label>
-              <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Don't miss our spring sale!" />
+              <Label>{tr("Subject Line")}</Label>
+              <Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder={tr("Don't miss our spring sale!")} />
             </div>
           )}
           <div>
-            <Label>Message</Label>
-            <Textarea value={messageContent} onChange={(e) => setMessageContent(e.target.value)} placeholder="Your broadcast message..." rows={4} />
+            <Label>{tr("Message")}</Label>
+            <Textarea value={messageContent} onChange={(e) => setMessageContent(e.target.value)} placeholder={tr("Your broadcast message...")} rows={4} />
           </div>
 
           {/* Compliance indicators */}
           {messageContent.length > 0 && (
             <div className="rounded-lg border border-border p-3 space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Compliance Check</p>
+              <p className="text-xs font-medium text-muted-foreground">{tr("Compliance Check")}</p>
               <div className="flex flex-wrap gap-2">
                 <Badge className={spamScore <= 20 ? "bg-green-500/10 text-green-700" : spamScore <= 50 ? "bg-yellow-500/10 text-yellow-700" : "bg-destructive/10 text-destructive"}>
                   {spamScore <= 20 ? <ShieldCheck className="h-3 w-3 mr-1" /> : <ShieldAlert className="h-3 w-3 mr-1" />}
@@ -318,11 +322,11 @@ const CreateBroadcastDialog = ({
                 </Badge>
                 <Badge className={hasUnsubscribeText ? "bg-green-500/10 text-green-700" : "bg-yellow-500/10 text-yellow-700"}>
                   {hasUnsubscribeText ? <CheckCircle className="h-3 w-3 mr-1" /> : <XCircle className="h-3 w-3 mr-1" />}
-                  {hasUnsubscribeText ? "Opt-out included" : "No opt-out text"}
+                  {hasUnsubscribeText ? "Opt-out included" : tr("No opt-out text")}
                 </Badge>
                 {needsApproval && (
                   <Badge className="bg-yellow-500/10 text-yellow-700">
-                    <ShieldAlert className="h-3 w-3 mr-1" /> Requires approval
+                    <ShieldAlert className="h-3 w-3 mr-1" /> {tr("Requires approval")}
                   </Badge>
                 )}
               </div>
@@ -347,12 +351,12 @@ const CreateBroadcastDialog = ({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={onClose}>{tr("Cancel")}</Button>
           <Button
             disabled={!name.trim() || !messageContent.trim() || spamScore > 80}
             onClick={() => {
               if (spamScore > 50 && !hasUnsubscribeText && channelType === "email") {
-                toast.warning("Consider adding opt-out text before sending.");
+                toast.warning(tr("Consider adding opt-out text before sending."));
               }
               onCreate({
                 name,
@@ -366,7 +370,7 @@ const CreateBroadcastDialog = ({
               });
             }}
           >
-            {needsApproval ? "Submit for Approval" : scheduledAt ? "Schedule" : "Create Draft"}
+            {needsApproval ? "Submit for Approval" : scheduledAt ? "Schedule" : tr("Create Draft")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -397,31 +401,31 @@ const BroadcastDetailDialog = ({ broadcast, onClose }: { broadcast: Broadcast; o
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <p className="text-2xl font-bold text-foreground">{broadcast.delivered_count}</p>
-              <p className="text-xs text-muted-foreground">Delivered</p>
+              <p className="text-xs text-muted-foreground">{tr("Delivered")}</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <p className="text-2xl font-bold text-foreground">{openRate}%</p>
-              <p className="text-xs text-muted-foreground">Open Rate</p>
+              <p className="text-xs text-muted-foreground">{tr("Open Rate")}</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <p className="text-2xl font-bold text-foreground">{clickRate}%</p>
-              <p className="text-xs text-muted-foreground">Click Rate</p>
+              <p className="text-xs text-muted-foreground">{tr("Click Rate")}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-border p-3 text-center">
               <p className="text-2xl font-bold text-foreground">{responseRate}%</p>
-              <p className="text-xs text-muted-foreground">Response Rate</p>
+              <p className="text-xs text-muted-foreground">{tr("Response Rate")}</p>
             </div>
             <div className="rounded-lg border border-border p-3 text-center">
               <p className="text-2xl font-bold text-foreground">{broadcast.failed_count}</p>
-              <p className="text-xs text-muted-foreground">Failed</p>
+              <p className="text-xs text-muted-foreground">{tr("Failed")}</p>
             </div>
           </div>
 
           <div className="rounded-lg bg-muted p-3">
-            <p className="text-xs font-medium text-muted-foreground mb-1">Message</p>
+            <p className="text-xs font-medium text-muted-foreground mb-1">{tr("Message")}</p>
             <p className="text-sm text-foreground">{broadcast.message_content}</p>
           </div>
         </div>

@@ -214,7 +214,7 @@ export const AdminSocialChannelManager = ({ businesses }: AdminSocialChannelMana
                       <p className="text-xs text-muted-foreground mt-0.5">{creds.account_url}</p>
                     )}
                   </div>
-                  <Button
+                  <Button aria-label="Delete"
                     variant="ghost"
                     size="sm"
                     onClick={() => removeChannel.mutate(ch.id)}

@@ -135,7 +135,7 @@ export const TelegramSetup = () => {
                 value={botToken}
                 onChange={(e) => setBotToken(e.target.value)}
               />
-              <Button variant="outline" onClick={handleTestConnection} disabled={testing || saving}>
+              <Button aria-label="Loading" variant="outline" onClick={handleTestConnection} disabled={testing || saving}>
                 {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Test"}
               </Button>
             </div>

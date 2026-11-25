@@ -94,13 +94,13 @@ const LeadQualification = () => {
                     </Badge>
                   </div>
                   <div className="flex gap-1">
-                    <Button size="sm" variant="ghost" onClick={() => setViewingFlow(flow)}>
+                    <Button aria-label="Show" size="sm" variant="ghost" onClick={() => setViewingFlow(flow)}>
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => setEditingFlow(flow)}>
+                    <Button aria-label="Settings" size="sm" variant="ghost" onClick={() => setEditingFlow(flow)}>
                       <Settings className="h-4 w-4" />
                     </Button>
-                    <Button
+                    <Button aria-label="Delete"
                       size="sm"
                       variant="ghost"
                       className="text-destructive"
@@ -237,7 +237,7 @@ const FlowEditor = ({
                           onChange={(e) => updateQuestion(idx, { score_weight: Number(e.target.value) })}
                           placeholder="Weight"
                         />
-                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => removeQuestion(idx)}>
+                        <Button aria-label="Delete" size="sm" variant="ghost" className="text-destructive" onClick={() => removeQuestion(idx)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>

@@ -213,10 +213,10 @@ export const FAQManager = () => {
                       checked={faq.isActive}
                       onCheckedChange={(v) => updateFaq(faq.id, { isActive: v })}
                     />
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditingFaq(faq)}>
+                    <Button aria-label="Edit" size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setEditingFaq(faq)}>
                       <Edit2 className="h-3 w-3" />
                     </Button>
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteFaq(faq.id)}>
+                    <Button aria-label="Delete" size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => deleteFaq(faq.id)}>
                       <Trash2 className="h-3 w-3" />
                     </Button>
                   </div>

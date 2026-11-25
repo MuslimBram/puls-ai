@@ -125,10 +125,10 @@ export const IvrBuilderPanel = () => {
                   ) : (
                     <Badge variant="outline" className="text-[10px]">Draft</Badge>
                   )}
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); publishFlow.mutate(flow.id); }}>
+                  <Button aria-label="Upload" variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => { e.stopPropagation(); publishFlow.mutate(flow.id); }}>
                     <Upload className="h-3 w-3" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); deleteFlow.mutate(flow.id); }}>
+                  <Button aria-label="Delete" variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={(e) => { e.stopPropagation(); deleteFlow.mutate(flow.id); }}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
                 </div>
@@ -184,7 +184,7 @@ export const IvrBuilderPanel = () => {
                             {String(node.config.message || node.config.prompt || node.config.target_queue || "Click to configure")}
                           </p>
                         </div>
-                        <Button
+                        <Button aria-label="Delete"
                           variant="ghost"
                           size="icon"
                           className="h-5 w-5 shrink-0"

@@ -125,7 +125,7 @@ const PartnerDashboard = () => {
             <CardContent>
               <div className="flex items-center gap-2">
                 <Input readOnly value={referralLink} className="font-mono text-xs bg-background" />
-                <Button size="sm" variant="outline" onClick={copyLink}>
+                <Button aria-label="Copy" size="sm" variant="outline" onClick={copyLink}>
                   {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>

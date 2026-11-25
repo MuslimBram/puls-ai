@@ -54,7 +54,7 @@ export const ChatWidget = ({ channelId, businessName }: ChatWidgetProps) => {
 
   if (!open) {
     return (
-      <Button
+      <Button aria-label="Message"
         onClick={() => setOpen(true)}
         className="fixed bottom-6 right-6 z-50 h-14 w-14 rounded-full shadow-lg"
         size="icon"
@@ -68,7 +68,7 @@ export const ChatWidget = ({ channelId, businessName }: ChatWidgetProps) => {
     <Card className="fixed bottom-6 right-6 z-50 w-80 shadow-xl">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm">{businessName || "Chat with us"}</CardTitle>
-        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)}>
+        <Button aria-label="Close" variant="ghost" size="icon" className="h-6 w-6" onClick={() => setOpen(false)}>
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>

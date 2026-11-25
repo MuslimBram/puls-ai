@@ -248,7 +248,7 @@ export default function LeahChatRuntime() {
                 <button type="button" onClick={() => wrapSelection("~~", "~~", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Strikethrough"><Strikethrough className="h-4 w-4" /></button>
                 <button type="button" onClick={() => wrapSelection("[", "](https://)", "teksti")} className="rounded p-2 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Insert link"><Link2 className="h-4 w-4" /></button>
                 {attachments.length > 0 && <span className="ml-2 text-xs text-muted-foreground">{attachments.length} skedar{attachments.length === 1 ? "" : "ë"} gati</span>}
-                <Button type="submit" size="icon" className="ml-auto h-10 w-10 shrink-0" disabled={loading || initializing || !input.trim() || !session}><Send className="h-4 w-4" /></Button>
+                <Button aria-label="Send" type="submit" size="icon" className="ml-auto h-10 w-10 shrink-0" disabled={loading || initializing || !input.trim() || !session}><Send className="h-4 w-4" /></Button>
               </div>
             </form></CardContent></Card>}
     </div>

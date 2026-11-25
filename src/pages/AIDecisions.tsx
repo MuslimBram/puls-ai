@@ -146,7 +146,7 @@ const AIDecisions = () => {
                         <Button size="sm" onClick={() => executeAction.mutate(a.id)} disabled={executeAction.isPending}>
                           <CheckCircle2 className="h-4 w-4 mr-1" /> Execute
                         </Button>
-                        <Button size="sm" variant="ghost" onClick={() => dismissAction.mutate(a.id)}>
+                        <Button aria-label="Close" size="sm" variant="ghost" onClick={() => dismissAction.mutate(a.id)}>
                           <XCircle className="h-4 w-4" />
                         </Button>
                       </div>

@@ -301,7 +301,7 @@ export const FreelancerBusinessPurchase = ({ isFreelancer }: FreelancerBusinessP
                       className="flex-1"
                     />
                     {channels.length > 2 && (
-                      <Button
+                      <Button aria-label="Delete"
                         type="button"
                         variant="ghost"
                         size="icon"

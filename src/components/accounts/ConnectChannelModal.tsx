@@ -84,7 +84,7 @@ export const ConnectChannelModal = ({ open, onOpenChange }: Props) => {
         <DialogHeader className="p-6 pb-4 border-b border-border">
           <div className="flex items-center gap-3">
             {selected && (
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={reset}>
+              <Button aria-label="Back" variant="ghost" size="icon" className="h-7 w-7" onClick={reset}>
                 <ArrowLeft className="h-4 w-4" />
               </Button>
             )}

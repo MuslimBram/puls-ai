@@ -134,7 +134,7 @@ export default function OAuthConsent() {
           )}
 
           <div className="flex gap-2 pt-2">
-            <Button onClick={() => decide(true)} disabled={busy} className="flex-1">
+            <Button aria-label="Loading" onClick={() => decide(true)} disabled={busy} className="flex-1">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : "Approve"}
             </Button>
             <Button onClick={() => decide(false)} disabled={busy} variant="outline" className="flex-1">

@@ -446,7 +446,7 @@ export default function LidhjetFeed() {
                           onChange={(e) => setNewCommentText(e.target.value)}
                           className="text-xs"
                         />
-                        <Button
+                        <Button aria-label="Loading"
                           size="sm"
                           onClick={() => handleAddComment(post.id)}
                           disabled={submittingComment || !newCommentText.trim()}

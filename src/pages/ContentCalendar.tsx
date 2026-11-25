@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState } from "react";
 // Content Calendar - renders as standalone content (embedded in Campaigns page)
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +64,7 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const ContentCalendar = () => {
+  const tr = useTr();
   const [statusFilter, setStatusFilter] = useState("all");
   const [scanUrl, setScanUrl] = useState("");
   const [genType, setGenType] = useState("promotional");
@@ -121,16 +123,16 @@ const ContentCalendar = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Content Calendar</h1>
+        <h1 className="text-2xl font-bold text-foreground">{tr("Content Calendar")}</h1>
       </div>
 
         <Tabs defaultValue="generate" className="space-y-4">
           <TabsList>
-            <TabsTrigger value="generate">Generate</TabsTrigger>
+            <TabsTrigger value="generate">{tr("Generate")}</TabsTrigger>
             <TabsTrigger value="posts">Posts ({posts?.length || 0})</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsTrigger value="calendar">{tr("Calendar")}</TabsTrigger>
             <TabsTrigger value="ideas">Ideas ({ideas?.length || 0})</TabsTrigger>
-            <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+            <TabsTrigger value="knowledge">{tr("Knowledge Base")}</TabsTrigger>
           </TabsList>
 
           {/* GENERATE TAB */}
@@ -140,7 +142,7 @@ const ContentCalendar = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <Globe className="h-4 w-4" /> Scan Website
+                    <Globe className="h-4 w-4" /> {tr("Scan Website")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -163,7 +165,7 @@ const ContentCalendar = () => {
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <Sparkles className="h-4 w-4" /> Generate Posts
+                    <Sparkles className="h-4 w-4" /> {tr("Generate Posts")}
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
@@ -187,7 +189,7 @@ const ContentCalendar = () => {
                     <span className="self-center text-sm text-muted-foreground">posts</span>
                   </div>
                   <Textarea
-                    placeholder="Optional: custom instructions..."
+                    placeholder={tr("Optional: custom instructions...")}
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     rows={2}
@@ -221,7 +223,7 @@ const ContentCalendar = () => {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : !posts?.length ? (
-              <Card><CardContent className="py-12 text-center text-muted-foreground">No posts yet. Generate some content!</CardContent></Card>
+              <Card><CardContent className="py-12 text-center text-muted-foreground">{tr("No posts yet. Generate some content!")}</CardContent></Card>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {posts.map((post) => {
@@ -261,11 +263,11 @@ const ContentCalendar = () => {
                         )}
 
                         <div className="flex gap-1 pt-2">
-                          <Button size="sm" variant="ghost" onClick={() => openEdit(post)}>
+                          <Button aria-label={tr("Edit")} size="sm" variant="ghost" onClick={() => openEdit(post)}>
                             <Edit className="h-3 w-3" />
                           </Button>
                           {post.status === "draft" && (
-                            <Button size="sm" variant="ghost" onClick={() => handleApprove(post)}>
+                            <Button aria-label={tr("Confirm")} size="sm" variant="ghost" onClick={() => handleApprove(post)}>
                               <Check className="h-3 w-3" />
                             </Button>
                           )}
@@ -275,7 +277,7 @@ const ContentCalendar = () => {
                                 <Button size="sm" variant="ghost"><Clock className="h-3 w-3" /></Button>
                               </DialogTrigger>
                               <DialogContent>
-                                <DialogHeader><DialogTitle>Schedule Post</DialogTitle></DialogHeader>
+                                <DialogHeader><DialogTitle>{tr("Schedule Post")}</DialogTitle></DialogHeader>
                                 <Input
                                   type="datetime-local"
                                   onChange={(e) => {
@@ -285,7 +287,7 @@ const ContentCalendar = () => {
                               </DialogContent>
                             </Dialog>
                           )}
-                          <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteMutation.mutate(post.id)}>
+                          <Button aria-label={tr("Delete")} size="sm" variant="ghost" className="text-destructive" onClick={() => deleteMutation.mutate(post.id)}>
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
@@ -340,7 +342,7 @@ const ContentCalendar = () => {
           {/* IDEAS TAB */}
           <TabsContent value="ideas" className="space-y-4">
             {!ideas?.length ? (
-              <Card><CardContent className="py-12 text-center text-muted-foreground">No ideas yet. Generate content to populate ideas.</CardContent></Card>
+              <Card><CardContent className="py-12 text-center text-muted-foreground">{tr("No ideas yet. Generate content to populate ideas.")}</CardContent></Card>
             ) : (
               <div className="space-y-2">
                 {ideas.map((idea) => (
@@ -363,7 +365,7 @@ const ContentCalendar = () => {
           {/* KNOWLEDGE BASE TAB */}
           <TabsContent value="knowledge" className="space-y-4">
             {!knowledge?.length ? (
-              <Card><CardContent className="py-12 text-center text-muted-foreground">No sources scanned yet. Scan your website to build your knowledge base.</CardContent></Card>
+              <Card><CardContent className="py-12 text-center text-muted-foreground">{tr("No sources scanned yet. Scan your website to build your knowledge base.")}</CardContent></Card>
             ) : (
               <div className="space-y-3">
                 {knowledge.map((k: any) => (
@@ -387,16 +389,16 @@ const ContentCalendar = () => {
         {/* Edit Dialog */}
         <Dialog open={!!editingPost} onOpenChange={(open) => !open && setEditingPost(null)}>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Edit Post</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{tr("Edit Post")}</DialogTitle></DialogHeader>
             <div className="space-y-4">
               <Textarea
                 value={editCaption}
                 onChange={(e) => setEditCaption(e.target.value)}
                 rows={6}
-                placeholder="Post caption..."
+                placeholder={tr("Post caption...")}
               />
               <div>
-                <p className="text-sm font-medium mb-2">Target Networks</p>
+                <p className="text-sm font-medium mb-2">{tr("Target Networks")}</p>
                 <div className="flex flex-wrap gap-3">
                   {NETWORKS.map((n) => (
                     <label key={n} className="flex items-center gap-1.5 text-sm capitalize">

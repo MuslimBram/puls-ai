@@ -94,7 +94,7 @@ const PublicApiPage = () => {
                         <p className="text-sm text-muted-foreground">Copy this key now — it won't be shown again.</p>
                         <div className="flex gap-2">
                           <Input value={createdKey} readOnly className="font-mono text-xs" />
-                          <Button variant="outline" size="icon" onClick={() => copyToClipboard(createdKey)}>
+                          <Button aria-label="Copy" variant="outline" size="icon" onClick={() => copyToClipboard(createdKey)}>
                             <Copy className="h-4 w-4" />
                           </Button>
                         </div>
@@ -166,7 +166,7 @@ const PublicApiPage = () => {
                         </TableCell>
                         <TableCell>
                           {key.is_active && (
-                            <Button variant="ghost" size="icon" onClick={() => revokeKey.mutate(key.id)}>
+                            <Button aria-label="Delete" variant="ghost" size="icon" onClick={() => revokeKey.mutate(key.id)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           )}
@@ -228,7 +228,7 @@ const PublicApiPage = () => {
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" onClick={() => removeWebhook.mutate(wh.id)}>
+                          <Button aria-label="Delete" variant="ghost" size="icon" onClick={() => removeWebhook.mutate(wh.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </TableCell>
@@ -296,7 +296,7 @@ const PublicApiPage = () => {
                     <code className="bg-background px-3 py-1.5 rounded text-xs font-mono flex-1 overflow-x-auto">
                       {`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-api`}
                     </code>
-                    <Button variant="outline" size="icon" onClick={() => copyToClipboard(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-api`)}>
+                    <Button aria-label="Copy" variant="outline" size="icon" onClick={() => copyToClipboard(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/public-api`)}>
                       <Copy className="h-4 w-4" />
                     </Button>
                   </div>

@@ -184,7 +184,7 @@ export const AdminRefundPanel = () => {
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button
+                      <Button aria-label="Show"
                         size="sm"
                         variant="ghost"
                         onClick={() => setExpandedUsage(expandedUsage === r.id ? null : r.id)}

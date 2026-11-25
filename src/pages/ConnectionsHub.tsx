@@ -260,7 +260,7 @@ const ConnectionsHub = () => {
                               onCheckedChange={(checked) => toggleChannel.mutate({ id: ch.id, is_enabled: checked })}
                             />
                             {canDisconnect && (
-                              <Button
+                              <Button aria-label="Delete"
                                 variant="ghost"
                                 size="icon"
                                 className="text-destructive"

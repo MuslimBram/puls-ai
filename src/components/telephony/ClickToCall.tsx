@@ -30,7 +30,7 @@ export const ClickToCall = ({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button
+        <Button aria-label="Call"
           variant={variant}
           size={size}
           className="h-7 w-7 text-primary"
