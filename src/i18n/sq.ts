@@ -218,7 +218,7 @@ export default {
         },
         howMuch: {
           q: "Sa kushton?",
-          a: "Planet fillojnë nga 9,900 ALL/muaj (Start), 19,900 ALL/muaj (Growth), 39,900 ALL/muaj (Pro) dhe 79,900 ALL/muaj (Enterprise). Merrni zbritje për angazhime më të gjata: 5% për 3 muaj, 10% për 6 muaj, 15% vjetore.",
+          a: "Paketat: Standard 9,900 ALL/muaj, Professional 19,900 ALL/muaj, Advanced 39,900 ALL/muaj dhe Enterprise me ofertë. Zbritje për angazhime më të gjata: 5% për 3 muaj, 10% për 6 muaj, 20% vjetore. Provë falas 7 ditë.",
         },
         freeTrial: {
           q: "A mund ta provoj falas?",

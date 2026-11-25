@@ -45,7 +45,7 @@ type Tier = {
 const WL_TIERS: Tier[] = [
   {
     key: "launch", oneTimeAll: 1000000, maintenanceAll: 1000000 * MAINTENANCE_RATE / 12, clients: 50,
-    name: { sq: "White Label – Limited 50", en: "White Label – Limited 50" },
+    name: { sq: "White Label 50", en: "White Label 50" },
     desc: { sq: "Për menaxherë rrjetesh sociale dhe agjenci të vogla që nisin me markën e tyre.", en: "For social media managers and small agencies starting under their own brand." },
     features: {
       sq: ["Logoja, ngjyrat dhe emri juaj", "Deri në 50 klientë (biznese)", "Inbox, CRM, AI dhe automatizime për çdo klient", "Mirëmbajtja: 20% e licencës në vit (hostimi, databaza, AI, përditësimet)", "Mbështetje me email dhe chat"],
@@ -54,11 +54,11 @@ const WL_TIERS: Tier[] = [
   },
   {
     key: "growth", oneTimeAll: 5000000, maintenanceAll: 5000000 * MAINTENANCE_RATE / 12, clients: 300, highlighted: true,
-    name: { sq: "White Label – Unlimited 300", en: "White Label – Unlimited 300" },
+    name: { sq: "White Label 300", en: "White Label 300" },
     desc: { sq: "Për agjenci me shumë klientë që duan domenin dhe markën e tyre të plotë.", en: "For agencies with many clients that want their own domain and full brand." },
     features: {
-      sq: ["Gjithçka te Limited 50", "Deri në 300 klientë (biznese)", "Domeni juaj dhe email-et me markën tuaj", "Trajnim për ekipin dhe ndihmë në nisje", "Mbështetje me përparësi (24 orë)"],
-      en: ["Everything in Limited 50", "Up to 300 clients (businesses)", "Your own domain and branded emails", "Team training and onboarding help", "Priority support (24h)"],
+      sq: ["Gjithçka te White Label 50", "Deri në 300 klientë (biznese)", "Domeni juaj dhe email-et me markën tuaj", "Trajnim për ekipin dhe ndihmë në nisje", "Mbështetje me përparësi (24 orë)"],
+      en: ["Everything in White Label 50", "Up to 300 clients (businesses)", "Your own domain and branded emails", "Team training and onboarding help", "Priority support (24h)"],
     },
   },
   {
@@ -66,8 +66,8 @@ const WL_TIERS: Tier[] = [
     name: { sq: "White Label – Premium Unlimited", en: "White Label – Premium Unlimited" },
     desc: { sq: "Për agjenci të mëdha dhe rrjete që duan klientë pa kufi.", en: "For large agencies and networks that want unlimited clients." },
     features: {
-      sq: ["Gjithçka te Unlimited 300", "Klientë (biznese) pa kufi", "Menaxher i dedikuar llogarie", "Integrime të posaçme dhe API", "Rishikim strategjik çdo 3 muaj"],
-      en: ["Everything in Unlimited 300", "Unlimited clients (businesses)", "Dedicated account manager", "Custom integrations and API access", "Quarterly strategy review"],
+      sq: ["Gjithçka te White Label 300", "Klientë (biznese) pa kufi", "Menaxher i dedikuar llogarie", "Integrime të posaçme dhe API", "Rishikim strategjik çdo 3 muaj"],
+      en: ["Everything in White Label 300", "Unlimited clients (businesses)", "Dedicated account manager", "Custom integrations and API access", "Quarterly strategy review"],
     },
   },
   {
@@ -133,7 +133,7 @@ const WhiteLabel = () => {
 
   const apply = useMutation({
     mutationFn: async () => {
-      if (!user) throw new Error("Sign in first so we can link the application to your account.");
+      if (!user) throw new Error(isSq ? "Hyni fillimisht, që aplikimi të lidhet me llogarinë tuaj." : "Sign in first so we can link the application to your account.");
       const { error } = await supabase.from("white_label_partners" as never).insert({
         user_id: user.id,
         contact_name: form.contact_name,
@@ -148,7 +148,7 @@ const WhiteLabel = () => {
       if (error) throw error;
     },
     onSuccess: () => {
-      toast.success("Application sent. Our team will contact you within 2 business days.");
+      toast.success(isSq ? "Aplikimi u dërgua. Ekipi ynë do t'ju kontaktojë brenda 2 ditëve të punës." : "Application sent. Our team will contact you within 2 business days.");
       setForm({ contact_name: "", contact_email: "", phone: "", brand_name: "", desired_domain: "", expected_clients: "", message: "" });
     },
     onError: (e: Error) => toast.error(e.message),
@@ -246,7 +246,7 @@ const WhiteLabel = () => {
                         document.getElementById("apply")?.scrollIntoView({ behavior: "smooth" });
                       }}
                     >
-                      {tier.oneTimeAll ? `${isActive ? L.selected : L.choose}: ${tier.name[lang].replace("White Label – ", "")}` : L.quote}
+                      {tier.oneTimeAll ? `${isActive ? L.selected : L.choose}: ${tier.name[lang].replace("White Label – ", "").replace("White Label ", "")}` : L.quote}
                     </Button>
                   </CardContent>
                 </Card>
@@ -298,10 +298,10 @@ const WhiteLabel = () => {
       <section id="apply" className="mx-auto max-w-2xl px-4 pb-20">
         <Card>
           <CardHeader>
-            <CardTitle>Apply for White-Label</CardTitle>
+            <CardTitle>{isSq ? "Apliko për White Label" : "Apply for White Label"}</CardTitle>
             <CardDescription>
-              {activeTier ? (isSq ? `Paketa e zgjedhur: ${activeTier.name.sq}.` : `Selected package: ${activeTier.name.en}.`) : (isSq ? "Zgjidh një paketë më sipër." : "Choose a package above, then apply.")} Our
-              team reviews every application before activation.
+              {activeTier ? (isSq ? `Paketa e zgjedhur: ${activeTier.name.sq}.` : `Selected package: ${activeTier.name.en}.`) : (isSq ? "Zgjidh një paketë më sipër." : "Choose a package above, then apply.")}{" "}
+              {isSq ? "Ekipi ynë shqyrton çdo aplikim para aktivizimit." : "Our team reviews every application before activation."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -326,24 +326,24 @@ const WhiteLabel = () => {
                 <Input id="wl-phone" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="wl-brand">Brand name</Label>
+                <Label htmlFor="wl-brand">{isSq ? "Emri i markës" : "Brand name"}</Label>
                 <Input id="wl-brand" value={form.brand_name} onChange={(e) => setForm({ ...form, brand_name: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="wl-domain">Desired domain</Label>
-                <Input id="wl-domain" placeholder="app.yourbrand.com" value={form.desired_domain} onChange={(e) => setForm({ ...form, desired_domain: e.target.value })} />
+                <Label htmlFor="wl-domain">{isSq ? "Domeni i dëshiruar" : "Desired domain"}</Label>
+                <Input id="wl-domain" placeholder={isSq ? "app.marka-juaj.com" : "app.yourbrand.com"} value={form.desired_domain} onChange={(e) => setForm({ ...form, desired_domain: e.target.value })} />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="wl-clients">Expected clients</Label>
+                <Label htmlFor="wl-clients">{isSq ? "Numri i pritur i klientëve" : "Expected clients"}</Label>
                 <Input id="wl-clients" type="number" min={0} value={form.expected_clients} onChange={(e) => setForm({ ...form, expected_clients: e.target.value })} />
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="wl-message">Anything else?</Label>
+              <Label htmlFor="wl-message">{isSq ? "Diçka tjetër?" : "Anything else?"}</Label>
               <Textarea id="wl-message" rows={4} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
             </div>
             <Button className="w-full" disabled={!canSubmit || !user} onClick={() => apply.mutate()}>
-              {apply.isPending ? "Sending…" : "Send application"}
+              {apply.isPending ? (isSq ? "Duke dërguar…" : "Sending…") : (isSq ? "Dërgo aplikimin" : "Send application")}
             </Button>
           </CardContent>
         </Card>

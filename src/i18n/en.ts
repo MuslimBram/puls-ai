@@ -218,7 +218,7 @@ export default {
         },
         howMuch: {
           q: "How much does it cost?",
-          a: "Plans start at 9,900 ALL/month (Start), 19,900 ALL/month (Growth), 39,900 ALL/month (Pro), and 79,900 ALL/month (Enterprise). You get discounts for longer commitments: 5% for 3 months, 10% for 6 months, 15% yearly.",
+          a: "Packages: Standard 9,900 ALL/month, Professional 19,900 ALL/month, Advanced 39,900 ALL/month and Enterprise on quote. Discounts for longer commitments: 5% for 3 months, 10% for 6 months, 20% yearly. 7-day free trial.",
         },
         freeTrial: {
           q: "Can I try it for free?",

@@ -28,6 +28,6 @@ alter table public.white_label_packages
   add column if not exists one_time_price_all numeric(14,2),
   add column if not exists monthly_maintenance_all numeric(14,2);
 
-update public.white_label_packages set name = 'White Label – Limited 50',        one_time_price_all = 1000000,  monthly_maintenance_all = 16666.67,  included_clients = 50,  updated_at = now() where package_key = 'launch';
-update public.white_label_packages set name = 'White Label – Unlimited 300',     one_time_price_all = 5000000,  monthly_maintenance_all = 83333.33, included_clients = 300, updated_at = now() where package_key = 'growth';
+update public.white_label_packages set name = 'White Label 50',                   one_time_price_all = 1000000,  monthly_maintenance_all = 16666.67,  included_clients = 50,  updated_at = now() where package_key = 'launch';
+update public.white_label_packages set name = 'White Label 300',                  one_time_price_all = 5000000,  monthly_maintenance_all = 83333.33, included_clients = 300, updated_at = now() where package_key = 'growth';
 update public.white_label_packages set name = 'White Label – Premium Unlimited', one_time_price_all = 10000000, monthly_maintenance_all = 166666.67, included_clients = -1,  updated_at = now() where package_key = 'agency';

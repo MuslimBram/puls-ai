@@ -7,15 +7,19 @@ const mainLinks = [
   { key: "nav.standalone.pricing", href: "/pricing" },
   { key: "nav.standalone.security", href: "/security" },
   { key: "nav.company.about", href: "/about" },
+  { key: "nav.business.whiteLabel", href: "/white-label" },
   { key: "nav.company.contact", href: "/contact" },
 ] as const;
 
+// Pa përsëritje: Siguria dhe Kontakti janë te lidhjet kryesore.
 const legalLinks = [
   { key: "footer.links.privacy", href: "/privacy" },
   { key: "footer.links.terms", href: "/terms" },
   { key: "footer.links.cookies", href: "/cookies" },
-  { key: "footer.links.security", href: "/security" },
-  { key: "footer.links.contact", href: "/contact" },
+  { key: "footerWave4.termsAndPayments", href: "/terms-and-payments" },
+  { key: "footerWave4.refund", href: "/refund" },
+  { key: "footerWave4.affiliateTerms", href: "/affiliate-terms" },
+  { key: "footer.links.dpa", href: "/dpa" },
 ] as const;
 
 export const GlobalFooter = () => {

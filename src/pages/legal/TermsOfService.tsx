@@ -75,12 +75,16 @@ export default function TermsOfService() {
                   "Çdo biznes i ri merr një provë falas 7-ditore me funksionalitet të plotë.",
                   "Abonimet rinovohen automatikisht derisa të anulohen.",
                   "Çmimet shfaqen pa TVSH aty ku aplikohet.",
+                  "Zbritje për angazhim: 5% për 3 muaj, 10% për 6 muaj, 20% për 12 muaj.",
+                  "White Label: licenca paguhet një herë ose në 6 këste mujore; mirëmbajtja është 20% e licencës në vit. Kodi i plotë pa logo jepet vetëm me kontratë licence, pa të drejtë rishitjeje të kodit.",
                   "Anulimi ndalon rinovimin e ardhshëm; aksesi vazhdon deri në fund të periudhës.",
                 ]
               : [
                   "Every new business gets a 7-day free trial with full functionality.",
                   "Subscriptions renew automatically until cancelled.",
                   "Prices are shown excluding VAT where applicable.",
+                  "Commitment discounts: 5% for 3 months, 10% for 6 months, 20% for 12 months.",
+                  "White Label: the licence is paid once or in 6 monthly instalments; maintenance is 20% of the licence per year. The unbranded full source code is provided only under a licence contract, without the right to resell the code.",
                   "Cancellation stops the next renewal; access continues until the period ends.",
                 ]).map((item) => <li key={item}>{item}</li>)}
           </ul>
