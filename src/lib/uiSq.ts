@@ -86,7 +86,7 @@ export const UI_SQ: Record<string, string> = {
   // ── Hyrja: të tjera ──
   "Failed to send code": "Kodi nuk u dërgua", "Error during Authenticator setup": "Gabim gjatë konfigurimit të Authenticator", "Wrong code": "Kod i gabuar",
   "Enter": "Hyr", "Verify": "Verifiko", "Cancel": "Anulo", "QR Code for Authenticator": "Kodi QR për Authenticator", "Code from Email": "Kodi nga email-i",
-  "Code from Authenticator": "Kodi nga Authenticator", "Verify & Sign In": "Verifiko & hyr", "Signing in...": "Duke hyrë...", "OR": "OSE",
+  "Code from Authenticator": "Kodi nga Authenticator", "Verify & Sign In": "Verifiko & hyr", "Signing in...": "Duke hyrë...", "OR": "OSE", "or": "ose", "Active": "Aktiv", "Disabled": "Joaktiv",
   "Google OAuth error:": "Gabim në hyrjen me Google:", "Facebook OAuth error:": "Gabim në hyrjen me Facebook:", "Apple OAuth error:": "Gabim në hyrjen me Apple:",
   "Google login failed:": "Hyrja me Google dështoi:", "Facebook login failed:": "Hyrja me Facebook dështoi:", "Apple login failed:": "Hyrja me Apple dështoi:",
 

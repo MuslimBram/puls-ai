@@ -367,7 +367,7 @@ const Dashboard = () => {
                         <Badge variant="secondary" className="text-xs">{ch.channel_type}</Badge>
                       </div>
                       <Badge variant={ch.is_enabled ? "default" : "secondary"}>
-                        {ch.is_enabled ? "Active" : "Disabled"}
+                        {ch.is_enabled ? tr("Active") : tr("Disabled")}
                       </Badge>
                     </div>
                   ))

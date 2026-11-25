@@ -508,12 +508,12 @@ const Register = () => {
                   <ArrowLeft className="mr-2 h-4 w-4" /> Back
                 </Button>
                 <Button type="submit" className="flex-1" disabled={loading}>
-                  {loading ? "Creating account..." : "Create Account"}
+                  {loading ? tr("Creating account...") : tr("Create Account")}
                 </Button>
               </div>
               <div className="relative w-full">
                 <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
-                <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">or</span></div>
+                <div className="relative flex justify-center text-xs uppercase"><span className="bg-card px-2 text-muted-foreground">{tr("or")}</span></div>
               </div>
               <Button
                 type="button"
