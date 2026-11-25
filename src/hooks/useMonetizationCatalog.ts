@@ -5,6 +5,8 @@ import type { Database, Json } from "@/integrations/supabase/types";
 import type { Plan, PlanFeatures, PlanKey } from "@/types/monetization";
 import { DEFAULT_PLAN_KEY, FEATURE_KEYS, isPlanKey } from "@/types/monetization";
 import { toast } from "@/components/ui/sonner";
+import { useTranslation } from "react-i18next";
+import { trPricing } from "@/lib/pricingSq";
 
 const baseFeatures = FEATURE_KEYS.reduce((acc, key) => {
   acc[key] = false;
@@ -185,12 +187,31 @@ export const useMonetizationCatalog = () => {
     staleTime: 30000,
   });
 
+  // Tekstet e databazës në gjuhën e zgjedhur (shqip/anglisht).
+  const { i18n } = useTranslation();
+  const lang = i18n.language;
+  const localized = useMemo(() => {
+    const plans = (plansQuery.data?.plans ?? []).map((p) => ({
+      ...p,
+      description: trPricing(p.description, lang),
+      cta: trPricing(p.cta, lang),
+      badgeLabel: p.badgeLabel ? trPricing(p.badgeLabel, lang) : p.badgeLabel,
+    }));
+    const plansByKey = Object.fromEntries(plans.map((p) => [p.key, p])) as Record<PlanKey, MonetizationPlanRecord>;
+    const comparisonSections = (comparisonQuery.data ?? []).map((sec) => ({
+      ...sec,
+      title: trPricing(sec.title, lang),
+      rows: sec.rows.map((r) => ({ ...r, featureName: trPricing(r.featureName, lang) })),
+    }));
+    return { plans, plansByKey, comparisonSections };
+  }, [plansQuery.data, comparisonQuery.data, lang]);
+
   return {
-    plans: plansQuery.data?.plans ?? [],
-    plansByKey: plansQuery.data?.plansByKey ?? ({} as Record<PlanKey, MonetizationPlanRecord>),
+    plans: localized.plans,
+    plansByKey: localized.plansByKey,
     planOrder: plansQuery.data?.planOrder ?? ([] as PlanKey[]),
     donations: plansQuery.data?.donations ?? [],
-    comparisonSections: comparisonQuery.data ?? [],
+    comparisonSections: localized.comparisonSections,
     defaultPlanKey: (plansQuery.data?.planOrder?.[0] as PlanKey | undefined) ?? DEFAULT_PLAN_KEY,
     isLoading: plansQuery.isLoading || comparisonQuery.isLoading,
   };

@@ -11,11 +11,13 @@ import { toast } from "@/components/ui/sonner";
 import { Mail, Lock, Zap, ShieldCheck, Loader2, RefreshCw, Smartphone, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthDialogShell } from "@/components/auth/AuthDialogShell";
+import { useTr } from "@/lib/uiSq";
 
 type TwoFAMethod = "choose" | "authenticator" | "authenticator_enroll" | "email";
 type LoginStep = "credentials" | "security_code" | "2fa";
 
 const Login = () => {
+  const tr = useTr();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -119,7 +121,7 @@ const Login = () => {
       });
 
       if (error || !data?.verified) {
-        toast.error("Wrong security code!");
+        toast.error(tr("Wrong security code!"));
         setVerifyingSecCode(false);
         return;
       }
@@ -129,7 +131,7 @@ const Login = () => {
       setLoginStep("2fa");
       setTwoFAMethod("choose");
     } catch {
-      toast.error("Error verifying code");
+      toast.error(tr("Error verifying code"));
     }
     setVerifyingSecCode(false);
   };
@@ -160,7 +162,7 @@ const Login = () => {
         setTwoFAMethod("authenticator_enroll");
       }
     } catch {
-      toast.error("Error checking Authenticator");
+      toast.error(tr("Error checking Authenticator"));
     }
     setEnrolling(false);
     setOtpCode("");
@@ -173,9 +175,9 @@ const Login = () => {
     if (result) {
       setMaskedEmail(result.email || email);
       if (result.sent) {
-        toast.success("Code sent to your email");
+        toast.success(tr("Code sent to your email"));
       } else {
-        toast.error("Email was not sent. Check email configuration.");
+        toast.error(tr("Email was not sent. Check email configuration."));
       }
     }
   };
@@ -184,7 +186,7 @@ const Login = () => {
     setResending(true);
     const result = await sendOTPCode();
     if (result?.sent) {
-      toast.success("New code sent to email");
+      toast.success(tr("New code sent to email"));
     }
     setResending(false);
   };
@@ -211,10 +213,10 @@ const Login = () => {
         return;
       }
 
-      toast.success("Verification successful!");
+      toast.success(tr("Verification successful!"));
       navigate(postAuthTarget);
     } catch {
-      toast.error("Verification error");
+      toast.error(tr("Verification error"));
     }
     setVerifying2FA(false);
   };
@@ -241,17 +243,17 @@ const Login = () => {
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <ShieldCheck className="h-6 w-6 text-primary-foreground" />
             </div>
-            <CardTitle className="text-2xl">Security Code</CardTitle>
+            <CardTitle className="text-2xl">{tr("Security Code")}</CardTitle>
             <CardDescription>
-              Enter your personal security code to continue
+              {tr("Enter your personal security code to continue")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="sec-code">Your code</Label>
+              <Label htmlFor="sec-code">{tr("Your code")}</Label>
               <Input
                 id="sec-code"
-                placeholder="e.g. Aabc@.123"
+                placeholder={tr("e.g. Aabc@.123")}
                 value={securityCode}
                 onChange={(e) => setSecurityCode(e.target.value)}
                 maxLength={9}
@@ -295,8 +297,8 @@ const Login = () => {
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <ShieldCheck className="h-6 w-6 text-primary-foreground" />
             </div>
-            <CardTitle className="text-2xl">Two-Factor Verification</CardTitle>
-            <CardDescription>Choose verification method</CardDescription>
+            <CardTitle className="text-2xl">{tr("Two-Factor Verification")}</CardTitle>
+            <CardDescription>{tr("Choose verification method")}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <Button
@@ -315,7 +317,7 @@ const Login = () => {
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-foreground">Google Authenticator</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Use the Authenticator app on your phone
+                  {tr("Use the Authenticator app on your phone")}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <ShieldCheck className="h-3 w-3 text-green-500" />
@@ -333,13 +335,13 @@ const Login = () => {
                 <Mail className="h-5 w-5 text-orange-500" />
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-foreground">Email Code</p>
+                <p className="text-sm font-semibold text-foreground">{tr("Email Code")}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  Send a 6-digit code to your email
+                  {tr("Send a 6-digit code to your email")}
                 </p>
                 <div className="flex items-center gap-1 mt-1">
                   <AlertTriangle className="h-3 w-3 text-orange-500" />
-                  <span className="text-[10px] text-orange-600 font-medium">Less secure</span>
+                  <span className="text-[10px] text-orange-600 font-medium">{tr("Less secure")}</span>
                 </div>
               </div>
             </Button>
@@ -365,9 +367,9 @@ const Login = () => {
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <ShieldCheck className="h-6 w-6 text-primary-foreground" />
             </div>
-            <CardTitle className="text-xl">Setup Google Authenticator</CardTitle>
+            <CardTitle className="text-xl">{tr("Setup Google Authenticator")}</CardTitle>
             <CardDescription>
-              Scan the QR code with Google Authenticator app or enter the manual code
+              {tr("Scan the QR code with Google Authenticator app or enter the manual code")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -381,7 +383,7 @@ const Login = () => {
 
             {totpSecret && (
               <div className="rounded-lg border border-border bg-muted/50 p-3 text-center">
-                <p className="text-xs text-muted-foreground mb-1">Manual code:</p>
+                <p className="text-xs text-muted-foreground mb-1">{tr("Manual code:")}</p>
                 <p className="font-mono text-sm font-bold text-foreground tracking-wider break-all select-all">
                   {totpSecret}
                 </p>
@@ -389,7 +391,7 @@ const Login = () => {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="enroll-otp">Enter the 6-digit code from Authenticator</Label>
+              <Label htmlFor="enroll-otp">{tr("Enter the 6-digit code from Authenticator")}</Label>
               <Input
                 id="enroll-otp"
                 placeholder="000000"
@@ -440,12 +442,12 @@ const Login = () => {
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
               <ShieldCheck className="h-6 w-6 text-primary-foreground" />
             </div>
-            <CardTitle className="text-2xl">Security Verification</CardTitle>
+            <CardTitle className="text-2xl">{tr("Security Verification")}</CardTitle>
             <CardDescription>
               {isEmail ? (
-                <>We sent a 6-digit code to <strong>{maskedEmail}</strong></>
+                <>{tr("We sent a 6-digit code to")} <strong>{maskedEmail}</strong></>
               ) : (
-                <>Enter the 6-digit code from Google Authenticator app</>
+                <>{tr("Enter the 6-digit code from Google Authenticator app")}</>
               )}
             </CardDescription>
           </CardHeader>
@@ -479,7 +481,7 @@ const Login = () => {
                 {resending ? (
                   <><Loader2 className="h-3 w-3 animate-spin mr-1" /> Sending...</>
                 ) : (
-                  <><RefreshCw className="h-3 w-3 mr-1" /> Resend code</>
+                  <><RefreshCw className="h-3 w-3 mr-1" /> {tr("Resend code")}</>
                 )}
               </Button>
             )}
@@ -488,7 +490,7 @@ const Login = () => {
               <div className="rounded-lg bg-orange-500/10 border border-orange-500/20 p-3 flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5 shrink-0" />
                 <p className="text-xs text-orange-700 dark:text-orange-400">
-                  Email code is less secure than Google Authenticator. We recommend using Authenticator for maximum security.
+                  {tr("Email code is less secure than Google Authenticator. We recommend using Authenticator for maximum security.")}
                 </p>
               </div>
             )}
@@ -525,13 +527,13 @@ const Login = () => {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-xl bg-primary">
             <Zap className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl">Sign In</CardTitle>
-          <CardDescription>Enter your credentials to sign in</CardDescription>
+          <CardTitle className="text-2xl">{tr("Sign In")}</CardTitle>
+          <CardDescription>{tr("Enter your credentials to sign in")}</CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{tr("Email")}</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -547,9 +549,9 @@ const Login = () => {
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{tr("Password")}</Label>
                 <Link to="/forgot-password" className="text-xs text-primary hover:underline">
-                  Forgot password?
+                  {tr("Forgot password?")}
                 </Link>
               </div>
               <div className="relative">
@@ -587,11 +589,11 @@ const Login = () => {
                     redirect_uri: oauthRedirect,
                   });
                   if (error) {
-                    toast.error("Google login failed: " + String(error));
+                    toast.error(tr("Google login failed: ") + String(error));
                   }
                 } catch (err) {
                   console.error("Google OAuth error:", err);
-                  toast.error("Could not connect to Google. Please try again.");
+                  toast.error(tr("Could not connect to Google. Please try again."));
                 }
               }}
             >
@@ -601,7 +603,7 @@ const Login = () => {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
               </svg>
-              Continue with Google
+              {tr("Continue with Google")}
             </Button>
 
             {/* Facebook button */}
@@ -616,16 +618,16 @@ const Login = () => {
                     redirect_uri: oauthRedirect,
                   });
                   if (error) {
-                    toast.error("Facebook login failed: " + String(error));
+                    toast.error(tr("Facebook login failed: ") + String(error));
                   }
                 } catch (err) {
                   console.error("Facebook OAuth error:", err);
-                  toast.error("Could not connect to Facebook. Please try again.");
+                  toast.error(tr("Could not connect to Facebook. Please try again."));
                 }
               }}
             >
               <span className="mr-2 flex h-4 w-4 items-center justify-center rounded-full bg-[#1877F2] text-[11px] font-bold leading-none text-white">f</span>
-              Continue with Facebook
+              {tr("Continue with Facebook")}
             </Button>
 
             {/* Apple button */}
@@ -640,24 +642,24 @@ const Login = () => {
                     redirect_uri: oauthRedirect,
                   });
                   if (error) {
-                    toast.error("Apple login failed: " + String(error));
+                    toast.error(tr("Apple login failed: ") + String(error));
                   }
                 } catch (err) {
                   console.error("Apple OAuth error:", err);
-                  toast.error("Could not connect to Apple. Please try again.");
+                  toast.error(tr("Could not connect to Apple. Please try again."));
                 }
               }}
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
               </svg>
-              Continue with Apple
+              {tr("Continue with Apple")}
             </Button>
 
             <p className="text-sm text-muted-foreground">
               Don't have an account?{" "}
               <Link to="/register" className="text-primary hover:underline">
-                Sign up
+                {tr("Sign up")}
               </Link>
             </p>
           </CardFooter>
