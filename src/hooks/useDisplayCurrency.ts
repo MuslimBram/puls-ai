@@ -58,5 +58,14 @@ export function useDisplayCurrency() {
     return "≈ " + formatCurrency(Math.round(converted), currency);
   };
 
-  return { currency, setCurrency: setDisplayCurrency, fromALL, isIndicative: currency !== "ALL" };
+  /** Shuma në një monedhë bazë (EUR/USD/ALL) → monedha e zgjedhur; e saktë kur monedhat përputhen, ndryshe ≈. */
+  const fromBase = (amount: number | null | undefined, base: SupportedCurrency): string => {
+    const v = typeof amount === "number" && Number.isFinite(amount) ? amount : 0;
+    if (base === currency) return formatCurrency(v, currency);
+    const eur = v / STATIC_FX_PREVIEW[base];
+    const out = currency === "EUR" ? eur : previewFromEUR(eur, currency);
+    return "≈ " + formatCurrency(currency === "ALL" ? Math.round(out / 100) * 100 : Math.round(out), currency);
+  };
+
+  return { currency, setCurrency: setDisplayCurrency, fromALL, fromBase, isIndicative: currency !== "ALL" };
 }

@@ -24,6 +24,8 @@ interface WhiteLabelPackage {
   description: string | null;
   setup_fee: number;
   monthly_licence: number;
+  monthly_price_eur?: number | null;
+  annual_licence_eur?: number | null;
   revenue_share_percent: number;
   included_clients: number;
   features: string[];
@@ -31,21 +33,34 @@ interface WhiteLabelPackage {
   sort_order: number;
 }
 
-// Çmimet e konkurrentëve në Lek (orientuese); shfaqen në monedhën që zgjedh vizitori.
+// Çmimet e pronarit në Euro (2026-11-25): tarifa mujore për databazën & AI-në + licenca vjetore.
+// Përdoren kur databaza ende nuk i ka kolonat monthly_price_eur / annual_licence_eur.
+const OWNER_EUR: Record<string, { monthly: number; annual: number }> = {
+  launch: { monthly: 60, annual: 1700 },
+  growth: { monthly: 100, annual: 2800 },
+  agency: { monthly: 180, annual: 4500 },
+};
+
+// Çmime publike të tregut (USD, nëntor 2026) – për krahasim.
 const COMPETITORS = [
-  { name: "GoHighLevel", setup: 0, monthly: [49700], prefix: "~", note: { en: "Flat, everything included", sq: "Çmim i njëjtë, gjithçka e përfshirë" } },
-  { name: "DashClicks", setup: 0, monthly: [9700], prefix: "from", note: { en: "Add-ons billed separately", sq: "Shtesat paguhen veç" } },
-  { name: "SuiteDash", setup: 0, monthly: [1400, 6900], prefix: "", note: { en: "Wholesale, limited scope", sq: "Shitje me shumicë, mundësi të kufizuara" } },
-  { name: "Salesforge", setup: 0, monthly: [0], prefix: "", note: { en: "80/20 revenue split instead", sq: "Ndarje e të ardhurave 80/20" } },
+  { name: "GoHighLevel (Unlimited / SaaS Pro)", monthly: [297, 497], yearly: null, note: { en: "Unlimited sub-accounts; WhatsApp and AI usage billed extra", sq: "Nën-llogari pa kufi; WhatsApp dhe AI paguhen veç" } },
+  { name: "Vendasta", monthly: [499], prefix: "from", yearly: null, note: { en: "White-label from the $499 minimum, 1-year contract", sq: "White-label nga minimumi $499, kontratë 1-vjeçare" } },
+  { name: "DM Champ (Agency)", monthly: [297, 497], yearly: null, note: { en: "10 clients ($27 each extra) or unlimited", sq: "10 klientë ($27 secili shtesë) ose pa kufi" } },
+  { name: "Convocore", monthly: [199, 349], yearly: null, note: { en: "20 clients or unlimited, + 0.5% on payments", sq: "20 klientë ose pa kufi, + 0.5% e pagesave" } },
+  { name: "Stammer.ai", monthly: [99], prefix: "from", yearly: null, note: { en: "AI chat/voice agents only, $10 per extra agent", sq: "Vetëm agjentë AI chat/zë, $10 për agjent shtesë" } },
 ];
 
 const WhiteLabel = () => {
   const { t, i18n } = useTranslation();
   const isSq = i18n.language?.startsWith("sq");
-  const { fromALL: formatALL, isIndicative } = useDisplayCurrency();
+  const { fromBase, currency } = useDisplayCurrency();
+  const eur = (pkg: WhiteLabelPackage) => ({
+    monthly: pkg.monthly_price_eur ?? OWNER_EUR[pkg.package_key]?.monthly ?? 0,
+    annual: pkg.annual_licence_eur ?? OWNER_EUR[pkg.package_key]?.annual ?? 0,
+  });
   const L = isSq
-    ? { packages: "Paketat", perMonth: "licencë në muaj", setup: "Tarifa e nisjes", once: "një herë", mostChosen: "Më e zgjedhura", orShare: (n: number) => `Ose ${n}% e të ardhurave në vend të licencës fikse`, unlimited: "Hapësira klientësh pa kufi", clients: (n: number) => `${n} hapësira klientësh`, compare: "Krahasimi", provider: "Ofruesi", setupCol: "Nisja", monthly: "Në muaj", notes: "Shënime", from: "nga", ours: "Mbështetja, hostimi dhe përditësimet të përfshira", note: "Mbështetja dhe mirëmbajtja përfshihen në licencën mujore – nuk ka faturë të veçantë mirëmbajtjeje. Çmimet nuk përfshijnë TVSH-në kur aplikohet.", fx: "Çmimet në EUR/USD janë orientuese, sipas kursit; fatura del në Lek." }
-    : { packages: "Packages", perMonth: "per month licence", setup: "Setup fee", once: "one time", mostChosen: "Most chosen", orShare: (n: number) => `Or ${n}% revenue share instead of the fixed licence`, unlimited: "Unlimited client workspaces", clients: (n: number) => `${n} client workspaces`, compare: "How we compare", provider: "Provider", setupCol: "Setup", monthly: "Monthly", notes: "Notes", from: "from", ours: "Support, hosting and updates included", note: "Support and maintenance are included in the monthly licence — there is no separate maintenance invoice. Prices exclude VAT where applicable.", fx: "EUR/USD prices are indicative at the current rate; invoices are issued in ALL." };
+    ? { packages: "Paketat", perMonth: "në muaj · databaza & AI", setup: "Licenca vjetore", once: "në vit", mostChosen: "Më e zgjedhura", orShare: (n: number) => `Ose ${n}% e të ardhurave në vend të licencës fikse`, unlimited: "Hapësira klientësh pa kufi", clients: (n: number) => `${n} hapësira klientësh`, compare: "Krahasimi", provider: "Ofruesi", setupCol: "Licenca / vit", monthly: "Në muaj", notes: "Shënime", from: "nga", ours: "Databaza, AI-ja, hostimi, mbështetja dhe përditësimet të përfshira", note: "Tarifa mujore mbulon databazën dhe AI-në; licenca vjetore mbulon markën tuaj, mbështetjen dhe përditësimet. Çmimet nuk përfshijnë TVSH-në kur aplikohet. Çmimet e konkurrentëve janë publike, në USD, nëntor 2026.", fx: "Çmimet në monedhë tjetër nga Euro janë orientuese (≈), sipas kursit; fatura del në Euro." }
+    : { packages: "Packages", perMonth: "per month · database & AI", setup: "Annual licence", once: "per year", mostChosen: "Most chosen", orShare: (n: number) => `Or ${n}% revenue share instead of the fixed licence`, unlimited: "Unlimited client workspaces", clients: (n: number) => `${n} client workspaces`, compare: "How we compare", provider: "Provider", setupCol: "Licence / year", monthly: "Monthly", notes: "Notes", from: "from", ours: "Database, AI, hosting, support and updates included", note: "The monthly fee covers the database and AI; the annual licence covers your brand, support and updates. Prices exclude VAT where applicable. Competitor prices are public list prices in USD, November 2026.", fx: "Prices in currencies other than Euro are indicative (≈) at the current rate; invoices are issued in EUR." };
   const { user } = useAuth();
   const { localizedPath } = usePublicLocale();
   const [selected, setSelected] = useState<string | null>(null);
@@ -166,10 +181,10 @@ const WhiteLabel = () => {
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col gap-4">
                     <div>
-                      <p className="text-3xl font-semibold text-foreground">{formatALL(pkg.monthly_licence)}</p>
+                      <p className="text-3xl font-semibold text-foreground">{fromBase(eur(pkg).monthly, "EUR")}</p>
                       <p className="text-xs text-muted-foreground">{L.perMonth}</p>
                       <p className="mt-2 text-sm text-muted-foreground">
-                        {L.setup}: <span className="font-medium text-foreground">{formatALL(pkg.setup_fee)}</span> ({L.once})
+                        {L.setup}: <span className="font-medium text-foreground">{fromBase(eur(pkg).annual, "EUR")}</span> {L.once}
                       </p>
                       {pkg.revenue_share_percent > 0 && (
                         <p className="text-sm text-muted-foreground">
@@ -204,7 +219,7 @@ const WhiteLabel = () => {
           </div>
         )}
         <p className="mt-4 text-xs text-muted-foreground">
-          {L.note}{isIndicative ? " " + L.fx : ""}
+          {L.note}{currency !== "EUR" ? " " + L.fx : ""}
           Prices exclude VAT where applicable.
         </p>
       </section>
@@ -225,15 +240,15 @@ const WhiteLabel = () => {
               {COMPETITORS.map((c) => (
                 <tr key={c.name} className="border-t border-border">
                   <td className="px-4 py-3 text-muted-foreground">{c.name}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{formatALL(c.setup)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{c.prefix === "from" ? L.from + " " : c.prefix}{c.monthly.map((v) => formatALL(v)).join(" – ")}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{c.yearly ? fromBase(c.yearly, "USD") : "—"}</td>
+                  <td className="px-4 py-3 text-muted-foreground">{"prefix" in c && c.prefix === "from" ? L.from + " " : ""}{c.monthly.map((v) => fromBase(v, "USD")).join(" – ")}</td>
                   <td className="px-4 py-3 text-muted-foreground">{isSq ? c.note.sq : c.note.en}</td>
                 </tr>
               ))}
               <tr className="border-t border-border bg-primary/5">
                 <td className="px-4 py-3 font-semibold text-foreground">Pulse AI White-Label</td>
-                <td className="px-4 py-3 text-foreground">{formatALL(150000)} – {formatALL(400000)}</td>
-                <td className="px-4 py-3 text-foreground">{formatALL(45000)} – {formatALL(160000)}</td>
+                <td className="px-4 py-3 text-foreground">{fromBase(1700, "EUR")} – {fromBase(4500, "EUR")}</td>
+                <td className="px-4 py-3 text-foreground">{fromBase(60, "EUR")} – {fromBase(180, "EUR")}</td>
                 <td className="px-4 py-3 text-foreground">{L.ours}</td>
               </tr>
             </tbody>
