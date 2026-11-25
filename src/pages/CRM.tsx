@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -15,6 +16,7 @@ import { Users, Phone } from "lucide-react";
 import { CoachTour } from "@/components/CoachTour";
 
 const CRM = () => {
+  const tr = useTr();
   const [searchParams] = useSearchParams();
   const defaultTab = searchParams.get("tab") || "pipeline";
   const { stages, isLoading: stagesLoading, initStages } = usePipelineStages();
@@ -56,11 +58,11 @@ const CRM = () => {
 
         <Tabs defaultValue={defaultTab}>
           <TabsList data-tour="crm-tabs">
-            <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-            <TabsTrigger value="tasks">Tasks</TabsTrigger>
-            <TabsTrigger value="analytics">Analytics</TabsTrigger>
-            <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />Contacts</TabsTrigger>
-            <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" />Calls</TabsTrigger>
+            <TabsTrigger value="pipeline">{tr("Pipeline")}</TabsTrigger>
+            <TabsTrigger value="tasks">{tr("Tasks")}</TabsTrigger>
+            <TabsTrigger value="analytics">{tr(tr("Analytics"))}</TabsTrigger>
+            <TabsTrigger value="contacts"><Users className="h-3.5 w-3.5 mr-1" />{tr(tr("Contacts"))}</TabsTrigger>
+            <TabsTrigger value="calls"><Phone className="h-3.5 w-3.5 mr-1" />{tr("Calls")}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="pipeline" data-tour="crm-pipeline">
@@ -121,8 +123,8 @@ const CRM = () => {
       <CoachTour
         tourId="crm-v1"
         steps={[
-          { selector: '[data-tour="crm-tabs"]', title: "Your CRM at a glance", body: "Switch between pipeline, tasks, contacts and call history. Everything stays connected." },
-          { selector: '[data-tour="crm-pipeline"]', title: "Drag deals across stages", body: "Move deals through your sales process. Stage changes trigger automations and notifications." },
+          { selector: '[data-tour="crm-tabs"]', title: tr("Your CRM at a glance"), body: tr("Switch between pipeline, tasks, contacts and call history. Everything stays connected.") },
+          { selector: '[data-tour="crm-pipeline"]', title: tr("Drag deals across stages"), body: tr("Move deals through your sales process. Stage changes trigger automations and notifications.") },
         ]}
       />
     </DashboardLayout>

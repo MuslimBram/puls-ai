@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState, useEffect } from "react";
 import { InboxEmptyState } from "@/components/EmptyState";
 import { DashboardLayout } from "@/components/DashboardLayout";
@@ -21,6 +22,7 @@ import { CoachTour } from "@/components/CoachTour";
 import { useSendMessage } from "@/hooks/useSendMessage";
 
 const Inbox = () => {
+  const tr = useTr();
   const [filters, setFilters] = useState<InboxFilters>({});
   const [selectedMsg, setSelectedMsg] = useState<any>(null);
   const [selectedThreadMessages, setSelectedThreadMessages] = useState<any[]>([]);
@@ -101,39 +103,39 @@ const Inbox = () => {
         <Card data-tour="inbox-filters">
           <CardContent className="flex flex-wrap items-center gap-3 pt-4 pb-4">
             <Search className="h-4 w-4 text-muted-foreground" />
-            <Input placeholder="Search messages..." className="w-48" value={filters.search ?? ""} onChange={(e) => handleFilterChange((f) => ({ ...f, search: e.target.value || undefined }))} />
+            <Input placeholder={tr(tr("Search messages..."))} className="w-48" value={filters.search ?? ""} onChange={(e) => handleFilterChange((f) => ({ ...f, search: e.target.value || undefined }))} />
             <Select value={filters.channelType ?? "all"} onValueChange={(v) => handleFilterChange((f) => ({ ...f, channelType: v === "all" ? undefined : v }))}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="Channel" /></SelectTrigger>
+              <SelectTrigger className="w-36"><SelectValue placeholder={tr("Channel")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All channels</SelectItem>
+                <SelectItem value="all">{tr(tr("All channels"))}</SelectItem>
                 <SelectItem value="telegram">Telegram</SelectItem>
                 <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="website_chat">Website Chat</SelectItem>
+                <SelectItem value="email">{tr(tr("Email"))}</SelectItem>
+                <SelectItem value="website_chat">{tr(tr("Website Chat"))}</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filters.priority ?? "all"} onValueChange={(v) => handleFilterChange((f) => ({ ...f, priority: v === "all" ? undefined : v }))}>
-              <SelectTrigger className="w-32"><SelectValue placeholder="Priority" /></SelectTrigger>
+              <SelectTrigger className="w-32"><SelectValue placeholder={tr("Priority")} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="normal">Normal</SelectItem>
+                <SelectItem value="urgent">{tr("Urgent")}</SelectItem>
+                <SelectItem value="high">{tr("High")}</SelectItem>
+                <SelectItem value="normal">{tr("Normal")}</SelectItem>
                 <SelectItem value="low">Low</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filters.status ?? "all"} onValueChange={(v) => handleFilterChange((f) => ({ ...f, status: v === "all" ? undefined : v }))}>
-              <SelectTrigger className="w-32"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="w-32"><SelectValue placeholder={tr("Status")} /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
                 <SelectItem value="new">New</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="waiting">Waiting</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
+                <SelectItem value="in_progress">{tr("In Progress")}</SelectItem>
+                <SelectItem value="waiting">{tr("Waiting")}</SelectItem>
+                <SelectItem value="resolved">{tr("Resolved")}</SelectItem>
+                <SelectItem value="closed">{tr("Closed")}</SelectItem>
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="sm" onClick={() => { setPage(0); setFilters({}); }}>Clear</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setPage(0); setFilters({}); }}>{tr("Clear")}</Button>
           </CardContent>
         </Card>
 
@@ -201,29 +203,29 @@ const Inbox = () => {
         {/* Message Detail */}
         <Dialog open={!!selectedMsg} onOpenChange={() => { setSelectedMsg(null); setSelectedThreadMessages([]); }}>
           <DialogContent className="flex h-[92dvh] max-h-[92dvh] w-[calc(100vw-0.75rem)] flex-col overflow-hidden p-3 sm:max-w-2xl sm:p-5">
-            <DialogHeader><DialogTitle>Message Details</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{tr(tr("Message Details"))}</DialogTitle></DialogHeader>
             {selectedMsg && (
               <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Sender</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">{tr("Sender")}</p>
                     <p className="text-sm text-foreground">{selectedMsg.sender_name || "Unknown"}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Channel</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">{tr("Channel")}</p>
                     <p className="text-sm text-foreground">{selectedMsg.source_name} ({selectedMsg.channel_type})</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Date</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">{tr("Date")}</p>
                     <p className="text-sm text-foreground">{format(new Date(selectedMsg.message_timestamp), "PPpp")}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Intent Score</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">{tr(tr("Intent Score"))}</p>
                     <p className="text-sm text-foreground">{Math.round(Number(selectedMsg.intent_score) * 100)}%</p>
                   </div>
                 </div>
                 <div className="flex min-h-0 flex-1 flex-col gap-2">
-                  <p className="text-xs font-medium text-muted-foreground">Conversation</p>
+                  <p className="text-xs font-medium text-muted-foreground">{tr(tr("Conversation"))}</p>
                   <div className="min-h-0 flex-1 space-y-2 overflow-y-auto rounded-lg bg-muted/40 p-2">
                     {selectedThreadMessages.map((message) => (
                       <div
@@ -252,7 +254,7 @@ const Inbox = () => {
                     <Textarea
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Write a reply..."
+                      placeholder={tr(tr("Write a reply..."))}
                       rows={3}
                       maxLength={4096}
                     />
@@ -272,14 +274,14 @@ const Inbox = () => {
                 )}
                 {selectedMsg.matched_keywords?.length > 0 && (
                   <div>
-                    <p className="text-xs font-medium text-muted-foreground mb-1">Matched Keywords</p>
+                    <p className="text-xs font-medium text-muted-foreground mb-1">{tr(tr("Matched Keywords"))}</p>
                     <div className="flex gap-1">{selectedMsg.matched_keywords.map((kw: string) => <Badge key={kw} variant="secondary">{kw}</Badge>)}</div>
                   </div>
                 )}
                 <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => { updateStatus.mutate({ id: selectedMsg.id, threadId: selectedMsg.thread_id, status: "reviewed" }); setSelectedMsg({ ...selectedMsg, status: "reviewed" }); }}>Mark Reviewed</Button>
+                  <Button size="sm" variant="outline" onClick={() => { updateStatus.mutate({ id: selectedMsg.id, threadId: selectedMsg.thread_id, status: "reviewed" }); setSelectedMsg({ ...selectedMsg, status: "reviewed" }); }}>{tr(tr("Mark Reviewed"))}</Button>
                   <Button size="sm" variant="outline" onClick={() => { updatePriority.mutate({ id: selectedMsg.id, threadId: selectedMsg.thread_id, priority: selectedMsg.priority === "high" ? "normal" : "high" }); setSelectedMsg({ ...selectedMsg, priority: selectedMsg.priority === "high" ? "normal" : "high" }); }}>
-                    <Star className="h-3 w-3 mr-1" />{selectedMsg.priority === "high" ? "Unmark Priority" : "Mark Priority"}
+                    <Star className="h-3 w-3 mr-1" />{selectedMsg.priority === "high" ? "Unmark Priority" : tr("Mark Priority")}
                   </Button>
                   {selectedMsg.lead_id && (
                     <Button size="sm" onClick={() => { setSelectedMsg(null); navigate(`/reply-workspace?leadId=${selectedMsg.lead_id}`); }}>
@@ -289,7 +291,7 @@ const Inbox = () => {
                 </div>
                 <details className="max-h-[38dvh] shrink-0 overflow-y-auto rounded-lg border border-border">
                   <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-                    Customer intelligence & AI context
+                    {tr(tr("Customer intelligence & AI context"))}
                   </summary>
                   <div className="space-y-4 border-t border-border p-3">
                     <CustomerIntelligenceProfile
@@ -315,8 +317,8 @@ const Inbox = () => {
       <CoachTour
         tourId="inbox-v1"
         steps={[
-          { selector: '[data-tour="inbox-filters"]', title: "Filter your inbox", body: "Narrow messages by channel, priority and status — your view is saved as you change it." },
-          { selector: '[data-tour="inbox-messages"]', title: "All conversations in one place", body: "WhatsApp, Telegram, Email and Web Chat unified here. Click any message to reply with AI assistance." },
+          { selector: '[data-tour="inbox-filters"]', title: tr("Filter your inbox"), body: tr("Narrow messages by channel, priority and status — your view is saved as you change it.") },
+          { selector: '[data-tour="inbox-messages"]', title: tr("All conversations in one place"), body: tr("WhatsApp, Telegram, Email and Web Chat unified here. Click any message to reply with AI assistance.") },
         ]}
       />
     </DashboardLayout>

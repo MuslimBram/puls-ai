@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { AnalyticsEmptyState } from "@/components/EmptyState";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +32,7 @@ const COLORS = [
 type DateRange = "7d" | "14d" | "30d" | "90d";
 
 const Analytics = () => {
+  const tr = useTr();
   const { leads } = useLeads();
   const { keywords, addKeyword } = useKeywords();
   const { subscription } = useFeatureGating();
@@ -135,7 +137,7 @@ const Analytics = () => {
   };
 
   const exportCSV = () => {
-    const headers = ["Date", "Source", "Keyword", "Intent Score", "Status", "Message"];
+    const headers = ["Date", "Source", "Keyword", tr("Intent Score"), "Status", "Message"];
     const rows = filteredLeads.map((l) => [
       format(parseISO(l.message_date), "yyyy-MM-dd"),
       l.source_name,
@@ -152,7 +154,7 @@ const Analytics = () => {
     a.download = `analytics-${dateRange}-${format(new Date(), "yyyy-MM-dd")}.csv`;
     a.click();
     URL.revokeObjectURL(url);
-    toast.success("Report exported");
+    toast.success(tr(tr("Report exported")));
   };
 
   const keywordData = Object.entries(stats.byKeyword).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, value]) => ({ name, value }));
@@ -166,7 +168,7 @@ const Analytics = () => {
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-foreground">Analytics</h1>
+          <h1 className="text-xl font-bold text-foreground">{tr(tr("Analytics"))}</h1>
           <div className="flex items-center gap-2">
             <Select value={dateRange} onValueChange={(v) => setDateRange(v as DateRange)}>
               <SelectTrigger className="w-32 h-8 text-xs">
@@ -180,7 +182,7 @@ const Analytics = () => {
               </SelectContent>
             </Select>
             <Button size="sm" variant="outline" onClick={exportCSV}>
-              <Download className="h-3.5 w-3.5 mr-1" /> Export CSV
+              <Download className="h-3.5 w-3.5 mr-1" /> {tr(tr("Export CSV"))}
             </Button>
           </div>
         </div>
@@ -197,7 +199,7 @@ const Analytics = () => {
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.total}</p>
                 <div className="flex items-center gap-1">
-                  <p className="text-xs text-muted-foreground">Leads</p>
+                  <p className="text-xs text-muted-foreground">{tr(tr("Leads"))}</p>
                   {stats.growthPct !== 0 && (
                     <span className={`text-xs flex items-center ${stats.growthPct > 0 ? 'text-green-600' : 'text-destructive'}`}>
                       <GrowthIcon className="h-3 w-3" />{Math.abs(stats.growthPct)}%
@@ -214,7 +216,7 @@ const Analytics = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{Math.round(stats.avgIntent * 100)}%</p>
-                <p className="text-xs text-muted-foreground">Avg Intent</p>
+                <p className="text-xs text-muted-foreground">{tr(tr("Avg Intent"))}</p>
               </div>
             </CardContent>
           </Card>
@@ -225,7 +227,7 @@ const Analytics = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.highIntent}</p>
-                <p className="text-xs text-muted-foreground">High Intent</p>
+                <p className="text-xs text-muted-foreground">{tr(tr("High Intent"))}</p>
               </div>
             </CardContent>
           </Card>
@@ -236,7 +238,7 @@ const Analytics = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.conversionRate}%</p>
-                <p className="text-xs text-muted-foreground">High-Intent Rate</p>
+                <p className="text-xs text-muted-foreground">{tr(tr("High-Intent Rate"))}</p>
               </div>
             </CardContent>
           </Card>
@@ -247,7 +249,7 @@ const Analytics = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{stats.responseRate}%</p>
-                <p className="text-xs text-muted-foreground">Response Rate</p>
+                <p className="text-xs text-muted-foreground">{tr(tr("Response Rate"))}</p>
               </div>
             </CardContent>
           </Card>
@@ -257,7 +259,7 @@ const Analytics = () => {
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="lg:col-span-2">
             <CardHeader>
-              <CardTitle className="text-lg">Lead Trend & Intent Score</CardTitle>
+              <CardTitle className="text-lg">{tr(tr("Lead Trend & Intent Score"))}</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={260}>
@@ -281,7 +283,7 @@ const Analytics = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Keyword Performance</CardTitle>
+              <CardTitle className="text-lg">{tr(tr("Keyword Performance"))}</CardTitle>
             </CardHeader>
             <CardContent>
               {keywordData.length > 0 ? (
@@ -294,14 +296,14 @@ const Analytics = () => {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="py-8 text-center text-sm text-muted-foreground">No keyword data yet</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">{tr(tr("No keyword data yet"))}</p>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Lead Sources</CardTitle>
+              <CardTitle className="text-lg">{tr(tr("Lead Sources"))}</CardTitle>
             </CardHeader>
             <CardContent>
               {sourceData.length > 0 ? (
@@ -327,14 +329,14 @@ const Analytics = () => {
                   </div>
                 </div>
               ) : (
-                <p className="py-8 text-center text-sm text-muted-foreground">No source data yet</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">{tr(tr("No source data yet"))}</p>
               )}
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Intent Score Distribution</CardTitle>
+              <CardTitle className="text-lg">{tr(tr("Intent Score Distribution"))}</CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
@@ -354,7 +356,7 @@ const Analytics = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Lead Status Breakdown</CardTitle>
+              <CardTitle className="text-lg">{tr(tr("Lead Status Breakdown"))}</CardTitle>
             </CardHeader>
             <CardContent>
               {statusData.length > 0 ? (
@@ -367,7 +369,7 @@ const Analytics = () => {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="py-8 text-center text-sm text-muted-foreground">No status data yet</p>
+                <p className="py-8 text-center text-sm text-muted-foreground">{tr(tr("No status data yet"))}</p>
               )}
             </CardContent>
           </Card>
@@ -378,7 +380,7 @@ const Analytics = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Lightbulb className="h-5 w-5 text-primary" />
-              Smart Keyword Suggestions
+              {tr(tr("Smart Keyword Suggestions"))}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -405,7 +407,7 @@ const Analytics = () => {
               </div>
             ) : (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                Suggestions will appear as leads are discovered
+                {tr(tr("Suggestions will appear as leads are discovered"))}
               </p>
             )}
           </CardContent>

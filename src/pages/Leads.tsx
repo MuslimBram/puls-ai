@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,7 @@ import { useNavigate } from "react-router-dom";
 import { IntentBadge, INTENT_TYPE_OPTIONS } from "@/components/IntentBadge";
 
 const Leads = () => {
+  const tr = useTr();
   const [filters, setFilters] = useState<LeadFilters>({});
   const [selectedLead, setSelectedLead] = useState<any>(null);
   const { leads, total, isLoading, updateStatus, page, pageSize, nextPage, prevPage, setPage } = useLeads(filters);
@@ -25,7 +27,7 @@ const Leads = () => {
 
   const copyReply = (text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success("Reply copied to clipboard");
+    toast.success(tr(tr("Reply copied to clipboard")));
   };
 
   const intentColor = (score: number) => {
@@ -58,9 +60,9 @@ const Leads = () => {
               value={filters.keyword ?? "all"}
               onValueChange={(v) => handleFilterChange((f) => ({ ...f, keyword: v === "all" ? undefined : v }))}
             >
-              <SelectTrigger className="w-40"><SelectValue placeholder="Keyword" /></SelectTrigger>
+              <SelectTrigger className="w-40"><SelectValue placeholder={tr("Keyword")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All keywords</SelectItem>
+                <SelectItem value="all">{tr(tr("All keywords"))}</SelectItem>
                 {keywords.map((k) => (
                   <SelectItem key={k.id} value={k.keyword}>{k.keyword}</SelectItem>
                 ))}
@@ -70,25 +72,25 @@ const Leads = () => {
               value={filters.status ?? "all"}
               onValueChange={(v) => handleFilterChange((f) => ({ ...f, status: v === "all" ? undefined : v }))}
             >
-              <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectTrigger className="w-36"><SelectValue placeholder={tr("Status")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="all">{tr(tr("All statuses"))}</SelectItem>
                 <SelectItem value="new">New</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="qualified">Qualified</SelectItem>
-                <SelectItem value="converted">Converted</SelectItem>
+                <SelectItem value="contacted">{tr("Contacted")}</SelectItem>
+                <SelectItem value="qualified">{tr("Qualified")}</SelectItem>
+                <SelectItem value="converted">{tr("Converted")}</SelectItem>
               </SelectContent>
             </Select>
             <Input type="date" className="w-40" value={filters.dateFrom ?? ""} onChange={(e) => handleFilterChange((f) => ({ ...f, dateFrom: e.target.value || undefined }))} />
             <Input type="date" className="w-40" value={filters.dateTo ?? ""} onChange={(e) => handleFilterChange((f) => ({ ...f, dateTo: e.target.value || undefined }))} />
             <Select value={filters.intentType ?? "all"} onValueChange={(v) => handleFilterChange((f) => ({ ...f, intentType: v === "all" ? undefined : v }))}>
-              <SelectTrigger className="w-36"><SelectValue placeholder="Intent" /></SelectTrigger>
+              <SelectTrigger className="w-36"><SelectValue placeholder={tr("Intent")} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All intents</SelectItem>
+                <SelectItem value="all">{tr(tr("All intents"))}</SelectItem>
                 {INTENT_TYPE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button variant="ghost" size="sm" onClick={() => { setPage(0); setFilters({}); }}>Clear</Button>
+            <Button variant="ghost" size="sm" onClick={() => { setPage(0); setFilters({}); }}>{tr("Clear")}</Button>
           </CardContent>
         </Card>
 
@@ -112,7 +114,7 @@ const Leads = () => {
               </div>
             ) : leads.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
-                No leads found. Add keywords and connect a Telegram channel to discover leads.
+                {tr(tr("No leads found. Add keywords and connect a Telegram channel to discover leads."))}
               </p>
             ) : (
               <div className="space-y-3">
@@ -171,21 +173,21 @@ const Leads = () => {
 
         <Dialog open={!!selectedLead} onOpenChange={() => setSelectedLead(null)}>
           <DialogContent className="max-w-lg">
-            <DialogHeader><DialogTitle>Lead Details</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{tr(tr("Lead Details"))}</DialogTitle></DialogHeader>
             {selectedLead && (
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">Source</p>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">{tr("Source")}</p>
                     <p className="text-sm text-foreground">{selectedLead.source_name} ({selectedLead.source_type})</p>
                   </div>
                   <div>
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">Date</p>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">{tr("Date")}</p>
                     <p className="text-sm text-foreground">{format(new Date(selectedLead.message_date), "PPpp")}</p>
                   </div>
                 </div>
                 <div>
-                  <p className="mb-1 text-xs font-medium text-muted-foreground">Message</p>
+                  <p className="mb-1 text-xs font-medium text-muted-foreground">{tr("Message")}</p>
                   <p className="rounded-lg bg-muted p-3 text-sm text-foreground">{selectedLead.message_content}</p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -202,7 +204,7 @@ const Leads = () => {
                 )}
                 {selectedLead.score_factors && typeof selectedLead.score_factors === "object" && Object.keys(selectedLead.score_factors).length > 0 && (
                   <div>
-                    <p className="mb-2 text-xs font-medium text-muted-foreground">AI Score Breakdown</p>
+                    <p className="mb-2 text-xs font-medium text-muted-foreground">{tr(tr("AI Score Breakdown"))}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(selectedLead.score_factors as Record<string, number>).map(([key, value]) => (
                         <div key={key} className="flex items-center justify-between rounded-md bg-muted px-2 py-1.5">
@@ -215,10 +217,10 @@ const Leads = () => {
                 )}
                 {selectedLead.suggested_reply && (
                   <div>
-                    <p className="mb-1 text-xs font-medium text-muted-foreground">Suggested Reply</p>
+                    <p className="mb-1 text-xs font-medium text-muted-foreground">{tr(tr("Suggested Reply"))}</p>
                     <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
                       <p className="mb-2 text-sm text-foreground">{selectedLead.suggested_reply}</p>
-                      <Button size="sm" variant="outline" onClick={() => copyReply(selectedLead.suggested_reply!)}><Copy className="mr-1 h-3 w-3" /> Copy Reply</Button>
+                      <Button size="sm" variant="outline" onClick={() => copyReply(selectedLead.suggested_reply!)}><Copy className="mr-1 h-3 w-3" /> {tr(tr("Copy Reply"))}</Button>
                     </div>
                   </div>
                 )}
@@ -227,9 +229,9 @@ const Leads = () => {
                     <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="new">New</SelectItem>
-                      <SelectItem value="contacted">Contacted</SelectItem>
-                      <SelectItem value="qualified">Qualified</SelectItem>
-                      <SelectItem value="converted">Converted</SelectItem>
+                      <SelectItem value="contacted">{tr("Contacted")}</SelectItem>
+                      <SelectItem value="qualified">{tr("Qualified")}</SelectItem>
+                      <SelectItem value="converted">{tr("Converted")}</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button size="sm" onClick={() => { setSelectedLead(null); navigate(`/reply-workspace?leadId=${selectedLead.id}`); }}>

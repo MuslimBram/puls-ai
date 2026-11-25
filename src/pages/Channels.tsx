@@ -1,3 +1,4 @@
+import { useTr } from "@/lib/uiSq";
 import { useState } from "react";
 import { WebhookActivityLogs } from "@/components/webhooks/WebhookActivityLogs";
 import { useSearchParams } from "react-router-dom";
@@ -30,6 +31,7 @@ const CATEGORY_ICONS: Record<string, LucideIcon> = {
 };
 
 const Channels = () => {
+  const tr = useTr();
   const [connectModal, setConnectModal] = useState<{
     channel: ChannelRegistryWithModes | null;
     existingId?: string;
@@ -79,8 +81,8 @@ const Channels = () => {
     <DashboardLayout>
       <Tabs defaultValue={initialTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="channels">Channels</TabsTrigger>
-          <TabsTrigger value="webhook-logs">Webhook Logs</TabsTrigger>
+          <TabsTrigger value="channels">{tr(tr("Channels"))}</TabsTrigger>
+          <TabsTrigger value="webhook-logs">{tr(tr("Webhook Logs"))}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="channels">
@@ -89,7 +91,7 @@ const Channels = () => {
               <Card className="border-primary/20 bg-primary/5">
                 <CardContent className="flex items-center gap-3 py-4">
                   <Shield className="h-5 w-5 text-primary" />
-                  <p className="text-sm text-foreground">This workspace is read-only for your current account. Connect and channel changes require workspace membership.</p>
+                  <p className="text-sm text-foreground">{tr(tr("This workspace is read-only for your current account. Connect and channel changes require workspace membership."))}</p>
                 </CardContent>
               </Card>
             )}
@@ -98,12 +100,12 @@ const Channels = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Plug className="h-5 w-5 text-primary" />
-                  Explore Communication Channels
+                  {tr(tr("Explore Communication Channels"))}
                 </CardTitle>
                 <CardDescription>
                   {workspaceCanWrite
                     ? "Browse the channel registry. Moving focus never creates a connection; choose a channel to open its existing connection flow."
-                    : "Read-only workspace view. Connect, modify, or disconnect actions require workspace membership."}
+                    : tr("Read-only workspace view. Connect, modify, or disconnect actions require workspace membership.")}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -129,9 +131,9 @@ const Channels = () => {
                   <div>
                     <CardTitle className="flex items-center gap-2 text-lg">
                       <Radio className="h-5 w-5 text-primary" />
-                      Connected Channels
+                      {tr(tr("Connected Channels"))}
                     </CardTitle>
-                    <CardDescription>Manage your active communication channels and their connection modes.</CardDescription>
+                    <CardDescription>{tr(tr("Manage your active communication channels and their connection modes."))}</CardDescription>
                   </div>
                   {channels.some((c) => c.channel_type === "whatsapp") && <ValidateWhatsAppButton />}
                 </div>
@@ -143,7 +145,7 @@ const Channels = () => {
                   </div>
                 ) : channels.length === 0 ? (
                   <p className="py-6 text-center text-sm text-muted-foreground">
-                    No channels connected. Use the catalog below to connect your first channel.
+                    {tr(tr("No channels connected. Use the catalog below to connect your first channel."))}
                   </p>
                 ) : (
                   <div className="space-y-2">
@@ -168,13 +170,13 @@ const Channels = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-lg">
                   <Plug className="h-5 w-5 text-primary" />
-                  Connect a Channel
+                  {tr(tr("Connect a Channel"))}
                 </CardTitle>
                 <CardDescription>
-                  Choose a channel and connection mode. Professional mode enables full automation; Limited mode uses notification-based manual posting.
+                  {tr(tr("Choose a channel and connection mode. Professional mode enables full automation; Limited mode uses notification-based manual posting."))}
                 </CardDescription>
                 <div className="mb-4 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-                  <span className="font-medium text-foreground">Channel quota:</span>{" "}
+                  <span className="font-medium text-foreground">{tr(tr("Channel quota:"))}</span>{" "}
                   {channelLimit.limit === -1
                     ? `${channelLimit.current} channels · Unlimited`
                     : `${channelLimit.current} / ${channelLimit.limit} channels used`}
