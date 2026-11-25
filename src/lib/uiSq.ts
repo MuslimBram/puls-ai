@@ -68,6 +68,28 @@ export const UI_SQ: Record<string, string> = {
   "7-Day Trial": "Provë 7-ditore", "Monthly": "Mujore", "3 Months": "3 muaj", "6 Months": "6 muaj", "Yearly": "Vjetore",
   "Freelancer": "Frilancer", "Ambassador": "Ambasador", "White Label": "White Label",
 
+  // ── Regjistrimi: rrugët e regjistrimit ──
+  "Choose how you want to create your account": "Zgjidhni si doni të krijoni llogarinë", "Let AI guide your account setup": "Lëreni AI-në t'ju udhëheqë në krijimin e llogarisë",
+  "Choose your account type": "Zgjidhni llojin e llogarisë", "Choose your billing plan": "Zgjidhni paketën e pagesës", "Fill in your details": "Plotësoni të dhënat tuaja",
+  "AI-guided setup": "Me ndihmën e AI-së", "Best when you are not sure which account fits.": "Më e mira kur nuk jeni të sigurt cila llogari ju përshtatet.",
+  "Guided account-type recommendation": "Rekomandim i udhëhequr për llojin e llogarisë", "Explains plans and next steps": "Shpjegon paketat dhe hapat e radhës",
+  "AI help remains available during setup": "Ndihma e AI-së mbetet gjatë gjithë procesit", "Continue with email": "Vazhdo me email",
+  "Best for an independent Pulse AI login.": "Më e mira për një hyrje të pavarur në Pulse AI.", "Separate password": "Fjalëkalim më vete",
+  "Personal security code": "Kod personal sigurie", "Not tied to another provider": "E palidhur me ofrues tjetër",
+  "Fastest when your business already uses Google.": "Më e shpejta kur biznesi juaj përdor tashmë Google.", "Fewer fields to complete": "Më pak fusha për të plotësuar",
+  "Google identity verification": "Verifikim i identitetit me Google", "One-click sign-in later": "Hyrje me një klikim më vonë",
+  "Useful for Facebook or Messenger-led businesses.": "E dobishme për bizneset që punojnë me Facebook ose Messenger.", "Faster social identity setup": "Krijim më i shpejtë me identitetin social",
+  "Account type is still chosen by you": "Llojin e llogarisë e zgjidhni gjithsesi ju", "A privacy-focused choice for Apple users.": "Zgjedhje që ruan privatësinë për përdoruesit e Apple.",
+  "Apple identity verification": "Verifikim i identitetit me Apple", "Privacy-oriented sign-in": "Hyrje që ruan privatësinë",
+  "Recommended": "E rekomanduar", "Continue": "Vazhdo", "Save": "Ruaj", "Free": "Falas", "Back": "Kthehu", "Creating account...": "Duke krijuar llogarinë...",
+  "Have an account?": "Keni llogari?", "AI fraud check error:": "Gabim në kontrollin e AI-së për mashtrim:",
+  // ── Hyrja: të tjera ──
+  "Failed to send code": "Kodi nuk u dërgua", "Error during Authenticator setup": "Gabim gjatë konfigurimit të Authenticator", "Wrong code": "Kod i gabuar",
+  "Enter": "Hyr", "Verify": "Verifiko", "Cancel": "Anulo", "QR Code for Authenticator": "Kodi QR për Authenticator", "Code from Email": "Kodi nga email-i",
+  "Code from Authenticator": "Kodi nga Authenticator", "Verify & Sign In": "Verifiko & hyr", "Signing in...": "Duke hyrë...", "OR": "OSE",
+  "Google OAuth error:": "Gabim në hyrjen me Google:", "Facebook OAuth error:": "Gabim në hyrjen me Facebook:", "Apple OAuth error:": "Gabim në hyrjen me Apple:",
+  "Google login failed:": "Hyrja me Google dështoi:", "Facebook login failed:": "Hyrja me Facebook dështoi:", "Apple login failed:": "Hyrja me Apple dështoi:",
+
   // ── Paneli ──
   "Loading businesses…": "Duke ngarkuar bizneset…", "No business workspaces are available yet.": "Nuk ka ende hapësira biznesi.",
   "Open Admin Panel": "Hap panelin e administrimit", "Workspace support and monitoring": "Mbështetja dhe monitorimi i hapësirave",

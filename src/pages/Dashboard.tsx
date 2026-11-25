@@ -120,25 +120,25 @@ const Dashboard = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Building2 className="h-6 w-6 text-primary" />
-              {isPlatformOwner ? "Platform Businesses" : "Assigned Businesses"}
+              {isPlatformOwner ? "Platform Businesses" : tr("Assigned Businesses")}
             </h1>
             <p className="text-sm text-muted-foreground">
               {isPlatformOwner
                 ? "Owner view: all registered businesses and Pulse AI registrations."
-                : "Admin view: only businesses explicitly assigned to you. This is not your personal business profile."}
+                : tr("Admin view: only businesses explicitly assigned to you. This is not your personal business profile.")}
             </p>
             <Button asChild><Link to="/businesses/new"><Building2 className="mr-2 h-4 w-4" />Shto biznes</Link></Button>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {businessesLoading ? (
-              <Card><CardContent className="pt-6 text-sm text-muted-foreground">{tr("Loading businesses…")}</CardContent></Card>
+              <Card><CardContent className="pt-6 text-sm text-muted-foreground">{tr(tr("Loading businesses…"))}</CardContent></Card>
             ) : platformBusinesses.length === 0 ? (
               <Card className="sm:col-span-2 lg:col-span-3">
                 <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
                   <Building2 className="h-10 w-10 text-muted-foreground/50" />
-                  <p className="text-sm text-muted-foreground">{tr("No business workspaces are available yet.")}</p>
-                  <Button asChild variant="outline"><Link to="/admin">{tr("Open Admin Panel")}</Link></Button>
+                  <p className="text-sm text-muted-foreground">{tr(tr("No business workspaces are available yet."))}</p>
+                  <Button asChild variant="outline"><Link to="/admin">{tr(tr("Open Admin Panel"))}</Link></Button>
                 </CardContent>
               </Card>
             ) : (
@@ -152,9 +152,9 @@ const Dashboard = () => {
                     <CardDescription>{business.industry || "Industry not configured"}</CardDescription>
                   </CardHeader>
                   <CardContent className="flex items-center justify-between gap-3">
-                    <span className="text-xs text-muted-foreground">{tr("Workspace support and monitoring")}</span>
+                    <span className="text-xs text-muted-foreground">{tr(tr("Workspace support and monitoring"))}</span>
                     <Button asChild size="sm">
-                      <Link to={`/admin/businesses/${business.id}/scan-insights`}>{tr("Open")}</Link>
+                      <Link to={`/admin/businesses/${business.id}/scan-insights`}>{tr(tr("Open"))}</Link>
                     </Button>
                   </CardContent>
                 </Card>
@@ -165,12 +165,12 @@ const Dashboard = () => {
           {isPlatformOwner && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">{tr("Pulse AI registrations")}</CardTitle>
-                <CardDescription>{tr("Owner-only platform registration overview. No business private data is shown here.")}</CardDescription>
+                <CardTitle className="text-base">{tr(tr("Pulse AI registrations"))}</CardTitle>
+                <CardDescription>{tr(tr("Owner-only platform registration overview. No business private data is shown here."))}</CardDescription>
               </CardHeader>
               <CardContent>
                 {registrationsLoading ? (
-                  <p className="text-sm text-muted-foreground">{tr("Loading registrations…")}</p>
+                  <p className="text-sm text-muted-foreground">{tr(tr("Loading registrations…"))}</p>
                 ) : (
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {registrations.slice(0, 12).map((registration) => (
@@ -182,7 +182,7 @@ const Dashboard = () => {
                       </div>
                     ))}
                     {registrations.length === 0 && (
-                      <p className="text-sm text-muted-foreground">{tr("No registrations found.")}</p>
+                      <p className="text-sm text-muted-foreground">{tr(tr("No registrations found."))}</p>
                     )}
                   </div>
                 )}
@@ -192,15 +192,15 @@ const Dashboard = () => {
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">{tr("Personal role")}</CardTitle>
+              <CardTitle className="text-base">{tr(tr("Personal role"))}</CardTitle>
               <CardDescription>
-                {tr("Your platform role is separate from a business profile. You can assist authorized businesses as a worker, influencer, collaborator, or caretaker.")}
+                {tr(tr("Your platform role is separate from a business profile. You can assist authorized businesses as a worker, influencer, collaborator, or caretaker."))}
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">
-              <Button asChild variant="outline"><Link to="/managed-businesses">{tr("Managed Businesses")}</Link></Button>
-              <Button asChild variant="outline"><Link to="/admin">{tr("Administration")}</Link></Button>
-              <Button asChild variant="outline"><Link to="/support">{tr("Notifications & Support")}</Link></Button>
+              <Button asChild variant="outline"><Link to="/managed-businesses">{tr(tr("Managed Businesses"))}</Link></Button>
+              <Button asChild variant="outline"><Link to="/admin">{tr(tr("Administration"))}</Link></Button>
+              <Button asChild variant="outline"><Link to="/support">{tr(tr("Notifications & Support"))}</Link></Button>
             </CardContent>
           </Card>
         </div>
@@ -247,7 +247,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{(leads ?? []).length}</p>
-                <p className="text-xs text-muted-foreground">{tr("Total Leads")}</p>
+                <p className="text-xs text-muted-foreground">{tr(tr("Total Leads"))}</p>
               </div>
             </CardContent>
           </Card>
@@ -258,7 +258,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{thisWeek}</p>
-                <p className="text-xs text-muted-foreground">{tr("This Week")}</p>
+                <p className="text-xs text-muted-foreground">{tr(tr("This Week"))}</p>
               </div>
             </CardContent>
           </Card>
@@ -280,7 +280,7 @@ const Dashboard = () => {
               </div>
               <div>
                 <p className="text-2xl font-bold text-foreground">{(channels ?? []).length}</p>
-                <p className="text-xs text-muted-foreground">{tr("Channels")}</p>
+                <p className="text-xs text-muted-foreground">{tr(tr("Channels"))}</p>
               </div>
             </CardContent>
           </Card>
@@ -328,15 +328,15 @@ const Dashboard = () => {
               Plan Usage — {plan?.name ?? "Loading..."}
             </CardTitle>
             <CardDescription>
-              {tr("Your current usage against plan limits.")}
-              <Link to="/pricing" className="ml-2 text-primary hover:underline text-xs">{tr("View Plans")}</Link>
+              {tr(tr("Your current usage against plan limits."))}
+              <Link to="/pricing" className="ml-2 text-primary hover:underline text-xs">{tr(tr("View Plans"))}</Link>
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid gap-4 sm:grid-cols-3">
-              <UsageIndicator label="Leads" current={leadsUsage.current} limit={leadsUsage.limit} />
-              <UsageIndicator label="Channels" current={channelsUsage.current} limit={channelsUsage.limit} />
-              <UsageIndicator label="Keywords" current={keywordsUsage.current} limit={keywordsUsage.limit} />
+              <UsageIndicator label={tr("Leads")} current={leadsUsage.current} limit={leadsUsage.limit} />
+              <UsageIndicator label={tr("Channels")} current={channelsUsage.current} limit={channelsUsage.limit} />
+              <UsageIndicator label={tr("Keywords")} current={keywordsUsage.current} limit={keywordsUsage.limit} />
             </div>
           </CardContent>
         </Card>
@@ -350,14 +350,14 @@ const Dashboard = () => {
           <SafeRender label="Connected Channels">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">{tr("Connected Channels")}</CardTitle>
-                <CardDescription>{tr("Manage your communication channels")}</CardDescription>
+                <CardTitle className="text-lg">{tr(tr("Connected Channels"))}</CardTitle>
+                <CardDescription>{tr(tr("Manage your communication channels"))}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 {(channels ?? []).length === 0 ? (
                   <div className="flex flex-col items-center py-4 text-center">
-                    <p className="text-sm text-muted-foreground mb-2">{tr("No channels connected")}</p>
-                    <Link to="/connections"><Button size="sm" variant="outline">{tr("Add Channel")}</Button></Link>
+                    <p className="text-sm text-muted-foreground mb-2">{tr(tr("No channels connected"))}</p>
+                    <Link to="/connections"><Button size="sm" variant="outline">{tr(tr("Add Channel"))}</Button></Link>
                   </div>
                 ) : (
                   (channels ?? []).slice(0, 5).map((ch) => (
@@ -379,15 +379,15 @@ const Dashboard = () => {
           <SafeRender label="Recent Leads">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">{tr("Recent Leads")}</CardTitle>
-                <CardDescription>{tr("Latest discovered leads")}</CardDescription>
+                <CardTitle className="text-lg">{tr(tr("Recent Leads"))}</CardTitle>
+                <CardDescription>{tr(tr("Latest discovered leads"))}</CardDescription>
               </CardHeader>
               <CardContent>
                 {recentLeads.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-8 text-center">
                     <Target className="mb-3 h-10 w-10 text-muted-foreground/40" />
-                    <p className="text-sm text-muted-foreground">{tr("No leads yet")}</p>
-                    <p className="text-xs text-muted-foreground">{tr("Add keywords to start discovering leads")}</p>
+                    <p className="text-sm text-muted-foreground">{tr(tr("No leads yet"))}</p>
+                    <p className="text-xs text-muted-foreground">{tr(tr("Add keywords to start discovering leads"))}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
