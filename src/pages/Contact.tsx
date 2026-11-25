@@ -35,8 +35,8 @@ export default function Contact() {
                 </h2>
                 <p className="text-sm text-muted-foreground">{t("homepage.finalCta.pointTwo")}</p>
                 <p className="text-sm text-muted-foreground">
-                  <a className="underline underline-offset-4" href="mailto:info@mso.re">
-                    info@mso.re
+                  <a className="underline underline-offset-4" href="mailto:muslim.brami@gmail.com">
+                    muslim.brami@gmail.com
                   </a>
                 </p>
               </CardContent>

@@ -1,3 +1,4 @@
+import { UI_SQ } from "@/lib/uiSq";
 const sqLabels: Record<string, string> = {
   Administration: "Administrimi",
   Core: "Kryesore",
@@ -69,5 +70,5 @@ const sqLabels: Record<string, string> = {
 };
 
 export function getNavLabel(label: string, language?: string): string {
-  return language?.startsWith("sq") ? (sqLabels[label] ?? label) : label;
+  return language?.startsWith("sq") ? (sqLabels[label] ?? UI_SQ[label] ?? label) : label;
 }

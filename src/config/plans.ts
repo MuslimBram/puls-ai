@@ -19,7 +19,7 @@ export const PACKAGE_VARIANTS = [
   { type: "monthly", label: "Monthly", durationMonths: 1, discountPercent: 0, referralEligible: false },
   { type: "3-month", label: "3 Months", durationMonths: 3, discountPercent: 5, referralEligible: true },
   { type: "6-month", label: "6 Months", durationMonths: 6, discountPercent: 10, referralEligible: true },
-  { type: "yearly", label: "Yearly", durationMonths: 12, discountPercent: 15, referralEligible: true },
+  { type: "yearly", label: "Yearly", durationMonths: 12, discountPercent: 20, referralEligible: true },
 ] as const;
 
 /** Freelancer/Referral partners use the same package discounts as everyone. */

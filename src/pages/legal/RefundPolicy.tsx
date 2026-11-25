@@ -128,8 +128,8 @@ export default function RefundPolicy() {
 
       <Section id="how" title={sections[5].title}>
         <p>{isSq
-          ? "Paraqiteni kërkesën përmes rrjedhës së rimbursimit në llogarinë tuaj kur ajo është e disponueshme. Kërkesa regjistrohet për shqyrtim. Për ndihmë me faturimin mund të kontaktoni info@mso.re."
-          : "Submit the request through the refund flow in your account when available. The request is recorded for review. For billing assistance, contact info@mso.re."}</p>
+          ? "Paraqiteni kërkesën përmes rrjedhës së rimbursimit në llogarinë tuaj kur ajo është e disponueshme. Kërkesa regjistrohet për shqyrtim. Për ndihmë me faturimin mund të kontaktoni muslim.brami@gmail.com."
+          : "Submit the request through the refund flow in your account when available. The request is recorded for review. For billing assistance, contact muslim.brami@gmail.com."}</p>
       </Section>
     </LegalLayout>
   );

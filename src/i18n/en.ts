@@ -218,7 +218,7 @@ export default {
         },
         howMuch: {
           q: "How much does it cost?",
-          a: "Plans start at 9,900 ALL/month (Start), 19,900 ALL/month (Growth), 39,900 ALL/month (Pro), and 79,900 ALL/month (Enterprise). You get discounts for longer commitments: 5% for 3 months, 10% for 6 months, 15% yearly.",
+          a: "Packages: Standard 9,900 ALL/month, Professional 19,900 ALL/month, Advanced 39,900 ALL/month and Enterprise on quote. Discounts for longer commitments: 5% for 3 months, 10% for 6 months, 20% yearly. 7-day free trial.",
         },
         freeTrial: {
           q: "Can I try it for free?",
@@ -460,8 +460,8 @@ export default {
     sixMonthDesc: "Save 10%",
     sixMonthPrice: "8,910 ALL/mo",
     yearly: "Yearly",
-    yearlyDesc: "Save 15%",
-    yearlyPrice: "8,415 ALL/mo",
+    yearlyDesc: "Save 20%",
+    yearlyPrice: "7,920 ALL/mo",
   },
 
   // Navigation
@@ -960,7 +960,7 @@ export default {
       sharedYouDo:           "Use strong unique passwords, enable two-factor authentication, review who has access to your workspace, and revoke integrations you no longer use.",
       sharedDisclaimer:      "This page describes controls that are in place today. It is not a certification, and it does not claim absolute security; no online platform can offer that.",
       reportTitle:           "Reporting a vulnerability",
-      reportBody:            "Email info@mso.re with the subject \"Security\" and include reproduction steps. We acknowledge reports within two business days and will keep you updated until the issue is resolved. Please do not publicly disclose an issue before we have had a chance to fix it.",
+      reportBody:            "Email muslim.brami@gmail.com with the subject \"Security\" and include reproduction steps. We acknowledge reports within two business days and will keep you updated until the issue is resolved. Please do not publicly disclose an issue before we have had a chance to fix it.",
     },
   },
 

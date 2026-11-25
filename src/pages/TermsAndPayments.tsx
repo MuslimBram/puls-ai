@@ -199,7 +199,7 @@ export default function TermsAndPayments() {
         </div>
 
         <p className="mt-4 text-xs text-muted-foreground">
-          {isSq ? "Për pyetje rreth pagesave:" : "For payment questions:"} <strong>info@mso.re</strong>
+          {isSq ? "Për pyetje rreth pagesave:" : "For payment questions:"} <strong>muslim.brami@gmail.com</strong>
         </p>
       </Section>
     </LegalLayout>

@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ShieldPlus, ShieldMinus, Crown, Shield, Users } from "lucide-react";
-import { useRolePermissions, type AppRole } from "@/hooks/useRolePermissions";
+import { useRolePermissions, roleLabel, type AppRole } from "@/hooks/useRolePermissions";
 
 interface Profile {
   id: string;
@@ -31,7 +31,7 @@ interface AdminRoleRequest {
 }
 
 const ASSIGNABLE_ROLES: { value: AppRole; label: string; icon: React.ReactNode }[] = [
-  { value: "admin", label: "Admin", icon: <Crown className="h-3 w-3" /> },
+  { value: "admin", label: "Pulse AI Admin", icon: <Crown className="h-3 w-3" /> },
   { value: "controller", label: "Controller", icon: <Shield className="h-3 w-3" /> },
   { value: "worker", label: "Worker", icon: <Users className="h-3 w-3" /> },
   { value: "moderator", label: "Moderator", icon: <Shield className="h-3 w-3" /> },
@@ -310,12 +310,12 @@ export const AdminRoleManager = ({ profiles }: { profiles: Profile[] }) => {
                               toast.error("Cannot remove the base 'user' role");
                               return;
                             }
-                            if (confirm(`Remove role "${role}" from ${p.full_name || p.user_id}?`)) {
+                            if (confirm(`Remove role "${roleLabel(role)}" from ${p.full_name || p.user_id}?`)) {
                               removeRole.mutate({ userId: p.user_id, role });
                             }
                           }}
                         >
-                          {role}
+                          {roleLabel(role)}
                           {role !== "user" && <ShieldMinus className="h-2.5 w-2.5" />}
                         </Badge>
                       ))}

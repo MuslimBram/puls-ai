@@ -14,6 +14,7 @@ import { PublicMegaNav } from "./PublicMegaNav";
 import { PublicMobileNav } from "./PublicMobileNav";
 import { PublicCTA } from "./PublicCTA";
 import { PublicLanguageSelector } from "./PublicLanguageSelector";
+import { CurrencySelector } from "@/components/public/CurrencySelector";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
 
 interface PublicHeaderProps {
@@ -104,6 +105,7 @@ export function PublicHeader({ className }: PublicHeaderProps) {
 
         <div className="ml-auto flex items-center gap-1">
           <PublicLanguageSelector />
+          <CurrencySelector />
 
           <Button
             type="button"

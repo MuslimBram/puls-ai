@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, CreditCard, X } from "lucide-react";
 import { differenceInDays } from "date-fns";
+import MemberAccessNotice from "@/components/MemberAccessNotice";
+import { memberPageInfo } from "@/lib/memberPages";
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -53,7 +55,11 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) {
+    // Vizitori pa llogari: i shpjegohet çfarë ka faqja dhe pse duhet hyrje.
+    if (memberPageInfo(location.pathname)) return <MemberAccessNotice />;
+    return <Navigate to={`/login?next=${encodeURIComponent(location.pathname + location.search)}`} replace />;
+  }
 
   // Platform admins bypass billing banners; business_owner is a customer role and must follow its subscription.
   const bypassRoles = ["admin", "super_admin"];

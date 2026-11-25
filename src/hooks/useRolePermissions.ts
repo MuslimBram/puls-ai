@@ -19,6 +19,31 @@ export type AppRole =
   | "staff"
   | "accountant";
 
+/**
+ * Public role labels used by the UI (from the Pulse repo role model).
+ * Internal role keys stay unchanged for backwards compatibility and RLS.
+ * super_admin = Owner (Pulse AI), admin = Pulse AI Admin, business_owner = Business Admin
+ */
+export const ROLE_LABELS: Record<AppRole, string> = {
+  super_admin: "Owner",
+  admin: "Pulse AI Admin",
+  business_owner: "Business Admin",
+  controller: "Controller",
+  worker: "Worker",
+  user: "User",
+  moderator: "Moderator",
+  partner: "Partner",
+  business_manager: "Business Manager",
+  agent: "AI Agent",
+  freelancer: "Freelancer",
+  ambassador: "Ambassador",
+  support_agent: "Support Agent",
+  staff: "Staff",
+  accountant: "Accountant",
+};
+
+export const roleLabel = (role: string) => ROLE_LABELS[role as AppRole] ?? role;
+
 export interface RolePermissions {
   canCreateAdmin: boolean;
   canCreateController: boolean;

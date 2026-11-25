@@ -1,0 +1,7 @@
+import{requireCronAuth}from"../_shared/cron-auth.ts";
+const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:{"Content-Type":"application/json"}});
+Deno.serve(async(req)=>{if(req.method==="OPTIONS")return new Response(null);const unauth=requireCronAuth(req);if(unauth)return new Response(unauth.body,{status:unauth.status,headers:{"Content-Type":"application/json"}});
+const url=Deno.env.get("SUPABASE_URL")!;const key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;const secret=Deno.env.get("INTERNAL_WEBHOOK_SECRET")??"";
+const keyPresent=!!Deno.env.get("ZAI_API_KEY");
+if(!keyPresent)return json({zai_key_present:false,smoke:"BLOCKED",reason:"ZAI_API_KEY not set"},503);
+const start=Date.now();const res=await fetch(`${url}/functions/v1/ai-router`,{method:"POST",headers:{"Content-Type":"application/json","Authorization":`Bearer ${key}`,"x-internal-secret":secret},body:JSON.stringify({provider:"zai",messages:[{role:"user",content:"Reply with exactly: ZAI_OK"}],system_prompt:"You are a test assistant. Follow instructions exactly.",max_tokens:20}),signal:AbortSignal.timeout(35000)});const latency_ms=Date.now()-start;const body=await res.json() as any;return json({zai_key_present:keyPresent,http_status:res.status,provider:body.provider??null,model_used:body.model_used??null,response:body.response??body.text??body.error??null,tokens:body.tokens??null,latency_ms,fallback_used:body.fallback_used??null,smoke:res.ok?"PASS":"FAIL",ai_router_version:"v23",verify_jwt:true});});

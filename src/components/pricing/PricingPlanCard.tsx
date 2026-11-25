@@ -13,7 +13,7 @@ import {
   getPackageSavings,
   getPackageTotalPrice,
 } from "@/lib/packagePricing";
-import { formatALL } from "@/lib/currency";
+import { useDisplayCurrency } from "@/hooks/useDisplayCurrency";
 import {
   formatLimitValue,
   getPlanActionLabel,
@@ -58,6 +58,14 @@ export const PricingPlanCard = ({
       ? "Select term"
       : getPlanActionLabel(intent, plan.cta);
 
+  const { fromALL } = useDisplayCurrency();
+  const ratio = (v: number) => (plan.monthlyPrice ? v / plan.monthlyPrice : 0);
+  const ex = plan.monthlyPriceByCurrency;
+  // Çmimi në monedhën e zgjedhur: i saktë kur ekziston, me të njëjtën zbritje si në Lek.
+  const formatALL = (v: number) => fromALL(v, ex ? {
+    EUR: ex.EUR != null ? Math.round(ex.EUR * ratio(v) * 100) / 100 : null,
+    USD: ex.USD != null ? Math.round(ex.USD * ratio(v) * 100) / 100 : null,
+  } : undefined);
   const displayPrice = getDiscountedMonthlyPrice(plan.monthlyPrice, packageType);
   const totalPrice = getPackageTotalPrice(plan.monthlyPrice, packageType);
   const savings = getPackageSavings(plan.monthlyPrice, packageType);

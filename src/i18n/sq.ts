@@ -218,7 +218,7 @@ export default {
         },
         howMuch: {
           q: "Sa kushton?",
-          a: "Planet fillojnë nga 9,900 ALL/muaj (Start), 19,900 ALL/muaj (Growth), 39,900 ALL/muaj (Pro) dhe 79,900 ALL/muaj (Enterprise). Merrni zbritje për angazhime më të gjata: 5% për 3 muaj, 10% për 6 muaj, 15% vjetore.",
+          a: "Paketat: Standard 9,900 ALL/muaj, Professional 19,900 ALL/muaj, Advanced 39,900 ALL/muaj dhe Enterprise me ofertë. Zbritje për angazhime më të gjata: 5% për 3 muaj, 10% për 6 muaj, 20% vjetore. Provë falas 7 ditë.",
         },
         freeTrial: {
           q: "A mund ta provoj falas?",
@@ -460,8 +460,8 @@ export default {
     sixMonthDesc: "Kurseni 10%",
     sixMonthPrice: "8,910 ALL/muaj",
     yearly: "Vjetore",
-    yearlyDesc: "Kurseni 15%",
-    yearlyPrice: "8,415 ALL/muaj",
+    yearlyDesc: "Kurseni 20%",
+    yearlyPrice: "7,920 ALL/muaj",
   },
 
   // Navigation
@@ -960,7 +960,7 @@ export default {
       sharedYouDo:           "Përdorni fjalëkalime të forta unike, aktivizoni autentifikimin me dy faktorë, rishikoni kush ka qasje në hapësinën tuaj dhe revokon integrimet që nuk i përdorni më.",
       sharedDisclaimer:      "Kjo faqe përshkruan kontrollet që janë aktive sot. Nuk është certifikim dhe nuk pretendon siguri absolute; asnjë platformë online nuk mund ta ofrojë këtë.",
       reportTitle:           "Raportimi i një dobësie",
-      reportBody:            "Dërgoni email në info@mso.re me subjektin \"Siguria\" dhe përfshini hapat e riprodhimit. Njohim raportet brenda dy ditëve pune dhe do t'ju mbajmë të informuar deri sa çështja të zgjidhet.",
+      reportBody:            "Dërgoni email në muslim.brami@gmail.com me subjektin \"Siguria\" dhe përfshini hapat e riprodhimit. Njohim raportet brenda dy ditëve pune dhe do t'ju mbajmë të informuar deri sa çështja të zgjidhet.",
     },
   },
 

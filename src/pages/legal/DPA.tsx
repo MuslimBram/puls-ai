@@ -65,8 +65,8 @@ export default function DPA() {
           : "This agreement applies between the customer (controller) and Pulse AI (processor) for personal data that the customer uploads or connects to the platform. It supplements the Terms of Service and takes effect when the customer starts using the service."}</p>
         <InfoCard title={isSq ? "Ju duhet një kopje e nënshkruar?" : "Need a signed copy?"}>
           {isSq
-            ? "Përdorni butonin \"Shkarko PDF\" më sipër dhe dërgojeni dokumentin e nënshkruar në info@mso.re. Ne e kundërnënshkruajmë dhe e kthejmë brenda pesë ditëve pune."
-            : "Use the \"Download PDF\" button above and email the signed document to info@mso.re. We counter-sign and return it within five business days."}
+            ? "Përdorni butonin \"Shkarko PDF\" më sipër dhe dërgojeni dokumentin e nënshkruar në muslim.brami@gmail.com. Ne e kundërnënshkruajmë dhe e kthejmë brenda pesë ditëve pune."
+            : "Use the \"Download PDF\" button above and email the signed document to muslim.brami@gmail.com. We counter-sign and return it within five business days."}
         </InfoCard>
       </Section>
 
