@@ -1,0 +1,16 @@
+begin;
+alter policy "Admins view all connection logs" on public.connection_logs to authenticated;
+alter policy "Workspace owners manage n8n config" on public.n8n_configurations to authenticated;
+alter policy "Admins send any messages" on public.support_ticket_messages to authenticated;
+alter policy "Admins view all ticket messages" on public.support_ticket_messages to authenticated;
+alter policy "Admins update all tickets" on public.support_tickets to authenticated;
+alter policy "Admins view all tickets" on public.support_tickets to authenticated;
+alter policy "Admins view all connections" on public.unified_connections to authenticated;
+alter policy "Workspace owners and admins can manage vault refs" on public.vault_secret_refs to authenticated;
+revoke execute on function public.has_role(uuid, app_role) from public, anon;
+revoke execute on function public.is_workspace_member(uuid, uuid) from public, anon;
+revoke execute on function public.is_workspace_owner(uuid, uuid) from public, anon;
+grant execute on function public.has_role(uuid, app_role) to authenticated, service_role;
+grant execute on function public.is_workspace_member(uuid, uuid) to authenticated, service_role;
+grant execute on function public.is_workspace_owner(uuid, uuid) to authenticated, service_role;
+commit;;
