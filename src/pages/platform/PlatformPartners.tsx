@@ -13,6 +13,7 @@ import { PublicCTA } from "@/components/public/PublicCTA";
 import { Seo } from "@/components/Seo";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CommissionPolicyCard } from "@/components/partners/CommissionPolicyCard";
 
 const FEATURES = [
   { key: "reseller",    icon: Handshake },
@@ -67,6 +68,12 @@ export default function PlatformPartners() {
               </Card>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="py-8 px-4">
+        <div className="mx-auto max-w-3xl">
+          <CommissionPolicyCard />
         </div>
       </section>
 

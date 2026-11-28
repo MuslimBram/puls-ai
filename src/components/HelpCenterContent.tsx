@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,7 +57,7 @@ const STEPS = [
   {
     icon: Gift,
     title: "6. Share your referral link",
-    body: "Share your referral link from the Referral Program page and track eligible rewards according to the current program terms.",
+    body: `Share your referral link from the Referral Program page. You earn ${COMMISSION_POLICY.referral.firstPaymentPercent}% of each referred business's first successful payment, and they get ${COMMISSION_POLICY.referral.referredDiscountPercent}% off it.`,
     href: "/referral-program",
     cta: "Get my link",
   },
@@ -73,7 +74,7 @@ const FAQS = [
   },
   {
     q: "When do I receive my referral reward?",
-    a: "Reward eligibility, value and timing follow the current Referral Program terms shown in your account. Check the Referral Program page for the active rules before sharing your link.",
+    a: `${COMMISSION_POLICY.referral.firstPaymentPercent}% of the referred business's first successful payment is credited to your wallet after the ${COMMISSION_POLICY.refundWindowDays}-day refund window, unless the payment is refunded or disputed. Renewals do not earn a referral reward.`,
   },
   {
     q: "Who can connect channels for my business?",

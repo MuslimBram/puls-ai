@@ -5,6 +5,7 @@ import { indexPricingCatalogByPlanKey, loadPricingCatalogRows } from "../_shared
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { COMMISSION_POLICY } from "../_shared/commission-policy.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
@@ -172,6 +173,18 @@ serve(async (req) => {
       if (partner && partner.referral_discount_percent > 0) {
         referralDiscountPercent = Number(partner.referral_discount_percent);
         referralDiscountDurationMonths = Number(partner.discount_duration_months || 1);
+      } else if (!partner) {
+        // Ordinary Referral Program code: the referred business gets the
+        // owner-approved 15% discount on its first payment (never self-referral).
+        const { data: bizCode } = await supabaseClient
+          .from("business_referral_codes")
+          .select("user_id, is_active")
+          .eq("referral_code", referralCode)
+          .maybeSingle();
+        if (bizCode && bizCode.is_active !== false && bizCode.user_id !== user.id) {
+          referralDiscountPercent = COMMISSION_POLICY.referral.referredDiscountPercent;
+          referralDiscountDurationMonths = COMMISSION_POLICY.referral.referredDiscountCycles;
+        }
       }
     } else {
       const { data: sub } = await supabaseClient
@@ -201,6 +214,24 @@ serve(async (req) => {
           }
         }
       }
+    }
+
+    // The referred-business discount is for the FIRST payment only.
+    if (referralDiscountPercent > 0 && workspaceId) {
+      const { data: priorPayment } = await supabaseClient
+        .from("billing_history")
+        .select("id")
+        .eq("workspace_id", workspaceId)
+        .in("status", ["paid", "succeeded", "completed", "captured"])
+        .gt("amount", 0)
+        .limit(1)
+        .maybeSingle();
+      if (priorPayment) referralDiscountPercent = 0;
+    }
+
+    // Discounts do not stack: the customer gets the larger one.
+    if (referralDiscountPercent > 0 && packageDiscountPercent >= referralDiscountPercent) {
+      referralDiscountPercent = 0;
     }
 
     const appliedDiscountPercent = referralDiscountPercent > 0 ? referralDiscountPercent : packageDiscountPercent;

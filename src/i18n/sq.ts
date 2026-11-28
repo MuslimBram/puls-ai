@@ -226,11 +226,11 @@ export default {
         },
         rolesDifference: {
           q: "Cili është ndryshimi mes Biznesit, Freelancer-it dhe Ambasadorit?",
-          a: "Biznes: Keni një kompani dhe doni ta rritni me mjete AI. Freelancer: Menaxhoni biznese të tjera — fitoni 35% komision referimi + 40% nga menaxhimi. Ambasador: Vetëm referime — fitoni 35% komision jetësor (minimum 3 referime/muaj).",
+          a: "Biznes: menaxhon biznesin dhe workspace-in e vet. Freelancer: sjell biznese dhe, kur biznesi e autorizon, i menaxhon — fiton 15% komision referimi në pagesën e parë + 20% të tarifave të menaxhimit të arkëtuara realisht. Ambasador: sjell biznese pa i menaxhuar — fiton 15% komision jetësor në çdo pagesë + bonus 15% një herë në pagesën e parë. White-Label: për agjenci ose rishitës me markën dhe domenin e vet pas marrëveshjes tregtare.",
         },
         referralEarnings: {
           q: "Si fitoj para me referime?",
-          a: "Ndani linkun tuaj unik të referimit. Fitoni komision jetësor për çdo pagesë nga përdoruesit që referoni. Freelancerët fitojnë 35% nga referimet + 40% nga menaxhimi. Ambasadorët fitojnë 35% nga referimet.",
+          a: "Ndani linkun tuaj të referimit. Programi i referimit: 15% e pagesës së parë të suksesshme të biznesit që referoni, dhe biznesi merr 15% zbritje në pagesën e parë. Freelancer: 15% në pagesën e parë + 20% e tarifave të menaxhimit të arkëtuara. Ambasador: 15% jetësor në çdo pagesë + 15% bonus në pagesën e parë (30% në pagesën e parë). Komisionet llogariten mbi shumën e paguar realisht; rimbursimet dhe chargeback-et e kthejnë komisionin.",
         },
         installMobile: {
           q: "A mund ta instaloj në telefon?",

@@ -7,12 +7,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CheckCircle, XCircle, DollarSign, Receipt, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
+import { CommissionPolicyCard } from "@/components/partners/CommissionPolicyCard";
+import { RecordManagementFeeForm } from "@/components/partners/RecordManagementFeeForm";
+import { COMMISSION_TYPE_LABEL } from "@/config/commissionPolicy";
 
 const statusColor: Record<string, string> = {
   pending: "bg-yellow-500/10 text-yellow-700",
   approved: "bg-blue-500/10 text-blue-700",
   paid: "bg-green-500/10 text-green-700",
   cancelled: "bg-destructive/10 text-destructive",
+  reversed: "bg-destructive/10 text-destructive",
+  pending_refund_window: "bg-muted text-muted-foreground",
   requested: "bg-yellow-500/10 text-yellow-700",
   sent: "bg-green-500/10 text-green-700",
   rejected: "bg-destructive/10 text-destructive",
@@ -47,50 +52,12 @@ export const AdminCommissionManager = () => {
     },
   });
 
+  // Money moves happen server-side in one atomic, idempotent transaction.
   const approveCommission = useMutation({
     mutationFn: async (commissionId: string) => {
-      // Get commission details
-      const { data: comm, error: fetchErr } = await supabase
-        .from("partner_commissions")
-        .select("*")
-        .eq("id", commissionId)
-        .single();
-      if (fetchErr) throw fetchErr;
-
-      // Update status
-      const { error } = await supabase
-        .from("partner_commissions")
-        .update({ commission_status: "approved" })
-        .eq("id", commissionId);
+      const { data, error } = await (supabase.rpc as any)("admin_approve_partner_commission", { _commission_id: commissionId });
       if (error) throw error;
-
-      // Move from pending to balance in wallet
-      const { data: wallet } = await supabase
-        .from("partner_wallets")
-        .select("*")
-        .eq("partner_id", comm.partner_id)
-        .single();
-
-      if (wallet) {
-        const amount = Number(comm.commission_amount);
-        await supabase
-          .from("partner_wallets")
-          .update({
-            current_balance: Number(wallet.current_balance) + amount,
-            lifetime_earnings: Number(wallet.lifetime_earnings) + amount,
-            pending_amount: Math.max(0, Number(wallet.pending_amount) - amount),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("partner_id", comm.partner_id);
-
-        await supabase.from("partner_wallet_transactions").insert({
-          partner_id: comm.partner_id,
-          type: "commission_credit",
-          amount,
-          reference_id: commissionId,
-          description: `Commission approved: ${comm.plan_name}`,
-        } as any);
-      }
+      if (data !== "approved") throw new Error(`Not approved: ${data}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-commissions"] });
@@ -101,35 +68,9 @@ export const AdminCommissionManager = () => {
 
   const cancelCommission = useMutation({
     mutationFn: async (commissionId: string) => {
-      const { data: comm } = await supabase
-        .from("partner_commissions")
-        .select("partner_id, commission_amount")
-        .eq("id", commissionId)
-        .single();
-
-      const { error } = await supabase
-        .from("partner_commissions")
-        .update({ commission_status: "cancelled" })
-        .eq("id", commissionId);
+      const { data, error } = await (supabase.rpc as any)("admin_cancel_partner_commission", { _commission_id: commissionId });
       if (error) throw error;
-
-      if (comm) {
-        const { data: wallet } = await supabase
-          .from("partner_wallets")
-          .select("pending_amount")
-          .eq("partner_id", comm.partner_id)
-          .single();
-
-        if (wallet) {
-          await supabase
-            .from("partner_wallets")
-            .update({
-              pending_amount: Math.max(0, Number(wallet.pending_amount) - Number(comm.commission_amount)),
-              updated_at: new Date().toISOString(),
-            })
-            .eq("partner_id", comm.partner_id);
-        }
-      }
+      if (data !== "reversed") throw new Error(`Not cancelled: ${data}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-commissions"] });
@@ -210,7 +151,7 @@ export const AdminCommissionManager = () => {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["admin-commissions"] });
-      toast.success(`Generated ${data?.generated || 0} new commissions`);
+      toast.success(`Generated ${(data?.generated || 0) + (data?.managementFees || 0)} new commissions`);
     },
     onError: (e) => toast.error(e.message),
   });
@@ -238,6 +179,9 @@ export const AdminCommissionManager = () => {
           Generate Commissions
         </Button>
       </div>
+
+      <CommissionPolicyCard />
+      <RecordManagementFeeForm />
 
       <Tabs defaultValue="commissions">
         <TabsList>
@@ -268,9 +212,10 @@ export const AdminCommissionManager = () => {
                       <Badge className={statusColor[c.commission_status] || ""}>
                         {c.commission_status}
                       </Badge>
+                      <Badge variant="outline">{COMMISSION_TYPE_LABEL[c.commission_type] ?? c.commission_type ?? "legacy"}</Badge>
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      ${Number(c.gross_amount).toFixed(2)} × {c.commission_percent}% = ${Number(c.commission_amount).toFixed(2)}
+                      {Number(c.gross_amount).toFixed(2)} {c.currency ?? ""} × {c.commission_percent}% = {Number(c.commission_amount).toFixed(2)} {c.currency ?? ""}
                       {c.billing_period_start && ` · ${format(new Date(c.billing_period_start), "MMM yyyy")}`}
                     </p>
                   </div>

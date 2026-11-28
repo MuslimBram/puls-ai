@@ -4,11 +4,12 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { requireCronAuth } from "../_shared/cron-auth.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { COMMISSION_POLICY } from "../_shared/commission-policy.ts";
 
 const ALLOW_ANY_ORIGIN = false;
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_ANY_ORIGIN });
 
-const REFUND_WINDOW_DAYS = 7;
+const REFUND_WINDOW_DAYS = COMMISSION_POLICY.refundWindowDays;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: getCors(req) });
@@ -31,6 +32,7 @@ serve(async (req) => {
       .from("partner_commissions")
       .select("*")
       .eq("commission_status", "pending_refund_window")
+      .is("reversal_of", null)
       .lte("created_at", windowCutoff.toISOString());
 
     if (fetchErr) throw fetchErr;
@@ -51,6 +53,18 @@ serve(async (req) => {
         continue;
       }
 
+      // Suspended partners and partners with open fraud flags are not approved.
+      const [{ data: partner }, { data: openFlag }] = await Promise.all([
+        supabase.from("partner_accounts").select("status").eq("id", comm.partner_id).maybeSingle(),
+        supabase.from("partner_risk_flags").select("id")
+          .eq("partner_id", comm.partner_id).eq("is_resolved", false).eq("severity", "high")
+          .limit(1).maybeSingle(),
+      ]);
+      if (!partner || partner.status !== "active" || openFlag) {
+        console.log(`[APPROVE-COMMISSIONS] Holding ${comm.id} - partner inactive or flagged`);
+        continue;
+      }
+
       // Move to approved (pending admin final approval)
       const { error } = await supabase
         .from("partner_commissions")
@@ -58,6 +72,28 @@ serve(async (req) => {
         .eq("id", comm.id);
 
       if (!error) approved++;
+    }
+
+    // Ordinary Referral Program rewards: credit the referrer's wallet once the
+    // refund window has passed and no refund is pending for the referred workspace.
+    let referralCredited = 0;
+    const { data: rewards, error: rewardsErr } = await supabase
+      .from("referral_rewards")
+      .select("id, workspace_id")
+      .eq("reward_status", "pending_refund_window")
+      .is("reversal_of", null)
+      .lte("created_at", windowCutoff.toISOString());
+    if (rewardsErr) throw rewardsErr;
+    for (const reward of rewards ?? []) {
+      const { data: pendingRefund } = await supabase
+        .from("subscription_refunds")
+        .select("id")
+        .eq("workspace_id", reward.workspace_id)
+        .in("refund_status", ["requested", "approved"])
+        .maybeSingle();
+      if (pendingRefund) continue;
+      const { data: result } = await supabase.rpc("credit_referral_reward", { _reward_id: reward.id });
+      if (result === "credited") referralCredited++;
     }
 
     // Also detect mass fake signups
@@ -109,7 +145,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ approved, timestamp: new Date().toISOString() }), {
+    return new Response(JSON.stringify({ approved, referralCredited, timestamp: new Date().toISOString() }), {
       headers: { ...getCors(req), "Content-Type": "application/json" },
     });
   } catch (error) {

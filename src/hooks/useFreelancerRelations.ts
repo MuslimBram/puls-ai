@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/components/ui/sonner";
@@ -45,7 +46,10 @@ export const useFreelancerRelations = () => {
         throw new Error(check.relation_check.reason);
       }
 
-      const commissionRate = relation_type === "referral" ? 35 : 40;
+      // Display value only — payouts use the owner-approved policy engine.
+      const commissionRate = relation_type === "referral"
+        ? COMMISSION_POLICY.freelancer.firstPaymentReferralPercent
+        : COMMISSION_POLICY.freelancer.managementFeeSharePercent;
 
       const { error } = await supabase
         .from("freelancer_business_relations")

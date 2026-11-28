@@ -15,6 +15,7 @@ import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 import { verifyTwilioSignature } from "../_shared/webhook-signatures.ts";
 import { resolveWorkspaceFromCalledNumber } from "../_shared/twilio-workspace-resolver.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { languageInstruction } from "../_shared/voice-language.ts";
 import {
   blocksNormalIngress,
   extractSecurityUrls,
@@ -134,7 +135,7 @@ Deno.serve(async (req) => {
   const callerNum = url.searchParams.get("From") ?? "";
 
   const { data: ch } = await sb.from("channels")
-    .select("voice_ai_enabled")
+    .select("voice_ai_enabled, settings")
     .eq("workspace_id", workspaceId)
     .eq("channel_type", "voip")
     .eq("is_enabled", true)
@@ -160,6 +161,8 @@ Deno.serve(async (req) => {
       systemPrompt = `You are an AI receptionist for ${bizName}.
 ${custName ? `The caller appears to be ${custName}.` : ""}
 ${JSON.stringify((ctx.business as any)?.services ?? {}).slice(0, 400)}
+
+${languageInstruction(String((ch?.settings as Record<string, unknown> | null)?.voice_language ?? ""), String((ch?.settings as Record<string, unknown> | null)?.voice_dialect ?? ""))}
 
 RULES:
 - Keep responses SHORT (1-2 sentences max) — this is a voice call

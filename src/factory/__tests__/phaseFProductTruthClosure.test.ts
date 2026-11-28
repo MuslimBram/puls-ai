@@ -21,9 +21,12 @@ describe("Phase F product truth closure", () => {
     for (const source of [stripeWebhook, commissionGenerator, adminFreelancers]) {
       expect(source).not.toContain("commission_rate || 10");
     }
-    expect(stripeWebhook).toContain("Number(partner.commission_rate ?? 0)");
-    expect(commissionGenerator).toContain("Number(partner.commission_rate ?? 0)");
-    expect(adminFreelancers).toContain("Number(p.commission_rate ?? 0)");
+    // Payouts use the owner-approved policy engine, not the legacy per-partner column.
+    expect(stripeWebhook).toContain("processSubscriptionPayment(commissionStore");
+    expect(commissionGenerator).toContain("processSubscriptionPayment(store");
+    expect(stripeWebhook).not.toContain("Number(partner.commission_rate ?? 0)");
+    expect(commissionGenerator).not.toContain("commission_rate");
+    expect(adminFreelancers).toContain("partner_program");
   });
 
   it("sources freelancer business purchase pricing from pricing_settings", () => {
@@ -57,8 +60,7 @@ describe("Phase F product truth closure", () => {
 
   it("keeps public FAQ commercial answers configuration-driven", () => {
     expect(faq).toContain("active product catalog");
-    expect(faq).toContain("does not promise a fixed public percentage or lifetime commission");
-    expect(faq).toContain("White-Label");
+    expect(faq).not.toContain("does not promise a fixed public percentage or lifetime commission");
     expect(faq).not.toContain("35% lifetime");
   });
 });

@@ -42,6 +42,20 @@ Qëllimi: 0 leads të humbur, 0 follow-up të harruara, maksimum automatizim.
 - Dashboard partner + wallet
 - Sheh vetëm fitumet e veta
 
+### Politika zyrtare e komisioneve (owner-v1-2026-11-28)
+Burimi i vetëm: `supabase/functions/_shared/commission-policy.ts` (i njëjti kod për backend-in, faqet dhe AI Help).
+
+| Programi | Çfarë paguhet |
+|---|---|
+| Programi i referimit | 15% e pagesës së parë të suksesshme (një herë); biznesi i referuar merr 15% zbritje në pagesën e parë |
+| Freelancer | 15% në pagesën e parë + 20% e tarifave të menaxhimit të **arkëtuara realisht** nga bizneset që menaxhon |
+| Ambasador | 15% jetësor në çdo pagesë + 15% bonus një herë në pagesën e parë (pagesa e parë = 30%) |
+
+- Komisioni pret 7 ditë (afati i rimbursimit), pastaj miratohet nga admini.
+- Rimbursimi/chargeback-u e anulon ose e kthen komisionin (rresht negativ i veçantë; historiku nuk fshihet).
+- Vetë-referimi, partnerët e pezulluar dhe pagesat e papaguara/të dështuara/të rimbursuara nuk paguhen.
+- Tarifat e menaxhimit regjistrohen te `partner_management_fees` (statusi `collected`) — vetëm ato japin 20%.
+
 ---
 
 ## Kreu 3: Shtimi i Biznesit të Ri (Business Admin)

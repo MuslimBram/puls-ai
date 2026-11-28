@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -417,7 +418,7 @@ const Register = () => {
                       <li>✓ Dedicated personal AI assistant</li>
                       <li>✓ Unified inbox — email, WhatsApp, Telegram</li>
                       <li>✓ CRM, pipeline and analytics</li>
-                      <li>✓ Referral rewards follow your active account terms</li>
+                      <li>{`✓ Referral Program: ${COMMISSION_POLICY.referral.firstPaymentPercent}% of each referred business's first payment`}</li>
                       <li>✓ 1 business profile allowed during trial</li>
                     </ul>
                   </div>

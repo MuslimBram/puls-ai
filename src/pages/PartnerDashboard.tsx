@@ -25,6 +25,7 @@ import {
 import { format } from "date-fns";
 import { toast } from "@/components/ui/sonner";
 import { buildReferralLink } from "@/lib/referral";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 
 const PartnerDashboard = () => {
   const { data: partner, isLoading } = usePartnerAccount();
@@ -131,7 +132,12 @@ const PartnerDashboard = () => {
               </div>
               <p className="text-xs text-muted-foreground mt-2">
                 Share this link with businesses. They'll be automatically linked to your partner account.
-                You earn commission <strong>only on the first paid invoice</strong> of each referred customer — no commission on renewals or future payments.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1" data-testid="partner-commission-terms">
+                {partner.partner_program === "ambassador"
+                  ? `Ambassador: ${COMMISSION_POLICY.ambassador.lifetimeRecurringPercent}% on every successful payment of each referred business for as long as it stays a customer, plus a one-time ${COMMISSION_POLICY.ambassador.firstPaymentBonusPercent}% bonus on its first payment (${COMMISSION_POLICY.ambassador.lifetimeRecurringPercent + COMMISSION_POLICY.ambassador.firstPaymentBonusPercent}% on the first payment).`
+                  : `Freelancer: ${COMMISSION_POLICY.freelancer.firstPaymentReferralPercent}% on the first successful payment of each referred business, plus ${COMMISSION_POLICY.freelancer.managementFeeSharePercent}% of management fees actually collected from businesses you manage.`}
+                {` Commissions wait ${COMMISSION_POLICY.refundWindowDays} days (refund window) and are reversed if the payment is refunded or charged back.`}
               </p>
             </CardContent>
           </Card>

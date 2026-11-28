@@ -226,11 +226,11 @@ export default {
         },
         rolesDifference: {
           q: "What's the difference between Business, Freelancer, Ambassador, and White-Label?",
-          a: "Business: manages its own business and workspace. Freelancer: manages independent work and, when authorized, client businesses. Ambassador: focuses on referrals. White-Label: is for agencies or resellers using their own brand and domain after commercial setup. Any commission or benefit depends on active account terms and configuration.",
+          a: "Business: manages its own business and workspace. Freelancer: brings in businesses and, when the business authorizes it, manages them — earns a 15% referral commission on the first payment + 20% of management fees actually collected. Ambassador: brings in businesses without managing them — earns a 15% lifetime commission on every payment + a one-time 15% bonus on the first payment. White-Label: for agencies or resellers using their own brand and domain after a commercial agreement.",
         },
         referralEarnings: {
           q: "How do I earn money with referrals?",
-          a: "Ordinary referrals and partner commissions are separate mechanisms. Any payout or commission uses the active account rate and terms; Pulse AI does not promise a fixed public percentage or lifetime commission.",
+          a: "Share your referral link. Referral Program: 15% of the referred business's first successful payment, and the business gets a 15% discount on its first payment. Freelancer: 15% on the first payment + 20% of management fees actually collected. Ambassador: 15% lifetime on every payment + a 15% first-payment bonus (30% on the first payment). Commissions are calculated on the amount actually paid; refunds and chargebacks reverse the commission.",
         },
         installMobile: {
           q: "Can I install it on my phone?",

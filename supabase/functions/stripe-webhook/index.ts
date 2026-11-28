@@ -9,6 +9,8 @@ const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: ALLOW_
 
 import { indexPlanPrices, indexPricingCatalogByProductId, loadPricingCatalogRows } from "../_shared/monetization-catalog.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
+import { processSubscriptionPayment, reverseCommissionsForPayment } from "../_shared/commission-engine.ts";
+import { createSupabaseCommissionStore } from "../_shared/commission-store-supabase.ts";
 
 let PRODUCT_MAP: Record<string, string> = {};
 let PLAN_PRICES: Record<string, number> = {};
@@ -66,6 +68,7 @@ serve(async (req) => {
     getServiceKey() ?? "",
     { auth: { persistSession: false } }
   );
+  const commissionStore = createSupabaseCommissionStore(supabase);
 
   let idempotencyKey: string | null = null;
 
@@ -351,71 +354,25 @@ serve(async (req) => {
       console.log(`[STRIPE-WEBHOOK] Updated user ${user.id} to plan=${updateData.plan}, status=${status}, term=${commitmentMonths}m`);
     };
 
-    const createCommission = async (
-      partnerId: string, workspaceId: string, subId: string,
-      planName: string, commRate: number,
-      invoiceRef?: string | null, paidAmount?: number | null,
-    ) => {
-      const { data: existingFirst } = await supabase
-        .from("partner_commissions")
-        .select("id")
-        .eq("partner_id", partnerId)
-        .eq("workspace_id", workspaceId)
-        .eq("is_first_payment", true)
+    const reverseForStripeCharge = async (charge: Stripe.Charge, reason: "refund" | "chargeback") => {
+      const invoiceId = typeof charge.invoice === "string" ? charge.invoice : charge.invoice?.id;
+      if (!invoiceId) return;
+      const { data: bill } = await supabase
+        .from("billing_history")
+        .select("id, amount")
+        .eq("stripe_invoice_id", invoiceId)
         .maybeSingle();
-
-      if (existingFirst) {
-        console.log(`[STRIPE-WEBHOOK] Commission skipped (not first payment) ws=${workspaceId}`);
-        return;
-      }
-
-      const grossAmount = Number(paidAmount) > 0
-        ? Number(paidAmount)
-        : (PLAN_PRICES[planName] || 0);
-      if (grossAmount === 0) return;
-
-      const commAmount = (grossAmount * commRate) / 100;
-      const nowIso = new Date().toISOString();
-
-      const { error: insertErr } = await supabase.from("partner_commissions").insert({
-        partner_id: partnerId,
-        workspace_id: workspaceId,
-        subscription_id: subId,
-        plan_name: planName,
-        billing_period_start: nowIso,
-        billing_period_end: nowIso,
-        gross_amount: grossAmount,
-        commission_percent: commRate,
-        commission_amount: commAmount,
-        commission_status: "pending_refund_window",
-        is_first_payment: true,
-        source_invoice_id: invoiceRef || null,
+      if (!bill) return;
+      const refunded = reason === "refund" ? (charge.amount_refunded || 0) / 100 : Number(bill.amount);
+      await supabase.from("billing_history").update({ refund_amount: refunded }).eq("id", bill.id);
+      const result = await reverseCommissionsForPayment(commissionStore, {
+        sourcePaymentKind: "subscription_payment",
+        sourcePaymentId: bill.id,
+        paymentAmount: Number(bill.amount),
+        refundedAmount: refunded,
+        reason,
       });
-
-      if (insertErr) {
-        if (!String(insertErr.message || "").includes("duplicate")) {
-          console.error(`[STRIPE-WEBHOOK] Commission insert failed:`, insertErr);
-        }
-        return;
-      }
-
-      const { data: wallet } = await supabase
-        .from("partner_wallets")
-        .select("pending_amount")
-        .eq("partner_id", partnerId)
-        .maybeSingle();
-
-      if (wallet) {
-        await supabase
-          .from("partner_wallets")
-          .update({
-            pending_amount: Number(wallet.pending_amount) + commAmount,
-            updated_at: nowIso,
-          })
-          .eq("partner_id", partnerId);
-      }
-
-      console.log(`[STRIPE-WEBHOOK] First-payment commission created: $${commAmount} for partner ${partnerId}`);
+      console.log(`[STRIPE-WEBHOOK] Commission reversal (${reason}) for payment ${bill.id}: ${JSON.stringify(result)}`);
     };
 
     const checkPartnerAbuse = async (partnerId: string) => {
@@ -612,7 +569,7 @@ serve(async (req) => {
                   ? (invoice.subtotal - invoice.total) / 100
                   : 0;
 
-                await supabase.from("billing_history").insert({
+                const { data: insertedBillingRow, error: billingErr } = await supabase.from("billing_history").insert({
                   user_id: succUser.id,
                   workspace_id: userSub?.workspace_id || null,
                   stripe_invoice_id: invoice.id,
@@ -626,31 +583,38 @@ serve(async (req) => {
                   invoice_pdf: invoice.invoice_pdf || null,
                   period_start: invoice.period_start ? new Date(invoice.period_start * 1000).toISOString() : null,
                   period_end: invoice.period_end ? new Date(invoice.period_end * 1000).toISOString() : null,
-                });
+                }).select("id, amount, currency, status, created_at, refund_amount, workspace_id").single();
+                let billingRow = insertedBillingRow;
+                if (billingErr) {
+                  // Same invoice delivered again → reuse the existing payment row so the
+                  // commission engine stays idempotent on the payment id.
+                  const { data: existingBill } = await supabase
+                    .from("billing_history")
+                    .select("id, amount, currency, status, created_at, refund_amount, workspace_id")
+                    .eq("stripe_invoice_id", invoice.id)
+                    .maybeSingle();
+                  billingRow = existingBill ?? null;
+                  if (!existingBill) console.error("[STRIPE-WEBHOOK] billing_history insert failed:", billingErr);
+                }
 
                 if (userSub?.workspace_id) {
                   const invoiceAmountUsd = (invoice.amount_paid || 0) / 100;
                   await applyReferralDiscount(subId, succUser.id, userSub.workspace_id, invoiceAmountUsd);
 
-                  const { data: ws } = await supabase
-                    .from("workspaces")
-                    .select("referred_by_partner_id")
-                    .eq("id", userSub.workspace_id)
-                    .maybeSingle();
-
-                  if (ws?.referred_by_partner_id) {
-                    const { data: partner } = await supabase
-                      .from("partner_accounts")
-                      .select("id, commission_rate, status")
-                      .eq("id", ws.referred_by_partner_id)
-                      .maybeSingle();
-
-                    if (partner && partner.status === "active") {
-                      await createCommission(
-                        partner.id, userSub.workspace_id, subId,
-                        userSub.plan || "standard", Number(partner.commission_rate ?? 0)
-                      );
-                    }
+                  // Owner-approved commission policy (referral / freelancer / ambassador),
+                  // idempotent per billing_history payment id.
+                  if (billingRow) {
+                    const result = await processSubscriptionPayment(commissionStore, {
+                      id: billingRow.id,
+                      workspaceId: billingRow.workspace_id,
+                      payerUserId: succUser.id,
+                      amount: Number(billingRow.amount),
+                      currency: billingRow.currency,
+                      status: billingRow.status,
+                      createdAt: billingRow.created_at,
+                      refundAmount: Number(billingRow.refund_amount ?? 0),
+                    });
+                    console.log(`[STRIPE-WEBHOOK] Commission engine: ${JSON.stringify(result)}`);
                   }
                 }
               }
@@ -708,6 +672,9 @@ serve(async (req) => {
         const charge = event.data.object as Stripe.Charge;
         const paymentIntentId = charge.payment_intent as string;
 
+        // Owner-v1 commissions: reverse per payment (pro rata for partial refunds).
+        await reverseForStripeCharge(charge, "refund");
+
         if (paymentIntentId) {
           await supabase
             .from("subscription_refunds")
@@ -722,10 +689,12 @@ serve(async (req) => {
             .maybeSingle();
 
           if (refund?.workspace_id) {
+            // Legacy (pre owner-v1) commissions keep their original refund rule.
             await supabase
               .from("partner_commissions")
               .update({ commission_status: "cancelled" })
               .eq("workspace_id", refund.workspace_id)
+              .eq("commission_type", "legacy_first_payment")
               .in("commission_status", ["pending", "pending_refund_window"]);
 
             const { data: ws } = await supabase
@@ -738,6 +707,17 @@ serve(async (req) => {
               await checkPartnerAbuse(ws.referred_by_partner_id);
             }
           }
+        }
+        break;
+      }
+
+      case "charge.dispute.created": {
+        // Chargeback: the full commission generated from this payment is reversed.
+        const dispute = event.data.object as Stripe.Dispute;
+        const chargeId = typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+        if (chargeId) {
+          const charge = await stripe.charges.retrieve(chargeId);
+          await reverseForStripeCharge(charge, "chargeback");
         }
         break;
       }

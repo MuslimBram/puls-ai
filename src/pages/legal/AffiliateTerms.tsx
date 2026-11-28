@@ -1,15 +1,17 @@
 import { LegalLayout, Section, InfoCard, type LegalSection } from "@/components/legal/LegalLayout";
 import { usePublicLocale } from "@/hooks/usePublicLocale";
+import { COMMISSION_POLICY as P, COMMISSION_POLICY_VERSION, policyCopy } from "@/config/commissionPolicy";
 
 export default function AffiliateTerms() {
   const { locale } = usePublicLocale();
   const isSq = locale === "sq";
+  const copy = policyCopy(isSq);
 
   const sections: LegalSection[] = isSq
     ? [
         { id: "programs", title: "1. Programet e referimit dhe partneritetit" },
         { id: "commission", title: "2. Rregullat e komisionit të partnerit" },
-        { id: "rate", title: "3. Norma e komisionit" },
+        { id: "rate", title: "3. Normat zyrtare të komisionit" },
         { id: "payouts", title: "4. Konfirmimi dhe pagesat" },
         { id: "conduct", title: "5. Sjellja dhe praktikat e ndaluara" },
         { id: "termination", title: "6. Përfundimi" },
@@ -17,7 +19,7 @@ export default function AffiliateTerms() {
     : [
         { id: "programs", title: "1. Referral and partner programs" },
         { id: "commission", title: "2. Partner commission rules" },
-        { id: "rate", title: "3. Commission rate" },
+        { id: "rate", title: "3. Official commission rates" },
         { id: "payouts", title: "4. Confirmation and payouts" },
         { id: "conduct", title: "5. Conduct and prohibited practices" },
         { id: "termination", title: "6. Termination" },
@@ -27,43 +29,52 @@ export default function AffiliateTerms() {
     <LegalLayout
       title={isSq ? "Kushtet për Referime & Partnerë" : "Referral & Partner Terms"}
       subtitle={isSq
-        ? "Si ndahen referimet e zakonshme të biznesit nga komisionet e partnerëve dhe cilat rregulla zbatohen për pagesën e parë."
-        : "How ordinary business referrals differ from partner commissions and which rules apply to first-payment commissions."}
+        ? "Programi i referimit, Freelancer-i dhe Ambasadori: çfarë paguhet, kur paguhet dhe kur kthehet."
+        : "Referral Program, Freelancer and Ambassador: what is paid, when it is paid and when it is reversed."}
       description={isSq
-        ? "Kushtet e Pulse AI për referimet dhe partnerët: programet e ndara, komisioni vetëm mbi pagesën e parë dhe norma e konfiguruar për llogarinë aktive të partnerit."
-        : "Pulse AI referral and partner terms: separate programs, first-payment-only commissions, and the rate configured for the active partner account."}
+        ? `Kushtet e Pulse AI për referimet dhe partnerët: ${P.referral.firstPaymentPercent}% referim në pagesën e parë, ${P.freelancer.managementFeeSharePercent}% e tarifave të menaxhimit për Freelancer-in dhe ${P.ambassador.lifetimeRecurringPercent}% jetësor për Ambasadorin.`
+        : `Pulse AI referral and partner terms: ${P.referral.firstPaymentPercent}% referral on the first payment, ${P.freelancer.managementFeeSharePercent}% of management fees for Freelancers and ${P.ambassador.lifetimeRecurringPercent}% lifetime for Ambassadors.`}
       path="/affiliate-terms"
       sections={sections}
     >
       <Section id="programs" title={sections[0].title}>
         <p>{isSq
-          ? "Pulse AI ka mekanizma të ndryshëm për referimet e zakonshme të përdoruesve dhe për llogaritë e partnerëve. Një kod referimi biznesi mund të ketë shpërblimin e vet aktiv, ndërsa komisioni i partnerit menaxhohet nga llogaria dhe kushtet e partnerit. Këto dy programe nuk duhet të interpretohen si i njëjti shpërblim."
-          : "Pulse AI has separate mechanisms for ordinary user referrals and partner accounts. A business referral code may have its own active reward, while partner commission is governed by the partner account and partner terms. These programs should not be interpreted as the same reward."}</p>
+          ? "Pulse AI ka tre programe të ndara: Programin e referimit (çdo përdorues), Freelancer-in (sjell dhe, kur biznesi e autorizon, menaxhon biznese) dhe Ambasadorin (sjell biznese pa i menaxhuar). Një biznes i referuar i atribuohet vetëm një programi; komisionet e programeve të ndryshme nuk kombinohen dhe nuk numërohen dy herë."
+          : "Pulse AI has three separate programs: the Referral Program (any user), Freelancer (brings in and, when the business authorizes it, manages businesses) and Ambassador (brings in businesses without managing them). A referred business is attributed to one program only; commissions from different programs are never combined or counted twice."}</p>
       </Section>
 
       <Section id="commission" title={sections[1].title}>
         <ul className="list-disc pl-5 space-y-1.5">
           {(isSq
             ? [
-                "Komisioni i partnerit gjenerohet vetëm mbi pagesën e parë të suksesshme të workspace-it të referuar.",
-                "Rinovimet, upgrade-et dhe pagesat e përsëritura nuk gjenerojnë komision të ri në rrjedhën standarde të partnerit.",
-                "Partneri duhet të ketë llogari aktive dhe referimi duhet të jetë i atribuar te partneri përkatës.",
-                "Çdo komision regjistrohet vetëm një herë për kombinimin partner + workspace për pagesën e parë.",
+                "Komisioni llogaritet mbi shumën e paguar realisht (pas zbritjeve), në monedhën e pagesës.",
+                "Pagesat e papaguara, të dështuara, të rimbursuara ose të kontestuara nuk gjenerojnë komision.",
+                `Çdo komision i ri pret ${P.refundWindowDays} ditë (afati i rimbursimit) para miratimit. Rimbursimi ose chargeback-u e anulon ose e kthen komisionin; historiku ruhet.`,
+                "Vetë-referimi (referimi i biznesit tuaj ose i një workspace ku jeni anëtar) nuk lejohet dhe nuk paguhet.",
+                "Partnerët e pezulluar ose me sinjalizime mashtrimi të hapura nuk marrin miratim deri në verifikim.",
+                "Çdo komision regjistrohet vetëm një herë për çdo pagesë burimore; dërgimet e përsëritura të pagesës nuk e dyfishojnë.",
               ]
             : [
-                "Partner commission is generated only on the first successful payment of the referred workspace.",
-                "Renewals, upgrades, and recurring payments do not generate a new commission in the standard partner flow.",
-                "The partner must have an active account and the referral must be attributed to that partner.",
-                "A first-payment commission is recorded only once for each partner + workspace combination.",
+                "Commission is calculated on the amount actually paid (after discounts), in the payment currency.",
+                "Unpaid, failed, refunded or disputed payments never generate a commission.",
+                `Every new commission waits ${P.refundWindowDays} days (refund window) before approval. A refund or chargeback cancels or reverses the commission; history is kept.`,
+                "Self-referral (referring your own business or a workspace you are a member of) is not allowed and is not paid.",
+                "Suspended partners, or partners with open fraud flags, are not approved until verified.",
+                "Each commission is recorded only once per source payment; repeated payment notifications never duplicate it.",
               ]).map((item) => <li key={item}>{item}</li>)}
         </ul>
       </Section>
 
       <Section id="rate" title={sections[2].title}>
-        <InfoCard title={isSq ? "Normë e konfiguruar, jo përqindje publike fikse" : "Configured rate, not a fixed public percentage"}>
-          <p>{isSq
-            ? "Norma e komisionit merret nga llogaria aktive e partnerit dhe mund të ndryshojë sipas marrëveshjes ose konfigurimit të partnerit. Ky dokument nuk premton një përqindje fikse ose komision për gjithë kohëzgjatjen e abonimit."
-            : "The commission rate is taken from the active partner account and may vary by partner agreement or configuration. This document does not promise a fixed percentage or lifetime recurring commission."}</p>
+        <InfoCard title={isSq ? `Politika zyrtare (${COMMISSION_POLICY_VERSION})` : `Official policy (${COMMISSION_POLICY_VERSION})`}>
+          <ul className="list-disc pl-5 space-y-1.5">
+            <li>{copy.referral}</li>
+            <li>{copy.freelancer}</li>
+            <li>{copy.ambassador}</li>
+          </ul>
+          <p className="mt-2 text-xs">{isSq
+            ? "Komisionet e krijuara para hyrjes në fuqi të kësaj politike mbeten sipas rregullave të atëhershme dhe nuk rillogariten."
+            : "Commissions created before this policy took effect keep the rules that applied then and are not recalculated."}</p>
         </InfoCard>
       </Section>
 

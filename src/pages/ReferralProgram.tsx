@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,7 @@ const ReferralProgram = () => {
           <div>
             <h1 className="text-2xl font-bold text-foreground">Referral Program</h1>
             <p className="text-sm text-muted-foreground">
-              Refer others and earn 15% of their purchases — credited directly to your wallet.
+              {`Refer a business and earn ${COMMISSION_POLICY.referral.firstPaymentPercent}% of its first successful payment. The business gets ${COMMISSION_POLICY.referral.referredDiscountPercent}% off its first payment.`}
             </p>
           </div>
           <Badge variant="outline" className="text-xs">
@@ -94,7 +95,7 @@ const ReferralProgram = () => {
               Your Referral Link
             </CardTitle>
             <CardDescription>
-              Share this link with anyone. When they purchase a package, you earn 15% — credited to your wallet automatically.
+              {`Share this link. When a referred business makes its first successful payment, you earn ${COMMISSION_POLICY.referral.firstPaymentPercent}% of it (once). Renewals do not earn a referral commission.`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -125,7 +126,7 @@ const ReferralProgram = () => {
             <div>
               <p className="text-sm font-medium text-foreground">Rewards go to your wallet</p>
               <p className="text-xs text-muted-foreground mt-1">
-                When a referred user purchases any package, 15% of their payment is automatically credited to your platform wallet. You can use your wallet balance to pay for your own subscription or request a withdrawal.
+                {`Your ${COMMISSION_POLICY.referral.firstPaymentPercent}% reward is credited to your wallet after the ${COMMISSION_POLICY.refundWindowDays}-day refund window, if the payment is not refunded or disputed. You can use your wallet balance to pay for your own subscription or request a withdrawal.`}
               </p>
             </div>
           </CardContent>
@@ -234,7 +235,7 @@ const ReferralProgram = () => {
                   <span className="text-sm font-bold text-primary">3</span>
                 </div>
                 <p className="text-sm font-medium text-foreground">Earn to your wallet</p>
-                <p className="text-xs text-muted-foreground">15% of their purchase is credited to your wallet instantly</p>
+                <p className="text-xs text-muted-foreground">{`${COMMISSION_POLICY.referral.firstPaymentPercent}% of their first payment, credited after the ${COMMISSION_POLICY.refundWindowDays}-day refund window`}</p>
               </div>
             </div>
           </CardContent>

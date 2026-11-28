@@ -72,9 +72,10 @@ describe("channel credential storage safety", () => {
     expect(credentialLookupIdx).toBeGreaterThan(-1);
     expect(authorizationIdx).toBeLessThan(credentialLookupIdx);
     expect(telephonyManager).toContain('.eq("owner_id", user.id)');
-    expect(telephonyManager).toContain('.select("settings,credentials_encrypted")');
-    expect(telephonyManager).toContain("credentials.auth_token || settings.auth_token");
-    expect(telephonyManager).toContain("await decryptIfNeeded(rawAuthToken)");
+    expect(telephonyManager).toContain('.select("id,settings,credentials_encrypted")');
+    // Every provider secret: encrypted credentials first, legacy settings fallback.
+    expect(telephonyManager).toContain("credentials[key] || settings[key]");
+    expect(telephonyManager).toContain("await decryptIfNeeded(raw)");
   });
 
   it("scopes mutable telephony call lookups to the authorized workspace", () => {

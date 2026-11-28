@@ -11,7 +11,9 @@ export interface FreelancerView {
   status: string;
   total_businesses: number;
   monthly_revenue: number;
+  /** Policy label (owner-approved), not the legacy per-partner column. */
   commission_rate: number;
+  partner_program: "freelancer" | "ambassador";
   stripe_connect_id: string | null;
   referral_code: string | null;
   created_at: string;
@@ -79,6 +81,7 @@ export const useAdminFreelancers = () => {
           total_businesses: p.total_businesses || 0,
           monthly_revenue: p.monthly_revenue || 0,
           commission_rate: Number(p.commission_rate ?? 0),
+          partner_program: (p as { partner_program?: string }).partner_program === "ambassador" ? "ambassador" : "freelancer",
           stripe_connect_id: (p as any).stripe_connect_id || null,
           referral_code: p.referral_code || null,
           created_at: p.created_at,

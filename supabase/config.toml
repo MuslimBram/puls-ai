@@ -45,6 +45,10 @@ project_id = "wlvlgghqwwhhqaqqopml"
     verify_jwt = false
   [functions.twilio-status-callback]
     verify_jwt = false
+  # Telnyx / Plivo / Vonage / Custom SIP call control. Authenticated by the
+  # per-channel URL token + provider signature (see the function header).
+  [functions.telephony-webhook]
+    verify_jwt = false
   [functions.webhook-ingest]
     verify_jwt = false
   [functions.webchat-proxy]

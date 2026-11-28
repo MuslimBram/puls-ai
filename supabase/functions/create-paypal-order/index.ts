@@ -18,7 +18,7 @@ const PACKAGE_VARIANTS = [
   { type: "monthly", months: 1, discount: 0 },
   { type: "3-month", months: 3, discount: 5 },
   { type: "6-month", months: 6, discount: 10 },
-  { type: "yearly", months: 12, discount: 15 },
+  { type: "yearly", months: 12, discount: 20 }, // owner decision 2026-11-25: yearly = 20% (same as Stripe checkout)
 ] as const;
 
 type PayPalCurrency = "EUR" | "USD";

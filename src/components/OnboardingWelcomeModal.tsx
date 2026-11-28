@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ const STEPS = [
   {
     icon: Gift,
     title: "4. Share your referral link",
-    body: "Share your referral link from the Referral Program and track eligible rewards according to the current program terms.",
+    body: `Share your referral link from the Referral Program: earn ${COMMISSION_POLICY.referral.firstPaymentPercent}% of each referred business's first payment.`,
   },
 ];
 

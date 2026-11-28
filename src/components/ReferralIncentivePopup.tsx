@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { X, Gift, ArrowRight, Copy, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,10 +63,10 @@ export const ReferralIncentivePopup = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-foreground leading-tight">
-                Earn 15% on every referral!
+                {`Earn ${COMMISSION_POLICY.referral.firstPaymentPercent}% on every referred business!`}
               </p>
               <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                Refer other businesses and earn 15% of everything they spend — forever.
+                {`Refer other businesses: you earn ${COMMISSION_POLICY.referral.firstPaymentPercent}% of their first payment and they get ${COMMISSION_POLICY.referral.referredDiscountPercent}% off it.`}
               </p>
             </div>
           </div>

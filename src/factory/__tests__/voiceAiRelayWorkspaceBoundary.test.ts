@@ -57,10 +57,15 @@ describe("Voice AI relay workspace boundary", () => {
     expect(relay).not.toContain('type: "handoff"');
   });
 
-  it("confirms fresh Voice E2E still needs explicit ConversationRelay wiring", () => {
-    expect(inbound).not.toContain("ConversationRelay");
-    expect(inbound).not.toContain("voice-ai-relay");
+  it("wires inbound calls to ConversationRelay only when voice AI is enabled on the channel", () => {
+    const wiring = inbound.slice(inbound.indexOf("AI voice receptionist"), inbound.indexOf('.from("ivr_flows")'));
+    expect(wiring).toContain('.select("voice_ai_enabled")');
+    expect(wiring).toContain('.eq("id", wsCreds.channel_id)');
+    expect(wiring).toContain("if (aiChannel?.voice_ai_enabled)");
+    expect(wiring).toContain("/functions/v1/voice-ai-relay");
+    // The relay re-resolves the tenant from the signed To number and CallSid.
+    expect(wiring).toContain("?CallSid=${encodeURIComponent(callSid)}&To=${encodeURIComponent(calledNumber)}");
+    expect(wiring).toContain("<ConversationRelay");
     expect(twiml).not.toContain("ConversationRelay");
-    expect(twiml).not.toContain("voice-ai-relay");
   });
 });

@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { Card, CardContent } from "@/components/ui/card";
 import { useScrollAnimation } from "@/hooks/useScrollAnimation";
 import {
@@ -13,9 +14,9 @@ const CAPABILITIES = [
     points: [
       "Bring businesses to the platform",
       "Use your unique referral link",
-      "Earn recurring monthly commissions",
+      `Earn ${COMMISSION_POLICY.freelancer.firstPaymentReferralPercent}% of each referred business's first payment`,
     ],
-    result: "Build passive income streams.",
+    result: `Ambassadors earn ${COMMISSION_POLICY.ambassador.lifetimeRecurringPercent}% on every payment, for the customer's lifetime.`,
   },
   {
     icon: Wrench,
@@ -25,7 +26,7 @@ const CAPABILITIES = [
       "Build automations & workflows",
       "Create campaigns & funnels",
     ],
-    result: "Commission + service fees = double income.",
+    result: `Referral commission + ${COMMISSION_POLICY.freelancer.managementFeeSharePercent}% of collected management fees.`,
   },
   {
     icon: Megaphone,

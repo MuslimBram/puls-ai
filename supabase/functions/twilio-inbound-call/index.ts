@@ -138,6 +138,33 @@ serve(async (req) => {
       });
     }
 
+    // AI voice receptionist: when enabled on the channel, new calls go to
+    // voice-ai-relay (ConversationRelay) in the channel's language. Before
+    // this, nothing ever routed calls to the relay.
+    if (!digits && callSid) {
+      const { data: aiChannel } = await supabase
+        .from("channels")
+        .select("voice_ai_enabled")
+        .eq("id", wsCreds.channel_id)
+        .maybeSingle();
+      if (aiChannel?.voice_ai_enabled) {
+        const language = wsCreds.settings.voice_language || "en-US";
+        const relayUrl = `${supabaseUrl.replace(/^http/, "ws")}/functions/v1/voice-ai-relay`
+          + `?CallSid=${encodeURIComponent(callSid)}&To=${encodeURIComponent(calledNumber)}&From=${encodeURIComponent(callerNumber)}`;
+        const greeting = language.toLowerCase().startsWith("sq")
+          ? "Përshëndetje, faleminderit që na telefonuat. Si mund t'ju ndihmoj?"
+          : "Hello, thank you for calling. How can I help you?";
+        const voiceAttr = wsCreds.settings.tts_voice ? ` voice="${esc(wsCreds.settings.tts_voice)}"` : "";
+        const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Connect>
+    <ConversationRelay url="${esc(relayUrl)}" language="${esc(language)}" transcriptionProvider="Google"${voiceAttr} interruptible="true" welcomeGreeting="${esc(greeting)}" />
+  </Connect>
+</Response>`;
+        return new Response(twiml, { headers: { ...getCors(req), "Content-Type": "application/xml" } });
+      }
+    }
+
     const { data: ivrFlow } = await supabase
       .from("ivr_flows")
       .select("*")
@@ -228,15 +255,9 @@ async function handleIvrNode(
     return buildIvrNodeTwiml(currentNode, nodes, edges, inboundUrl, statusCallbackUrl, true);
   }
 
-  const nextEdge = edges.find(e => e.source === nodeId);
-  if (nextEdge) {
-    const nextNode = nodes.find(n => n.id === nextEdge.target);
-    if (nextNode) {
-      return buildIvrNodeTwiml(nextNode, nodes, edges, inboundUrl, statusCallbackUrl);
-    }
-  }
-
-  return `<?xml version="1.0" encoding="UTF-8"?><Response><Say>Thank you. Goodbye.</Say><Hangup/></Response>`;
+  // A <Redirect> to ivr_node=X means "play node X". The previous code jumped to
+  // the node AFTER X, so callers skipped the redirected greeting/menu.
+  return buildIvrNodeTwiml(currentNode, nodes, edges, inboundUrl, statusCallbackUrl);
 }
 
 function buildIvrNodeTwiml(

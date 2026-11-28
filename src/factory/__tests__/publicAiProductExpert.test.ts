@@ -56,10 +56,11 @@ describe("Public AI Product Expert", () => {
     expect(helpBot).toContain("formatLidhjetFallback");
   });
 
-  it("uses merged canonical referral policy instead of historical fixed percentages", () => {
-    expect(helpBot).toContain("do not publish a fixed public commission percentage");
-    expect(helpBot).toContain("first-payment based and uses the active partner account commission_rate");
-    expect(helpBot).toContain("ordinary business referral configuration and partner commission configuration are separate mechanisms");
+  it("uses the owner-approved referral policy instead of historical percentages", () => {
+    expect(helpBot).toContain("REFERRAL/PARTNER CANONICAL (official policy");
+    expect(helpBot).toContain("referralPolicySentence");
+    expect(helpBot).toContain('from "../_shared/commission-policy.ts"');
+    expect(helpBot).not.toContain("do not publish a fixed public commission percentage");
     expect(helpBot).not.toContain("Referral/commission history has unresolved conflicts");
     expect(helpBot).not.toContain("15%/35%");
   });

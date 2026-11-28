@@ -3,6 +3,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { buildCorsHeaders } from "../_shared/security-headers.ts";
 import { decryptIfNeeded } from "../_shared/token-utils.ts";
+import {
+  executingProvider,
+  hangupCall,
+  placeCall,
+  type ProviderConfig,
+  type ProviderId,
+  redirectCall,
+  SECRET_FIELDS,
+} from "../_shared/telephony/providers.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 
 const ALLOW_ANY_ORIGIN = false;
@@ -60,7 +69,7 @@ serve(async (req) => {
 
     const { data: voipChannel } = await supabase
       .from("channels")
-      .select("settings,credentials_encrypted")
+      .select("id,settings,credentials_encrypted")
       .eq("workspace_id", workspace_id)
       .eq("channel_type", "voip")
       .eq("is_enabled", true)
@@ -74,21 +83,42 @@ serve(async (req) => {
     const credentials = asStringRecord(voipChannel.credentials_encrypted);
     const provider = settings.provider || "twilio";
 
-    if (provider !== "twilio") {
-      throw new Error(`Provider '${provider}' is not yet supported for real calls. Twilio is required.`);
+    const providerId = provider as ProviderId;
+    if (!["twilio", "telnyx", "plivo", "vonage", "custom_sip"].includes(providerId)) {
+      throw new Error(`Unknown telephony provider '${provider}'.`);
     }
 
-    const accountSid = settings.account_sid;
-    const rawAuthToken = credentials.auth_token || settings.auth_token || ""; // legacy fallback
+    // Decrypt every secret this provider needs (server-side only).
+    const secrets: Record<string, string> = {};
+    for (const key of [...SECRET_FIELDS[providerId], "webhook_token"]) {
+      const raw = credentials[key] || settings[key] || "";
+      if (raw) secrets[key] = (await decryptIfNeeded(raw)) ?? "";
+    }
+    const cfg: ProviderConfig = { provider: providerId, settings, secrets };
+    const runsOnTwilio = executingProvider(cfg) === "twilio";
     const fromNumber = settings.phone_number;
-
-    if (!accountSid || !rawAuthToken || !fromNumber) {
+    if (!fromNumber) throw new Error("No caller ID / phone number configured for the telephony provider.");
+    if (runsOnTwilio && (!settings.account_sid || !secrets.auth_token)) {
       throw new Error("Incomplete Twilio credentials. Please update your telephony provider settings.");
     }
+    if (!runsOnTwilio && !secrets.webhook_token) {
+      throw new Error("Telephony provider webhook is not configured. Re-save the provider in Settings → Telephony.");
+    }
 
-    const authToken = await decryptIfNeeded(rawAuthToken);
-    const twilioAuth = btoa(`${accountSid}:${authToken}`);
-    const twilioBase = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}`;
+    // Callback URLs: Twilio-executed calls use the twilio-* functions; the
+    // other providers use telephony-webhook with the channel's URL token.
+    const hookBase = `${supabaseUrl}/functions/v1/telephony-webhook?channel=${encodeURIComponent(voipChannel.id)}&wh=${encodeURIComponent(secrets.webhook_token ?? "")}`;
+    const markupUrl = (kind: "outbound" | "hold" | "resume" | "transfer", target?: string) => {
+      if (runsOnTwilio) {
+        const type = kind === "resume" ? "outbound" : kind;
+        return `${supabaseUrl}/functions/v1/twilio-twiml?type=${type}&workspace_id=${workspace_id}${target ? `&target=${encodeURIComponent(target)}` : ""}`;
+      }
+      if (kind === "outbound") return `${hookBase}&event=answer&direction=outbound&agent=${encodeURIComponent(user.id)}`;
+      return `${hookBase}&event=control&type=${kind}&agent=${encodeURIComponent(user.id)}${target ? `&target=${encodeURIComponent(target)}` : ""}`;
+    };
+    const statusUrl = runsOnTwilio
+      ? `${supabaseUrl}/functions/v1/twilio-status-callback?workspace_id=${workspace_id}`
+      : `${hookBase}&event=status`;
 
     let result: any = {};
 
@@ -96,29 +126,9 @@ serve(async (req) => {
       case "make_call": {
         if (!number) throw new Error("Phone number is required");
 
-        const statusCallbackUrl = `${supabaseUrl}/functions/v1/twilio-status-callback?workspace_id=${workspace_id}`;
-        const twimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?type=outbound&workspace_id=${workspace_id}`;
-
-        const twilioRes = await fetch(`${twilioBase}/Calls.json`, {
-          method: "POST",
-          headers: {
-            Authorization: `Basic ${twilioAuth}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-          },
-          body: new URLSearchParams({
-            To: number,
-            From: fromNumber,
-            Url: twimlUrl,
-            StatusCallback: statusCallbackUrl,
-            StatusCallbackEvent: "initiated ringing answered completed",
-            StatusCallbackMethod: "POST",
-          }),
-        });
-
-        const twilioData = await twilioRes.json();
-        if (!twilioRes.ok) {
-          throw new Error(`Twilio error: ${twilioData.message || JSON.stringify(twilioData)}`);
-        }
+        const placed = await placeCall(cfg, { to: number, from: fromNumber, answerUrl: markupUrl("outbound"), statusUrl }, fetch);
+        if (!placed.ok || !placed.callId) throw new Error(placed.detail);
+        const twilioData = { sid: placed.callId };
 
         const { data: callRecord } = await supabase
           .from("call_records")
@@ -130,7 +140,7 @@ serve(async (req) => {
             deal_id: deal_id || null,
             call_direction: "outbound",
             call_status: "ringing",
-            channel_provider: "twilio",
+            channel_provider: providerId,
             external_call_id: twilioData.sid,
           })
           .select()
@@ -162,7 +172,7 @@ serve(async (req) => {
             updated_at: new Date().toISOString(),
           }, { onConflict: "user_id" });
 
-        result = { call: activeCall, twilio_sid: twilioData.sid };
+        result = { call: activeCall, provider: providerId, provider_call_id: twilioData.sid, twilio_sid: runsOnTwilio ? twilioData.sid : undefined };
         break;
       }
 
@@ -178,16 +188,8 @@ serve(async (req) => {
         if (!call) throw new Error("Call not found in this workspace");
 
         if (call.sip_call_id) {
-          const twilioRes = await fetch(`${twilioBase}/Calls/${call.sip_call_id}.json`, {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${twilioAuth}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({ Status: "completed" }),
-          });
-          const twilioData = await twilioRes.json();
-          if (!twilioRes.ok) console.error("Twilio end call error:", twilioData);
+          const ended = await hangupCall(cfg, call.sip_call_id, fetch);
+          if (!ended.ok) console.error(`${providerId} end call error:`, ended.detail);
         }
 
         const now = new Date().toISOString();
@@ -243,15 +245,8 @@ serve(async (req) => {
         if (!call) throw new Error("Call not found in this workspace");
 
         if (call.sip_call_id) {
-          const holdTwimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?type=hold&workspace_id=${workspace_id}`;
-          await fetch(`${twilioBase}/Calls/${call.sip_call_id}.json`, {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${twilioAuth}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({ Url: holdTwimlUrl, Method: "POST" }),
-          });
+          const redirected = await redirectCall(cfg, call.sip_call_id, markupUrl("hold"), fetch);
+          if (!redirected.ok) throw new Error(redirected.detail);
         }
 
         await supabase
@@ -280,15 +275,8 @@ serve(async (req) => {
         if (!call) throw new Error("Call not found in this workspace");
 
         if (call.sip_call_id) {
-          const resumeTwimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?type=outbound&workspace_id=${workspace_id}`;
-          await fetch(`${twilioBase}/Calls/${call.sip_call_id}.json`, {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${twilioAuth}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({ Url: resumeTwimlUrl, Method: "POST" }),
-          });
+          const redirected = await redirectCall(cfg, call.sip_call_id, markupUrl("resume"), fetch);
+          if (!redirected.ok) throw new Error(redirected.detail);
         }
 
         const holdDuration = call.hold_started_at
@@ -322,15 +310,8 @@ serve(async (req) => {
         if (!call) throw new Error("Call not found in this workspace");
 
         if (call.sip_call_id) {
-          const transferTwimlUrl = `${supabaseUrl}/functions/v1/twilio-twiml?type=transfer&target=${encodeURIComponent(target_number)}&workspace_id=${workspace_id}`;
-          await fetch(`${twilioBase}/Calls/${call.sip_call_id}.json`, {
-            method: "POST",
-            headers: {
-              Authorization: `Basic ${twilioAuth}`,
-              "Content-Type": "application/x-www-form-urlencoded",
-            },
-            body: new URLSearchParams({ Url: transferTwimlUrl, Method: "POST" }),
-          });
+          const redirected = await redirectCall(cfg, call.sip_call_id, markupUrl("transfer", target_number), fetch);
+          if (!redirected.ok) throw new Error(redirected.detail);
         }
 
         await supabase

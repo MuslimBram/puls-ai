@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { Badge } from "@/components/ui/badge";
 import { useAdminFreelancers } from "@/hooks/useAdminFreelancers";
 import { Users, Building2, DollarSign, AlertTriangle, Loader2 } from "lucide-react";
@@ -67,7 +68,7 @@ export const AdminFreelancerPanel = () => {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-foreground">{f.partner_name}</p>
-                      <Badge variant="outline" className="text-xs">{f.commission_rate}% commission</Badge>
+                      <Badge variant="outline" className="text-xs">{f.partner_program === "ambassador" ? `Ambassador · ${COMMISSION_POLICY.ambassador.lifetimeRecurringPercent}% lifetime + ${COMMISSION_POLICY.ambassador.firstPaymentBonusPercent}% bonus` : `Freelancer · ${COMMISSION_POLICY.freelancer.firstPaymentReferralPercent}% first payment + ${COMMISSION_POLICY.freelancer.managementFeeSharePercent}% mgmt fees`}</Badge>
                       {f.stripe_connect_id && (
                         <Badge className="bg-green-500/10 text-green-700 text-xs">Stripe Connected</Badge>
                       )}

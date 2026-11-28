@@ -12,7 +12,10 @@ export interface PartnerAccount {
   status: string;
   total_businesses: number;
   monthly_revenue: number;
+  /** LEGACY, not used for payouts. See partner_program + commission policy. */
   commission_rate: number;
+  /** freelancer | ambassador — decides which commission rules apply. */
+  partner_program?: "freelancer" | "ambassador" | null;
   referral_code: string | null;
   created_at: string;
   updated_at: string;

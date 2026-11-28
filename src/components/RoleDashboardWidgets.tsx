@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { COMMISSION_POLICY } from "@/config/commissionPolicy";
 import { FreelancerBusinessPurchase } from "@/components/FreelancerBusinessPurchase";
 import { Badge } from "@/components/ui/badge";
 import { useRolePermissions } from "@/hooks/useRolePermissions";
@@ -83,9 +84,10 @@ const FreelancerDashboardWidget = () => {
     );
   }
 
-  const commissionRateLabel = Number(partner.commission_rate) > 0
-    ? `${Number(partner.commission_rate)}%`
-    : "Per account terms";
+  const isAmbassador = (partner as { partner_program?: string }).partner_program === "ambassador";
+  const commissionRateLabel = isAmbassador
+    ? `${COMMISSION_POLICY.ambassador.lifetimeRecurringPercent}% lifetime + ${COMMISSION_POLICY.ambassador.firstPaymentBonusPercent}% first-payment bonus`
+    : `${COMMISSION_POLICY.freelancer.firstPaymentReferralPercent}% first payment`;
 
   const copyReferralCode = () => {
     if (partner.referral_code) {
@@ -124,7 +126,7 @@ const FreelancerDashboardWidget = () => {
             <div className="rounded-lg border border-border p-3 text-center">
               <Percent className="h-4 w-4 mx-auto mb-1 text-primary" />
               <p className="text-lg font-bold text-foreground">{commissionRateLabel}</p>
-              <p className="text-xs text-muted-foreground">Configured commission</p>
+              <p className="text-xs text-muted-foreground">Official commission policy</p>
             </div>
           </div>
 
@@ -145,12 +147,12 @@ const FreelancerDashboardWidget = () => {
             <div className="rounded-lg border border-border p-3">
               <p className="text-muted-foreground text-xs">Partner commission</p>
               <p className="font-bold text-foreground">{commissionRateLabel}</p>
-              <p className="text-xs text-muted-foreground mt-1">Applied to eligible first-payment commissions under active partner terms</p>
+              <p className="text-xs text-muted-foreground mt-1">{isAmbassador ? "Paid on every successful payment of referred businesses; the bonus once, on the first payment" : "Paid once, on the first successful payment of each referred business"}</p>
             </div>
             <div className="rounded-lg border border-border p-3">
               <p className="text-muted-foreground text-xs">Management earnings</p>
-              <p className="font-bold text-foreground">Per approved relation</p>
-              <p className="text-xs text-muted-foreground mt-1">Shown according to the active management relation and recorded transactions</p>
+              <p className="font-bold text-foreground">{isAmbassador ? "—" : `${COMMISSION_POLICY.freelancer.managementFeeSharePercent}% of collected fees`}</p>
+              <p className="text-xs text-muted-foreground mt-1">{isAmbassador ? "Ambassadors do not manage businesses" : "Only on management fees actually collected from businesses you actively manage"}</p>
             </div>
           </div>
         </CardContent>

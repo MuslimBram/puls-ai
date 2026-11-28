@@ -11,6 +11,16 @@ import { encryptForStorage } from "../_shared/token-utils.ts";
 import { getServiceKey } from "../_shared/admin-client.ts";
 import { loadCallerRoles, staffRolesOf } from "../_shared/platform-roles.ts";
 import { resolveGoverningWorkspace, resolvePlanKey } from "../_shared/plan-limits.ts";
+import {
+  COMMON_SETTINGS_FIELDS,
+  generateWebhookToken,
+  type ProviderId,
+  REQUIRED_FIELDS,
+  SECRET_FIELDS,
+  SETTINGS_FIELDS,
+  sha256Hex,
+  verifyProviderCredentials,
+} from "../_shared/telephony/providers.ts";
 
 const getCors = (req: Request) => buildCorsHeaders(req, { allowAnyOrigin: false });
 const json = (req: Request, body: unknown, status = 200) =>
@@ -345,6 +355,108 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ── TELNYX / PLIVO / VONAGE / CUSTOM SIP SAVE ─────────────────────────
+    // Verified against the provider server-side, secrets encrypted at rest,
+    // and a per-channel webhook token generated (returned once, stored hashed).
+    if (action === "save" && ["telnyx", "plivo", "vonage", "custom_sip"].includes(String(body.provider))) {
+      const provider = String(body.provider) as ProviderId;
+      const channelType = "voip";
+      const entitlement = await validateChannelEntitlement(sb, user.id, workspaceId, channelType);
+      if (!entitlement.valid) return json(req, { error: entitlement.error }, 403);
+
+      const input = asRecord(body.credentials);
+      const value = (k: string) => (input[k] === undefined || input[k] === null ? "" : String(input[k]).trim());
+      const bridge = provider === "custom_sip" ? (value("bridge_provider") === "twilio" ? "twilio" : "telnyx") : null;
+
+      const required = [...REQUIRED_FIELDS[provider]];
+      if (bridge === "twilio") required.push("account_sid", "auth_token");
+      if (bridge === "telnyx") required.push("api_key", "texml_application_id");
+      const missing = required.filter((k) => !value(k));
+      if (missing.length) return json(req, { error: `Missing required fields: ${missing.join(", ")}` }, 400);
+
+      const settingsIn: Record<string, string> = {};
+      for (const k of [...SETTINGS_FIELDS[provider], ...COMMON_SETTINGS_FIELDS]) if (value(k)) settingsIn[k] = value(k);
+      const secretsIn: Record<string, string> = {};
+      for (const k of SECRET_FIELDS[provider]) if (value(k)) secretsIn[k] = value(k);
+
+      const verification = await verifyProviderCredentials({ provider, settings: settingsIn, secrets: secretsIn }, fetch);
+      if (!verification.ok) {
+        return json(req, { error: "Credential verification failed", detail: verification.detail, verified: false }, 400);
+      }
+
+      const encryptedCredentials: Record<string, string> = {};
+      for (const [k, v] of Object.entries(secretsIn)) encryptedCredentials[k] = await encryptCredentialValue(v);
+
+      const webhookToken = generateWebhookToken();
+      // Encrypted copy lets server functions (telephony-call-manager) build
+      // callback URLs; verification always uses the hash below.
+      encryptedCredentials.webhook_token = await encryptCredentialValue(webhookToken);
+      const safeSettings: Record<string, unknown> = {
+        ...settingsIn,
+        provider,
+        webhook_token_hash: await sha256Hex(webhookToken),
+        voice_language: settingsIn.voice_language || "sq-AL",
+      };
+      // A custom SIP trunk bridged through Twilio is served by the existing
+      // twilio-* functions, which read the legacy ciphertext bridge.
+      const storedSettings = bridge === "twilio"
+        ? addVoipCiphertextCompatibility(channelType, safeSettings, encryptedCredentials)
+        : safeSettings;
+
+      const { data: existing } = await sb.from("channels")
+        .select("id").eq("workspace_id", workspaceId).eq("channel_type", channelType).limit(1).maybeSingle();
+      const isNewChannel = !existing?.id;
+      const businessId = body.business_id ? String(body.business_id).trim() : null;
+      const businessValidation = await validateBusinessBinding(sb, businessId, workspaceId, isNewChannel);
+      if (!businessValidation.valid) return json(req, { error: businessValidation.error }, 400);
+
+      const row = {
+        is_enabled: true,
+        connection_status: "connected",
+        business_id: businessId,
+        channel_name: { telnyx: "Telnyx", plivo: "Plivo", vonage: "Vonage", custom_sip: "Custom SIP" }[provider as "telnyx"],
+        settings: storedSettings,
+        credentials_encrypted: encryptedCredentials,
+        updated_at: new Date().toISOString(),
+      };
+      let channelId: string;
+      if (existing?.id) {
+        const { data: updated, error } = await sb.from("channels").update(row)
+          .eq("id", existing.id).eq("workspace_id", workspaceId).select("id").single();
+        if (error || !updated) throw error || new Error("Failed to update channel");
+        channelId = updated.id;
+      } else {
+        const { data: created, error } = await sb.from("channels")
+          .insert({ ...row, user_id: user.id, workspace_id: workspaceId, channel_type: channelType })
+          .select("id").single();
+        if (error || !created) throw error || new Error("Failed to create channel");
+        channelId = created.id;
+      }
+
+      const fnBase = `${Deno.env.get("SUPABASE_URL")}/functions/v1`;
+      const hook = `${fnBase}/telephony-webhook?channel=${channelId}&wh=${webhookToken}`;
+      const webhooks = bridge === "twilio"
+        ? {
+          voice_url: `${fnBase}/twilio-inbound-call`,
+          status_callback: `${fnBase}/twilio-status-callback`,
+        }
+        : {
+          voice_url: `${hook}&event=answer`,
+          status_callback: `${hook}&event=status`,
+        };
+
+      return json(req, {
+        ok: true,
+        verified: true,
+        verification_detail: verification.detail,
+        channel_id: channelId,
+        provider,
+        // Shown once. Only its hash is stored; re-save the provider to rotate it.
+        webhooks,
+        configured_secret_keys: Object.keys(encryptedCredentials).sort(),
+      });
+    }
+
     // ── TWILIO / VOIP SAVE ────────────────────────────────────────────────
     if (action === "save") {
       const provider = String(body.provider ?? "twilio");
@@ -377,6 +489,10 @@ Deno.serve(async (req) => {
       }
 
       const safeSettings: Record<string, unknown> = { provider, account_sid: accountSid };
+      for (const key of COMMON_SETTINGS_FIELDS) {
+        const v = body[key] === undefined || body[key] === null ? "" : String(body[key]).trim();
+        if (v) safeSettings[key] = v;
+      }
       if (phoneNumber) safeSettings.phone_number = phoneNumber;
       if (twimlAppSid) safeSettings.twiml_app_sid = twimlAppSid;
       if (apiKeySid) safeSettings.api_key_sid = apiKeySid;
